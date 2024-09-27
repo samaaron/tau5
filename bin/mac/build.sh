@@ -16,5 +16,3 @@ trap cleanup_function EXIT
 "${SCRIPT_DIR}"/build-release.sh
 
 cd "${ROOT_DIR}"/Release
-
-./Tau5.app/Contents/MacOS/Tau5
