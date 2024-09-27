@@ -1,30 +1,18 @@
-//--
-// This file is part of Sonic Pi: http://sonic-pi.net
-// Full project source: https://github.com/sonic-pi-net/sonic-pi
-// License: https://github.com/sonic-pi-net/sonic-pi/blob/main/LICENSE.md
-//
-// Copyright 2021 by Sam Aaron (http://sam.aaron.name).
-// All rights reserved.
-//
-// Permission is granted for use, copying, modification, and
-// distribution of modified versions of this work as long as this
-// notice is included.
-//++
-
 #include <iostream>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QDesktopServices>
+#include <QTimer>
 
 #include "phxwidget.h"
 #include "phxwebview.h"
 
-
 PhxWidget::PhxWidget(QWidget *parent)
-  : QWidget(parent)
+    : QWidget(parent)
 {
+
   phxAlive = false;
   phxView = new PhxWebView(this);
   QSizePolicy sp_retain = phxView->sizePolicy();
@@ -38,13 +26,18 @@ PhxWidget::PhxWidget(QWidget *parent)
   openExternalBrowserButton = new QPushButton(" E ");
   resetBrowserButton = new QPushButton(" R ");
 
-  // sizeDownButton->setFixedSize(ScaleForDPI(38, 38));
-  // sizeUpButton->setFixedSize(ScaleForDPI(38, 38));
+  QString buttonStyle = "background-color: rgb(240, 153, 55); color: black; border: 1px solid black;";
 
-  // sizeDownButton->setFixedSize(38));
-  // sizeUpButton->setFixedSize(38));
+  // Apply the style to each button
+  sizeDownButton->setStyleSheet(buttonStyle);
+  sizeUpButton->setStyleSheet(buttonStyle);
+  openExternalBrowserButton->setStyleSheet(buttonStyle);
+  resetBrowserButton->setStyleSheet(buttonStyle);
 
-  // openExternalBrowserButton->setFixedHeight(38);
+  sizeDownButton->setFixedWidth(30); // Adjust width as needed
+  sizeUpButton->setFixedWidth(30);
+  openExternalBrowserButton->setFixedWidth(30);
+  resetBrowserButton->setFixedWidth(30);
 
   topRowSubLayout->addStretch(1);
   topRowSubLayout->addWidget(resetBrowserButton, 0, Qt::AlignRight);
@@ -52,18 +45,26 @@ PhxWidget::PhxWidget(QWidget *parent)
   topRowSubLayout->addWidget(sizeDownButton, 0, Qt::AlignRight);
   topRowSubLayout->addWidget(sizeUpButton, 0, Qt::AlignRight);
 
-  mainLayout->addWidget(phxView, 1);
-  mainLayout->addLayout(topRowSubLayout);
+  // Create a widget to hold the layout and apply background color
+  QWidget *buttonContainer = new QWidget(this);
+  buttonContainer->setLayout(topRowSubLayout);
+  buttonContainer->setStyleSheet("background-color: black;");
 
-    // phxView->setScrollbarColours(theme->color("ScrollBar"),
-    //                            theme->color("ScrollBarBackground"),
-    //                            theme->color("ScrollBarHover"));
+  mainLayout->addWidget(phxView, 1);
+  mainLayout->addWidget(buttonContainer);
+
+  // phxView->setScrollbarColours(theme->color("ScrollBar"),
+  //                            theme->color("ScrollBarBackground"),
+  //                            theme->color("ScrollBarHover"));
+
+  this->setStyleSheet("background-color: black;");
 
   connect(sizeDownButton, &QPushButton::released, this, &PhxWidget::handleSizeDown);
   connect(sizeUpButton, &QPushButton::released, this, &PhxWidget::handleSizeUp);
   connect(openExternalBrowserButton, &QPushButton::released, this, &PhxWidget::handleOpenExternalBrowser);
   connect(resetBrowserButton, &QPushButton::released, this, &PhxWidget::handleResetBrowser);
   connect(phxView, &PhxWebView::loadFinished, this, &PhxWidget::handleLoadFinished);
+  QTimer::singleShot(1000, this, SLOT(handleResetBrowser()));
 }
 
 void PhxWidget::handleSizeDown()
@@ -72,7 +73,8 @@ void PhxWidget::handleSizeDown()
   // min zoom is 0.25
   qreal size = phxView->zoomFactor();
   size = size - 0.2;
-  if (size < 0.25) {
+  if (size < 0.25)
+  {
     size = 0.25;
   }
 
@@ -86,7 +88,8 @@ void PhxWidget::handleSizeUp()
   // max zoom is 5.0
   qreal size = phxView->zoomFactor();
   size = size + 0.2;
-  if (size > 5.0) {
+  if (size > 5.0)
+  {
     size = 5.0;
   }
 
@@ -98,7 +101,7 @@ void PhxWidget::handleOpenExternalBrowser()
   QDesktopServices::openUrl(phxView->url());
 }
 
-void  PhxWidget::connectToTauPhx(QUrl url)
+void PhxWidget::connectToTauPhx(QUrl url)
 {
   defaultUrl = url;
   std::cout << "[PHX] - connecting to: " << url.toString().toStdString() << std::endl;
@@ -107,13 +110,17 @@ void  PhxWidget::connectToTauPhx(QUrl url)
 
 void PhxWidget::handleLoadFinished(bool ok)
 {
-  if(ok) {
-    if(!phxAlive) {
+  if (ok)
+  {
+    if (!phxAlive)
+    {
       std::cout << "[PHX] - initial load finished" << std::endl;
       phxAlive = true;
       phxView->show();
     }
-  } else {
+  }
+  else
+  {
     std::cout << "[PHX] - load error" << std::endl;
     phxView->load(defaultUrl);
   }

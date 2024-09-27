@@ -31,7 +31,7 @@ RELEASE_APP_DIR=$(find "${ROOT_DIR}/Release" -name "*.app" -type d | head -n 1)
 # to be linked ot the OpenSSL library found on the build machine. This is a problem as the OpenSSL
 # library on the build machine may not be available on the target machine. To fix this, we copy the
 # OpenSSL library into the release and then update the crypto library to link to the local copy.
-cd "${RELEASE_APP_DIR}"/Contents/Resources/_build/prod/rel/bleep/lib/crypto-*/priv/lib
+cd "${RELEASE_APP_DIR}"/Contents/Resources/_build/prod/rel/*/lib/crypto-*/priv/lib
 
 # Use otool to list linked libraries and grep for OpenSSL, then extract the first path
 openssl_lib=$(otool -L crypto.so | grep -E '/openssl.*/libcrypto.*\.dylib' | awk '{print $1}')

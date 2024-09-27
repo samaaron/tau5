@@ -26,9 +26,6 @@ if((${BUILD_32BIT}) AND (DEFINED ENV{QT_INSTALL_LOCATION32}))
 elseif(DEFINED ENV{QT_INSTALL_LOCATION})
   message(STATUS "Setting prefix to user-defined Qt install location: $ENV{QT_INSTALL_LOCATION}")
   set(CMAKE_PREFIX_PATH $ENV{QT_INSTALL_LOCATION})
-elseif(APPLE AND EXISTS /usr/local/opt/qt@6)
-  message(STATUS "Setting prefix to Homebrew's Qt install location: /usr/local/opt/qt@6")
-  set(CMAKE_PREFIX_PATH /usr/local/opt/qt@6)
 endif()
 
 # Qt Setup
@@ -46,7 +43,7 @@ find_package(Qt6 QUIET)
 find_package(Qt6 COMPONENTS Core Widgets Gui Concurrent Network OpenGLWidgets PrintSupport Xml Svg LinguistTools WebEngineWidgets REQUIRED)
 
 
-set(APP_NAME sonic-pi)
+set(APP_NAME tau5)
 set(MACOS_APP_NAME "Tau5")
 
 
@@ -66,13 +63,15 @@ set(SOURCES
       ${QTAPP_ROOT}/lib/beam.cpp
       )
 
-
+SET(RESOURCES
+    ${QTAPP_ROOT}/images/app.icns
+    )
 
 # Create the Qt version of the app
 if (APPLE)
-  add_executable(${APP_NAME} MACOSX_BUNDLE ${SOURCES})
+  add_executable(${APP_NAME} MACOSX_BUNDLE ${SOURCES} ${RESOURCES})
 else()
-  add_executable(${APP_NAME} WIN32 ${SOURCES}) # Win32 ignored on non-windows
+  add_executable(${APP_NAME} WIN32 ${SOURCES} ${RESOURCES}) # Win32 ignored on non-windows
 endif()
 
 if (APPLE)
@@ -104,6 +103,13 @@ if (APPLE)
     POST_BUILD
     COMMAND plutil -replace NSHighResolutionCapable -bool true ${MACOS_APP_NAME}.app/Contents/Info.plist
   )
+
+  add_custom_command(
+    TARGET ${APP_NAME}
+    POST_BUILD
+    COMMAND plutil -replace NSRequiresAquaSystemAppearance -bool false ${MACOS_APP_NAME}.app/Contents/Info.plist
+  )
+
   add_custom_command(
     TARGET ${APP_NAME}
     POST_BUILD
@@ -127,7 +133,6 @@ target_link_libraries(${APP_NAME}
     Threads::Threads
 )
 
-
 target_link_libraries(${APP_NAME}
   PRIVATE
   Qt::Core
@@ -150,8 +155,3 @@ if(WIN32)
     add_custom_command(TARGET ${APP_NAME} POST_BUILD
         COMMAND ${CMAKE_PREFIX_PATH}/bin/windeployqt $<TARGET_FILE:${APP_NAME}>)
 endif() # Win32
-
-# Make convenient source groups in the IDE
-source_group(SonicPi FILES ${SOURCES})
-source_group(Qt\\AutoMoc FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_automoc.cpp )
-source_group(Qt\\AutoMoc REGULAR_EXPRESSION "(mocs_*|qrc_.*|QtAwesome.*)" )

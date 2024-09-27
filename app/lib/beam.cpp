@@ -63,17 +63,15 @@ void Beam::startElixirServerProd()
   QStringList env;
   env << QString("TAU5_ENV=prod")
       << QString("TAU5_TOKEN=abcd")
+      << QString("PHX_SERVER=1")
       << QString("PORT=%1").arg(appPort)
       << QString("RELEASE_SYS_CONFIG=%1").arg(releaseSysPath)
       << QString("RELEASE_ROOT=%1").arg(releaseRoot)
       << QString("SECRET_KEY_BASE=plksdjflsdjflsdjaflaskdjflsdkfjlsdkfjlsdakfjldskafjdlaskfjdaslkfjdslkfjsdlkafjsldakfj");
+
   process->setEnvironment(env); // Use setEnvironment instead of setProcessEnvironment
-
-  qDebug() << "F";
-  qDebug() << "Working directory: " << appBasePath;
-
   process->setWorkingDirectory(appBasePath);
-  qDebug() << "Working directory2: " << appBasePath;
+
   QString cmd = releaseErlBinPath;
   QStringList args = {
       "-config", releaseSysPath,
