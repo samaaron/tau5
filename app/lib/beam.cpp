@@ -5,18 +5,43 @@
 #include <QDebug>
 #include <QSysInfo>
 #include <QOperatingSystemVersion>
+#include <QApplication>
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port)
     : QObject(parent), appBasePath(basePath), process(new QProcess(this)) // Properly initialize process here
 {
   appPort = port;
   releaseRoot = QFileInfo(QString("%1/_build/prod/rel/%2/").arg(basePath).arg(appName)).absoluteFilePath();
-  releasePath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
   releaseSysPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/sys").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
   releaseStartPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/start").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
   releaseVmArgsPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/vm.args").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
   releaseLibPath = QFileInfo(QString("%1/_build/prod/rel/%2/lib").arg(basePath).arg(appName)).absoluteFilePath();
-  releaseErlBinPath = QFileInfo(QString("%1/_build/prod/rel/%2/erts-15.0.1/bin/erl").arg(basePath).arg(appName)).absoluteFilePath();
+#if defined(Q_OS_WIN)
+  releaseRoot = releaseRoot.replace("/", "\\");
+  releaseSysPath = releaseSysPath.replace("/", "\\");
+  releaseStartPath = releaseStartPath.replace("/", "\\");
+  releaseVmArgsPath = releaseVmArgsPath.replace("/", "\\");
+  releaseLibPath = releaseLibPath.replace("/", "\\");
+#endif
+
+
+  QDir releaseDir(QString("%1/_build/prod/rel/%2").arg(basePath).arg(appName));
+  QStringList ertsDirs = releaseDir.entryList(QStringList() << "erts-*", QDir::Dirs | QDir::NoDotAndDotDot);
+
+  if (!ertsDirs.isEmpty())
+  {
+    QString ertsFolder = ertsDirs.first(); // Pick the first match (assuming there's only one)
+#ifdef Q_OS_WIN
+    releaseErlBinPath = QFileInfo(QString("%1/%2/bin/erl.exe").arg(releaseDir.absolutePath()).arg(ertsFolder)).absoluteFilePath();
+#else
+    releaseErlBinPath = QFileInfo(QString("%1/%2/bin/erl").arg(releaseDir.absolutePath()).arg(ertsFolder)).absoluteFilePath();
+#endif
+  }
+  else
+  {
+    qCritical() << "No erts folder found! Exiting application.";
+    QCoreApplication::exit(1); // Exit with non-zero status to indicate an error
+  }
 }
 
 Beam::~Beam()
@@ -40,37 +65,52 @@ Beam::~Beam()
 void Beam::startElixirServerDev()
 {
 
-  std::cout << "Starting Elixir server in Development mode" << std::endl;
+  qDebug() << "Starting Elixir server in Development mode";
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   env.insert("TAU5_ENV", "dev");
   env.insert("TAU5_TOKEN", "abcd");
   QString portStr = QString::number(appPort);
   env.insert("PORT", portStr);
+  env.insert("PHX_HOST", "127.0.0.1");
+  env.insert("MIX_ENV", "dev");
+  env.insert("RELEASE_DISTRIBUTION", "none");
 
-  process->setProcessEnvironment(env);
-
+#ifdef Q_OS_WIN
+  QDir dir(QCoreApplication::applicationDirPath());
+  dir.cd("../../scripts");
+  process->setWorkingDirectory(dir.absolutePath());
+  QString cmd = QDir(dir.absolutePath()).filePath("win-start-server.bat");
+  QStringList args = {};
+#else
   process->setWorkingDirectory(appBasePath);
-  qDebug() << "Working directory: " << process->workingDirectory();
   QString cmd = "mix";
   QStringList args = {"phx.server"};
+#endif
+  process->setProcessEnvironment(env);
   startProcess(cmd, args);
 }
 
 void Beam::startElixirServerProd()
 {
-  std::cout << "Starting Elixir server in Production mode" << std::endl;
+  qDebug() << "Starting Elixir server in Production mode";
 
-  QStringList env;
-  env << QString("TAU5_ENV=prod")
-      << QString("TAU5_TOKEN=abcd")
-      << QString("PHX_SERVER=1")
-      << QString("PORT=%1").arg(appPort)
-      << QString("RELEASE_SYS_CONFIG=%1").arg(releaseSysPath)
-      << QString("RELEASE_ROOT=%1").arg(releaseRoot)
-      << QString("SECRET_KEY_BASE=plksdjflsdjflsdjaflaskdjflsdkfjlsdkfjlsdakfjldskafjdlaskfjdaslkfjdslkfjsdlkafjsldakfj");
+  QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+  env.insert("TAU5_ENV", "prod");
+  env.insert("TAU5_TOKEN", "abcd");
+  QString portStr = QString::number(appPort);
+  env.insert("PORT", portStr);
+  env.insert("PHX_HOST", "127.0.0.1");
+  env.insert("MIX_ENV", "dev");
+  env.insert("RELEASE_DISTRIBUTION", "none");
+  env.insert("PHX_SERVER", "1");
 
-  process->setEnvironment(env); // Use setEnvironment instead of setProcessEnvironment
+  env.insert("RELEASE_SYS_CONFIG", releaseSysPath);
+  env.insert("RELEASE_ROOT", releaseRoot);
+  env.insert("RELEASE_DISTRIBUTION", "none");
+  env.insert("SECRET_KEY_BASE", "plksdjflsdjflsdjaflaskdjflsdkfjlsdkfjlsdakfjldskafjdlaskfjdaslkfjdslkfjsdlkafjsldakfj");
+
   process->setWorkingDirectory(appBasePath);
+  process->setProcessEnvironment(env); // Use setEnvironment instead of setProcessEnvironment
 
   QString cmd = releaseErlBinPath;
   QStringList args = {
@@ -88,6 +128,8 @@ void Beam::startElixirServerProd()
 
 void Beam::startProcess(const QString &cmd, const QStringList &args)
 {
+  qDebug() << "Server process working directory: " << process->workingDirectory();
+  qDebug() << "Starting process: " << cmd << " " << args.join(" ");
   process->start(cmd, args);
   QObject::connect(process, &QProcess::errorOccurred, [](QProcess::ProcessError error)
                    {

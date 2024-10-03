@@ -35,7 +35,7 @@ MainWindow::MainWindow(quint16 port, QWidget *parent)
   phxWidget = new PhxWidget(this);
   phxWidget->connectToTauPhx(phxUrl);
   setCentralWidget(phxWidget);
-  this->setStyleSheet("background-color: black;");
+    this->setStyleSheet("background-color: black;");
 
   // Create the menu bar
   QMenuBar *menuBar = this->menuBar();
@@ -60,6 +60,6 @@ void MainWindow::closeEvent(QCloseEvent *event)
 // Slot to show About dialog
 void MainWindow::showAbout()
 {
-    QMessageBox::about(this, tr("About Tau5"),
-                       tr("Sonic Pi Tau5 Tech\n\nby Sam Aaron"));
+  QMessageBox::about(this, tr("About Tau5"),
+                     tr("Sonic Pi Tau5 Tech\n\nby Sam Aaron"));
 }

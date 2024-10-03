@@ -64,8 +64,12 @@ set(SOURCES
       )
 
 SET(RESOURCES
-    ${QTAPP_ROOT}/images/app.icns
-    )
+    ${QTAPP_ROOT}/Tau5.qrc
+)
+
+
+
+
 
 # Create the Qt version of the app
 if (APPLE)

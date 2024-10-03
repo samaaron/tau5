@@ -26,6 +26,7 @@ quint16 getFreePort()
 
 int main(int argc, char *argv[])
 {
+
   bool devMode = false;
   std::cout << "Starting Tau5..." << std::endl;
 
@@ -39,47 +40,59 @@ int main(int argc, char *argv[])
     std::cout << "Production mode enabled." << std::endl;
   }
 
-  QApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
-
-#if defined(Q_OS_LINUX)
-  Q_INIT_RESOURCE(Tau5);
-  // linux code goes here
-#elif defined(Q_OS_WIN)
-  Q_INIT_RESOURCE(Tau5);
-  // windows code goes here
-  QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-#elif defined(Q_OS_DARWIN)
-  // macOS code goes here
-#endif
-
-  QApplication app(argc, argv);
-
-  app.setApplicationName(QObject::tr("Tau5"));
-  app.setStyle("gtk");
-
-  // Get a free port
-  quint16 port = getFreePort();
-  qDebug() << "Using port: " << port;
-  QString appDirPath = QCoreApplication::applicationDirPath();
-  QDir dir(appDirPath);
-
+#if defined(Q_OS_WIN)
   if (devMode)
   {
-    dir.cd("../../../../../server");
-    QString basePath = dir.absolutePath();
-    Beam *beam = new Beam(&app, basePath, "tau5", "0.1.0", port);
-    beam->startElixirServerDev();
-  }
-  else
-  {
-    dir.cd("../Resources");
-    QString basePath = dir.absolutePath();
-    Beam *beam = new Beam(&app, basePath, "tau5", "0.1.0", port);
-    beam->startElixirServerProd();
-  }
+    if (AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole())
+    {
+      freopen("CONOUT$", "w", stdout);
+      freopen("CONOUT$", "w", stderr);
 
-  MainWindow mainWindow(port);
-  mainWindow.show();
+      std::cout << "Development mode enabled." << std::endl;
+    }
+#endif
 
-  return app.exec();
-}
+    QApplication app(argc, argv);
+    QApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
+    Q_INIT_RESOURCE(Tau5);
+    app.setApplicationName(QObject::tr("Tau5"));
+    app.setStyle("gtk");
+
+    // Get a free port
+    quint16 port = getFreePort();
+    qDebug() << "Using port: " << port;
+    QString appDirPath = QCoreApplication::applicationDirPath();
+    QDir dir(appDirPath);
+#if defined(Q_OS_WIN)
+    dir.cd("../../../server");
+#else
+  dir.cd("../../../../../server");
+#endif
+
+    if (devMode)
+    {
+
+      QString basePath = dir.absolutePath();
+      qDebug() << "Base path: " << basePath;
+      qDebug() << dir.entryList();
+      Beam *beam = new Beam(&app, basePath, "tau5", "0.1.0", port);
+      beam->startElixirServerDev();
+    }
+    else
+    {
+      dir.cd("../Resources");
+      QString basePath = dir.absolutePath();
+      Beam *beam = new Beam(&app, basePath, "tau5", "0.1.0", port);
+      beam->startElixirServerProd();
+    }
+
+    MainWindow mainWindow(port);
+
+#if defined(Q_OS_WIN)
+    mainWindow.setWindowIcon(QIcon(":/images/app.ico"));
+#endif
+
+    mainWindow.show();
+
+    return app.exec();
+  }
