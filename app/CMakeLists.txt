@@ -65,6 +65,7 @@ set(SOURCES
 
 SET(RESOURCES
     ${QTAPP_ROOT}/Tau5.qrc
+    ${QTAPP_ROOT}/images/app.icns
 )
 
 
