@@ -56,6 +56,7 @@ jobs:
 
       - name: Build Windows
         working-directory: ${{github.workspace}}/bin/win
+        shell: cmd
         run: build.bat
         if: matrix.os == 'windows-latest'
 
