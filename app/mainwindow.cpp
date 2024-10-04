@@ -35,7 +35,7 @@ MainWindow::MainWindow(quint16 port, QWidget *parent)
   phxWidget = new PhxWidget(this);
   phxWidget->connectToTauPhx(phxUrl);
   setCentralWidget(phxWidget);
-    this->setStyleSheet("background-color: black;");
+  this->setStyleSheet("background-color: black;");
 
   // Create the menu bar
   QMenuBar *menuBar = this->menuBar();
