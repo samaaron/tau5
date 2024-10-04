@@ -55,7 +55,8 @@ jobs:
         if: matrix.os == 'macos-latest'
 
       - name: Build Windows
-        run: ./bin/win/build.bat
+        working-directory: ${{github.workspace}}/bin/win
+        run: build.bat
         if: matrix.os == 'windows-latest'
 
       - name: Build macOS
