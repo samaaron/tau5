@@ -39,14 +39,10 @@ set_property(GLOBAL PROPERTY AUTOMOC_FOLDER Automoc)
 set_property(GLOBAL PROPERTY AUTOGEN_TARGETS_FOLDER Automoc)
 
 find_package(Qt6 QUIET)
-
-find_package(Qt6 COMPONENTS Core Widgets Gui Concurrent Network OpenGLWidgets PrintSupport Xml Svg LinguistTools WebEngineWidgets REQUIRED)
-
+find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg LinguistTools WebEngineWidgets REQUIRED)
 
 set(APP_NAME tau5)
 set(MACOS_APP_NAME "Tau5")
-
-
 
 set(SOURCES
     ${QTAPP_ROOT}/main.cpp
@@ -68,12 +64,8 @@ SET(RESOURCES
     ${QTAPP_ROOT}/images/app.icns
 )
 
-
-
-
-
 # Create the Qt version of the app
-if (APPLE)
+  if (APPLE)
   add_executable(${APP_NAME} MACOSX_BUNDLE ${SOURCES} ${RESOURCES})
 else()
   add_executable(${APP_NAME} WIN32 ${SOURCES} ${RESOURCES}) # Win32 ignored on non-windows
@@ -130,23 +122,16 @@ target_include_directories(${APP_NAME}
     PRIVATE
     ${QTAPP_ROOT}
     ${QTAPP_ROOT}/widgets
+    ${QTAPP_ROOT}/lib
     ${CMAKE_BINARY_DIR}
     include)
-
-target_link_libraries(${APP_NAME}
-    PRIVATE
-    Threads::Threads
-)
 
 target_link_libraries(${APP_NAME}
   PRIVATE
   Qt::Core
   Qt::Gui
   Qt::Widgets
-  Qt::OpenGL
-  Qt::Concurrent
   Qt::Network
-  Qt::OpenGLWidgets
   Qt::WebEngineWidgets)
 
 # Deploy Qt binaries to the output on windows, and copy the CRT to the release folder
