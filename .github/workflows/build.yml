@@ -7,58 +7,57 @@ on:
     branches: [dev, main]
   workflow_dispatch:
 
-  jobs:
-    build:
-      name: "${{matrix.title}} (${{matrix.cc}}, ${{matrix.arch}}, ${{matrix.build_type}})"
-      runs-on: ${{matrix.os}}
-      strategy:
-        fail-fast: false
-        matrix:
-          include:
-            - {
-                title: "Windows",
-                os: "windows-latest",
-                cc: "vs2022",
-                arch: "x64",
-                build_type: "Release",
-              }
-            - {
-                title: "MacOS",
-                os: "macos-latest",
-                cc: "clang",
-                arch: "x64",
-                build_type: "Release",
-              }
+jobs:
+  build:
+    name: "${{matrix.title}} (${{matrix.cc}}, ${{matrix.arch}}, ${{matrix.build_type}})"
+    runs-on: ${{matrix.os}}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {
+              title: "Windows",
+              os: "windows-latest",
+              cc: "vs2022",
+              arch: "x64",
+              build_type: "Release",
+            }
+          - {
+              title: "MacOS",
+              os: "macos-latest",
+              cc: "clang",
+              arch: "x64",
+              build_type: "Release",
+            }
 
-      steps:
-        - uses: actions/checkout@v2
+    steps:
+      - uses: actions/checkout@v2
 
-        - name: Install Qt 6
-          uses: jurplel/install-qt-action@v4
-          with:
-            modules: "qtpositioning qtwebchannel qtwebengine"
-            version: "6.7.3"
+      - name: Install Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          modules: "qtpositioning qtwebchannel qtwebengine"
+          version: "6.7.3"
 
-        - name: Win Elixir
-          uses: erlef/setup-beam@v1
-          with:
-            otp-version: "27.1.2"
-            elixir-version: "1.17.3"
-          if: matrix.os == 'windows-latest'
+      - name: Win Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27.1.2"
+          elixir-version: "1.17.3"
+        if: matrix.os == 'windows-latest'
 
-        - name: Mac Elixir
-          continue-on-error: true
-          run: |
-            export HOMEBREW_NO_INSTALL_CLEANUP=1
-            brew update
-            brew install elixir
-          if: matrix.os == 'macos-latest'
+      - name: Mac Elixir
+        continue-on-error: true
+        run: |
+          export HOMEBREW_NO_INSTALL_CLEANUP=1
+          brew update
+          brew install elixir
+        if: matrix.os == 'macos-latest'
 
-        - name: Build Windows
-          run: ./bin/win/build.bat
-          if: matrix.os == 'windows-latest'
+      - name: Build Windows
+        run: ./bin/win/build.bat
+        if: matrix.os == 'windows-latest'
 
-        - name: Build macOS
-          run: ./bin/mac/build.sh
-          if: matrix.os == 'macos-latest'
-
+      - name: Build macOS
+        run: ./bin/mac/build.sh
+        if: matrix.os == 'macos-latest'
