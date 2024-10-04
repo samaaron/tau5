@@ -62,3 +62,14 @@ jobs:
       - name: Build macOS
         run: ./bin/mac/build.sh
         if: matrix.os == 'macos-latest'
+
+      - name: BEAM Tests Windows
+        shell: cmd
+        working-directory: ${{github.workspace}}/server
+        run: mix test
+        if: matrix.os == 'windows-latest'
+
+      - name: BEAM Tests (macOS)
+        working-directory: ${{github.workspace}}/server
+        run: mix test
+        if: matrix.os == 'macos-latest'
