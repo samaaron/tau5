@@ -42,7 +42,7 @@ jobs:
       - name: Win Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: "27.1.2"
+          otp-version: "27"
           elixir-version: "1.17.3"
         if: matrix.os == 'windows-latest'
 
