@@ -15,4 +15,4 @@ trap cleanup_function EXIT
 "${SCRIPT_DIR}"/build-app.sh
 "${SCRIPT_DIR}"/build-release.sh
 
-cd "${ROOT_DIR}"/Release
+

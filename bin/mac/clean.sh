@@ -3,6 +3,7 @@ set -e # Quit script on error
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 WORKING_DIR="$(pwd)"
+ROOT_DIR="${SCRIPT_DIR}/../.."
 
 cleanup_function() {
     # Restore working directory as it was prior to this script running on exit
@@ -10,12 +11,15 @@ cleanup_function() {
 }
 trap cleanup_function EXIT
 
-cd "${SCRIPT_DIR}"
-cd ../../server
+cd "${ROOT_DIR}"
+cd server
+mix clean
+rm -rf _build
+rm -rf priv/static
 
-MIX_ENV=prod mix local.hex --force
-MIX_ENV=prod mix local.rebar --force
-MIX_ENV=prod mix setup
-MIX_ENV=prod mix assets.setup
-MIX_ENV=prod mix assets.deploy
-MIX_ENV=prod mix release --overwrite --no-deps-check
+
+cd "${ROOT_DIR}"
+rm -rf app/build
+rm -rf Release
+rm -rf build
+
