@@ -15,7 +15,7 @@ cd "${ROOT_DIR}"
 cd server
 mix clean
 rm -rf _build
-rm -rf priv/static
+rm -rf priv/static/assets/*
 
 
 cd "${ROOT_DIR}"
