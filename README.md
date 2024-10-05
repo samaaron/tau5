@@ -29,7 +29,7 @@ The main technology for Tau5 is a VM called the BEAM which hosts both the Erlang
 
 ## Next Collaboration
 
-Tau5 will focus enable next-level live-coding collaboration. It will support co-located, distributed and async jamming sessions.
+Tau5 will enable next-level live-coding collaboration. It will support co-located, distributed and async jamming sessions.
 
 * Co-located Jamming - Tau5 jam-sessions will enable multiple participants and by default will always be in sync. This is independent yet co-operative with Ableton Link functionality which will also be included for co-located jamming with other software and systems.
 
