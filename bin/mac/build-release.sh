@@ -20,17 +20,18 @@ cd Release
 # Copy app across
 cp -R ../app/build/*.app .
 
-# Copy server across
+# Copy prod release part of the server across
 cd *.app/Contents/Resources
-cp -R "${ROOT_DIR}/server/_build" .
-
-RELEASE_APP_DIR=$(find "${ROOT_DIR}/Release" -name "*.app" -type d | head -n 1)
+mkdir _build
+cd _build
+cp -R "${ROOT_DIR}/server/_build/prod" .
 
 
 # Now need to fix some things. Firstly, the crypto library found within Elixir releases appears
 # to be linked ot the OpenSSL library found on the build machine. This is a problem as the OpenSSL
 # library on the build machine may not be available on the target machine. To fix this, we copy the
 # OpenSSL library into the release and then update the crypto library to link to the local copy.
+RELEASE_APP_DIR=$(find "${ROOT_DIR}/Release" -name "*.app" -type d | head -n 1)
 cd "${RELEASE_APP_DIR}"/Contents/Resources/_build/prod/rel/*/lib/crypto-*/priv/lib
 
 # Use otool to list linked libraries and grep for OpenSSL, then extract the first path
