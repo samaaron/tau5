@@ -26,7 +26,7 @@ quint16 getFreePort()
 
 int main(int argc, char *argv[])
 {
-
+  quint16 port = 5555;
   bool devMode = false;
   std::cout << "Starting Tau5..." << std::endl;
 
@@ -38,6 +38,7 @@ int main(int argc, char *argv[])
   else
   {
     std::cout << "Production mode enabled." << std::endl;
+    port = getFreePort();
   }
 
 #if defined(Q_OS_WIN)
@@ -59,7 +60,7 @@ int main(int argc, char *argv[])
     app.setStyle("gtk");
 
     // Get a free port
-    quint16 port = getFreePort();
+
     qDebug() << "Using port: " << port;
     QString appDirPath = QCoreApplication::applicationDirPath();
     QDir dir(appDirPath);
