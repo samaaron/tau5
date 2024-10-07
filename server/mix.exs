@@ -34,7 +34,7 @@ defmodule Tau5.MixProject do
     [
       {:phoenix, "~> 1.7.14"},
       {:phoenix_html, "~> 4.1"},
-      {:phoenix_live_reload, "~> 1.2", only: :dev},
+      {:phoenix_live_reload, "~> 1.5", only: :dev},
       # TODO bump on release to {:phoenix_live_view, "~> 1.0.0"},
       {:phoenix_live_view, "~> 1.0.0-rc.6", override: true},
       {:floki, ">= 0.30.0", only: :test},
@@ -69,10 +69,11 @@ defmodule Tau5.MixProject do
     [
       setup: ["deps.get", "assets.setup", "assets.build"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["tailwind tau5", "esbuild tau5"],
+      "assets.build": ["tailwind tau5", "esbuild tau5", "esbuild monaco_worker"],
       "assets.deploy": [
         "tailwind tau5 --minify",
         "esbuild tau5 --minify",
+        "esbuild monaco_worker --minify",
         "phx.digest"
       ]
     ]

@@ -22,8 +22,13 @@ import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 
+import Tau5EditorHook from "./lib/live_view_hooks/tau5_editor_hook";
+
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
+  hooks: {
+    Tau5EditorHook
+  },
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken}
 })

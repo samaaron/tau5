@@ -31,13 +31,24 @@ config :tau5, Tau5Web.Endpoint,
 config :tau5, Tau5.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure esbuild (the version is required)
+# Note - we're putting the esbuild assets in a separate directory
+# to the tailwind assets to avoid conflicts.
 config :esbuild,
   version: "0.24.0",
   tau5: [
     args:
-      ~w(js/app.js --bundle --target=es2021 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
+      ~w(js/app.js --bundle --target=es2021 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --loader:.ttf=file),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+  ],
+  monaco_worker: [
+    args: ~w(
+      vendor/monaco-editor/esm/vs/editor/editor.worker.js
+      --bundle
+      --target=es2021
+      --outdir=../priv/static/assets/js/monaco-worker
+      ),
+    cd: Path.expand("../assets", __DIR__)
   ]
 
 # Configure tailwind (the version is required)
@@ -47,7 +58,7 @@ config :tailwind,
     args: ~w(
       --config=tailwind.config.js
       --input=css/app.css
-      --output=../priv/static/assets/app.css
+      --output=../priv/static/assets/css/app.css
     ),
     cd: Path.expand("../assets", __DIR__)
   ]
