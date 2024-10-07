@@ -11,7 +11,7 @@ port = String.to_integer(System.get_env("PORT") || "4000")
 config :tau5, Tau5Web.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}, port: port],
+  http: [ip: {0, 0, 0, 0}, port: port],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
