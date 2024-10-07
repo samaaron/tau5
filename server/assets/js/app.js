@@ -24,6 +24,11 @@ import topbar from "../vendor/topbar"
 
 import Tau5EditorHook from "./lib/live_view_hooks/tau5_editor_hook";
 
+import Tau5Hydra from "./lib/tau5_hydra";
+
+hydraCanvas = document.getElementById("hydra-canvas");
+hydra = new Tau5Hydra(hydraCanvas);
+
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
   hooks: {
