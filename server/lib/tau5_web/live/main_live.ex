@@ -16,7 +16,7 @@ defmodule Tau5Web.MainLive do
         </h1>
         <p class="text-xl text-white mix-blend-difference">Code. Art. Live.</p>
       </div>
-      <img class="mix-blend-difference" src="/images/tau5-hirez.png" alt="Tau5 Logo" width="50" />
+      <img class="mix-blend-difference" src="/images/tau5-bw.png" alt="Tau5 Logo" width="50" />
     </div>
     <div
       id="Tau5Editor"
