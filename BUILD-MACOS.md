@@ -21,7 +21,7 @@ Install Qt via the Qt Online Installer. This can be found on Qt's Open Source De
 
 Install Qt for Desktop and also ensure you select the "Additional Library" Qt WebEngine.
 
-Update your `PATH` and `Qt6_DIR` environment variables. For example, if you're using zsh, add the following to your `~/.zshrc` (updating the versinon number to match the version you installed).
+Update your `PATH` and `Qt6_DIR` environment variables. For example, if you're using zsh, add the following to your `~/.zshrc` (updating the version number to match the version you installed).
 
 ```
 export PATH=~/Qt/6.7.3/macos/bin:$PATH
@@ -54,7 +54,7 @@ Now you just need to change into the `tau5` directory and run the build script:
 
 ```
 cd ~/Development/tau5
-./bin/mac/build-all.sh
+./bin/mac/build.sh
 ```
 
 ## Run Tau5 in Development Mode
