@@ -52,3 +52,7 @@ liveSocket.connect()
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket
 
+window.addEventListener(`phx:update_hydra`, (e) => {
+  console.log("phx:update-hydra", e.detail.sketch);
+  hydra.injectGlobalSketch(e.detail.sketch);
+});
