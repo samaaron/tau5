@@ -1,6 +1,7 @@
 defmodule Tau5Web.MainLive do
   use Tau5Web, :live_view
   require Logger
+  require Tau5.MonacoEditor
 
   def mount(_params, _session, socket) do
     {:ok,
@@ -77,46 +78,11 @@ defmodule Tau5Web.MainLive do
 
   @impl true
   def handle_event("update_code_diff", %{"id" => id, "changes" => changes}, socket) do
-    Logger.info("Current code #{inspect(socket.assigns.code)}")
-    Logger.info("Updating code diff #{inspect(changes)}")
     current_code = socket.assigns.code
-    updated_code = apply_changes(current_code, changes)
-    # updated_editors = Map.put(socket.assigns.editors, id, updated_code)
+
+    updated_code =
+      Tau5.MonacoEditor.apply_event_on_did_change_model_content(current_code, changes)
 
     {:noreply, assign(socket, :code, updated_code)}
-  end
-
-  defp apply_changes(current_code, changes) do
-    Enum.reduce(changes, current_code, fn change, acc ->
-      apply_change(acc, change)
-    end)
-  end
-
-  defp apply_change(code, %{
-         "range" => _range,
-         "text" => text,
-         "rangeLength" => 0,
-         "rangeOffset" => range_offset
-       }) do
-    insert_at(code, text, range_offset)
-  end
-
-  defp apply_change(code, %{
-         "range" => _range,
-         "text" => text,
-         "rangeLength" => range_length,
-         "rangeOffset" => range_offset
-       }) do
-    replace_at(code, text, range_offset, range_length)
-  end
-
-  defp insert_at(original, insert, index) do
-    replace_at(original, insert, index, 0)
-  end
-
-  def replace_at(original, insert, index, replace_length) do
-    part1 = String.slice(original, 0, index)
-    part2 = String.slice(original, (index + replace_length)..-1)
-    part1 <> insert <> part2
   end
 end
