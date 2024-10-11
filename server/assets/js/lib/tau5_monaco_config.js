@@ -22,7 +22,7 @@ export const configureMonaco = (monaco) => {
         { token: "identifier", foreground: "#d3ded3" },
       ],
       colors: {
-        "editor.background": "#00000070",
+        "editor.background": "#00000030",
         "editor.selectionBackground": "#FF8C0090",
         "editorBracketMatch.background": "#FF8C0050",
         "editorBracketMatch.border": "#FF8C0050",

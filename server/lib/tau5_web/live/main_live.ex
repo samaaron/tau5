@@ -3,6 +3,7 @@ defmodule Tau5Web.MainLive do
   require Logger
   require Tau5.MonacoEditor
 
+  @impl true
   def mount(_params, _session, socket) do
     {:ok,
      assign(socket,
@@ -11,6 +12,7 @@ defmodule Tau5Web.MainLive do
      )}
   end
 
+  @impl true
   def render(assigns) do
     assigns = assign(assigns, :monaco_id, "monaco-editor-id")
     assigns = assign(assigns, :editor_id, "editor-id-placeholder")
@@ -48,23 +50,21 @@ defmodule Tau5Web.MainLive do
       </div>
 
       <div
-        id="Tau5Editor"
+        id={@editor_id}
         phx-hook="Tau5EditorHook"
         phx-update="ignore"
-        data-editor_id="editor"
         data-language="js"
         data-path="foo"
         data-content={@code}
         data-editor-name="editor name"
+        class="relative z-10 h-[300px] min-h-[100px] max-h-[80vh]"
       >
-        <div class="">
-          <div
-            class="flex-grow h-full max-h-[80vh] min-h-[200px] overflow-y-auto monaco-editor-container"
-            id={@monaco_id}
-            monaco-code-editor
-          >
-          </div>
+        <canvas hydra class="absolute top-0 left-0 z-0 w-full h-full"></canvas>
+
+        <div class="relative top-0 left-0 z-10 w-full h-full" id={@monaco_id} monaco-code-editor>
         </div>
+
+        <div resize-handle class="absolute bottom-0 right-0 z-20 w-4 h-4 cursor-se-resize"></div>
       </div>
     </div>
     """
@@ -77,7 +77,11 @@ defmodule Tau5Web.MainLive do
   end
 
   @impl true
-  def handle_event("update_code_diff", %{"id" => id, "changes" => changes}, socket) do
+  def handle_event(
+        "monaco_on_did_change_model_content",
+        %{"id" => id, "changes" => changes},
+        socket
+      ) do
     current_code = socket.assigns.code
 
     updated_code =
