@@ -50,7 +50,7 @@ speed = 0.1
     resizeObserver.observe(container);
 
     resizeHandle.addEventListener("mousedown", (e) => {
-      console.log("mouse down.");
+      e.preventDefault();
       this.#isResizing = true;
     });
 
