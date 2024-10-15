@@ -51,6 +51,7 @@ int main(int argc, char *argv[])
 
       std::cout << "Development mode enabled." << std::endl;
     }
+  }
 #endif
 
     QApplication app(argc, argv);
