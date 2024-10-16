@@ -29,8 +29,8 @@ In the "Select Components" window make sure the following are checked:
 Update your `PATH` and `Qt6_DIR` environment variables. For example, if you're using zsh, add the following to your `~/.zshrc` (updating the version number to match the version you installed).
 
 ```
-export PATH=~/Qt/6.7.3/macos/bin:$PATH
-export Qt6_DIR=~/Qt/6.7.3/macos/lib/cmake
+export PATH=~/Qt/6.8.0/macos/bin:$PATH
+export Qt6_DIR=~/Qt/6.8.0/macos/lib/cmake
 ```
 
 ### Cmake && Elixir
