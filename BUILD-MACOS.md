@@ -5,7 +5,7 @@
 Tau5 is known to work with the following depencies:
 
 1. Xcode (15.2+) and command line tools
-2. Qt6 (6.7+)
+2. Qt6 (6.8+)
 3. CMake (3.30+)
 4. Elixir(1.17+)
 
@@ -19,7 +19,12 @@ You'll know if you have things setup if you can run `gcc -v` from the terminal t
 
 Install Qt via the Qt Online Installer. This can be found on Qt's Open Source Development page - https://www.qt.io/download-open-source
 
-Install Qt for Desktop and also ensure you select the "Additional Library" Qt WebEngine.
+In the "Select Components" window make sure the following are checked:
+
+* Extensions -> Qt WebEngine
+* Qt -> Qt 6.8.x -> Desktop
+* Qt -> Qt 6.8.x -> Additional Libraries -> Qt Positioning
+* Qt -> Qt 6.8.x -> Additional Libraries -> Qt WebChannel
 
 Update your `PATH` and `Qt6_DIR` environment variables. For example, if you're using zsh, add the following to your `~/.zshrc` (updating the version number to match the version you installed).
 
