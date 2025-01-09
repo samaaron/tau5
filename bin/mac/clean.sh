@@ -13,7 +13,7 @@ trap cleanup_function EXIT
 
 cd "${ROOT_DIR}"
 cd server
-mix clean
+mix clean --deps
 rm -rf _build
 rm -rf deps
 rm -rf priv/static/assets/*
