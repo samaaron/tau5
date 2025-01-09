@@ -8,18 +8,19 @@ defmodule Tau5.Application do
 
   @impl true
   def start(_type, _args) do
-    Logger.info("All systems booting....")
+    uuid = UUID.uuid4()
+    Logger.info("Node #{uuid} booting....")
 
     children = [
       Tau5Web.Telemetry,
-      {DNSCluster, query: Application.get_env(:tau5, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Tau5.PubSub},
       # Start the Finch HTTP client for sending emails
       {Finch, name: Tau5.Finch},
       # Start a worker by calling: Tau5.Worker.start_link(arg)
       # {Tau5.Worker, arg},
       # Start to serve requests, typically the last entry
-      Tau5Web.Endpoint
+      Tau5Web.Endpoint,
+      {Tau5.Discovery, %{uuid: uuid, metadata: %{name: "foo", version: "1.0.0"}}}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
