@@ -8,6 +8,7 @@ cd %~dp0
 call build-server.bat
 if %errorlevel% neq 0 (
     echo build-server.bat failed with exit code %errorlevel%
+    cd %WORKING_DIR%
     exit /b %errorlevel%
 )
 
@@ -15,6 +16,7 @@ if %errorlevel% neq 0 (
 call build-app.bat
 if %errorlevel% neq 0 (
     echo build-app.bat failed with exit code %errorlevel%
+    cd %WORKING_DIR%
     exit /b %errorlevel%
 )
 
