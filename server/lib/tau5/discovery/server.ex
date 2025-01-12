@@ -6,7 +6,7 @@ defmodule Tau5.Discovery.Server do
   # The port is one higher than that used by Link.
   @multicast_addr {224, 76, 78, 75}
   @discovery_port 20809
-  @broadcast_interval 5_000
+  @broadcast_interval 10_000
   @cleanup_interval 10_000
   @max_node_age 30_000
 
@@ -26,7 +26,8 @@ defmodule Tau5.Discovery.Server do
       {:reuseaddr, true},
       {:reuseport, true},
       {:multicast_if, interface},
-      {:multicast_loop, true}
+      {:multicast_ttl, 32},
+      {:multicast_loop, false}
     ]
 
     {:ok, socket} = :gen_udp.open(@discovery_port, socket_options)
@@ -53,10 +54,13 @@ defmodule Tau5.Discovery.Server do
     {:ok, state}
   end
 
-  def handle_info(:broadcast, %{uuid: uuid, metadata: metadata, socket: socket} = state) do
+  def handle_info(
+        :broadcast,
+        %{uuid: uuid, metadata: metadata, socket: socket, interface: interface} = state
+      ) do
     message = %{
       uuid: uuid,
-      ip: Tuple.to_list(state.interface),
+      ip: Tuple.to_list(interface),
       metadata: metadata
     }
 
@@ -79,7 +83,10 @@ defmodule Tau5.Discovery.Server do
       |> Enum.into(%{})
 
     removed_nodes = Map.keys(state.known_nodes) -- Map.keys(new_known_nodes)
-    Logger.info("Cleaned up stale nodes: #{inspect(removed_nodes)}")
+
+    if(Enum.count(removed_nodes) > 0) do
+      Logger.info("Removing stale nodes: #{inspect(removed_nodes)}")
+    end
 
     schedule_cleanup()
     {:noreply, %{state | known_nodes: new_known_nodes}}
