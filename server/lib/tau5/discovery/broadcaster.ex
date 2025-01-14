@@ -26,7 +26,7 @@ defmodule Tau5.Discovery.Broadcaster do
         {:reuseport, true},
         {:ip, interface},
         {:multicast_if, interface},
-        {:multicast_ttl, 32},
+        {:multicast_ttl, 4},
         {:multicast_loop, true}
       ]
 
