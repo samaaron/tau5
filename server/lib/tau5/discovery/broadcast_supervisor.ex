@@ -11,8 +11,8 @@ defmodule Tau5.Discovery.BroadcastSupervisor do
     DynamicSupervisor.init(strategy: :one_for_one)
   end
 
-  def start_server(interface, uuid, metadata) do
-    ack_port = Tau5.Discovery.Receiver.port()
+  def start_discovery_server(interface, uuid, metadata) do
+    ack_port = Tau5.Discovery.AckReceiver.port()
     args = %{uuid: uuid, metadata: metadata, interface: interface, ack_port: ack_port}
 
     case DynamicSupervisor.start_child(
@@ -34,7 +34,7 @@ defmodule Tau5.Discovery.BroadcastSupervisor do
     end
   end
 
-  def stop_server(interface) do
+  def stop_discovery_server(interface) do
     child = find_child_by_interface(interface)
 
     case child do

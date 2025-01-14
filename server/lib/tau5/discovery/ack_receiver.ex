@@ -1,4 +1,4 @@
-defmodule Tau5.Discovery.Receiver do
+defmodule Tau5.Discovery.AckReceiver do
   use GenServer, restart: :transient
   require Logger
 
@@ -18,7 +18,7 @@ defmodule Tau5.Discovery.Receiver do
 
     {:ok, socket} = :gen_udp.open(port, socket_options)
     {:ok, allocated_port} = :inet.port(socket)
-    Logger.info("Receiver - listening on port #{allocated_port}")
+    Logger.info("Ack Receiver - listening on port #{allocated_port}")
     state = %{socket: socket, port: allocated_port}
     {:ok, state}
   end
@@ -29,7 +29,7 @@ defmodule Tau5.Discovery.Receiver do
 
   def handle_info({:udp, _socket, src_ip, src_port, data}, state) do
     Logger.debug(
-      "Receiver - incoming data: #{inspect(data)} from #{inspect(src_ip)}:#{inspect(src_port)}"
+      "Ack Receiver - incoming data: #{inspect(data)} from #{inspect(src_ip)}:#{inspect(src_port)}"
     )
 
     case Jason.decode(data) do
@@ -37,10 +37,9 @@ defmodule Tau5.Discovery.Receiver do
        %{
          "cmd" => "ack",
          "uuid" => sender_uuid,
-         "ack_port" => sender_ack_port,
          "metadata" => sender_metadata
        }} ->
-        Logger.debug("Receiver - received ack from #{inspect(sender_uuid)}")
+        Logger.debug("Ack Receiver - received ack from #{inspect(sender_uuid)}")
 
         Tau5.Discovery.KnownNodes.add_node(
           sender_uuid,
@@ -50,7 +49,7 @@ defmodule Tau5.Discovery.Receiver do
         )
 
       _ ->
-        Logger.error("Receiver failed to decode data: #{inspect(data)}")
+        Logger.error("Ack Receiver failed to decode data: #{inspect(data)}")
     end
 
     {:noreply, state}

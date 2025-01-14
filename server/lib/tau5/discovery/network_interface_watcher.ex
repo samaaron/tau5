@@ -11,6 +11,8 @@ defmodule Tau5.Discovery.NetworkInterfaceWatcher do
   @impl true
   def init(%{uuid: uuid, metadata: metadata}) do
     state = %{interfaces: MapSet.new(), uuid: uuid, metadata: metadata}
+
+    send(self(), :update_interfaces)
     schedule_update()
     {:ok, state}
   end
@@ -33,11 +35,15 @@ defmodule Tau5.Discovery.NetworkInterfaceWatcher do
     removed_interfaces = MapSet.difference(state.interfaces, current_interfaces)
 
     Enum.each(new_interfaces, fn interface ->
-      Tau5.Discovery.BroadcastSupervisor.start_server(interface, state.uuid, state.metadata)
+      Tau5.Discovery.BroadcastSupervisor.start_discovery_server(
+        interface,
+        state.uuid,
+        state.metadata
+      )
     end)
 
     Enum.each(removed_interfaces, fn interface ->
-      Tau5.Discovery.BroadcastSupervisor.stop_server(interface)
+      Tau5.Discovery.BroadcastSupervisor.stop_discovery_server(interface)
     end)
 
     %{state | interfaces: current_interfaces}

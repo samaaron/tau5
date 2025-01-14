@@ -9,7 +9,7 @@ defmodule Tau5.Discovery do
   def init(args) do
     children = [
       Tau5.Discovery.KnownNodes,
-      Tau5.Discovery.Receiver,
+      Tau5.Discovery.AckReceiver,
       Tau5.Discovery.BroadcastSupervisor,
       {Tau5.Discovery.NetworkInterfaceWatcher, args}
     ]
