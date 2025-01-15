@@ -2,15 +2,26 @@ defmodule Tau5.Discovery.NetworkInterfaceWatcher do
   use GenServer
   require Logger
 
-  @update_interval 10_000
+  @interface_update_interval 10_000
 
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
   end
 
   @impl true
-  def init(%{uuid: uuid, metadata: metadata}) do
-    state = %{interfaces: MapSet.new(), uuid: uuid, metadata: metadata}
+  def init(%{
+        uuid: uuid,
+        metadata: metadata,
+        multicast_addr: multicast_addr,
+        discovery_port: discovery_port
+      }) do
+    state = %{
+      interfaces: MapSet.new(),
+      uuid: uuid,
+      metadata: metadata,
+      multicast_addr: multicast_addr,
+      discovery_port: discovery_port
+    }
 
     send(self(), :update_interfaces)
     schedule_update()
@@ -25,7 +36,7 @@ defmodule Tau5.Discovery.NetworkInterfaceWatcher do
   end
 
   defp schedule_update do
-    Process.send_after(self(), :update_interfaces, @update_interval)
+    Process.send_after(self(), :update_interfaces, @interface_update_interval)
   end
 
   defp update_interfaces(state) do
@@ -35,15 +46,17 @@ defmodule Tau5.Discovery.NetworkInterfaceWatcher do
     removed_interfaces = MapSet.difference(state.interfaces, current_interfaces)
 
     Enum.each(new_interfaces, fn interface ->
-      Tau5.Discovery.BroadcastSupervisor.start_discovery_server(
+      Tau5.Discovery.BroadcastSupervisor.start_discovery_broadcaster(
         interface,
         state.uuid,
-        state.metadata
+        state.metadata,
+        state.multicast_addr,
+        state.discovery_port
       )
     end)
 
     Enum.each(removed_interfaces, fn interface ->
-      Tau5.Discovery.BroadcastSupervisor.stop_discovery_server(interface)
+      Tau5.Discovery.BroadcastSupervisor.stop_discovery_broadcaster(interface)
     end)
 
     %{state | interfaces: current_interfaces}

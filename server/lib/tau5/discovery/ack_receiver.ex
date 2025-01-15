@@ -39,8 +39,6 @@ defmodule Tau5.Discovery.AckReceiver do
          "uuid" => sender_uuid,
          "metadata" => sender_metadata
        }} ->
-        Logger.debug("Ack Receiver - received ack from #{inspect(sender_uuid)}")
-
         Tau5.Discovery.KnownNodes.add_node(
           sender_uuid,
           uuid: sender_uuid,
