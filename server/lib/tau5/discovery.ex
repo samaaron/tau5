@@ -11,30 +11,33 @@ defmodule Tau5.Discovery do
   end
 
   @impl true
-  def init(args) do
-    case Map.fetch(args, :uuid) do
-      {:ok, _uuid} ->
-        args =
-          args
-          |> Map.put_new(:metadata, @default_metadata)
-          |> Map.put_new(:multicast_addr, @default_multicast_addr)
-          |> Map.put_new(:discovery_port, @default_discovery_port)
+  def init(args) when is_map(args) do
+    info =
+      args
+      |> Map.put_new(:metadata, @default_metadata)
+      |> Map.put_new(:multicast_addr, @default_multicast_addr)
+      |> Map.put_new(:discovery_port, @default_discovery_port)
+      |> Map.put_new(:hostname, gethostname())
+      |> Map.put_new(:uuid, UUID.uuid4())
 
-        children = [
-          Tau5.Discovery.KnownNodes,
-          Tau5.Discovery.AckReceiver,
-          Tau5.Discovery.BroadcastSupervisor,
-          {Tau5.Discovery.NetworkInterfaceWatcher, args}
-        ]
+    children = [
+      Tau5.Discovery.KnownNodes,
+      Tau5.Discovery.AckReceiver,
+      Tau5.Discovery.BroadcastSupervisor,
+      {Tau5.Discovery.NetworkInterfaceWatcher, info}
+    ]
 
-        Supervisor.init(children, strategy: :rest_for_one)
-
-      :error ->
-        raise ArgumentError, "Mandatory argument :uuid is missing from initialization arguments"
-    end
+    Supervisor.init(children, strategy: :rest_for_one)
   end
 
   def nodes do
     Tau5.Discovery.KnownNodes.nodes()
+  end
+
+  defp gethostname do
+    case :inet.gethostname() do
+      {:ok, host} -> to_string(host)
+      {:error, _reason} -> "unknown-host"
+    end
   end
 end

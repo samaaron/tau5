@@ -11,13 +11,15 @@ defmodule Tau5.Discovery.NetworkInterfaceWatcher do
   @impl true
   def init(%{
         uuid: uuid,
+        hostname: hostname,
         metadata: metadata,
         multicast_addr: multicast_addr,
         discovery_port: discovery_port
       }) do
     state = %{
-      interfaces: MapSet.new(),
       uuid: uuid,
+      hostname: hostname,
+      interfaces: MapSet.new(),
       metadata: metadata,
       multicast_addr: multicast_addr,
       discovery_port: discovery_port
@@ -49,6 +51,7 @@ defmodule Tau5.Discovery.NetworkInterfaceWatcher do
       Tau5.Discovery.BroadcastSupervisor.start_discovery_broadcaster(
         interface,
         state.uuid,
+        state.hostname,
         state.metadata,
         state.multicast_addr,
         state.discovery_port

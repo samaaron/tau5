@@ -14,6 +14,7 @@ defmodule Tau5.Discovery.BroadcastSupervisor do
   def start_discovery_broadcaster(
         interface,
         uuid,
+        hostname,
         metadata,
         multicast_addr,
         discovery_port
@@ -22,6 +23,7 @@ defmodule Tau5.Discovery.BroadcastSupervisor do
 
     args = %{
       uuid: uuid,
+      hostname: hostname,
       metadata: metadata,
       interface: interface,
       ack_port: ack_port,

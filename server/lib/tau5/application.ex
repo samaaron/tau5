@@ -10,6 +10,8 @@ defmodule Tau5.Application do
   def start(_type, _args) do
     uuid = UUID.uuid4()
     Logger.info("Node #{uuid} booting....")
+    http_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
+    discovery_metadata = %{uuid: uuid, http_port: http_port}
 
     children = [
       Tau5Web.Telemetry,
@@ -19,8 +21,9 @@ defmodule Tau5.Application do
       # Start a worker by calling: Tau5.Worker.start_link(arg)
       # {Tau5.Worker, arg},
       # Start to serve requests, typically the last entry
+
       Tau5Web.Endpoint,
-      {Tau5.Discovery, %{uuid: uuid, metadata: %{name: "foo", version: "1.0.0"}}}
+      {Tau5.Discovery, %{metadata: discovery_metadata}}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
