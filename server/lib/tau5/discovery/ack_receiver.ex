@@ -37,11 +37,13 @@ defmodule Tau5.Discovery.AckReceiver do
        %{
          "cmd" => "ack",
          "uuid" => sender_uuid,
+         "hostname" => sender_hostname,
          "metadata" => sender_metadata
        }} ->
         Tau5.Discovery.KnownNodes.add_node(
           sender_uuid,
           uuid: sender_uuid,
+          hostname: sender_hostname,
           metadata: sender_metadata,
           ip: src_ip
         )
