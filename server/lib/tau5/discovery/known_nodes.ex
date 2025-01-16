@@ -13,22 +13,22 @@ defmodule Tau5.Discovery.KnownNodes do
     {:ok, %{}}
   end
 
-  def add_node(uuid, info) do
-    GenServer.cast(__MODULE__, {:add, uuid, info})
+  def add_node(uuid, interface, info) do
+    GenServer.cast(__MODULE__, {:add, uuid, interface, info})
   end
 
   def nodes do
     GenServer.call(__MODULE__, :nodes)
   end
 
-  def handle_cast({:add, uuid, info}, known_nodes) do
+  def handle_cast({:add, uuid, interface, info}, known_nodes) do
     last_seen = :os.system_time(:millisecond)
 
     info =
       Map.new(info)
       |> Map.put(:last_seen, last_seen)
 
-    {:noreply, Map.put(known_nodes, uuid, info)}
+    {:noreply, Map.put(known_nodes, [uuid, interface], info)}
   end
 
   def handle_call(:nodes, _from, known_nodes) do

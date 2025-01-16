@@ -48,18 +48,25 @@ defmodule Tau5.Discovery.NetworkInterfaceWatcher do
     removed_interfaces = MapSet.difference(state.interfaces, current_interfaces)
 
     Enum.each(new_interfaces, fn interface ->
+      token = UUID.uuid4()
+      {:ok, pid} = Tau5.Discovery.ReceiverSupervisor.start_receiver(interface, token)
+      ack_port = Tau5.Discovery.AckReceiver.port(pid)
+
       Tau5.Discovery.BroadcastSupervisor.start_discovery_broadcaster(
         interface,
         state.uuid,
         state.hostname,
         state.metadata,
         state.multicast_addr,
-        state.discovery_port
+        state.discovery_port,
+        ack_port,
+        token
       )
     end)
 
     Enum.each(removed_interfaces, fn interface ->
       Tau5.Discovery.BroadcastSupervisor.stop_discovery_broadcaster(interface)
+      Tau5.Discovery.ReceiverSupervisor.stop_receiver(interface)
     end)
 
     %{state | interfaces: current_interfaces}

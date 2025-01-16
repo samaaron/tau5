@@ -17,10 +17,10 @@ defmodule Tau5.Discovery.BroadcastSupervisor do
         hostname,
         metadata,
         multicast_addr,
-        discovery_port
+        discovery_port,
+        ack_port,
+        token
       ) do
-    ack_port = Tau5.Discovery.AckReceiver.port()
-
     args = %{
       uuid: uuid,
       hostname: hostname,
@@ -28,7 +28,8 @@ defmodule Tau5.Discovery.BroadcastSupervisor do
       interface: interface,
       ack_port: ack_port,
       multicast_addr: multicast_addr,
-      discovery_port: discovery_port
+      discovery_port: discovery_port,
+      token: token
     }
 
     case DynamicSupervisor.start_child(

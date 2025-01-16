@@ -22,7 +22,7 @@ defmodule Tau5.Discovery do
 
     children = [
       Tau5.Discovery.KnownNodes,
-      Tau5.Discovery.AckReceiver,
+      Tau5.Discovery.ReceiverSupervisor,
       Tau5.Discovery.BroadcastSupervisor,
       {Tau5.Discovery.NetworkInterfaceWatcher, info}
     ]

@@ -12,6 +12,7 @@ defmodule Tau5.Discovery.Broadcaster do
     GenServer.start_link(__MODULE__, args)
   end
 
+  @impl true
   def init(%{
         uuid: uuid,
         hostname: hostname,
@@ -19,7 +20,8 @@ defmodule Tau5.Discovery.Broadcaster do
         interface: interface,
         ack_port: ack_port,
         multicast_addr: multicast_addr,
-        discovery_port: discovery_port
+        discovery_port: discovery_port,
+        token: token
       }) do
     # Create UDP socket for multicast
     socket_options =
@@ -30,8 +32,8 @@ defmodule Tau5.Discovery.Broadcaster do
         {:reuseport, true},
         {:ip, interface},
         {:multicast_if, interface},
-        {:multicast_ttl, 4},
-        {:multicast_loop, true}
+        {:multicast_ttl, 4}
+        # {:multicast_loop, true}
       ]
 
     {:ok, socket} = :gen_udp.open(discovery_port, socket_options)
@@ -54,15 +56,15 @@ defmodule Tau5.Discovery.Broadcaster do
       interface: interface,
       ack_port: ack_port,
       multicast_addr: multicast_addr,
-      discovery_port: discovery_port
+      discovery_port: discovery_port,
+      token: token
     }
 
     send(self(), :broadcast)
-    schedule_broadcast()
-
     {:ok, state}
   end
 
+  @impl true
   def handle_info(:broadcast, state) do
     with %{
            uuid: uuid,
@@ -80,7 +82,8 @@ defmodule Tau5.Discovery.Broadcaster do
         uuid: uuid,
         ip: Tuple.to_list(interface),
         ack_port: ack_port,
-        metadata: metadata
+        metadata: metadata,
+        token: state.token
       }
 
       Logger.debug("Discovery broadcasting message: #{inspect(message)}")
@@ -88,18 +91,15 @@ defmodule Tau5.Discovery.Broadcaster do
       :gen_udp.send(socket, multicast_addr, discovery_port, Jason.encode!(message))
 
       schedule_broadcast()
-      {:noreply, state}
     end
+
+    {:noreply, state}
   end
 
   def handle_info(
         {:udp, socket, src_ip, src_port, data},
         state
       ) do
-    Logger.debug(
-      "Discovery broadcaster received UDP message from: #{inspect(src_ip)}:#{src_port} #{data}"
-    )
-
     case Jason.decode(data) do
       {
         :ok,
@@ -108,13 +108,18 @@ defmodule Tau5.Discovery.Broadcaster do
           "uuid" => sender_uuid,
           "hostname" => sender_hostname,
           "metadata" => sender_metadata,
-          "ack_port" => sender_ack_port
+          "ack_port" => sender_ack_port,
+          "token" => sender_token
         }
       }
       when sender_uuid != state.uuid ->
+        Logger.debug(
+          "Discovery broadcaster received UDP message on interface #{inspect(state.interface)} from #{inspect(src_ip)}:#{inspect(src_port)} -----> #{data}"
+        )
+
         Tau5.Discovery.KnownNodes.add_node(
           sender_uuid,
-          uuid: sender_uuid,
+          state.interface,
           hostname: sender_hostname,
           metadata: sender_metadata,
           ip: src_ip
@@ -126,7 +131,8 @@ defmodule Tau5.Discovery.Broadcaster do
             uuid: state.uuid,
             hostname: state.hostname,
             ack_port: state.ack_port,
-            metadata: state.metadata
+            metadata: state.metadata,
+            token: sender_token
           })
 
         Logger.debug(
@@ -143,6 +149,7 @@ defmodule Tau5.Discovery.Broadcaster do
 
       {:ok, msg} ->
         Logger.error("Discovery broadcaster received unexpected JSON -----> #{inspect(msg)}")
+
         {:noreply, state}
 
       {:error, info} ->
@@ -158,10 +165,12 @@ defmodule Tau5.Discovery.Broadcaster do
     end
   end
 
+  @impl true
   def handle_call(:get_interface, _from, state) do
     {:reply, state.interface, state}
   end
 
+  @impl true
   def terminate(_reason, %{socket: socket, interface: interface, multicast_addr: multicast_addr}) do
     :ok = :inet.setopts(socket, [{:drop_membership, {multicast_addr, interface}}])
     :gen_udp.close(socket)
