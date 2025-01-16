@@ -28,6 +28,7 @@ defmodule Tau5.Discovery.Broadcaster do
       [
         :binary,
         {:active, true},
+        {:add_membership, {multicast_addr, interface}},
         {:reuseaddr, true},
         {:reuseport, true},
         {:ip, interface},
@@ -41,8 +42,6 @@ defmodule Tau5.Discovery.Broadcaster do
     Logger.debug(
       "Discovery broadcast socket opened on port #{discovery_port} for interface #{inspect(interface)}"
     )
-
-    :ok = :inet.setopts(socket, [{:add_membership, {multicast_addr, interface}}])
 
     Logger.debug(
       "Discovery joined multicast group #{inspect(multicast_addr)} on interface #{inspect(interface)}"
