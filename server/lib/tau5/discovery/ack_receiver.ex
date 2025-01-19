@@ -67,7 +67,8 @@ defmodule Tau5.Discovery.AckReceiver do
           sender_hostname,
           src_ip,
           sender_uuid,
-          sender_metadata
+          sender_metadata,
+          false
         )
 
         Enum.map(other_nodes, fn [hostname, ip, uuid, metadata] ->
@@ -80,7 +81,8 @@ defmodule Tau5.Discovery.AckReceiver do
             hostname,
             List.to_tuple(ip),
             uuid,
-            metadata
+            metadata,
+            true
           )
         end)
 

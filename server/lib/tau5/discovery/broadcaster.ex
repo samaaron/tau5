@@ -122,7 +122,8 @@ defmodule Tau5.Discovery.Broadcaster do
           sender_hostname,
           src_ip,
           sender_uuid,
-          sender_metadata
+          sender_metadata,
+          false
         )
 
         other_nodes =
