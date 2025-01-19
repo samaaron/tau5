@@ -58,10 +58,11 @@ defmodule Tau5.Discovery.AckReceiver do
          "token" => ^token,
          "other_nodes" => other_nodes
        }} ->
+        Logger.debug(
+          "Adding sender node #{inspect(sender_hostname)} (#{sender_uuid}) on interface #{inspect(state.interface)}"
+        )
+
         Tau5.Discovery.KnownNodes.add_node(
-          Logger.debug(
-            "Adding sender node #{inspect(sender_hostname)} (#{sender_uuid}) on interface #{inspect(state.interface)}"
-          ),
           state.interface,
           sender_hostname,
           src_ip,
