@@ -33,6 +33,9 @@ defmodule Tau5.Discovery.AckReceiver do
   end
 
   @impl true
+
+
+
   def handle_call(:get_interface, _from, state) do
     {:reply, state.interface, state}
   end
@@ -52,42 +55,42 @@ defmodule Tau5.Discovery.AckReceiver do
       {:ok,
        %{
          "cmd" => "ack",
-         "uuid" => sender_uuid,
+         "node_uuid" => sender_node_uuid,
          "hostname" => sender_hostname,
          "metadata" => sender_metadata,
          "token" => ^token,
          "other_nodes" => other_nodes
        }} ->
         Logger.debug(
-          "Adding sender node #{inspect(sender_hostname)} (#{sender_uuid}) on interface #{inspect(state.interface)}"
+          "Adding sender node #{inspect(sender_hostname)} (#{sender_node_uuid}) on interface #{inspect(state.interface)}"
         )
 
         Tau5.Discovery.KnownNodes.add_node(
           state.interface,
           sender_hostname,
           src_ip,
-          sender_uuid,
+          sender_node_uuid,
           sender_metadata,
           false
         )
 
-        Enum.map(other_nodes, fn [hostname, ip, uuid, metadata] ->
+        Enum.map(other_nodes, fn [hostname, ip, node_uuid, metadata] ->
           Logger.debug(
-            "Adding other node  #{inspect(hostname)} (#{uuid}) on interface #{inspect(state.interface)}"
+            "Adding other node  #{inspect(hostname)} (#{node_uuid}) on interface #{inspect(state.interface)}"
           )
 
           Tau5.Discovery.KnownNodes.add_node(
             state.interface,
             hostname,
             List.to_tuple(ip),
-            uuid,
+            node_uuid,
             metadata,
             true
           )
         end)
 
       _ ->
-        Logger.error("Acker Receiver failed to decode data: #{inspect(data)}")
+        Logger.error("Ack Receiver failed to decode data: #{inspect(data)}")
     end
 
     {:noreply, state}
