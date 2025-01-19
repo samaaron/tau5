@@ -53,28 +53,33 @@ defmodule Tau5.Discovery.KnownNodes do
   def handle_cast({:add, discovery_interface, hostname, ip, uuid, info, transient}, state) do
     last_seen = :os.system_time(:millisecond)
 
-    existing_node = Map.get(state, [discovery_interface, hostname, ip, uuid])
+    existing_node = Map.get(state, [discovery_interface, hostname, ip])
 
     state =
       case existing_node do
-        [_info, _last_seen, false] ->
+        [_uuid, _info, _last_seen, false] ->
           # If the existing node is not transient, just update the last seen time
-          Map.put(state, [discovery_interface, hostname, ip, uuid], [
+
+
+          Map.put(state, [discovery_interface, hostname, ip], [
+            uuid,
             info,
             last_seen,
             false
           ])
 
-        [_info, _last_seen, true] ->
+        [_uuid, _info, _last_seen, true] ->
           # existing node is transient. Update it to false if the incoming node is not transient
           if !transient do
-            Map.put(state, [discovery_interface, hostname, ip, uuid], [
+            Map.put(state, [discovery_interface, hostname, ip], [
+              uuid,
               info,
               last_seen,
               false
             ])
           else
-            Map.put(state, [discovery_interface, hostname, ip, uuid], [
+            Map.put(state, [discovery_interface, hostname, ip], [
+              uuid,
               info,
               last_seen,
               true
@@ -83,7 +88,7 @@ defmodule Tau5.Discovery.KnownNodes do
 
         nil ->
           # If the node does not exist, add it
-          Map.put(state, [discovery_interface, hostname, ip, uuid], [info, last_seen, transient])
+          Map.put(state, [discovery_interface, hostname, ip], [uuid, info, last_seen, transient])
 
         _ ->
         # Error
@@ -92,7 +97,7 @@ defmodule Tau5.Discovery.KnownNodes do
       end
 
     # state should probably have the structure:
-    # %{} discovery_interface -> [hostname, ip, uuid] -> [info, last_seen, transient]
+    # %{} discovery_interface -> [hostname, ip] -> [uuid, info, last_seen, transient]
 
     {:noreply, state}
   end
@@ -125,7 +130,7 @@ defmodule Tau5.Discovery.KnownNodes do
     cutoff = now - @max_node_age
 
     new_known_nodes =
-      Enum.filter(state, fn {_key, [_info, last_seen, _transient]} ->
+      Enum.filter(state, fn {_key, [_uuid, _info, last_seen, _transient]} ->
         last_seen > cutoff
       end)
       |> Enum.into(%{})
@@ -144,8 +149,8 @@ defmodule Tau5.Discovery.KnownNodes do
 
   def find_non_transient_nodes(state) do
     state
-    |> Enum.filter(fn {[_discovery_interface, _hostname, _ip, _uuid],
-                       [_info, _last_seen, transient]} ->
+    |> Enum.filter(fn {[_discovery_interface, _hostname, _ip],
+                       [_uuid, _info, _last_seen, transient]} ->
       !transient
     end)
     |> Enum.into(%{})
@@ -153,10 +158,10 @@ defmodule Tau5.Discovery.KnownNodes do
 
   defp find_non_transient_nodes_on_interface(interface, state) do
     state
-    |> Enum.filter(fn {[discovery_interface, _hostname, _ip, _uuid], _info} ->
+    |> Enum.filter(fn {[discovery_interface, _hostname, _ip], _info} ->
       discovery_interface == interface
     end)
-    |> Enum.filter(fn {_key, [_info, _last_seen, transient]} ->
+    |> Enum.filter(fn {_key, [_uuid, _info, _last_seen, transient]} ->
       !transient
     end)
     |> Enum.into(%{})
@@ -164,7 +169,7 @@ defmodule Tau5.Discovery.KnownNodes do
 
   defp find_nodes_on_interface(interface, state) do
     state
-    |> Enum.filter(fn {[discovery_interface, _hostname, _ip, _uuid], _info} ->
+    |> Enum.filter(fn {[discovery_interface, _hostname, _ip], _info} ->
       discovery_interface == interface
     end)
     |> Enum.into(%{})
@@ -176,7 +181,7 @@ defmodule Tau5.Discovery.KnownNodes do
   defp to_json_encodable(state) do
     state =
       state
-      |> Enum.map(fn {[_discovery_interface, hostname, ip, uuid], [info, _last_seen, _transient]} ->
+      |> Enum.map(fn {[_discovery_interface, hostname, ip], [uuid, info, _last_seen, _transient]} ->
         [hostname, Tuple.to_list(ip), uuid, info]
       end)
 
