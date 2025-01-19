@@ -15,7 +15,7 @@ defmodule Tau5.Discovery.Broadcaster do
 
   @impl true
   def init(%{
-        uuid: uuid,
+        node_uuid: node_uuid,
         hostname: hostname,
         metadata: metadata,
         interface: interface,
@@ -49,7 +49,7 @@ defmodule Tau5.Discovery.Broadcaster do
     )
 
     state = %{
-      uuid: uuid,
+      node_uuid: node_uuid,
       hostname: hostname,
       metadata: metadata,
       socket: socket,
@@ -67,7 +67,7 @@ defmodule Tau5.Discovery.Broadcaster do
   @impl true
   def handle_info(:broadcast, state) do
     with %{
-           uuid: uuid,
+           node_uuid: node_uuid,
            hostname: hostname,
            metadata: metadata,
            socket: socket,
@@ -79,7 +79,7 @@ defmodule Tau5.Discovery.Broadcaster do
       message = %{
         cmd: "hello!",
         hostname: hostname,
-        uuid: uuid,
+        node_uuid: node_uuid,
         ip: Tuple.to_list(interface),
         ack_port: ack_port,
         metadata: metadata,
@@ -105,14 +105,14 @@ defmodule Tau5.Discovery.Broadcaster do
         :ok,
         %{
           "cmd" => "hello!",
-          "uuid" => sender_uuid,
+          "node_uuid" => sender_node_uuid,
           "hostname" => sender_hostname,
           "metadata" => sender_metadata,
           "ack_port" => sender_ack_port,
           "token" => sender_token
         }
       }
-      when sender_uuid != state.uuid ->
+      when sender_node_uuid != state.node_uuid ->
         Logger.debug(
           "Discovery broadcaster received UDP message on interface #{inspect(state.interface)} from #{inspect(src_ip)}:#{inspect(src_port)} -----> #{data}"
         )
@@ -121,7 +121,7 @@ defmodule Tau5.Discovery.Broadcaster do
           state.interface,
           sender_hostname,
           src_ip,
-          sender_uuid,
+          sender_node_uuid,
           sender_metadata,
           false
         )
@@ -141,7 +141,7 @@ defmodule Tau5.Discovery.Broadcaster do
         ack =
           Jason.encode!(%{
             cmd: "ack",
-            uuid: state.uuid,
+            node_uuid: state.node_uuid,
             hostname: state.hostname,
             ack_port: state.ack_port,
             metadata: state.metadata,
@@ -157,7 +157,7 @@ defmodule Tau5.Discovery.Broadcaster do
 
         {:noreply, state}
 
-      {:ok, %{"uuid" => uuid}} when uuid == state.uuid ->
+      {:ok, %{"node_uuid" => node_uuid}} when node_uuid == state.node_uuid ->
         # Logger.debug("Ignored own message")
         {:noreply, state}
 

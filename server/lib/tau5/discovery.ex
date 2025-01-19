@@ -18,7 +18,7 @@ defmodule Tau5.Discovery do
       |> Map.put_new(:multicast_addr, @default_multicast_addr)
       |> Map.put_new(:discovery_port, @default_discovery_port)
       |> Map.put_new(:hostname, gethostname())
-      |> Map.put_new(:uuid, UUID.uuid4())
+      |> Map.put_new(:node_uuid, UUID.uuid4())
 
     children = [
       Tau5.Discovery.KnownNodes,
