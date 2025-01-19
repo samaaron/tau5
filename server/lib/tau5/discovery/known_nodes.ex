@@ -45,6 +45,11 @@ defmodule Tau5.Discovery.KnownNodes do
   end
 
   @impl true
+  def handle_cast({:add, address, _hostname, address, _uuid, _info, _transient}, state) do
+    # Don't add self
+    {:noreply, state}
+  end
+
   def handle_cast({:add, discovery_interface, hostname, ip, uuid, info, transient}, state) do
     last_seen = :os.system_time(:millisecond)
 
