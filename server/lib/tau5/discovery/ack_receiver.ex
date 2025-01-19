@@ -55,15 +55,32 @@ defmodule Tau5.Discovery.AckReceiver do
          "uuid" => sender_uuid,
          "hostname" => sender_hostname,
          "metadata" => sender_metadata,
-         "token" => ^token
+         "token" => ^token,
+         "other_nodes" => other_nodes
        }} ->
         Tau5.Discovery.KnownNodes.add_node(
-          sender_uuid,
+          Logger.debug(
+            "Adding sender node #{inspect(sender_hostname)} (#{sender_uuid}) on interface #{inspect(state.interface)}"
+          ),
           state.interface,
-          hostname: sender_hostname,
-          metadata: sender_metadata,
-          ip: src_ip
+          sender_hostname,
+          src_ip,
+          sender_uuid,
+          sender_metadata
         )
+
+        Enum.map(other_nodes, fn [hostname, ip, uuid, metadata] ->
+          Tau5.Discovery.KnownNodes.add_node(
+            Logger.debug(
+              "Adding other node  #{inspect(hostname)} (#{uuid}) on interface #{inspect(state.interface)}"
+            ),
+            state.interface,
+            hostname,
+            List.to_tuple(ip),
+            uuid,
+            metadata
+          )
+        end)
 
       _ ->
         Logger.error("Acker Receiver failed to decode data: #{inspect(data)}")

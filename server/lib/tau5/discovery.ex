@@ -34,6 +34,10 @@ defmodule Tau5.Discovery do
     Tau5.Discovery.KnownNodes.nodes()
   end
 
+  def interfaces do
+    Tau5.Discovery.NetworkInterfaceWatcher.interfaces()
+  end
+
   defp gethostname do
     case :inet.gethostname() do
       {:ok, host} -> to_string(host)

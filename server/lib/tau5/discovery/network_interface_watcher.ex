@@ -30,11 +30,20 @@ defmodule Tau5.Discovery.NetworkInterfaceWatcher do
     {:ok, state}
   end
 
+  def interfaces do
+    GenServer.call(__MODULE__, :interfaces)
+  end
+
   @impl true
   def handle_info(:update_interfaces, state) do
     state = update_interfaces(state)
     schedule_update()
     {:noreply, state}
+  end
+
+  @impl true
+  def handle_call(:interfaces, _from, state) do
+    {:reply, state.interfaces, state}
   end
 
   defp schedule_update do

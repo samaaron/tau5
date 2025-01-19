@@ -3,6 +3,7 @@ defmodule Tau5.Discovery.Broadcaster do
   require Logger
 
   @broadcast_interval 15_000
+  @max_nodes_to_share 10
 
   def interface(pid) do
     GenServer.call(pid, :get_interface)
@@ -117,21 +118,34 @@ defmodule Tau5.Discovery.Broadcaster do
         )
 
         Tau5.Discovery.KnownNodes.add_node(
-          sender_uuid,
           state.interface,
-          hostname: sender_hostname,
-          metadata: sender_metadata,
-          ip: src_ip
+          sender_hostname,
+          src_ip,
+          sender_uuid,
+          sender_metadata
         )
 
-        {:ok, ack} =
-          Jason.encode(%{
+        other_nodes =
+          Tau5.Discovery.KnownNodes.nodes_on_interface_to_json_encodable(state.interface)
+
+        other_nodes =
+          cond do
+            Enum.count(other_nodes) > @max_nodes_to_share ->
+              Enum.shuffle(other_nodes) |> Enum.take(@max_nodes_to_share)
+
+            true ->
+              other_nodes
+          end
+
+        ack =
+          Jason.encode!(%{
             cmd: "ack",
             uuid: state.uuid,
             hostname: state.hostname,
             ack_port: state.ack_port,
             metadata: state.metadata,
-            token: sender_token
+            token: sender_token,
+            other_nodes: other_nodes
           })
 
         Logger.debug(
