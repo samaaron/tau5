@@ -120,16 +120,17 @@ defmodule Tau5.Discovery.KnownNodes do
   end
 
   @impl true
-  def handle_info(:cleanup, known_nodes) do
+  def handle_info(:cleanup, state) do
     now = :os.system_time(:millisecond)
     cutoff = now - @max_node_age
 
     new_known_nodes =
-      Enum.filter(known_nodes, fn {_key, [_info, last_seen, _transient]} ->
+      Enum.filter(state, fn {_key, [_info, last_seen, _transient]} ->
         last_seen > cutoff
       end)
       |> Enum.into(%{})
 
+    schedule_cleanup()
     {:noreply, new_known_nodes}
   end
 
