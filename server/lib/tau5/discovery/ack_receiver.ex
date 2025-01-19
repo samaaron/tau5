@@ -71,10 +71,11 @@ defmodule Tau5.Discovery.AckReceiver do
         )
 
         Enum.map(other_nodes, fn [hostname, ip, uuid, metadata] ->
+          Logger.debug(
+            "Adding other node  #{inspect(hostname)} (#{uuid}) on interface #{inspect(state.interface)}"
+          )
+
           Tau5.Discovery.KnownNodes.add_node(
-            Logger.debug(
-              "Adding other node  #{inspect(hostname)} (#{uuid}) on interface #{inspect(state.interface)}"
-            ),
             state.interface,
             hostname,
             List.to_tuple(ip),
