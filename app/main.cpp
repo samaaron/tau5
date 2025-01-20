@@ -50,8 +50,6 @@ int main(int argc, char *argv[])
       FILE* stream;
       freopen_s(&stream, "CONOUT$", "w", stdout);
       freopen_s(&stream, "CONOUT$", "w", stderr);
-
-      std::cout << "Development mode enabled." << std::endl;
     }
   }
 #endif
