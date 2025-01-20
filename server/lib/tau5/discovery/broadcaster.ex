@@ -2,7 +2,7 @@ defmodule Tau5.Discovery.Broadcaster do
   use GenServer, restart: :transient
   require Logger
 
-  @broadcast_interval 15_000
+  @broadcast_interval 28_000
   @max_nodes_to_share 10
 
   def interface(pid) do
