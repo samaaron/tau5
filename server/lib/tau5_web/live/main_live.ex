@@ -15,7 +15,7 @@ defmodule Tau5Web.MainLive do
      assign(socket,
        code:
          "// Tau5 Editor\n\nosc(10, 0.1, 0.8)\n  .rotate(0.1)\n  .modulate(osc(10), 0.5)\n  .out()",
-       nodes: %{}
+       nodes: Tau5.Discovery.nodes()
      )}
   end
 
@@ -79,7 +79,21 @@ defmodule Tau5Web.MainLive do
           Tau5 Nodes:
           <ul>
             <%= for {[_discovery_interface, hostname, ip, _uuid], [info, _last_seen, _transient]} <- @nodes do %>
-              <li>{hostname} - {IP.to_string(ip)}:{info["http_port"]}</li>
+              <li class="grid items-end grid-cols-2 gap-1 ">
+                <div class="p-1 m-1 text-xl text-black text-opacity-75 bg-white rounded-sm mix-blend-difference bg-opacity-70">
+                  <span>
+                    {hostname}
+                  </span>
+                </div>
+                
+                <div class="p-1 m-1 text-xl text-black text-opacity-75 bg-white rounded-sm mix-blend-difference bg-opacity-70">
+                  <a href={ip_and_port_to_http_string(ip, info["http_port"])}>
+                    <span>
+                      {IP.to_string(ip)}:{info["http_port"]}
+                    </span>
+                  </a>
+                </div>
+              </li>
             <% end %>
           </ul>
         </p>
@@ -111,5 +125,9 @@ defmodule Tau5Web.MainLive do
   @impl true
   def handle_info({:nodes_updated, nodes}, socket) do
     {:noreply, assign(socket, :nodes, nodes)}
+  end
+
+  defp ip_and_port_to_http_string(ip, port) do
+    "http://#{IP.to_string(ip)}:#{port}"
   end
 end
