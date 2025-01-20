@@ -65,7 +65,10 @@ defmodule Tau5.Discovery.KnownNodes do
   end
 
   @impl true
-  def handle_cast({:add, address, _hostname, address, _uuid, _info, _transitive}, state) do
+  def handle_cast(
+        {:add, _discovery_interface, _hostname, _ip, uuid, _info, _transitive},
+        [%{node_uuid: uuid}, _nodes] = state
+      ) do
     # Don't add self
     {:noreply, state}
   end
@@ -76,11 +79,11 @@ defmodule Tau5.Discovery.KnownNodes do
       ]) do
     last_seen = :os.system_time(:millisecond)
 
-    existing_node = Map.get(nodes, [discovery_interface, hostname, ip])
+    existing_node = Map.get(nodes, [discovery_interface, hostname, ip, uuid])
 
     new_nodes =
       case existing_node do
-        [_uuid, _info, _last_seen, false] ->
+        [_info, _last_seen, false] ->
           # If the existing node is not transitive, just update the last seen time
 
           Map.put(nodes, [discovery_interface, hostname, ip, uuid], [
@@ -89,7 +92,7 @@ defmodule Tau5.Discovery.KnownNodes do
             false
           ])
 
-        [_uuid, _info, _last_seen, true] ->
+        [_info, _last_seen, true] ->
           # existing node is transitive. Update it to false if the incoming node is not transitive
           if !transitive do
             Map.put(nodes, [discovery_interface, hostname, ip, uuid], [
@@ -112,6 +115,7 @@ defmodule Tau5.Discovery.KnownNodes do
         _ ->
           # Error
           Logger.error("Known Nodes - unknown node state: #{inspect(existing_node)}")
+          nodes
       end
 
     PubSub.broadcast(Tau5.PubSub, @known_nodes_topic, {:nodes_updated, new_nodes})
@@ -194,16 +198,13 @@ defmodule Tau5.Discovery.KnownNodes do
     |> Enum.into(%{})
   end
 
-  defp find_nodes_on_interface(interface, state) do
-    state
+  defp find_nodes_on_interface(interface, nodes) do
+    nodes
     |> Enum.filter(fn {[discovery_interface, _hostname, _ip, _uuid], _info} ->
       discovery_interface == interface
     end)
     |> Enum.into(%{})
   end
-
-  ## Converts internal node list representation to a JSON-encodable format. This looks as follows
-  ## [
 
   defp to_json_encodable(nodes) do
     nodes =
