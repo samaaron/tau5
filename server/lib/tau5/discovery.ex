@@ -12,16 +12,18 @@ defmodule Tau5.Discovery do
 
   @impl true
   def init(args) when is_map(args) do
+    node_uuid = UUID.uuid4()
+
     info =
       args
       |> Map.put_new(:metadata, @default_metadata)
       |> Map.put_new(:multicast_addr, @default_multicast_addr)
       |> Map.put_new(:discovery_port, @default_discovery_port)
       |> Map.put_new(:hostname, gethostname())
-      |> Map.put_new(:node_uuid, UUID.uuid4())
+      |> Map.put_new(:node_uuid, node_uuid)
 
     children = [
-      Tau5.Discovery.KnownNodes,
+      {Tau5.Discovery.KnownNodes, info},
       Tau5.Discovery.ReceiverSupervisor,
       Tau5.Discovery.BroadcastSupervisor,
       {Tau5.Discovery.NetworkInterfaceWatcher, info}
