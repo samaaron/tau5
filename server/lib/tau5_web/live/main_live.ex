@@ -3,12 +3,19 @@ defmodule Tau5Web.MainLive do
   require Logger
   require Tau5.MonacoEditor
 
+  @known_nodes_topic "known_nodes"
+
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Tau5.PubSub, @known_nodes_topic)
+    end
+
     {:ok,
      assign(socket,
        code:
-         "// Tau5 Editor\n\nosc(10, 0.1, 0.8)\n  .rotate(0.1)\n  .modulate(osc(10), 0.5)\n  .out()"
+         "// Tau5 Editor\n\nosc(10, 0.1, 0.8)\n  .rotate(0.1)\n  .modulate(osc(10), 0.5)\n  .out()",
+       nodes: %{}
      )}
   end
 
@@ -66,6 +73,17 @@ defmodule Tau5Web.MainLive do
         
         <div resize-handle class="absolute bottom-0 right-0 z-20 w-4 h-4 cursor-se-resize"></div>
       </div>
+      
+      <div class="text-white bg-black bg-opacity-70 mix-blend-difference">
+        <p>
+          Tau5 Nodes:
+          <ul>
+            <%= for {[_discovery_interface, hostname, ip, _uuid], [info, _last_seen, _transient]} <- @nodes do %>
+              <li>{hostname} - {IP.to_string(ip)}:{info["http_port"]}</li>
+            <% end %>
+          </ul>
+        </p>
+      </div>
     </div>
     """
   end
@@ -88,5 +106,10 @@ defmodule Tau5Web.MainLive do
       Tau5.MonacoEditor.apply_event_on_did_change_model_content(current_code, changes)
 
     {:noreply, assign(socket, :code, updated_code)}
+  end
+
+  @impl true
+  def handle_info({:nodes_updated, nodes}, socket) do
+    {:noreply, assign(socket, :nodes, nodes)}
   end
 end

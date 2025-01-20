@@ -55,7 +55,8 @@ defmodule Tau5.MixProject do
       {:gettext, "~> 0.20"},
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"},
-      {:uuid, "~> 1.1"}
+      {:uuid, "~> 1.1"},
+      {:net_address, "~> 0.3.1"}
     ]
   end
 
