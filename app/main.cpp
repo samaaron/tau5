@@ -41,13 +41,15 @@ int main(int argc, char *argv[])
     port = getFreePort();
   }
 
+
 #if defined(Q_OS_WIN)
   if (devMode)
   {
     if (AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole())
     {
-      freopen("CONOUT$", "w", stdout);
-      freopen("CONOUT$", "w", stderr);
+      FILE* stream;
+      freopen_s(&stream, "CONOUT$", "w", stdout);
+      freopen_s(&stream, "CONOUT$", "w", stderr);
 
       std::cout << "Development mode enabled." << std::endl;
     }
