@@ -21,9 +21,9 @@
           Collaborative Live Coding
                 for Everyone
 
-# Sonic Pi - Tau5
+# Tau5
 
-This is the ground-up re-development of Sonic Pi. The codename for this work is Tau5. When completed it will become Sonic Pi v5.
+This is the ground-up re-development of Sonic Pi's core ideas - with a specific focus on collaboration and web compatibility.
 
 The main technology for Tau5 is a VM called the BEAM which hosts both the Erlang and Elixir programming languages whilst also enabling low-latency comms with C++ native code for MIDI/Ableton Link/etc.
 
@@ -31,7 +31,7 @@ The main technology for Tau5 is a VM called the BEAM which hosts both the Erlang
 
 Tau5 will enable next-level live-coding collaboration. It will support co-located, distributed and async jamming sessions.
 
-* Co-located Jamming - Tau5 jam-sessions will enable multiple participants and by default will always be in sync. This is independent yet co-operative with Ableton Link functionality which will also be included for co-located jamming with other software and systems.
+* Co-located Jamming with autodiscovery - Tau5 network-connected jam-sessions will enable multiple participants to autodiscover and connect with each other in order to jam in sync. Support for Ableton Link will also be built-in to enable jamming with any Ableton Link powered system (including Ableton Live, Resolume, TOOLL3 and others)
 
 * Distributed Jamming - Tau5 will enable synchronous  world-wide jam sessions using a central server for well-timed coordination of events.
 
@@ -39,7 +39,7 @@ Tau5 will enable next-level live-coding collaboration. It will support co-locate
 
 ## Next Language - Tau5Lang
 
-Ruby will not feature in Tau5. This is because it's not suited for sharing and running arbitrary code due to security issues.
+Ruby will not feature in Tau5. This is because it's not suited for sharing and running arbitrary code due to security issues (as is the case for any programming language that has access to system commands - including Python)
 
 A new language - Tau5Lang - will be developed with syntactical similarity to Sonic Pi's Ruby DSL - but based on top of Lua.
 
