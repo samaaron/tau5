@@ -1,5 +1,5 @@
 @echo off
-set WORKING_DIR=%CD%
+set BUILD_WORKING_DIR=%CD%
 set CONFIG=%1
 
 cd %~dp0
@@ -8,7 +8,7 @@ cd %~dp0
 call build-server.bat
 if %errorlevel% neq 0 (
     echo build-server.bat failed with exit code %errorlevel%
-    cd %WORKING_DIR%
+    cd %BUILD_WORKING_DIR%
     exit /b %errorlevel%
 )
 
@@ -16,8 +16,9 @@ if %errorlevel% neq 0 (
 call build-app.bat
 if %errorlevel% neq 0 (
     echo build-app.bat failed with exit code %errorlevel%
-    cd %WORKING_DIR%
+    cd %BUILD_WORKING_DIR%
     exit /b %errorlevel%
 )
 
-cd %WORKING_DIR%
+@echo "Completed Building Tau5"
+cd %BUILD_WORKING_DIR%
