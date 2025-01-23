@@ -73,7 +73,7 @@ defmodule Tau5.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "assets.setup", "assets.build"],
+      setup: ["deps.get", "assets.setup", "assets.build", "sp_nifs.compile"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["tailwind tau5", "esbuild tau5", "esbuild monaco_worker"],
       "assets.deploy": [

@@ -18,6 +18,37 @@ defmodule Mix.Tasks.SpNifs.Compile do
 
   defp compile(:win, :x64) do
     Logger.info("Compiling SPLink for Windows x64")
+    File.mkdir_p("deps/sp_link/build")
+
+    File.cd!("deps/sp_link/build", fn ->
+      {cmake_output, cmake_status} =
+        System.cmd("cmake", [
+          "-G",
+          "Visual Studio 17 2022",
+          "-A",
+          "x64",
+          "-DCMAKE_INSTALL_PREFIX=../../../priv/nif",
+          "-DCMAKE_BUILD_TYPE=Release",
+          ".."
+        ])
+
+      Logger.debug("CMake output:\n#{cmake_output}")
+      if cmake_status != 0, do: raise("CMake failed with status #{cmake_status}")
+
+      {cmake_output, cmake_status} =
+        System.cmd("cmake", ["--build", ".", "--config", "Release"])
+
+      Logger.debug("CMake output:\n#{cmake_output}")
+      if cmake_status != 0, do: raise("CMake failed with status #{cmake_status}")
+
+      {cmake_output, cmake_status} =
+        System.cmd("cmake", ["--install", "."])
+
+      Logger.debug("CMake output:\n#{cmake_output}")
+      if cmake_status != 0, do: raise("CMake failed with status #{cmake_status}")
+
+      Logger.info("Building SP Link for Win x64 complete")
+    end)
   end
 
   defp compile(:macos, :arm64) do
