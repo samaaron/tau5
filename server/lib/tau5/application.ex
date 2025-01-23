@@ -23,7 +23,8 @@ defmodule Tau5.Application do
       # Start to serve requests, typically the last entry
 
       Tau5Web.Endpoint,
-      {Tau5.Discovery, %{metadata: discovery_metadata}}
+      {Tau5.Discovery, %{metadata: discovery_metadata}},
+      Tau5.Link
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

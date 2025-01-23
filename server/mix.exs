@@ -56,7 +56,12 @@ defmodule Tau5.MixProject do
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"},
       {:uuid, "~> 1.1"},
-      {:net_address, "~> 0.3.1"}
+      {:net_address, "~> 0.3.1"},
+      {:sp_link,
+       git: "https://github.com/sonic-pi-net/sp_link.git",
+       ref: "d000ab95228dc1266ff6e32d8ce4c375aa85044d",
+       app: false,
+       compile: false}
     ]
   end
 
