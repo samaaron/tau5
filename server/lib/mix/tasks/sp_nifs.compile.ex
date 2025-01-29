@@ -16,11 +16,16 @@ defmodule Mix.Tasks.SpNifs.Compile do
     end
   end
 
-  defp compile(:win, :x64) do
-    Logger.info("Compiling SPLink for Windows x64")
-    File.mkdir_p("deps/sp_link/build")
+  def compile(platform, arch) do
+    compile_spmidi(platform, arch)
+    compile_splink(platform, arch)
+  end
 
-    File.cd!("deps/sp_link/build", fn ->
+  defp compile_win_x64(proj) do
+    Logger.info("Compiling #{proj} for Windows x64")
+    File.mkdir_p("deps/#{proj}/build")
+
+    File.cd!("deps/#{proj}/build", fn ->
       {cmake_output, cmake_status} =
         System.cmd("cmake", [
           "-G",
@@ -47,11 +52,27 @@ defmodule Mix.Tasks.SpNifs.Compile do
       Logger.debug("CMake output:\n#{cmake_output}")
       if cmake_status != 0, do: raise("CMake failed with status #{cmake_status}")
 
-      Logger.info("Building SP Link for Win x64 complete")
+      Logger.info("Building #{proj} for Win x64 complete")
     end)
   end
 
-  defp compile(:macos, :arm64) do
+  defp compile_spmidi(:win, :x64) do
+    compile_win_x64("sp_midi")
+  end
+
+  defp compile_spmidi(os, arch) do
+    Logger.info("Uknown OS or architecture to compile spmidi for: #{inspect([os, arch])}")
+  end
+
+  defp compile_splink(:win, :x64) do
+    compile_win_x64("sp_link")
+  end
+
+  defp compile_splink(os, arch) do
+    Logger.info("Uknown OS or architecture to compile splink for: #{inspect([os, arch])}")
+  end
+
+  defp compile_splink(:macos, :arm64) do
     Logger.info("Compiling for SPLink for macOS arm64")
     File.mkdir_p("deps/sp_link/build")
 
@@ -78,11 +99,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
     end)
   end
 
-  defp compile(os, arch) do
-    Logger.info("Uknown OS or architecture to compile for: #{inspect([os, arch])}")
-  end
-
-  def arch do
+  defp arch do
     arch_desc = to_string(:erlang.system_info(:system_architecture))
 
     case arch_desc do
