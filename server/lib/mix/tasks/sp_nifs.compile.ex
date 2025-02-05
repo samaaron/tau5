@@ -56,27 +56,11 @@ defmodule Mix.Tasks.SpNifs.Compile do
     end)
   end
 
-  defp compile_spmidi(:win, :x64) do
-    compile_win_x64("sp_midi")
-  end
+  defp compile_mac_arm64(proj) do
+    Logger.info("Compiling #{proj} for macOS arm64")
+    File.mkdir_p("deps/#{proj}/build")
 
-  defp compile_spmidi(os, arch) do
-    Logger.info("Uknown OS or architecture to compile spmidi for: #{inspect([os, arch])}")
-  end
-
-  defp compile_splink(:win, :x64) do
-    compile_win_x64("sp_link")
-  end
-
-  defp compile_splink(os, arch) do
-    Logger.info("Uknown OS or architecture to compile splink for: #{inspect([os, arch])}")
-  end
-
-  defp compile_splink(:macos, :arm64) do
-    Logger.info("Compiling for SPLink for macOS arm64")
-    File.mkdir_p("deps/sp_link/build")
-
-    File.cd!("deps/sp_link/build", fn ->
+    File.cd!("deps/#{proj}/build", fn ->
       {cmake_output, cmake_status} =
         System.cmd("cmake", [
           "-G",
@@ -91,12 +75,44 @@ defmodule Mix.Tasks.SpNifs.Compile do
       Logger.debug("CMake output:\n#{cmake_output}")
       if cmake_status != 0, do: raise("CMake failed with status #{cmake_status}")
 
-      {cmake_output, cmake_status} = System.cmd("cmake", ["--install", "."])
+      {cmake_output, cmake_status} =
+        System.cmd("cmake", ["--build", ".", "--config", "Release"])
+
       Logger.debug("CMake output:\n#{cmake_output}")
       if cmake_status != 0, do: raise("CMake failed with status #{cmake_status}")
 
-      Logger.info("Building SP Link for macOS arm64 complete")
+      {cmake_output, cmake_status} =
+        System.cmd("cmake", ["--install", "."])
+
+      Logger.debug("CMake output:\n#{cmake_output}")
+      if cmake_status != 0, do: raise("CMake failed with status #{cmake_status}")
+
+      Logger.info("Building #{proj} for macOS arm64 complete")
     end)
+  end
+
+  defp compile_spmidi(:win, :x64) do
+    compile_win_x64("sp_midi")
+  end
+
+  defp compile_spmidi(:macos, :arm64) do
+    compile_mac_arm64("sp_midi")
+  end
+
+  defp compile_spmidi(os, arch) do
+    Logger.info("Uknown OS or architecture to compile spmidi for: #{inspect([os, arch])}")
+  end
+
+  defp compile_splink(:win, :x64) do
+    compile_win_x64("sp_link")
+  end
+
+  defp compile_splink(:macos, :arm64) do
+    compile_mac_arm64("sp_link")
+  end
+
+  defp compile_splink(os, arch) do
+    Logger.info("Uknown OS or architecture to compile splink for: #{inspect([os, arch])}")
   end
 
   defp arch do
