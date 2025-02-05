@@ -23,10 +23,10 @@ jobs:
               build_type: "Release",
             }
           - {
-              title: "MacOS",
+              title: "macOS",
               os: "macos-latest",
               cc: "clang",
-              arch: "x64",
+              arch: "arm64",
               build_type: "Release",
             }
 
@@ -37,13 +37,13 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           modules: "qtpositioning qtwebchannel qtwebengine"
-          version: "6.7.3"
+          version: "6.8.2"
 
       - name: Win Elixir
         uses: erlef/setup-beam@v1
         with:
           otp-version: "27"
-          elixir-version: "1.17.3"
+          elixir-version: "1.18.0"
         if: matrix.os == 'windows-latest'
 
       - name: Mac Elixir
