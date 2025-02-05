@@ -43,7 +43,7 @@ jobs:
         uses: erlef/setup-beam@v1
         with:
           otp-version: "27"
-          elixir-version: "1.18.0"
+          elixir-version: "1.18.2"
         if: matrix.os == 'windows-latest'
 
       - name: Mac Elixir
