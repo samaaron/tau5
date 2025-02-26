@@ -33,11 +33,23 @@ defmodule Tau5.Discovery do
   end
 
   def nodes do
-    Tau5.Discovery.KnownNodes.nodes()
+    case Process.whereis(Tau5.Discovery.KnownNodes) do
+      nil ->
+        []
+
+      _ ->
+        Tau5.Discovery.KnownNodes.nodes()
+    end
   end
 
   def interfaces do
-    Tau5.Discovery.NetworkInterfaceWatcher.interfaces()
+    case Process.whereis(Tau5.Discovery.NetworkInterfaceWatcher) do
+      nil ->
+        []
+
+      _ ->
+        Tau5.Discovery.NetworkInterfaceWatcher.interfaces()
+    end
   end
 
   defp gethostname do

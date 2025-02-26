@@ -32,7 +32,7 @@ start_stop_sync_enable(_) ->
 get_num_peers() ->
     0.
 get_tempo() ->
-    60.
+    60.0.
 set_tempo(_, _) ->
     done.
 get_beat_at_time(_, _) ->
