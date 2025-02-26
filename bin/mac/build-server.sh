@@ -19,6 +19,5 @@ MIX_ENV=prod mix setup
 MIX_ENV=prod mix assets.deploy
 MIX_ENV=prod mix release --overwrite --no-deps-check
 
-MIX_ENV=dev mix deps.get
-MIX_ENV=dev mix compile
+MIX_ENV=dev mix setup
 

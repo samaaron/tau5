@@ -100,7 +100,8 @@ jobs:
         if: matrix.os == 'windows-latest'
 
       - name: Build macOS
-        run: ./bin/mac/build.sh
+        working-directory: ${{github.workspace}}/bin/mac
+        run: build.sh
         if: matrix.os == 'macos-latest'
 
       - name: BEAM Tests Windows
