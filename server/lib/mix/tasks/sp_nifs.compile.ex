@@ -75,6 +75,43 @@ defmodule Mix.Tasks.SpNifs.Compile do
     )
   end
 
+  defp compile_lin_x64(proj) do
+    Logger.info("Compiling #{proj} for Linux x64")
+    proj_base_dir = "deps/#{proj}"
+    proj_build_dir = "#{proj_base_dir}/build"
+    File.mkdir_p(proj_build_dir)
+
+    cmake_build_and_install(
+      build_dir: proj_build_dir,
+      install_dir: "#{proj_base_dir}/priv/nif",
+      cmake_args: [
+        "-G",
+        "Unix Makefiles",
+        "-DCMAKE_OSC_ARCHITECTURES=x86_64"
+      ]
+    )
+  end
+
+  defp compile_win_arm64(proj) do
+    Logger.info("Compiling #{proj} for Windows arm64")
+    proj_base_dir = "deps/#{proj}"
+    proj_build_dir = "#{proj_base_dir}/build"
+    File.mkdir_p(proj_build_dir)
+
+    cmake_build_and_install(
+      build_dir: proj_build_dir,
+      install_dir: "#{proj_base_dir}/priv/nif",
+      cmake_args: [
+        "-G",
+        "Visual Studio 17 2022",
+        "-A",
+        "ARM64"
+      ]
+    )
+
+    Logger.info("Building #{proj} for Win arm64 complete")
+  end
+
   defp compile_win_x64(proj) do
     Logger.info("Compiling #{proj} for Windows x64")
     proj_base_dir = "deps/#{proj}"
@@ -115,6 +152,10 @@ defmodule Mix.Tasks.SpNifs.Compile do
     Logger.info("Building #{proj} for macOS arm64 complete")
   end
 
+  defp compile_spmidi(:linux, :x64) do
+    compile_lin_x64("sp_nifs")
+  end
+
   defp compile_spmidi(:linux, :arm64) do
     compile_lin_arm64("sp_midi")
   end
@@ -131,8 +172,16 @@ defmodule Mix.Tasks.SpNifs.Compile do
     Logger.info("Uknown OS or architecture to compile spmidi for: #{inspect([os, arch])}")
   end
 
+  defp compile_splink(:linux, :x64) do
+    compile_lin_x64("sp_link")
+  end
+
   defp compile_splink(:linux, :arm64) do
     compile_lin_arm64("sp_link")
+  end
+
+  defp compile_splink(:win, :arm64) do
+    compile_win_arm64("sp_link")
   end
 
   defp compile_splink(:win, :x64) do

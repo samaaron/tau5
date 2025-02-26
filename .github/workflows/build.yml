@@ -23,12 +23,47 @@ jobs:
               build_type: "Release",
             }
           - {
+              title: "Windows",
+              os: "windows-latest",
+              cc: "vs2022",
+              arch: "arm64",
+              build_type: "Release",
+            }
+          - {
               title: "macOS",
               os: "macos-latest",
               cc: "clang",
               arch: "arm64",
               build_type: "Release",
             }
+          - {
+              title: "Linux",
+              os: "ubuntu-latest",
+              cc: "gcc",
+              arch: "x64",
+              build_type: "Release",
+          }
+          - {
+              title: "Linux",
+              os: "ubuntu-latest",
+              cc: "clang",
+              arch: "x64",
+              build_type: "Release",
+          }
+          - {
+              title: "Linux",
+              os: "ubuntu-latest",
+              cc: "gcc",
+              arch: "arm64",
+              build_type: "Release",
+          }
+          - {
+              title: "Linux",
+              os: "ubuntu-latest",
+              cc: "clang",
+              arch: "arm64",
+              build_type: "Release",
+          }
 
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +88,10 @@ jobs:
           brew update
           brew install elixir
         if: matrix.os == 'macos-latest'
+
+      - name: Linux Elixir
+        run: sudo apt-get install elixir
+        if: matrix.os == 'ubuntu-latest'
 
       - name: Build Windows
         working-directory: ${{github.workspace}}/bin/win
