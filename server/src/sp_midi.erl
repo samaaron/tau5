@@ -4,7 +4,6 @@
 
 -define(APPLICATION, tau5).
 -define(LIBNAME, "libsp_midi").
--on_load(init/0).
 
 init() ->
     SoName = filename:join([code:priv_dir(?APPLICATION), "nif", ?LIBNAME]),
