@@ -13,6 +13,7 @@ defmodule Mix.Tasks.SpNifs.Clean do
 
     File.rm_rf!("priv/sp_nifs")
     File.mkdir_p("priv/sp_nifs")
+    File.touch!("priv/sp_nifs/.gitkeep")
     Logger.info("Cleaning SP Nifs complete")
   end
 end
