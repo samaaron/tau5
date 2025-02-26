@@ -61,8 +61,11 @@ int main(int argc, char *argv[])
           "--disable-features=AudioServiceOutOfProcess "
           "--autoplay-policy=no-user-gesture-required");
 
+  QCoreApplication::setAttribute(Qt::AA_UseOpenGLES, true);
+  QCoreApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
+
   QApplication app(argc, argv);
-  QApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
+
   Q_INIT_RESOURCE(Tau5);
   app.setApplicationName(QObject::tr("Tau5"));
   app.setStyle("gtk");
