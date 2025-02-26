@@ -41,59 +41,50 @@ int main(int argc, char *argv[])
     port = getFreePort();
   }
 
-
 #if defined(Q_OS_WIN)
   if (devMode)
   {
     if (AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole())
     {
-      FILE* stream;
+      FILE *stream;
       freopen_s(&stream, "CONOUT$", "w", stdout);
       freopen_s(&stream, "CONOUT$", "w", stderr);
     }
   }
 #endif
 
-    QApplication app(argc, argv);
-    QApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
-    Q_INIT_RESOURCE(Tau5);
-    app.setApplicationName(QObject::tr("Tau5"));
-    app.setStyle("gtk");
+  QApplication app(argc, argv);
+  QApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
+  Q_INIT_RESOURCE(Tau5);
+  app.setApplicationName(QObject::tr("Tau5"));
+  app.setStyle("gtk");
 
-    // Get a free port
+  // Get a free port
 
-    qDebug() << "Using port: " << port;
-    QString appDirPath = QCoreApplication::applicationDirPath();
-    QDir dir(appDirPath);
+  qDebug() << "Using port: " << port;
+  QString appDirPath = QCoreApplication::applicationDirPath();
+  QDir dir(appDirPath);
+
+ // TODO : Make less brittle wrt platform build dirs
 #if defined(Q_OS_WIN)
-    dir.cd("../../../server");
-#else
+  dir.cd("../../../server");
+#elif defined(Q_OS_MACOS)
   dir.cd("../../../../../server");
+#else
+  dir.cd("../../server");
 #endif
 
-    if (devMode)
-    {
+  QString basePath = dir.absolutePath();
+  qDebug() << "Base path: " << basePath;
+  qDebug() << dir.entryList();
 
-      QString basePath = dir.absolutePath();
-      qDebug() << "Base path: " << basePath;
-      qDebug() << dir.entryList();
-      Beam *beam = new Beam(&app, basePath, "tau5", "0.1.0", port, true);
-    }
-    else
-    {
-      dir.cd("../Resources");
-      QString basePath = dir.absolutePath();
-      Beam *beam = new Beam(&app, basePath, "tau5", "0.1.0", port, false);
-
-    }
-
-    MainWindow mainWindow(port);
+  Beam *beam = new Beam(&app, basePath, "tau5", "0.1.0", port, devMode);
+  MainWindow mainWindow(port);
 
 #if defined(Q_OS_WIN)
-    mainWindow.setWindowIcon(QIcon(":/images/app.ico"));
+  mainWindow.setWindowIcon(QIcon(":/images/app.ico"));
 #endif
 
-    mainWindow.show();
-
-    return app.exec();
-  }
+  mainWindow.show();
+  return app.exec();
+}
