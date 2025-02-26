@@ -41,15 +41,14 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
 #else
       releaseErlBinPath = QFileInfo(QString("%1/%2/bin/erl").arg(releaseDir.absolutePath()).arg(ertsFolder)).absoluteFilePath();
 #endif
+      startElixirServerProd();
     }
     else
     {
 
-      qCritical() << "BEAM.cpp - No Elixir _build release folder found. Exiting app.";
+      qCritical() << "BEAM.cpp - Exiting. No Elixir _build release folder found:" << releaseDir.absolutePath();
       QCoreApplication::exit(1); // Exit with non-zero status to indicate an error
     }
-
-    startElixirServerProd();
   }
 }
 
@@ -109,7 +108,7 @@ void Beam::startElixirServerProd()
   QString portStr = QString::number(appPort);
   env.insert("PORT", portStr);
   env.insert("PHX_HOST", "127.0.0.1");
-  env.insert("MIX_ENV", "dev");
+  env.insert("MIX_ENV", "prod");
   env.insert("RELEASE_DISTRIBUTION", "none");
   env.insert("PHX_SERVER", "1");
 
