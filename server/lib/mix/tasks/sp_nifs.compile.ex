@@ -66,7 +66,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
 
     cmake_build_and_install(
       build_dir: proj_build_dir,
-      install_dir: "#{proj_base_dir}/priv/nif",
+      install_dir: "#{proj_base_dir}/priv/sp_nifs",
       cmake_args: [
         "-G",
         "Unix Makefiles",
@@ -83,7 +83,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
 
     cmake_build_and_install(
       build_dir: proj_build_dir,
-      install_dir: "#{proj_base_dir}/priv/nif",
+      install_dir: "#{proj_base_dir}/priv/sp_nifs",
       cmake_args: [
         "-G",
         "Unix Makefiles",
@@ -100,7 +100,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
 
     cmake_build_and_install(
       build_dir: proj_build_dir,
-      install_dir: "#{proj_base_dir}/priv/nif",
+      install_dir: "#{proj_base_dir}/priv/sp_nifs",
       cmake_args: [
         "-G",
         "Visual Studio 17 2022",
@@ -120,7 +120,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
 
     cmake_build_and_install(
       build_dir: proj_build_dir,
-      install_dir: "#{proj_base_dir}/priv/nif",
+      install_dir: "#{proj_base_dir}/priv/sp_nifs",
       cmake_args: [
         "-G",
         "Visual Studio 17 2022",
@@ -140,7 +140,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
 
     cmake_build_and_install(
       build_dir: proj_build_dir,
-      install_dir: "#{proj_base_dir}/priv/nif",
+      install_dir: "#{proj_base_dir}/priv/sp_nifs",
       cmake_args: [
         "-G",
         "Unix Makefiles",
