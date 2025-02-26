@@ -53,6 +53,14 @@ int main(int argc, char *argv[])
   }
 #endif
 
+  // Set environment variables for Chromium
+  qputenv("QTWEBENGINE_CHROMIUM_FLAGS",
+          "--disable-background-timer-throttling "
+          "--disable-renderer-backgrounding "
+          "--disable-backgrounding-occluded-windows "
+          "--disable-features=AudioServiceOutOfProcess "
+          "--autoplay-policy=no-user-gesture-required");
+
   QApplication app(argc, argv);
   QApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
   Q_INIT_RESOURCE(Tau5);
