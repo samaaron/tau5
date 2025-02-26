@@ -10,13 +10,13 @@
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode)
     : QObject(parent), appBasePath(basePath), process(new QProcess(this)) // Properly initialize process here
 {
+  appPort = port;
   if (devMode)
   {
     startElixirServerDev();
   }
   else
   {
-    appPort = port;
     releaseRoot = QFileInfo(QString("%1/_build/prod/rel/%2/").arg(basePath).arg(appName)).absoluteFilePath();
     releaseSysPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/sys").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
     releaseStartPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/start").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
