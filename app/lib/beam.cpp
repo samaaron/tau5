@@ -45,7 +45,7 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
     else
     {
 
-      qCritical() << "BEAM.cpp - No _build release folder found. Exciting app.";
+      qCritical() << "BEAM.cpp - No Elixir _build release folder found. Exiting app.";
       QCoreApplication::exit(1); // Exit with non-zero status to indicate an error
     }
 
