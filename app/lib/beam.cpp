@@ -7,40 +7,49 @@
 #include <QOperatingSystemVersion>
 #include <QApplication>
 
-Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port)
+Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode)
     : QObject(parent), appBasePath(basePath), process(new QProcess(this)) // Properly initialize process here
 {
-  appPort = port;
-  releaseRoot = QFileInfo(QString("%1/_build/prod/rel/%2/").arg(basePath).arg(appName)).absoluteFilePath();
-  releaseSysPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/sys").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
-  releaseStartPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/start").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
-  releaseVmArgsPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/vm.args").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
-  releaseLibPath = QFileInfo(QString("%1/_build/prod/rel/%2/lib").arg(basePath).arg(appName)).absoluteFilePath();
-#if defined(Q_OS_WIN)
-  releaseRoot = releaseRoot.replace("/", "\\");
-  releaseSysPath = releaseSysPath.replace("/", "\\");
-  releaseStartPath = releaseStartPath.replace("/", "\\");
-  releaseVmArgsPath = releaseVmArgsPath.replace("/", "\\");
-  releaseLibPath = releaseLibPath.replace("/", "\\");
-#endif
-
-
-  QDir releaseDir(QString("%1/_build/prod/rel/%2").arg(basePath).arg(appName));
-  QStringList ertsDirs = releaseDir.entryList(QStringList() << "erts-*", QDir::Dirs | QDir::NoDotAndDotDot);
-
-  if (!ertsDirs.isEmpty())
+  if (devMode)
   {
-    QString ertsFolder = ertsDirs.first(); // Pick the first match (assuming there's only one)
-#ifdef Q_OS_WIN
-    releaseErlBinPath = QFileInfo(QString("%1/%2/bin/erl.exe").arg(releaseDir.absolutePath()).arg(ertsFolder)).absoluteFilePath();
-#else
-    releaseErlBinPath = QFileInfo(QString("%1/%2/bin/erl").arg(releaseDir.absolutePath()).arg(ertsFolder)).absoluteFilePath();
-#endif
+    startElixirServerDev();
   }
   else
   {
-    qCritical() << "No erts folder found! Exiting application.";
-    QCoreApplication::exit(1); // Exit with non-zero status to indicate an error
+    appPort = port;
+    releaseRoot = QFileInfo(QString("%1/_build/prod/rel/%2/").arg(basePath).arg(appName)).absoluteFilePath();
+    releaseSysPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/sys").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
+    releaseStartPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/start").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
+    releaseVmArgsPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/vm.args").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
+    releaseLibPath = QFileInfo(QString("%1/_build/prod/rel/%2/lib").arg(basePath).arg(appName)).absoluteFilePath();
+#if defined(Q_OS_WIN)
+    releaseRoot = releaseRoot.replace("/", "\\");
+    releaseSysPath = releaseSysPath.replace("/", "\\");
+    releaseStartPath = releaseStartPath.replace("/", "\\");
+    releaseVmArgsPath = releaseVmArgsPath.replace("/", "\\");
+    releaseLibPath = releaseLibPath.replace("/", "\\");
+#endif
+
+    QDir releaseDir(QString("%1/_build/prod/rel/%2").arg(basePath).arg(appName));
+    QStringList ertsDirs = releaseDir.entryList(QStringList() << "erts-*", QDir::Dirs | QDir::NoDotAndDotDot);
+
+    if (!ertsDirs.isEmpty())
+    {
+      QString ertsFolder = ertsDirs.first(); // Pick the first match (assuming there's only one)
+#ifdef Q_OS_WIN
+      releaseErlBinPath = QFileInfo(QString("%1/%2/bin/erl.exe").arg(releaseDir.absolutePath()).arg(ertsFolder)).absoluteFilePath();
+#else
+      releaseErlBinPath = QFileInfo(QString("%1/%2/bin/erl").arg(releaseDir.absolutePath()).arg(ertsFolder)).absoluteFilePath();
+#endif
+    }
+    else
+    {
+
+      qCritical() << "BEAM.cpp - No _build release folder found. Exciting app.";
+      QCoreApplication::exit(1); // Exit with non-zero status to indicate an error
+    }
+
+    startElixirServerProd();
   }
 }
 
@@ -131,8 +140,13 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
   qDebug() << "Server process working directory: " << process->workingDirectory();
   qDebug() << "Starting process: " << cmd << " " << args.join(" ");
   process->start(cmd, args);
-  QObject::connect(process, &QProcess::errorOccurred, [](QProcess::ProcessError error)
-                   {
+
+  connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+          this, [this](int exitCode, QProcess::ExitStatus status)
+          { qDebug() << "Process finished with exit code:" << exitCode << " status:" << status; });
+
+  connect(process, &QProcess::errorOccurred, [](QProcess::ProcessError error)
+          {
     switch (error)
     {
     case QProcess::FailedToStart:

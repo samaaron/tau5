@@ -10,7 +10,7 @@ class Beam : public QObject
   Q_OBJECT
 
 public:
-  explicit Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port);
+  explicit Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode);
   ~Beam();
 
   // Starts the Elixir server

@@ -77,15 +77,14 @@ int main(int argc, char *argv[])
       QString basePath = dir.absolutePath();
       qDebug() << "Base path: " << basePath;
       qDebug() << dir.entryList();
-      Beam *beam = new Beam(&app, basePath, "tau5", "0.1.0", port);
-      beam->startElixirServerDev();
+      Beam *beam = new Beam(&app, basePath, "tau5", "0.1.0", port, true);
     }
     else
     {
       dir.cd("../Resources");
       QString basePath = dir.absolutePath();
-      Beam *beam = new Beam(&app, basePath, "tau5", "0.1.0", port);
-      beam->startElixirServerProd();
+      Beam *beam = new Beam(&app, basePath, "tau5", "0.1.0", port, false);
+
     }
 
     MainWindow mainWindow(port);
