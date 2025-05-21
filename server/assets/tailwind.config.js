@@ -7,10 +7,11 @@ const path = require("path");
 
 module.exports = {
 
-  content: [
-    path.resolve(__dirname, "../lib/tau5_web/**/*.{ex,heex,eex,leex}"),
-    path.resolve(__dirname, "./js/**/*.js")
+    content: [
+    "../lib/tau5_web/**/*.{ex,heex}",
+    "./js/**/*.js"
   ],
+
   theme: {
     extend: {
       colors: {
