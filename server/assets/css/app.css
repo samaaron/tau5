@@ -2,4 +2,8 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+/* We seem to need to import the Monaco editor CSS here to placate esbuild */
+/* Please note that this is a workaround and may not be the best solution */
+@import "../vendor/monaco-editor/min/vs/editor/editor.main.css";
+
 /* This file is for your main application CSS */

@@ -35,9 +35,18 @@ config :tau5, Tau5.Mailer, adapter: Swoosh.Adapters.Local
 # to the tailwind assets to avoid conflicts.
 config :esbuild,
   version: "0.25.4",
-  tau5: [
-    args:
-      ~w(js/app.js --bundle --target=es2021 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --loader:.ttf=file),
+  default: [
+    args: ~w(
+      js/app.js
+      --bundle
+      --target=es2021
+      --outdir=../priv/static/assets
+      --public-path=/assets
+      --loader:.css=css
+      --loader:.woff2=file
+      --loader:.woff=file
+      --loader:.ttf=file
+    ),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ],
@@ -54,11 +63,11 @@ config :esbuild,
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "3.4.13",
-  tau5: [
+  default: [
     args: ~w(
       --config=tailwind.config.js
       --input=css/app.css
-      --output=../priv/static/assets/css/app.css
+      --output=../priv/static/assets/tailwind.css
     ),
     cd: Path.expand("../assets", __DIR__)
   ]

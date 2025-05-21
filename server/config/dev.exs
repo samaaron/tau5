@@ -17,8 +17,8 @@ config :tau5, Tau5Web.Endpoint,
   debug_errors: true,
   secret_key_base: "IDBN11XH469A36AVPcMyB5QCZw3gjoymTQu6PXY32kt5Ocb7zD0aBm09V9/uzF8v",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:tau5, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:tau5, ~w(--watch)]}
+    esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}
   ]
 
 # ## SSL Support
