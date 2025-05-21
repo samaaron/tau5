@@ -1,4 +1,6 @@
 import * as monaco from "../../vendor/monaco-editor/esm/vs/editor/editor.main.js";
+import "../../vendor/monaco-editor/min/vs/editor/editor.main.css";
+
 import { configureMonaco } from "./tau5_monaco_config";
 import Tau5Hydra from "./tau5_hydra";
 

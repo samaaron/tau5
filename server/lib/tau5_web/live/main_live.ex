@@ -36,10 +36,10 @@ defmodule Tau5Web.MainLive do
         <h1 class="inline-block p-1 text-xl text-black text-opacity-75 bg-white rounded-sm mix-blend-difference bg-opacity-70">
           Welcome to Tau5
         </h1>
-
+        
         <p class="pb-5 text-xl text-white mix-blend-difference">Code. Art. Live.</p>
       </div>
-      <img class="mix-blend-difference" src="/images/tau5-bw.png" alt="Tau5 Logo" width="50" />
+       <img class="mix-blend-difference" src="/images/tau5-bw.png" alt="Tau5 Logo" width="50" />
     </div>
 
     <div>
@@ -50,11 +50,11 @@ defmodule Tau5Web.MainLive do
         >
           <.icon name="hero-play-circle" class="w-8 h-8 text-white hover:text-orange-400" />
         </div>
-
+        
         <div class="inline-block bg-black rounded-sm bg-opacity-70 mix-blend-difference hover:mix-blend-normal">
           <.icon name="hero-stop" class="w-8 h-8 text-white hover:text-orange-400" />
         </div>
-
+        
         <div class="inline-block bg-black rounded-sm bg-opacity-70 mix-blend-difference hover:mix-blend-normal">
           <.icon
             name="hero-arrow-path-rounded-square"
@@ -62,7 +62,7 @@ defmodule Tau5Web.MainLive do
           />
         </div>
       </div>
-
+      
       <div
         id={@editor_id}
         phx-hook="Tau5EditorHook"
@@ -76,19 +76,20 @@ defmodule Tau5Web.MainLive do
         <canvas hydra class="absolute top-0 left-0 z-0 w-full h-full"></canvas>
         <div class="relative top-0 left-0 z-10 w-full h-full" id={@monaco_id} monaco-code-editor>
         </div>
-
+        
         <div resize-handle class="absolute bottom-0 right-0 z-20 w-4 h-4 cursor-se-resize"></div>
       </div>
-
+      
       <div class="p-1 m-1 text-xl text-black text-opacity-75 bg-white rounded-sm mix-blend-difference bg-opacity-70">
         <span>
           [Ableton Link - tempo: {Float.round(@link_tempo, 2)},
         </span>
+        
         <span>
           peers: {@link_num_peers}]
         </span>
       </div>
-
+      
       <div class="text-white bg-black bg-opacity-70 mix-blend-difference">
         <p>
           Tau5 Nodes:
@@ -100,7 +101,7 @@ defmodule Tau5Web.MainLive do
                     {hostname}
                   </span>
                 </div>
-
+                
                 <div class="p-1 m-1 text-xl text-black text-opacity-75 bg-white rounded-sm mix-blend-difference bg-opacity-70">
                   <a href={ip_and_port_to_http_string(ip, info["http_port"])}>
                     <span>

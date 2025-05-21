@@ -34,7 +34,7 @@ config :tau5, Tau5.Mailer, adapter: Swoosh.Adapters.Local
 # Note - we're putting the esbuild assets in a separate directory
 # to the tailwind assets to avoid conflicts.
 config :esbuild,
-  version: "0.24.0",
+  version: "0.25.4",
   tau5: [
     args:
       ~w(js/app.js --bundle --target=es2021 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --loader:.ttf=file),
