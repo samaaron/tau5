@@ -145,7 +145,7 @@ class Tau5Hydra {
     this.#hydra = hydra;
     this.startRenderLoop();
     this.injectGlobalSketch(`
-
+speed = 0.2
 osc(10, 0.1, 0.8)
   .rotate(0.1)
   .modulate(osc(10), 0.5)
