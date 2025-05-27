@@ -18,6 +18,7 @@ defmodule Tau5.Link do
   @impl true
   def init(_args) do
     Logger.info("Starting Link")
+    :sp_link.init()
     Logger.info("SP Link NIF loaded: #{inspect(:sp_link.is_nif_loaded())} ")
 
     unless :sp_link.is_nif_initialized() do
