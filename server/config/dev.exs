@@ -21,6 +21,10 @@ config :tau5, Tau5Web.Endpoint,
     tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}
   ]
 
+config :tau5, :midi_enabled, true
+config :tau5, :link_enabled, true
+config :tau5, :discovery_enabled, true
+
 # ## SSL Support
 #
 # In order to use HTTPS in development, a self-signed
