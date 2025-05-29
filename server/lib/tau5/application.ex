@@ -13,19 +13,39 @@ defmodule Tau5.Application do
     http_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
     discovery_metadata = %{uuid: uuid, http_port: http_port}
 
-    children = [
-      Tau5Web.Telemetry,
-      {Phoenix.PubSub, name: Tau5.PubSub},
-      # Start the Finch HTTP client for sending emails
-      {Finch, name: Tau5.Finch},
-      # Start a worker by calling: Tau5.Worker.start_link(arg)
-      # {Tau5.Worker, arg},
-      # Start to serve requests, typically the last entry
+    midi_enabled = Application.get_env(:tau5, :midi_enabled, false)
+    link_enabled = Application.get_env(:tau5, :link_enabled, false)
+    discovery_enabled = Application.get_env(:tau5, :discovery_enabled, false)
 
-      Tau5Web.Endpoint,
-      {Tau5.Discovery, %{metadata: discovery_metadata}},
-      Tau5.Link
-    ]
+    if midi_enabled do
+      Logger.info("Initialising MIDI native interface")
+      :sp_midi.init()
+    else
+      Logger.info("Starting without MIDI native interface")
+    end
+
+    if link_enabled do
+      Logger.info("Initialising Link native interface")
+      :sp_link.init()
+    else
+      Logger.info("Starting without Link native interface")
+    end
+
+    children =
+      [
+        Tau5Web.Telemetry,
+        {Phoenix.PubSub, name: Tau5.PubSub},
+        {Finch, name: Tau5.Finch},
+        Tau5Web.Endpoint,
+        Tau5.Link
+      ] ++
+        if discovery_enabled do
+          Logger.info("Starting Discovery service")
+          [{Tau5.Discovery, %{metadata: discovery_metadata}}]
+        else
+          Logger.info("Discovery service disabled")
+          []
+        end
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
