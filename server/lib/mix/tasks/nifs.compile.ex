@@ -1,10 +1,10 @@
-defmodule Mix.Tasks.SpNifs.Compile do
+defmodule Mix.Tasks.Nifs.Compile do
   use Mix.Task
   require Logger
 
   @impl true
   def run(_args) do
-    IO.puts("Compiling SP Link")
+    IO.puts("Compiling NIFs for sp_midi, sp_link, and tau5_discovery...")
 
     case :os.type() do
       {:unix, :darwin} -> compile(:macos, arch())
@@ -19,6 +19,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
   def compile(platform, arch) do
     compile_spmidi(platform, arch)
     compile_splink(platform, arch)
+    compile_tau5_discovery(platform, arch)
   end
 
   defp cmake_build_and_install(
@@ -66,7 +67,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
 
     cmake_build_and_install(
       build_dir: proj_build_dir,
-      install_dir: "../../../priv/sp_nifs",
+      install_dir: "../../../priv/nifs",
       cmake_args: [
         "-G",
         "Unix Makefiles",
@@ -83,7 +84,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
 
     cmake_build_and_install(
       build_dir: proj_build_dir,
-      install_dir: "../../../priv/sp_nifs",
+      install_dir: "../../../priv/nifs",
       cmake_args: [
         "-G",
         "Unix Makefiles",
@@ -100,7 +101,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
 
     cmake_build_and_install(
       build_dir: proj_build_dir,
-      install_dir: "../../../priv/sp_nifs",
+      install_dir: "../../../priv/nifs",
       cmake_args: [
         "-G",
         "Visual Studio 17 2022",
@@ -120,7 +121,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
 
     cmake_build_and_install(
       build_dir: proj_build_dir,
-      install_dir: "../../../priv/sp_nifs",
+      install_dir: "../../../priv/nifs",
       cmake_args: [
         "-G",
         "Visual Studio 17 2022",
@@ -140,7 +141,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
 
     cmake_build_and_install(
       build_dir: proj_build_dir,
-      install_dir: "../../../priv/sp_nifs",
+      install_dir: "../../../priv/nifs",
       cmake_args: [
         "-G",
         "Unix Makefiles",
@@ -153,7 +154,7 @@ defmodule Mix.Tasks.SpNifs.Compile do
   end
 
   defp compile_spmidi(:linux, :x64) do
-    compile_lin_x64("sp_nifs")
+    compile_lin_x64("sp_midi")
   end
 
   defp compile_spmidi(:linux, :arm64) do
@@ -194,6 +195,30 @@ defmodule Mix.Tasks.SpNifs.Compile do
 
   defp compile_splink(os, arch) do
     Logger.info("Uknown OS or architecture to compile splink for: #{inspect([os, arch])}")
+  end
+
+  defp compile_tau5_discovery(:linux, :x64) do
+    compile_lin_x64("tau5_discovery")
+  end
+
+  defp compile_tau5_discovery(:linux, :arm64) do
+    compile_lin_arm64("tau5_discovery")
+  end
+
+  defp compile_tau5_discovery(:win, :arm64) do
+    compile_win_arm64("tau5_discovery")
+  end
+
+  defp compile_tau5_discovery(:win, :x64) do
+    compile_win_x64("tau5_discovery")
+  end
+
+  defp compile_tau5_discovery(:macos, :arm64) do
+    compile_mac_arm64("tau5_discovery")
+  end
+
+  defp compile_tau5_discovery(os, arch) do
+    Logger.info("Uknown OS or architecture to compile tau5_discovery for: #{inspect([os, arch])}")
   end
 
   defp arch do

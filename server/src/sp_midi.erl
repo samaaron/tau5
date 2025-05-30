@@ -6,7 +6,7 @@
 -define(LIBNAME, "libsp_midi").
 
 init() ->
-    SoName = filename:join([code:priv_dir(?APPLICATION), "sp_nifs", ?LIBNAME]),
+    SoName = filename:join([code:priv_dir(?APPLICATION), "nifs", ?LIBNAME]),
     erlang:load_nif(SoName, 0).
 
 is_nif_loaded() ->
