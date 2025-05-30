@@ -23,7 +23,6 @@ config :tau5, Tau5Web.Endpoint,
 
 config :tau5, :midi_enabled, true
 config :tau5, :link_enabled, true
-config :tau5, :discovery_enabled, true
 
 # ## SSL Support
 #
