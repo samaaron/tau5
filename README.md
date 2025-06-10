@@ -25,7 +25,7 @@
 
 This is the ground-up re-development of Sonic Pi's core ideas - with a specific focus on collaboration and web compatibility.
 
-The main technology for Tau5 is a VM called the BEAM which hosts both the Erlang and Elixir programming languages whilst also enabling low-latency comms with C++ native code for MIDI/Ableton Link/etc.
+The main technology for Tau5 is a VM called the BEAM which hosts both the Erlang and Elixir programming languages whilst also enabling low-latency comms with C++ native code for MIDI/Ableton Link/Discovery, etc.
 
 ## Next Collaboration
 
@@ -72,3 +72,7 @@ Tau5 will feature two independent audio stacks - SuperCollider and WebAudio.
 Tau5 will feature the same rock-solid well-timed OSC and MIDI implementations from Sonic Pi which are already running on the BEAM.
 
 We will also add the ability to send and receive events directly to all participants in your jam session for a new range of IO possibilities.
+
+## Next Intelligence
+
+Tau5 will feature an MCP server directly connected to its core API - to enable LLM/AI agents to work directly with it. Jam with AI, use it to help craft your next drum loop or tweak your synth params.
