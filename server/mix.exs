@@ -65,6 +65,11 @@ defmodule Tau5.MixProject do
        git: "https://github.com/sonic-pi-net/sp_link.git",
        ref: "e83df382e757c4da965869d8a7758e7d4b1ef0c7",
        app: false,
+       compile: false},
+      {:tau5_discovery,
+       git: "https://github.com/samaaron/tau5_discovery.git",
+       ref: "150585ab1fc5bf91f311f0f7add81a7206777ba2",
+       app: false,
        compile: false}
     ]
   end
