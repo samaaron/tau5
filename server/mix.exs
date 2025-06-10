@@ -63,7 +63,7 @@ defmodule Tau5.MixProject do
        compile: false},
       {:sp_link,
        git: "https://github.com/sonic-pi-net/sp_link.git",
-       ref: "d000ab95228dc1266ff6e32d8ce4c375aa85044d",
+       ref: "e83df382e757c4da965869d8a7758e7d4b1ef0c7",
        app: false,
        compile: false}
     ]
