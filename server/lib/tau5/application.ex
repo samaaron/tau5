@@ -35,7 +35,8 @@ defmodule Tau5.Application do
         {Phoenix.PubSub, name: Tau5.PubSub},
         {Finch, name: Tau5.Finch},
         Tau5Web.Endpoint,
-        Tau5.Link
+        Tau5.Link,
+        {Tau5.Discovery, %{node_uuid: uuid}}
       ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
