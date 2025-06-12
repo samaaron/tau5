@@ -13,7 +13,14 @@ trap cleanup_function EXIT
 
 cd "${ROOT_DIR}"
 cd server
-mix clean --deps
+
+rm -rf deps/sp_link/build
+rm -rf deps/sp_midi/build
+rm -rf deps/tau5_discovery/build
+rm -rf deps/exqlite/build
+rm -rf priv/nifs
+mkdir -p priv/nifs
+
 rm -rf _build
 rm -rf deps
 rm -rf priv/static/assets/*

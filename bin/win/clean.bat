@@ -3,7 +3,13 @@ cd %~dp0
 
 cd ..\..\
 cd server
-cmd /c mix clean --deps
+rmdir deps\sp_link/build /s /q
+rmdir deps\sp_link\deps\sp_link /s /q
+rmdir deps\tau5_discovery\build /s /q
+rmdir deps\exqlite\build /s /q
+rmdir priv\nifs /s /q
+mkdir priv\nifs
+
 rmdir _build /s /q
 rmdir deps /s /q
 del priv\static\assets\*.* /s /q
@@ -13,5 +19,6 @@ rmdir app\build /s /q
 rmdir Release /s /q
 rmdir build /s /q
 
-
 cd %WORKING_DIR%
+
+echo Cleaned up any build directories that were found.
