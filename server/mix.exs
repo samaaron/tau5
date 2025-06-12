@@ -56,6 +56,7 @@ defmodule Tau5.MixProject do
       {:bandit, "~> 1.6"},
       {:uuid, "~> 1.1"},
       {:net_address, "~> 0.3"},
+      {:exqlite, "~> 0.27"},
       {:sp_midi,
        git: "https://github.com/sonic-pi-net/sp_midi.git",
        ref: "ed3cd8f74ac5ead3e88cd1a1744e45682319bae0",

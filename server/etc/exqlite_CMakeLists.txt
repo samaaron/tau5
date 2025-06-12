@@ -1,0 +1,132 @@
+cmake_minimum_required(VERSION 3.21)
+project(exqlite)
+
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Source files
+set(SOURCES
+    c_src/sqlite3_nif.c
+    c_src/sqlite3.c
+)
+
+# Platform-specific configurations
+if(WIN32)
+    set(ERLANG_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/c_include/erlang_headers/win_x86_64 CACHE STRING "Erlang headers for Windows")
+    include_directories(${ERLANG_INCLUDE_PATH})
+
+elseif(APPLE)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+        set(ERLANG_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/c_include/erlang_headers/mac_arm64 CACHE STRING "Erlang headers for Apple Silicon")
+    else()
+        set(ERLANG_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/c_include/erlang_headers/mac_x86_64 CACHE STRING "Erlang headers for Intel Macs")
+    endif()
+    include_directories(${ERLANG_INCLUDE_PATH})
+
+    # macOS linker flags for NIF
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
+
+elseif(UNIX)
+    set(ERLANG_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/c_include/erlang_headers/linux_x86_64 CACHE STRING "Erlang headers for Linux")
+    include_directories(${ERLANG_INCLUDE_PATH})
+endif()
+
+# Include c_src directory for sqlite3.h
+include_directories(${CMAKE_SOURCE_DIR}/c_src)
+
+# Create the shared library
+add_library(libsqlite3_nif SHARED ${SOURCES})
+set_target_properties(libsqlite3_nif PROPERTIES PREFIX "")
+
+# SQLite compile definitions
+target_compile_definitions(libsqlite3_nif PRIVATE
+    # Core SQLite settings
+    SQLITE_THREADSAFE=1
+    SQLITE_USE_URI=1
+    SQLITE_LIKE_DOESNT_MATCH_BLOBS=1
+    SQLITE_DQS=0
+    HAVE_USLEEP=1
+
+    # Feature flags
+    ALLOW_COVERING_INDEX_SCAN=1
+    ENABLE_FTS3_PARENTHESIS=1
+    ENABLE_LOAD_EXTENSION=1
+    ENABLE_SOUNDEX=1
+    ENABLE_STAT4=1
+    ENABLE_UPDATE_DELETE_LIMIT=1
+    SQLITE_ENABLE_FTS3=1
+    SQLITE_ENABLE_FTS4=1
+    SQLITE_ENABLE_FTS5=1
+    SQLITE_ENABLE_GEOPOLY=1
+    SQLITE_ENABLE_MATH_FUNCTIONS=1
+    SQLITE_ENABLE_RBU=1
+    SQLITE_ENABLE_RTREE=1
+    SQLITE_OMIT_DEPRECATED=1
+    SQLITE_ENABLE_DBSTAT_VTAB=1
+)
+
+# Platform-specific compile options and definitions
+if(MSVC)
+    add_definitions(-D_WIN32_WINNT=0x0600)
+    # MSVC specific flags
+    target_compile_options(libsqlite3_nif PRIVATE /W3)
+
+    # Release/Debug configurations
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(libsqlite3_nif PRIVATE /Od /Zi)
+    else()
+        target_compile_definitions(libsqlite3_nif PRIVATE NDEBUG=1)
+        target_compile_options(libsqlite3_nif PRIVATE /O2 /EHsc)
+    endif()
+
+elseif(APPLE)
+    add_definitions(-DNDEBUG=1)
+    target_compile_options(libsqlite3_nif PRIVATE -fPIC)
+
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(libsqlite3_nif PRIVATE -g -O0)
+    else()
+        target_compile_options(libsqlite3_nif PRIVATE -O2)
+    endif()
+
+elseif(UNIX)
+    add_definitions(-DLINUX=1 -DNDEBUG=1)
+    target_compile_options(libsqlite3_nif PRIVATE -fPIC -fvisibility=hidden)
+
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(libsqlite3_nif PRIVATE -g -O0)
+    else()
+        target_compile_options(libsqlite3_nif PRIVATE -O2)
+    endif()
+endif()
+
+# Set proper output name based on platform
+if(WIN32)
+    set_target_properties(libsqlite3_nif PROPERTIES SUFFIX ".dll")
+else()
+    set_target_properties(libsqlite3_nif PROPERTIES SUFFIX ".so")
+endif()
+
+# Installation
+if(APPLE)
+    install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/libsqlite3_nif.dylib
+            DESTINATION ${CMAKE_INSTALL_PREFIX}
+            RENAME libsqlite3_nif.so)
+elseif(MSVC)
+    install(TARGETS libsqlite3_nif
+            RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX})
+else()
+    install(TARGETS libsqlite3_nif
+            LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX})
+endif()
+
+# Set default build type if not specified
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+endif()
+
+# Print configuration
+message(STATUS "ExQLite Configuration:")
+message(STATUS "  Erlang Path:  ${ERLANG_INCLUDE_PATH}")
+message(STATUS "  Build Type:   ${CMAKE_BUILD_TYPE}")
+message(STATUS "  Platform:     ${CMAKE_SYSTEM_NAME}")
