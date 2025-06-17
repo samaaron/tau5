@@ -14,6 +14,7 @@ defmodule Tau5.Application do
 
     midi_enabled = Application.get_env(:tau5, :midi_enabled, false)
     link_enabled = Application.get_env(:tau5, :link_enabled, false)
+    discovery_enabled = Application.get_env(:tau5, :discovery_enabled, false)
 
     if midi_enabled do
       Logger.info("Initialising MIDI native interface")
@@ -29,6 +30,12 @@ defmodule Tau5.Application do
       Logger.info("Starting without Link native interface")
     end
 
+    if discovery_enabled do
+      Logger.info("Initialising Discovery native interface")
+      :tau5_discovery.init()
+    else
+      Logger.info("Starting without Discovery native interface")
+    end
     children =
       [
         Tau5Web.Telemetry,
