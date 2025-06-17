@@ -58,6 +58,7 @@ defmodule Tau5.MixProject do
       {:net_address, "~> 0.3"},
       {:ecto_sql, "~> 3.11"},
       {:ecto_sqlite3, "~> 0.19"},
+      {:unique_names_generator, "~> 0.2.0"},
       {:sp_midi,
        git: "https://github.com/sonic-pi-net/sp_midi.git",
        ref: "ed3cd8f74ac5ead3e88cd1a1744e45682319bae0",

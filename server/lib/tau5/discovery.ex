@@ -13,7 +13,9 @@ defmodule Tau5.Discovery do
 
   @impl true
   def init(%{node_uuid: uuid, http_port: http_port}) do
-    opts = %{node_uuid: uuid, http_port: http_port, name: Tau5.Settings.get("node_name", "Tau5")}
+    temp_name = UniqueNamesGenerator.generate([:adjectives, :animals])
+    name = Tau5.Settings.get_or_put("node_name", temp_name)
+    opts = %{node_uuid: uuid, http_port: http_port, name: name}
     Logger.info("Starting Discovery with UUID: #{uuid}")
     :tau5_discovery.init()
     Logger.info("Discovery NIF loaded: #{inspect(:tau5_discovery.is_nif_loaded())} ")
