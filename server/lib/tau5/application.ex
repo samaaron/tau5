@@ -40,6 +40,7 @@ defmodule Tau5.Application do
     children =
       [
         Tau5.ConfigRepo,
+        Tau5.ConfigRepoMigrator,
         Tau5Web.Telemetry,
         {Phoenix.PubSub, name: Tau5.PubSub},
         {Finch, name: Tau5.Finch},
