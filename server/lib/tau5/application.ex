@@ -8,8 +8,6 @@ defmodule Tau5.Application do
 
   @impl true
   def start(_type, _args) do
-    uuid = UUID.uuid4()
-    Logger.info("Node #{uuid} booting....")
     http_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
 
     midi_enabled = Application.get_env(:tau5, :midi_enabled, false)
@@ -46,7 +44,7 @@ defmodule Tau5.Application do
         {Finch, name: Tau5.Finch},
         Tau5Web.Endpoint,
         Tau5.Link,
-        {Tau5.Discovery, %{node_uuid: uuid, http_port: http_port}}
+        {Tau5.Discovery, %{http_port: http_port}}
       ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

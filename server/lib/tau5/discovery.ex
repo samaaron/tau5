@@ -12,9 +12,10 @@ defmodule Tau5.Discovery do
   end
 
   @impl true
-  def init(%{node_uuid: uuid, http_port: http_port}) do
+  def init(%{http_port: http_port}) do
     temp_name = UniqueNamesGenerator.generate([:adjectives, :animals])
     name = Tau5.Settings.get_or_put("node_name", temp_name)
+    uuid = Tau5.Settings.get_or_put("node_uuid", UUID.uuid4())
     opts = %{node_uuid: uuid, http_port: http_port, name: name}
     Logger.info("Starting Discovery with UUID: #{uuid}")
     :tau5_discovery.init()
@@ -22,14 +23,6 @@ defmodule Tau5.Discovery do
     :tau5_discovery.set_notification_pid()
     :tau5_discovery.start(Jason.encode!(opts))
     Logger.info("Discovery options: #{inspect(opts)}")
-    {:ok, %{}}
-  end
-
-  def init(%{node_uuid: uuid, http_port: http_port}) do
-    opts = %{node_uuid: uuid, http_port: http_port}
-    Logger.info("Starting Discovery with UUID: #{uuid}")
-    :tau5_discovery.init()
-    :tau5_discovery.start(Jason.encode(opts))
     {:ok, %{}}
   end
 
