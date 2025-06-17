@@ -20,6 +20,12 @@ if System.get_env("PHX_SERVER") do
   config :tau5, Tau5Web.Endpoint, server: true
 end
 
+config :tau5, Tau5.ConfigRepo,
+  # Tau5.ConfigRepo.init/2 will inject :database at boot-time
+  pool_size: 1,
+  busy_timeout: 5_000,
+  journal_mode: :wal
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

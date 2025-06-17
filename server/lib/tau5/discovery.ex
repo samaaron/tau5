@@ -12,12 +12,22 @@ defmodule Tau5.Discovery do
   end
 
   @impl true
-  def init(%{node_uuid: uuid}) do
+  def init(%{node_uuid: uuid, http_port: http_port}) do
+    opts = %{node_uuid: uuid, http_port: http_port, name: Tau5.Settings.get("node_name", "Tau5")}
     Logger.info("Starting Discovery with UUID: #{uuid}")
     :tau5_discovery.init()
     Logger.info("Discovery NIF loaded: #{inspect(:tau5_discovery.is_nif_loaded())} ")
     :tau5_discovery.set_notification_pid()
-    :tau5_discovery.start(uuid)
+    :tau5_discovery.start(Jason.encode!(opts))
+    Logger.info("Discovery options: #{inspect(opts)}")
+    {:ok, %{}}
+  end
+
+  def init(%{node_uuid: uuid, http_port: http_port}) do
+    opts = %{node_uuid: uuid, http_port: http_port}
+    Logger.info("Starting Discovery with UUID: #{uuid}")
+    :tau5_discovery.init()
+    :tau5_discovery.start(Jason.encode(opts))
     {:ok, %{}}
   end
 

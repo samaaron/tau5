@@ -36,14 +36,16 @@ defmodule Tau5.Application do
     else
       Logger.info("Starting without Discovery native interface")
     end
+
     children =
       [
+        Tau5.ConfigRepo,
         Tau5Web.Telemetry,
         {Phoenix.PubSub, name: Tau5.PubSub},
         {Finch, name: Tau5.Finch},
         Tau5Web.Endpoint,
         Tau5.Link,
-        {Tau5.Discovery, %{node_uuid: uuid}}
+        {Tau5.Discovery, %{node_uuid: uuid, http_port: http_port}}
       ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
