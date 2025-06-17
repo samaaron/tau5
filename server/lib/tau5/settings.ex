@@ -19,5 +19,26 @@ defmodule Tau5.Settings do
     )
   end
 
+  def get_or_put(key, default) when is_binary(key) and is_binary(default) do
+    case ConfigRepo.insert(
+           %AppSetting{key: key, value: default},
+           on_conflict: :nothing,
+           conflict_target: :key,
+           returning: [:value]
+         ) do
+      # We inserted; RETURNING gave us the value
+      {:ok, %AppSetting{value: value}} when not is_nil(value) ->
+        value
+
+      # The row already existed; SQLite returned nothing
+      {:ok, _} ->
+        ConfigRepo.get!(AppSetting, key).value
+
+      # Other problems (invalid changeset, FK breakage…)
+      {:error, changeset} ->
+        raise "Unable to store default for #{inspect(key)}: #{inspect(changeset)}"
+    end
+  end
+
   def all, do: ConfigRepo.all(AppSetting)
 end
