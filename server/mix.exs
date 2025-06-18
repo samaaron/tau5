@@ -61,7 +61,7 @@ defmodule Tau5.MixProject do
       {:unique_names_generator, "~> 0.2.0"},
       {:sp_midi,
        git: "https://github.com/sonic-pi-net/sp_midi.git",
-       ref: "ed3cd8f74ac5ead3e88cd1a1744e45682319bae0",
+       ref: "d7b421d890d54352912bf4ec9b0862e20388e106",
        app: false,
        compile: false},
       {:sp_link,
