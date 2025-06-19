@@ -71,7 +71,7 @@ defmodule Tau5.MixProject do
        compile: false},
       {:tau5_discovery,
        git: "https://github.com/samaaron/tau5_discovery.git",
-       ref: "0edb982c1b4d4b6c12284f6d326a4a17fb39aa12",
+       ref: "c35c8d009031f90a7e9346ecd56dbdabc7eb90f2",
        app: false,
        compile: false}
     ]
