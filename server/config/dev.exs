@@ -14,7 +14,6 @@ config :tau5, Tau5Web.Endpoint,
   # - All interfaces (access from other machines): {0, 0, 0, 0} for IPv4 or {0, 0, 0, 0, 0, 0, 0, 0} for IPv6
   http: [ip: {127, 0, 0, 1}, port: port],
   check_origin: false,
-  check_origin: false,
   code_reloader: true,
   debug_errors: true,
   secret_key_base: "IDBN11XH469A36AVPcMyB5QCZw3gjoymTQu6PXY32kt5Ocb7zD0aBm09V9/uzF8v",
