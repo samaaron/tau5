@@ -7,7 +7,7 @@
 #include "mainwindow.h"
 #include "widgets/phxwidget.h"
 
-MainWindow::MainWindow(quint16 port, QWidget *parent)
+MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
   QCoreApplication::setOrganizationName("Tau5");
@@ -21,20 +21,7 @@ MainWindow::MainWindow(quint16 port, QWidget *parent)
   {
     restoreGeometry(settings.value("MainWindow/geometry").toByteArray());
   }
-  else
-  {
-    // Optionally log or set a default size if geometry isn't found
-    std::cout << "No saved geometry found, using default size." << std::endl;
-  }
 
-  QCoreApplication::setOrganizationName("Sonic Pi");
-
-  QUrl phxUrl;
-  phxUrl.setUrl("http://localhost");
-  phxUrl.setPort(port);
-  phxWidget = new PhxWidget(this);
-  phxWidget->connectToTauPhx(phxUrl);
-  setCentralWidget(phxWidget);
   this->setStyleSheet("background-color: black;");
 
   // Create the menu bar
@@ -44,8 +31,40 @@ MainWindow::MainWindow(quint16 port, QWidget *parent)
   QMenu *helpMenu = menuBar->addMenu(tr("&Help"));
   QAction *aboutAction = helpMenu->addAction(tr("&About"));
 
-  // Connect the About action to the slotb
+  // Connect the About action to the slot
   connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
+}
+
+// Destructor must be defined here where PhxWidget is complete
+MainWindow::~MainWindow() = default;
+
+bool MainWindow::connectToServer(quint16 port)
+{
+  try {
+    initializePhxWidget(port);
+    return true;
+  }
+  catch (const std::exception& e) {
+    QMessageBox::critical(this, tr("Connection Error"),
+                         tr("Failed to initialize connection: %1").arg(e.what()));
+    return false;
+  }
+}
+
+void MainWindow::initializePhxWidget(quint16 port)
+{
+  QUrl phxUrl;
+  phxUrl.setScheme("http");
+  phxUrl.setHost("localhost");
+  phxUrl.setPort(port);
+
+  phxWidget = std::make_unique<PhxWidget>(this);
+
+  // Assuming connectToTauPhx returns bool indicating success
+  // If it doesn't, you may need to adjust this based on actual API
+  phxWidget->connectToTauPhx(phxUrl);
+
+  setCentralWidget(phxWidget.get());
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -58,8 +77,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
 }
 
 // Slot to show About dialog
-void MainWindow::showAbout()
+void MainWindow::showAbout() const
 {
-  QMessageBox::about(this, tr("About Tau5"),
+  QMessageBox::about(const_cast<MainWindow*>(this), tr("About Tau5"),
                      tr("Sonic Pi Tau5 Tech\n\nby Sam Aaron"));
 }
