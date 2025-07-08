@@ -1,8 +1,8 @@
+# test/zz_debug_shutdown_test.exs
 defmodule DebugShutdownTest do
   use ExUnit.Case
 
   test "check processes and force exit" do
-    # Run immediately, not in a spawn
     IO.puts("\n=== Checking processes ===")
 
     processes = [
@@ -21,13 +21,11 @@ defmodule DebugShutdownTest do
       end
     end
 
-    # Schedule a forced exit
-    Process.send_after(self(), :force_exit, 1000)
+    IO.puts("\nStopping application...")
+    Application.stop(:tau5)
+    Process.sleep(100)
 
-    receive do
-      :force_exit ->
-        IO.puts("\nForcing exit...")
-        System.halt(0)
-    end
+    IO.puts("Forcing immediate exit...")
+    :erlang.halt(0, [{:flush, false}])
   end
 end
