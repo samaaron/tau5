@@ -91,9 +91,6 @@ jobs:
       - name: Build Linux
         working-directory: ${{github.workspace}}/bin/linux
         run: |
-          # Find and export Erlang include path for CMake
-          export ERLANG_INCLUDE_PATH="$(dirname $(dirname $(which erl)))/lib/erlang/usr/include"
-          echo "Using Erlang headers from: $ERLANG_INCLUDE_PATH"
 
           ./build-all.sh
         env:
