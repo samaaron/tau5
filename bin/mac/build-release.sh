@@ -17,8 +17,8 @@ rm -rf Release
 mkdir -p Release
 cd Release
 
-# Copy app across
-cp -R ../app/build/*.app .
+# Copy gui across
+cp -R ../gui/build/*.app .
 
 # Copy prod release part of the server across
 cd *.app/Contents/Resources

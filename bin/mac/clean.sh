@@ -27,7 +27,7 @@ rm -rf priv/static/assets/*
 
 
 cd "${ROOT_DIR}"
-rm -rf app/build
+rm -rf gui/build
 rm -rf Release
 rm -rf build
 

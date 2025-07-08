@@ -10,8 +10,8 @@ cleanup_function() {
 }
 trap cleanup_function EXIT
 
-APP_DIR="${ROOT_DIR}/app"
-BUILD_DIR="${APP_DIR}/build"
+GUI_DIR="${ROOT_DIR}/gui"
+BUILD_DIR="${GUI_DIR}/build"
 
 mkdir -p "${BUILD_DIR}"
 cd "${BUILD_DIR}"

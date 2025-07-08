@@ -12,7 +12,7 @@ cleanup_function() {
 trap cleanup_function EXIT
 
 "${SCRIPT_DIR}"/build-server.sh
-"${SCRIPT_DIR}"/build-app.sh
+"${SCRIPT_DIR}"/build-gui.sh
 "${SCRIPT_DIR}"/build-release.sh
 
 

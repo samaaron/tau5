@@ -15,7 +15,7 @@ rmdir deps /s /q
 del priv\static\assets\*.* /s /q
 for /d %%d in (priv\static\assets\*) do rmdir "%%d" /s /q
 cd ..\
-rmdir app\build /s /q
+rmdir gui\build /s /q
 rmdir Release /s /q
 rmdir build /s /q
 

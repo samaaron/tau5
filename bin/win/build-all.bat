@@ -12,10 +12,10 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-:: Call build-app.bat
-call build-app.bat
+:: Call build-gui.bat
+call build-gui.bat
 if %errorlevel% neq 0 (
-    echo build-app.bat failed with exit code %errorlevel%
+    echo build-gui.bat failed with exit code %errorlevel%
     cd %BUILD_WORKING_DIR%
     exit /b %errorlevel%
 )
