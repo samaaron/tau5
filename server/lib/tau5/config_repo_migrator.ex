@@ -1,19 +1,24 @@
 defmodule Tau5.ConfigRepoMigrator do
-  use Task
+  use GenServer
+  require Logger
 
   def start_link(_) do
-    Task.start_link(fn ->
-      path = Tau5.Paths.config_repo_migrations_path()
+    GenServer.start_link(__MODULE__, nil, name: __MODULE__)
+  end
 
-      case Ecto.Migrator.run(Tau5.ConfigRepo, path, :up, all: true) do
-        migrations when is_list(migrations) ->
-          IO.puts("Ran #{length(migrations)} migrations")
+  @impl true
+  def init(_) do
+    # Run migrations synchronously in init
+    path = Tau5.Paths.config_repo_migrations_path()
 
-        error ->
-          IO.puts("Migration error: #{inspect(error)}")
-      end
+    case Ecto.Migrator.run(Tau5.ConfigRepo, path, :up, all: true) do
+      migrations when is_list(migrations) ->
+        Logger.info("Ran #{length(migrations)} migrations")
 
-      # Task exits here naturally
-    end)
+      error ->
+        Logger.error("Migration error: #{inspect(error)}")
+    end
+
+    {:ok, :migrated}
   end
 end
