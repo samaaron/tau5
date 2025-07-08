@@ -67,6 +67,12 @@ jobs:
           otp-version: "27"
           elixir-version: "1.18.2"
 
+      # Install Linux build dependencies
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev
+        if: matrix.os == 'ubuntu-latest'
 
       # Build - Windows
       - name: Build Windows
