@@ -1,4 +1,4 @@
-name: Build
+NAME: Build
 on:
   push:
     branches: [dev, main]
@@ -8,45 +8,59 @@ on:
 
 jobs:
   build:
-    name: "${{matrix.title}} (${{matrix.cc}}, ${{matrix.arch}}, ${{matrix.build_type}})"
+    name: "${{matrix.title}}"
     runs-on: ${{matrix.os}}
     strategy:
       fail-fast: false
       matrix:
         include:
           - {
-              title: "Windows",
+              title: "Windows x64",
               os: "windows-latest",
               cc: "vs2022",
               arch: "x64",
               build_type: "Release",
             }
           - {
-              title: "Windows",
-              os: "windows-latest",
+              title: "Windows ARM64",
+              os: "windows-11-arm",
               cc: "vs2022",
               arch: "arm64",
               build_type: "Release",
             }
           - {
-              title: "macOS",
+              title: "macOS ARM64",
               os: "macos-latest",
               cc: "clang",
               arch: "arm64",
               build_type: "Release",
             }
           - {
-              title: "Linux",
+              title: "Linux x64 GCC",
               os: "ubuntu-latest",
               cc: "gcc",
               arch: "x64",
               build_type: "Release",
             }
           - {
-              title: "Linux",
+              title: "Linux x64 Clang",
               os: "ubuntu-latest",
               cc: "clang",
               arch: "x64",
+              build_type: "Release",
+            }
+          - {
+              title: "Linux ARM64 GCC",
+              os: "ubuntu-24.04-arm",
+              cc: "gcc",
+              arch: "arm64",
+              build_type: "Release",
+            }
+          - {
+              title: "Linux ARM64 Clang",
+              os: "ubuntu-24.04-arm",
+              cc: "clang",
+              arch: "arm64",
               build_type: "Release",
             }
 
@@ -58,7 +72,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           modules: "qtpositioning qtwebchannel qtwebengine"
-          version: "6.8.2"
+          version: "6.9.1"
 
       # Install Elixir (all platforms)
       - name: Install Elixir
@@ -72,46 +86,46 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libasound2-dev
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
 
       # Build - Windows
       - name: Build Windows
         working-directory: ${{github.workspace}}/bin/win
         shell: cmd
         run: build-all.bat
-        if: matrix.os == 'windows-latest'
+        if: startsWith(matrix.os, 'windows')
 
       # Build - macOS
       - name: Build macOS
         working-directory: ${{github.workspace}}/bin/mac
         run: ./build-all.sh
-        if: matrix.os == 'macos-latest'
+        if: startsWith(matrix.os, 'macos')
 
       # Build - Linux
       - name: Build Linux
         working-directory: ${{github.workspace}}/bin/linux
         run: |
-
           ./build-all.sh
         env:
           CC: ${{ matrix.cc }}
-        if: matrix.os == 'ubuntu-latest'
+          CXX: ${{ matrix.cc == 'clang' && 'clang++' || 'g++' }}
+        if: startsWith(matrix.os, 'ubuntu')
 
-      # Tests - Windows
+      # Tests - Windows (both x64 and ARM64)
       - name: BEAM Tests (Windows)
         shell: cmd
         working-directory: ${{github.workspace}}/server
         run: mix test
-        if: matrix.os == 'windows-latest'
+        if: startsWith(matrix.os, 'windows')
 
       # Tests - macOS
       - name: BEAM Tests (macOS)
         working-directory: ${{github.workspace}}/server
         run: mix test
-        if: matrix.os == 'macos-latest'
+        if: startsWith(matrix.os, 'macos')
 
-      # Tests - Linux
+      # Tests - Linux (both x64 and ARM64)
       - name: BEAM Tests (Linux)
         working-directory: ${{github.workspace}}/server
         run: mix test
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
