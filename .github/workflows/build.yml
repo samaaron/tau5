@@ -22,13 +22,6 @@ jobs:
               build_type: "Release",
             }
           - {
-              title: "Windows ARM64",
-              os: "windows-11-arm",
-              cc: "vs2022",
-              arch: "arm64",
-              build_type: "Release",
-            }
-          - {
               title: "macOS ARM64",
               os: "macos-latest",
               cc: "clang",
