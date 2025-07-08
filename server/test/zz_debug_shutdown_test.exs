@@ -33,13 +33,17 @@ defmodule DebugShutdownTest do
               |> Enum.at(1)
               |> String.to_integer()
 
-            pid_num > 1000 && !String.contains?(to_string(info[:initial_call] || ""), "test")
+            initial_call_str = inspect(info[:initial_call] || "")
+            pid_num > 1000 && !String.contains?(initial_call_str, "test")
         end
       end)
 
     IO.puts("\n=== Non-system processes still running: #{length(app_processes)} ===")
 
-    for pid <- app_processes do
+    # Show first 10 processes in detail
+    app_processes
+    |> Enum.take(10)
+    |> Enum.each(fn pid ->
       info = Process.info(pid, [:registered_name, :initial_call, :current_function, :dictionary])
       IO.puts("\nProcess #{inspect(pid)}:")
       IO.puts("  Name: #{inspect(info[:registered_name])}")
@@ -47,10 +51,31 @@ defmodule DebugShutdownTest do
       IO.puts("  Current function: #{inspect(info[:current_function])}")
 
       # Check if it's an Ecto connection
-      if info[:dictionary] && Keyword.get(info[:dictionary], :"$initial_call") do
-        IO.puts(
-          "  Dict initial call: #{inspect(Keyword.get(info[:dictionary], :"$initial_call"))}"
-        )
+      if info[:dictionary] && Keyword.get(info[:dictionary], :"$ancestors") do
+        ancestors = Keyword.get(info[:dictionary], :"$ancestors", [])
+        IO.puts("  Ancestors: #{inspect(ancestors |> Enum.take(3))}")
+      end
+    end)
+
+    # Check for specific known processes
+    IO.puts("\n=== Checking for known process types ===")
+
+    for pid <- remaining do
+      case Process.info(pid, [:registered_name, :initial_call]) do
+        nil ->
+          :ok
+
+        info ->
+          name = inspect(info[:registered_name])
+          initial = inspect(info[:initial_call])
+
+          cond do
+            String.contains?(name, "DBConnection") -> IO.puts("DB Connection: #{inspect(pid)}")
+            String.contains?(name, "Ecto") -> IO.puts("Ecto: #{inspect(pid)}")
+            String.contains?(name, "Finch") -> IO.puts("Finch: #{inspect(pid)}")
+            String.contains?(initial, "telemetry") -> IO.puts("Telemetry: #{inspect(pid)}")
+            true -> :ok
+          end
       end
     end
 
