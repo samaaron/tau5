@@ -12,18 +12,11 @@ config :tau5, Tau5Web.Endpoint,
   server: false
 
 config :tau5, Tau5.ConfigRepo,
+  database: ":memory:",
   pool_size: 1,
   queue_target: 10,
   queue_interval: 100,
-  timeout: 2000,
-  busy_timeout: 2000,
-  pragma: [
-    # WAL mode can cause locking issues
-    journal_mode: :delete,
-    # Ensure normal locking
-    locking_mode: :normal,
-    synchronous: :normal
-  ]
+  timeout: 2000
 
 # In test we don't send emails
 config :tau5, Tau5.Mailer, adapter: Swoosh.Adapters.Test

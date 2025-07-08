@@ -5,6 +5,12 @@ defmodule Tau5.ConfigRepo do
 
   @impl true
   def init(_type, config) do
-    {:ok, Keyword.put(config, :database, Tau5.Paths.config_repo_db_path())}
+    # Use configured database if provided (like :memory: in tests)
+    # Otherwise use the file path
+    if config[:database] do
+      {:ok, config}
+    else
+      {:ok, Keyword.put(config, :database, Tau5.Paths.config_repo_db_path())}
+    end
   end
 end
