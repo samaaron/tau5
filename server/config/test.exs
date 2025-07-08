@@ -11,6 +11,20 @@ config :tau5, Tau5Web.Endpoint,
   secret_key_base: "BGzS0ba64RBujAPYlDYQSC3bH68HEYK+xdm1yxYXvN2bonhdncvSi++DsHWVMJlE",
   server: false
 
+config :tau5, Tau5.ConfigRepo,
+  pool_size: 1,
+  queue_target: 10,
+  queue_interval: 100,
+  timeout: 2000,
+  busy_timeout: 2000,
+  pragma: [
+    # WAL mode can cause locking issues
+    journal_mode: :delete,
+    # Ensure normal locking
+    locking_mode: :normal,
+    synchronous: :normal
+  ]
+
 # In test we don't send emails
 config :tau5, Tau5.Mailer, adapter: Swoosh.Adapters.Test
 
