@@ -96,12 +96,12 @@ jobs:
       - name: Build Windows
         working-directory: ${{github.workspace}}/bin/win
         shell: cmd
-        run: build.bat
+        run: build-all.bat
         if: matrix.os == 'windows-latest'
 
       - name: Build macOS
         working-directory: ${{github.workspace}}/bin/mac
-        run: ./build.sh
+        run: ./build-all.sh
         if: matrix.os == 'macos-latest'
 
       - name: BEAM Tests Windows
