@@ -1,77 +1,61 @@
+# test/zz_debug_shutdown_test.exs
 defmodule DebugShutdownTest do
   use ExUnit.Case
 
-  test "diagnose what's preventing shutdown" do
-    IO.puts("\n=== Checking processes ===")
+  test "find what's preventing shutdown" do
+    # Get initial process count
+    initial_count = length(Process.list())
+    IO.puts("\n=== Initial process count: #{initial_count} ===")
 
-    check_process(Tau5.Supervisor, "Supervisor")
-    check_process(Tau5.ConfigRepo, "ConfigRepo")
-    check_process(Tau5.Link, "Link")
-    check_process(Tau5.MIDI, "MIDI")
-    check_process(Tau5.Discovery, "Discovery")
-    check_process(Tau5Web.Endpoint, "Endpoint")
-
-    # Check if any processes are trapping exits
-    IO.puts("\n=== Checking for exit trapping ===")
-
-    for {name, pid} <- Process.list() |> Enum.map(&{&1, Process.info(&1, :trap_exit)}) do
-      case pid do
-        {:trap_exit, true} -> IO.puts("Process #{inspect(name)} is trapping exits")
-        _ -> :ok
-      end
-    end
-
-    IO.puts("\n=== Attempting graceful shutdown ===")
-
-    IO.puts("Stopping endpoint...")
-    Supervisor.stop(Tau5Web.Endpoint)
-    Process.sleep(100)
-
-    for name <- [Tau5.Link, Tau5.MIDI, Tau5.Discovery] do
-      IO.puts("Stopping #{name}...")
-
-      try do
-        GenServer.stop(name, :normal, 1000)
-      catch
-        :exit, reason -> IO.puts("  Failed: #{inspect(reason)}")
-      end
-    end
-
-    # Stop repo
-    IO.puts("Stopping ConfigRepo...")
-    Supervisor.stop(Tau5.ConfigRepo)
-
+    # Stop the application properly
+    IO.puts("\n=== Stopping application ===")
+    Application.stop(:tau5)
     Process.sleep(500)
 
-    IO.puts("\n=== After shutdown attempts ===")
+    # Check what's still running
+    remaining = Process.list()
+    IO.puts("\n=== After stopping app: #{length(remaining)} processes remain ===")
 
-    for name <- [
-          Tau5.Supervisor,
-          Tau5.ConfigRepo,
-          Tau5.Link,
-          Tau5.MIDI,
-          Tau5.Discovery,
-          Tau5Web.Endpoint
-        ] do
-      case Process.whereis(name) do
-        nil -> IO.puts("#{name}: stopped")
-        pid -> IO.puts("#{name}: STILL ALIVE - #{inspect(pid)}")
+    # Find processes that aren't system processes
+    app_processes =
+      Enum.filter(remaining, fn pid ->
+        case Process.info(pid, [:group_leader, :registered_name, :initial_call]) do
+          nil ->
+            false
+
+          info ->
+            # Skip system processes (low PIDs) and test processes
+            pid_num =
+              pid
+              |> :erlang.pid_to_list()
+              |> to_string()
+              |> String.split(".")
+              |> Enum.at(1)
+              |> String.to_integer()
+
+            pid_num > 1000 && !String.contains?(to_string(info[:initial_call] || ""), "test")
+        end
+      end)
+
+    IO.puts("\n=== Non-system processes still running: #{length(app_processes)} ===")
+
+    for pid <- app_processes do
+      info = Process.info(pid, [:registered_name, :initial_call, :current_function, :dictionary])
+      IO.puts("\nProcess #{inspect(pid)}:")
+      IO.puts("  Name: #{inspect(info[:registered_name])}")
+      IO.puts("  Initial call: #{inspect(info[:initial_call])}")
+      IO.puts("  Current function: #{inspect(info[:current_function])}")
+
+      # Check if it's an Ecto connection
+      if info[:dictionary] && Keyword.get(info[:dictionary], :"$initial_call") do
+        IO.puts(
+          "  Dict initial call: #{inspect(Keyword.get(info[:dictionary], :"$initial_call"))}"
+        )
       end
     end
 
+    # Force exit
     IO.puts("\nForcing exit...")
     :erlang.halt(0, [{:flush, false}])
-  end
-
-  defp check_process(name, label) do
-    case Process.whereis(name) do
-      nil ->
-        IO.puts("#{label}: not running")
-
-      pid ->
-        info = Process.info(pid, [:current_function, :status, :message_queue_len, :trap_exit])
-        IO.puts("#{label}: #{inspect(pid)}")
-        IO.puts("  Info: #{inspect(info)}")
-    end
   end
 end
