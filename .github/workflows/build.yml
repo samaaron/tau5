@@ -1,5 +1,4 @@
 name: Build
-
 on:
   push:
     branches: [dev, main]
@@ -42,46 +41,28 @@ jobs:
               cc: "gcc",
               arch: "x64",
               build_type: "Release",
-          }
+            }
           - {
               title: "Linux",
               os: "ubuntu-latest",
               cc: "clang",
               arch: "x64",
               build_type: "Release",
-          }
-          - {
-              title: "Linux",
-              os: "ubuntu-latest",
-              cc: "gcc",
-              arch: "arm64",
-              build_type: "Release",
-          }
-          - {
-              title: "Linux",
-              os: "ubuntu-latest",
-              cc: "clang",
-              arch: "arm64",
-              build_type: "Release",
-          }
+            }
 
     steps:
       - uses: actions/checkout@v4
 
+      # Install Qt 6
       - name: Install Qt 6
         uses: jurplel/install-qt-action@v4
         with:
           modules: "qtpositioning qtwebchannel qtwebengine"
           version: "6.8.2"
 
-      - name: Win Elixir
-        uses: erlef/setup-beam@v1
-        with:
-          otp-version: "27"
-          elixir-version: "1.18.2"
-        if: matrix.os == 'windows-latest'
 
-      - name: Mac Elixir
+      # Install Elixir - macOS
+      - name: Install Elixir (macOS)
         continue-on-error: true
         run: |
           export HOMEBREW_NO_INSTALL_CLEANUP=1
@@ -89,28 +70,57 @@ jobs:
           brew install elixir
         if: matrix.os == 'macos-latest'
 
-      - name: Linux Elixir
-        run: sudo apt-get install elixir
+      # Install Elixir - Linux
+      - name: Install Elixir (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y elixir
         if: matrix.os == 'ubuntu-latest'
 
+      # Install Elixir - Windows
+      - name: Install Elixir (Windows)
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27"
+          elixir-version: "1.18.2"
+        if: matrix.os == 'windows-latest'
+
+
+      # Build - Windows
       - name: Build Windows
         working-directory: ${{github.workspace}}/bin/win
         shell: cmd
         run: build-all.bat
         if: matrix.os == 'windows-latest'
 
+      # Build - macOS
       - name: Build macOS
         working-directory: ${{github.workspace}}/bin/mac
         run: ./build-all.sh
         if: matrix.os == 'macos-latest'
 
-      - name: BEAM Tests Windows
-        shell: cmd
-        working-directory: ${{github.workspace}}/server
-        run: mix test
-        if: matrix.os == 'windows-latest'
+      # Build - Linux
+      - name: Build Linux
+        working-directory: ${{github.workspace}}/bin/linux
+        run: ./build-all.sh
+        if: matrix.os == 'ubuntu-latest'
 
+
+      # Tests - macOS
       - name: BEAM Tests (macOS)
         working-directory: ${{github.workspace}}/server
         run: mix test
         if: matrix.os == 'macos-latest'
+
+      # Tests - Linux
+      - name: BEAM Tests (Linux)
+        working-directory: ${{github.workspace}}/server
+        run: mix test
+        if: matrix.os == 'ubuntu-latest'
+
+      # Tests - Windows
+      - name: BEAM Tests (Windows)
+        shell: cmd
+        working-directory: ${{github.workspace}}/server
+        run: mix test
+        if: matrix.os == 'windows-latest'
