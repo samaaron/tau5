@@ -5,12 +5,14 @@ defmodule Tau5Web.MainLive do
 
   @link_num_peers_topic "link-num-peers"
   @link_tempo_topic "link-tempo"
+  @midi_input_topic "midi-input"
 
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Tau5.PubSub, @link_num_peers_topic)
       Phoenix.PubSub.subscribe(Tau5.PubSub, @link_tempo_topic)
+      Phoenix.PubSub.subscribe(Tau5.PubSub, @midi_input_topic)
     end
 
     {:ok,
@@ -118,6 +120,11 @@ defmodule Tau5Web.MainLive do
 
   def handle_info({:link_tempo, tempo}, socket) do
     {:noreply, assign(socket, :link_tempo, tempo)}
+  end
+
+  def handle_info(:midi_input, socket) do
+    Logger.info("LV MIDI input received")
+    {:noreply, socket}
   end
 
   def handle_info(:link_start, socket) do
