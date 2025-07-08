@@ -11,9 +11,14 @@ defmodule Tau5.MIDI do
   def init(_args) do
     Logger.info("Starting MIDI")
 
-    Logger.info("SP MIDI NIF loaded: #{inspect(:sp_midi.is_nif_loaded())} ")
-    :sp_midi.midi_init()
-    :sp_midi.have_my_pid()
+    if Application.get_env(:tau5, :midi_enabled, true) do
+      Logger.info("SP MIDI NIF loaded: #{inspect(:sp_midi.is_nif_loaded())} ")
+      :sp_midi.midi_init()
+      :sp_midi.have_my_pid()
+    else
+      Logger.info("MIDI NIF disabled")
+    end
+
     {:ok, []}
   end
 
