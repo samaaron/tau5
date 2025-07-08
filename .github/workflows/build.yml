@@ -60,30 +60,12 @@ jobs:
           modules: "qtpositioning qtwebchannel qtwebengine"
           version: "6.8.2"
 
-
-      # Install Elixir - macOS
-      - name: Install Elixir (macOS)
-        continue-on-error: true
-        run: |
-          export HOMEBREW_NO_INSTALL_CLEANUP=1
-          brew update
-          brew install elixir
-        if: matrix.os == 'macos-latest'
-
-      # Install Elixir - Linux
-      - name: Install Elixir (Linux)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y elixir
-        if: matrix.os == 'ubuntu-latest'
-
-      # Install Elixir - Windows
-      - name: Install Elixir (Windows)
+      # Install Elixir (all platforms)
+      - name: Install Elixir
         uses: erlef/setup-beam@v1
         with:
           otp-version: "27"
           elixir-version: "1.18.2"
-        if: matrix.os == 'windows-latest'
 
 
       # Build - Windows
@@ -106,6 +88,13 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
 
 
+      # Tests - Windows
+      - name: BEAM Tests (Windows)
+        shell: cmd
+        working-directory: ${{github.workspace}}/server
+        run: mix test
+        if: matrix.os == 'windows-latest'
+
       # Tests - macOS
       - name: BEAM Tests (macOS)
         working-directory: ${{github.workspace}}/server
@@ -117,10 +106,3 @@ jobs:
         working-directory: ${{github.workspace}}/server
         run: mix test
         if: matrix.os == 'ubuntu-latest'
-
-      # Tests - Windows
-      - name: BEAM Tests (Windows)
-        shell: cmd
-        working-directory: ${{github.workspace}}/server
-        run: mix test
-        if: matrix.os == 'windows-latest'
