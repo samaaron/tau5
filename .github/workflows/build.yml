@@ -104,21 +104,40 @@ jobs:
           CXX: ${{ matrix.cc == 'clang' && 'clang++' || 'g++' }}
         if: startsWith(matrix.os, 'ubuntu')
 
-      # Tests - Windows (both x64 and ARM64)
+      # Server Tests - Windows (both x64 and ARM64)
       - name: BEAM Tests (Windows)
         shell: cmd
         working-directory: ${{github.workspace}}/server
         run: mix test
         if: startsWith(matrix.os, 'windows')
 
-      # Tests - macOS
+      # Server Tests - macOS
       - name: BEAM Tests (macOS)
         working-directory: ${{github.workspace}}/server
         run: mix test
         if: startsWith(matrix.os, 'macos')
 
-      # Tests - Linux (both x64 and ARM64)
+      # Server Tests - Linux (both x64 and ARM64)
       - name: BEAM Tests (Linux)
         working-directory: ${{github.workspace}}/server
+        run: mix test
+        if: startsWith(matrix.os, 'ubuntu')
+
+      # GUI Tests - Windows (both x64 and ARM64)
+      - name: GUI Tests (Windows)
+        shell: cmd
+        working-directory: ${{github.workspace}}/gui/build/Release/tau5.exe check
+        run: mix test
+        if: startsWith(matrix.os, 'windows')
+
+      # GUI Tests - macOS
+      - name: GUI Tests (macOS)
+        working-directory: ${{github.workspace}}/gui/build/Tau5.app/Contents/MacOS/Tau5 check
+        run: mix test
+        if: startsWith(matrix.os, 'macos')
+
+      # GUI Tests - Linux (both x64 and ARM64)
+      - name: GUI Tests (Linux)
+        working-directory: ${{github.workspace}}/gui/build/Release/Tau5 check
         run: mix test
         if: startsWith(matrix.os, 'ubuntu')
