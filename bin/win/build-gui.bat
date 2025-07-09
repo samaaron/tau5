@@ -4,7 +4,7 @@ cd %~dp0
 if /I "%CONFIG%" == "" (set CONFIG=Release)
 
 @echo "Generating project files..."
-cd ..\..\gui
+cd ..\..\app
 
 @echo "Creating build directory..."
 mkdir build > nul
