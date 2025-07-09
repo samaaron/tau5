@@ -138,6 +138,6 @@ jobs:
 
       # GUI Tests - Linux (both x64 and ARM64)
       - name: GUI Tests (Linux)
-        working-directory: ${{github.workspace}}/gui/build/Release/Tau5 check
+        working-directory: ${{github.workspace}}/gui/build/tau5 check
         run: mix test
         if: startsWith(matrix.os, 'ubuntu')
