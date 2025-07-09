@@ -9,33 +9,51 @@
 #include "mainwindow.h"
 #include "lib/beam.h"
 
-namespace Config {
-    constexpr quint16 DEFAULT_PORT = 5555;
-    constexpr const char* APP_NAME = "Tau5";
-    constexpr const char* APP_VERSION = "0.1.0";
-    constexpr const char* CHROMIUM_FLAGS =
-        "--disable-background-timer-throttling "
-        "--disable-renderer-backgrounding "
-        "--disable-backgrounding-occluded-windows "
-        "--disable-features=AudioServiceOutOfProcess "
-        "--autoplay-policy=no-user-gesture-required";
+namespace Config
+{
+  constexpr quint16 DEFAULT_PORT = 5555;
+  constexpr const char *APP_NAME = "Tau5";
+  constexpr const char *APP_VERSION = "0.1.0";
+  constexpr const char *CHROMIUM_FLAGS =
+      "--disable-background-timer-throttling "
+      "--disable-renderer-backgrounding "
+      "--disable-backgrounding-occluded-windows "
+      "--disable-features=AudioServiceOutOfProcess "
+      "--autoplay-policy=no-user-gesture-required";
 }
 
 // Simple logging
-class Logger {
+class Logger
+{
 public:
-    enum Level { Debug, Info, Warning, Error };
+  enum Level
+  {
+    Debug,
+    Info,
+    Warning,
+    Error
+  };
 
-    static void log(Level level, const QString& message) {
-        QString prefix;
-        switch (level) {
-            case Debug:   prefix = "[DEBUG]"; break;
-            case Info:    prefix = "[INFO]"; break;
-            case Warning: prefix = "[WARN]"; break;
-            case Error:   prefix = "[ERROR]"; break;
-        }
-        qDebug() << prefix << message;
+  static void log(Level level, const QString &message)
+  {
+    QString prefix;
+    switch (level)
+    {
+    case Debug:
+      prefix = "[DEBUG]";
+      break;
+    case Info:
+      prefix = "[INFO]";
+      break;
+    case Warning:
+      prefix = "[WARN]";
+      break;
+    case Error:
+      prefix = "[ERROR]";
+      break;
     }
+    qDebug() << prefix << message;
+  }
 };
 
 quint16 getFreePort()
@@ -59,36 +77,37 @@ quint16 getFreePort()
 bool setupConsoleOutput()
 {
 #if defined(Q_OS_WIN)
-    if (AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole())
-    {
-      FILE *stream;
-      freopen_s(&stream, "CONOUT$", "w", stdout);
-      freopen_s(&stream, "CONOUT$", "w", stderr);
-      return true;
-    }
-    return false;
-#else
+  if (AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole())
+  {
+    FILE *stream;
+    freopen_s(&stream, "CONOUT$", "w", stdout);
+    freopen_s(&stream, "CONOUT$", "w", stderr);
     return true;
+  }
+  return false;
+#else
+  return true;
 #endif
 }
 
-bool initializeApplication(QApplication& app)
+bool initializeApplication(QApplication &app)
 {
-    // Set environment variables for Chromium
-    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS);
+  // Set environment variables for Chromium
+  qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS);
 
-    QCoreApplication::setAttribute(Qt::AA_UseOpenGLES, true);
-    QCoreApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
+  QCoreApplication::setAttribute(Qt::AA_UseOpenGLES, true);
+  QCoreApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
 
-    Q_INIT_RESOURCE(Tau5);
-    app.setApplicationName(Config::APP_NAME);
-    app.setStyle("gtk");
+  Q_INIT_RESOURCE(Tau5);
+  app.setApplicationName(Config::APP_NAME);
+  app.setStyle("gtk");
 
-    return true;
+  return true;
 }
 
 int main(int argc, char *argv[])
 {
+
   quint16 port = Config::DEFAULT_PORT;
   bool devMode = false;
   Logger::log(Logger::Info, "Starting Tau5...");
@@ -159,7 +178,7 @@ int main(int argc, char *argv[])
 
   // Use smart pointer for Beam to ensure cleanup
   std::unique_ptr<Beam> beam = std::make_unique<Beam>(&app, basePath, Config::APP_NAME,
-                                                       Config::APP_VERSION, port, devMode);
+                                                      Config::APP_VERSION, port, devMode);
 
   // Create and configure main window
   MainWindow mainWindow;
