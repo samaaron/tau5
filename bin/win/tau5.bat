@@ -6,7 +6,7 @@ set WORKING_DIR=%CD%
 set ROOT_DIR=%SCRIPT_DIR%..\..
 
 cd /d "%ROOT_DIR%"
-app\build\Release\Tau5.exe dev
+gui\build\Release\Tau5.exe dev
 
 cd /d "%WORKING_DIR%"
 endlocal
