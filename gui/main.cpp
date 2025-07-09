@@ -116,9 +116,9 @@ int main(int argc, char *argv[])
   // Quick check - useful for CI runners
   {
 #if defined(Q_OS_WIN)
-    ExitProcess(EXIT_SUCCESS);
+    ExitProcess(EXIT_FAILURE);
 #else
-    exit(EXIT_SUCCESS);
+    exit(EXIT_FAILURE);
 #endif
   }
   else if (argc > 1 && std::strcmp(argv[1], "dev") == 0)
