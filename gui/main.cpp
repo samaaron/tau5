@@ -1,5 +1,6 @@
 #include <iostream>
 #include <memory>
+#include <cstdlib>
 #include <QApplication>
 #include <QDir>
 #include <QTcpServer>
@@ -92,7 +93,16 @@ int main(int argc, char *argv[])
   bool devMode = false;
   Logger::log(Logger::Info, "Starting Tau5...");
 
-  if (argc > 1 && std::strcmp(argv[1], "dev") == 0)
+  if (argc > 1 && std::strcmp(argv[1], "check") == 0)
+  // Quick check - useful for CI runners
+  {
+#if defined(Q_OS_WIN)
+    ExitProcess(EXIT_SUCCESS);
+#else
+    exit(EXIT_SUCCESS);
+#endif
+  }
+  else if (argc > 1 && std::strcmp(argv[1], "dev") == 0)
   {
     Logger::log(Logger::Info, "Development mode enabled.");
     devMode = true;
