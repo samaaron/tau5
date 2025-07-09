@@ -133,11 +133,11 @@ jobs:
       # GUI Tests - macOS
       - name: GUI Tests (macOS)
         working-directory: ${{github.workspace}}/gui/build/Tau5.app/Contents/MacOS/
-        run: Tau5 check
+        run: ./Tau5 check
         if: startsWith(matrix.os, 'macos')
 
       # GUI Tests - Linux (both x64 and ARM64)
       - name: GUI Tests (Linux)
         working-directory: ${{github.workspace}}/gui/build/
-        run: tau5 check
+        run: ./tau5 check
         if: startsWith(matrix.os, 'ubuntu')
