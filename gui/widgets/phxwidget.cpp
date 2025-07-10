@@ -10,6 +10,7 @@
 #include "phxwidget.h"
 #include "phxwebview.h"
 #include "../mainwindow.h"
+#include "StyleManager.h"
 
 PhxWidget::PhxWidget(QWidget *parent)
     : QWidget(parent)
@@ -30,7 +31,7 @@ PhxWidget::PhxWidget(QWidget *parent)
   resetBrowserButton = new QPushButton(" R ");
   consoleToggleButton = new QPushButton(" ▲ ");
 
-  QString buttonStyle = "background-color: rgb(240, 153, 55); color: black; border: 1px solid black;";
+  QString buttonStyle = StyleManager::guiButton();
 
   sizeDownButton->setStyleSheet(buttonStyle);
   sizeUpButton->setStyleSheet(buttonStyle);
@@ -52,12 +53,21 @@ PhxWidget::PhxWidget(QWidget *parent)
 
   buttonContainer = new QWidget(this);
   buttonContainer->setLayout(topRowSubLayout);
-  buttonContainer->setStyleSheet("background-color: rgba(0, 0, 0, 191); border-top: 1px solid rgba(255, 165, 0, 100); border-bottom: 1px solid rgba(255, 165, 0, 100);");
+  buttonContainer->setStyleSheet(
+    QString("QWidget { "
+    "  background-color: %1; "
+    "  border-top: 1px solid %2; "
+    "  border-bottom: 1px solid %2; "
+    "}")
+    .arg(StyleManager::Colors::blackAlpha(191))
+    .arg(StyleManager::Colors::primaryOrangeAlpha(100))
+  );
   buttonContainer->setAttribute(Qt::WA_TranslucentBackground);
   buttonContainer->raise();
   
   mainLayout->addWidget(phxView, 1);
-  this->setStyleSheet("background-color: black;");
+  this->setStyleSheet(QString("PhxWidget { background-color: %1; }")
+    .arg(StyleManager::Colors::BLACK));
 
   connect(sizeDownButton, &QPushButton::released, this, &PhxWidget::handleSizeDown);
   connect(sizeUpButton, &QPushButton::released, this, &PhxWidget::handleSizeUp);

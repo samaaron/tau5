@@ -58,6 +58,8 @@ set(SOURCES
   ${QTAPP_ROOT}/widgets/consolewidget.cpp
   ${QTAPP_ROOT}/lib/beam.h
   ${QTAPP_ROOT}/lib/beam.cpp
+  ${QTAPP_ROOT}/styles/StyleManager.h
+  ${QTAPP_ROOT}/styles/StyleManager.cpp
 )
 
 SET(RESOURCES
@@ -124,6 +126,7 @@ target_include_directories(${APP_NAME}
   ${QTAPP_ROOT}
   ${QTAPP_ROOT}/widgets
   ${QTAPP_ROOT}/lib
+  ${QTAPP_ROOT}/styles
   ${CMAKE_BINARY_DIR}
   include)
 

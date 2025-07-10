@@ -1,4 +1,5 @@
 #include "consolewidget.h"
+#include "StyleManager.h"
 #include <QTextEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -47,15 +48,7 @@ void ConsoleWidget::setupUi()
     m_mainLayout->setSpacing(0);
 
     QWidget *header = new QWidget(this);
-    header->setStyleSheet(
-        "QWidget { "
-        "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
-        "    stop:0 rgba(26, 26, 26, 191), "
-        "    stop:0.5 rgba(15, 15, 15, 191), "
-        "    stop:1 rgba(0, 0, 0, 191)); "
-        "  padding-top: 6px; "
-        "}"
-    );
+    header->setStyleSheet(StyleManager::consoleHeader());
     header->setMouseTracking(true);
 
     m_buttonLayout = new QHBoxLayout(header);
@@ -63,62 +56,44 @@ void ConsoleWidget::setupUi()
 
     QLabel *titleLabel = new QLabel("BEAM Log", header);
     titleLabel->setStyleSheet(
-        "QLabel { "
-        "  color: #ffa500; "
+        QString("QLabel { "
+        "  color: %1; "
         "  background: transparent; "
-        "  font-family: 'Consolas', 'Courier New', monospace; "
-        "  font-weight: bold; "
-        "  font-size: 14px; "
+        "  font-family: %2; "
+        "  font-weight: %3; "
+        "  font-size: %4; "
         "  letter-spacing: 1px; "
-        "  padding: 4px 12px; "
-        "}"
+        "  padding: %5 %6; "
+        "}")
+        .arg(StyleManager::Colors::PRIMARY_ORANGE)
+        .arg(StyleManager::Typography::MONOSPACE_FONT_FAMILY)
+        .arg(StyleManager::Typography::FONT_WEIGHT_BOLD)
+        .arg(StyleManager::Typography::FONT_SIZE_LARGE)
+        .arg(StyleManager::Spacing::SMALL)
+        .arg(StyleManager::Spacing::LARGE)
     );
 
     QLabel *scrollLabel = new QLabel("Auto-scroll", header);
     scrollLabel->setStyleSheet(
-        "QLabel { "
-        "  color: #ffa500; "
-        "  font-family: 'Consolas', monospace; "
-        "  font-size: 10px; "
-        "  font-weight: bold; "
+        QString("QLabel { "
+        "  color: %1; "
+        "  font-family: %2; "
+        "  font-size: %3; "
+        "  font-weight: %4; "
         "  background: transparent; "
-        "  margin-right: 5px; "
-        "}"
+        "  margin-right: %5; "
+        "}")
+        .arg(StyleManager::Colors::PRIMARY_ORANGE)
+        .arg(StyleManager::Typography::MONOSPACE_FONT_FAMILY)
+        .arg(StyleManager::Typography::FONT_SIZE_SMALL)
+        .arg(StyleManager::Typography::FONT_WEIGHT_BOLD)
+        .arg(StyleManager::Spacing::SMALL)
     );
 
     m_autoScrollToggle = new QCheckBox(header);
     m_autoScrollToggle->setToolTip("Toggle Auto-scroll");
     m_autoScrollToggle->setChecked(true);
-    m_autoScrollToggle->setStyleSheet(
-        "QCheckBox { "
-        "  background: transparent; "
-        "  color: #ffa500; "
-        "  font-family: 'Consolas', monospace; "
-        "  font-size: 10px; "
-        "  font-weight: bold; "
-        "  spacing: 5px; "
-        "}"
-        "QCheckBox::indicator { "
-        "  width: 16px; "
-        "  height: 16px; "
-        "  border-radius: 3px; "
-        "  background: rgba(0, 0, 0, 150); "
-        "  border: 2px solid rgba(255, 165, 0, 150); "
-        "}"
-        "QCheckBox::indicator:checked { "
-        "  background: rgba(255, 165, 0, 200); "
-        "  border: 2px solid rgba(255, 165, 0, 255); "
-        "}"
-        "QCheckBox::indicator:checked::after { "
-        "  content: '✓'; "
-        "  color: white; "
-        "  font-weight: bold; "
-        "  font-size: 12px; "
-        "}"
-        "QCheckBox::indicator:hover { "
-        "  border: 2px solid rgba(255, 165, 0, 255); "
-        "}"
-    );
+    m_autoScrollToggle->setStyleSheet(StyleManager::checkbox());
 
     m_buttonLayout->addWidget(titleLabel);
     m_buttonLayout->addStretch();
@@ -128,67 +103,27 @@ void ConsoleWidget::setupUi()
     m_outputDisplay = new QTextEdit(this);
     m_outputDisplay->setReadOnly(true);
     m_outputDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    m_outputDisplay->setStyleSheet(
-        "QTextEdit { "
-        "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
-        "    stop:0 rgba(5, 5, 5, 191), "
-        "    stop:0.3 rgba(0, 0, 0, 191), "
-        "    stop:0.7 rgba(0, 0, 0, 191), "
-        "    stop:1 rgba(10, 10, 10, 191)); "
-        "  color: #ffa500; "
-        "  font-family: 'Consolas', 'Monaco', 'Courier New', monospace; "
-        "  font-size: 12px; "
-        "  border: none; "
-        "  padding: 12px; "
-        "  selection-background-color: rgba(255, 165, 0, 100); "
-        "  selection-color: #ffffff; "
-        "}"
-        "QScrollBar:vertical { "
-        "  background: rgba(0, 0, 0, 0); "
-        "  width: 12px; "
-        "  border: none; "
-        "  margin: 0px; "
-        "}"
-        "QScrollBar::handle:vertical { "
-        "  background: rgba(255, 165, 0, 180); "
-        "  border-radius: 6px; "
-        "  min-height: 20px; "
-        "  margin: 2px; "
-        "  border: none; "
-        "}"
-        "QScrollBar::handle:vertical:hover { "
-        "  background: rgba(255, 165, 0, 255); "
-        "}"
-        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { "
-        "  height: 0px; "
-        "  background: rgba(0, 0, 0, 0); "
-        "  border: none; "
-        "}"
-        "QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { "
-        "  background: rgba(0, 0, 0, 0); "
-        "  border: none; "
-        "}"
-        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { "
-        "  background: rgba(0, 0, 0, 0); "
-        "  border: none; "
-        "}"
-    );
+    m_outputDisplay->setStyleSheet(StyleManager::consoleOutput());
 
     m_mainLayout->addWidget(header);
     m_mainLayout->addWidget(m_outputDisplay, 1);
 
     setStyleSheet(
-        "ConsoleWidget { "
+        QString("ConsoleWidget { "
         "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
-        "    stop:0 rgba(0, 0, 0, 191), "
-        "    stop:0.1 rgba(255, 165, 0, 64), "
-        "    stop:0.2 rgba(0, 0, 0, 191), "
-        "    stop:0.8 rgba(0, 0, 0, 191), "
-        "    stop:0.9 rgba(255, 165, 0, 64), "
-        "    stop:1 rgba(0, 0, 0, 191)); "
-        "  border-top: 2px solid rgba(255, 165, 0, 150); "
-        "  border-bottom: 1px solid rgba(255, 165, 0, 100); "
-        "}"
+        "    stop:0 %1, "
+        "    stop:0.1 %2, "
+        "    stop:0.2 %1, "
+        "    stop:0.8 %1, "
+        "    stop:0.9 %2, "
+        "    stop:1 %1); "
+        "  border-top: 2px solid %3; "
+        "  border-bottom: 1px solid %4; "
+        "}")
+        .arg(StyleManager::Colors::blackAlpha(191))
+        .arg(StyleManager::Colors::primaryOrangeAlpha(64))
+        .arg(StyleManager::Colors::primaryOrangeAlpha(150))
+        .arg(StyleManager::Colors::primaryOrangeAlpha(100))
     );
 
     connect(m_autoScrollToggle, &QCheckBox::toggled, this, &ConsoleWidget::handleAutoScrollToggled);
@@ -212,10 +147,10 @@ void ConsoleWidget::appendOutput(const QString &text, bool isError)
     QString timestamp = QDateTime::currentDateTime().toString("[hh:mm:ss.zzz] ");
 
     QTextCharFormat format;
-    format.setForeground(isError ? QColor("#4169e1") : QColor("#ffa500"));
+    format.setForeground(isError ? QColor(StyleManager::Colors::ERROR_BLUE) : QColor(StyleManager::Colors::PRIMARY_ORANGE));
 
     QTextCharFormat timestampFormat;
-    timestampFormat.setForeground(QColor("#888888"));
+    timestampFormat.setForeground(QColor(StyleManager::Colors::TIMESTAMP_GRAY));
     cursor.setCharFormat(timestampFormat);
     cursor.insertText(timestamp);
 
