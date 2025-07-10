@@ -180,8 +180,8 @@ int main(int argc, char *argv[])
   std::unique_ptr<Beam> beam = std::make_unique<Beam>(&app, basePath, Config::APP_NAME,
                                                       Config::APP_VERSION, port, devMode);
 
-  // Create and configure main window
   MainWindow mainWindow;
+  mainWindow.setBeamInstance(beam.get());
 
   if (!mainWindow.connectToServer(port))
   {
@@ -194,5 +194,6 @@ int main(int argc, char *argv[])
 #endif
 
   mainWindow.show();
+
   return app.exec();
 }

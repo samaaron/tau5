@@ -13,12 +13,18 @@ public:
   explicit Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode);
   ~Beam();
 
-  // Starts the Elixir server
   void startElixirServerDev();
   void startElixirServerProd();
 
+signals:
+  void standardOutput(const QString &output);
+  void standardError(const QString &error);
+
+private slots:
+  void handleStandardOutput();
+  void handleStandardError();
+
 private:
-  // Paths and environment variables
   quint16 appPort;
   QString appBasePath;
   QString releaseRoot;
@@ -28,8 +34,6 @@ private:
   QString releaseVmArgsPath;
   QString releaseLibPath;
   QString releaseErlBinPath;
-
-  // QProcess to run the Elixir server
   QProcess *process;
 
   void startProcess(const QString &cmd, const QStringList &args);

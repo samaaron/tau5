@@ -9,6 +9,8 @@
 #endif
 
 class PhxWidget;
+class ConsoleWidget;
+class Beam;
 
 class MainWindow : public QMainWindow
 {
@@ -16,20 +18,27 @@ class MainWindow : public QMainWindow
 
 public:
   explicit MainWindow(QWidget *parent = nullptr);
-  ~MainWindow();  // Destructor must be defined in .cpp file
+  ~MainWindow();
 
-  // Configuration method
   bool connectToServer(quint16 port);
+  void setBeamInstance(Beam *beam);
+  void toggleConsole();
 
 protected:
   void closeEvent(QCloseEvent *event) override;
+  void resizeEvent(QResizeEvent *event) override;
 
 private slots:
   void showAbout() const;
+  void handleBeamOutput(const QString &output);
+  void handleBeamError(const QString &error);
 
 private:
   void initializePhxWidget(quint16 port);
+  void initializeConsole();
 
 private:
   std::unique_ptr<PhxWidget> phxWidget;
+  std::unique_ptr<ConsoleWidget> consoleWidget;
+  Beam *beamInstance;
 };

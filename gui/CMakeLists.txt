@@ -19,7 +19,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(QTAPP_ROOT ${CMAKE_CURRENT_LIST_DIR})
 
 # Set cmake prefix path so it can find the Qt libraries
-if((${BUILD_32BIT}) AND (DEFINED ENV{QT_INSTALL_LOCATION32}))
+if((${BUILD_32BIT}) AND(DEFINED ENV{QT_INSTALL_LOCATION32}))
   message(STATUS "Setting up a 32 bit Qt Build")
   message(STATUS "Setting prefix to user-defined Qt (32-bit) install location: $ENV{QT_INSTALL_LOCATION32}")
   set(CMAKE_PREFIX_PATH $ENV{QT_INSTALL_LOCATION32})
@@ -45,33 +45,34 @@ set(APP_NAME tau5)
 set(MACOS_APP_NAME "Tau5")
 
 set(SOURCES
-    ${QTAPP_ROOT}/main.cpp
-        ${QTAPP_ROOT}/mainwindow.cpp
-    ${QTAPP_ROOT}/mainwindow.h
-
-      ${QTAPP_ROOT}/widgets/phxwebview.h
-      ${QTAPP_ROOT}/widgets/phxwebview.cpp
-      ${QTAPP_ROOT}/widgets/phxwidget.h
-      ${QTAPP_ROOT}/widgets/phxwidget.cpp
-      ${QTAPP_ROOT}/widgets/phxurlinterceptor.h
-      ${QTAPP_ROOT}/widgets/phxurlinterceptor.cpp
-      ${QTAPP_ROOT}/lib/beam.h
-      ${QTAPP_ROOT}/lib/beam.cpp
-      )
+  ${QTAPP_ROOT}/main.cpp
+  ${QTAPP_ROOT}/mainwindow.cpp
+  ${QTAPP_ROOT}/mainwindow.h
+  ${QTAPP_ROOT}/widgets/phxwebview.h
+  ${QTAPP_ROOT}/widgets/phxwebview.cpp
+  ${QTAPP_ROOT}/widgets/phxwidget.h
+  ${QTAPP_ROOT}/widgets/phxwidget.cpp
+  ${QTAPP_ROOT}/widgets/phxurlinterceptor.h
+  ${QTAPP_ROOT}/widgets/phxurlinterceptor.cpp
+  ${QTAPP_ROOT}/widgets/consolewidget.h
+  ${QTAPP_ROOT}/widgets/consolewidget.cpp
+  ${QTAPP_ROOT}/lib/beam.h
+  ${QTAPP_ROOT}/lib/beam.cpp
+)
 
 SET(RESOURCES
-    ${QTAPP_ROOT}/Tau5.qrc
-    ${QTAPP_ROOT}/images/app.icns
+  ${QTAPP_ROOT}/Tau5.qrc
+  ${QTAPP_ROOT}/images/app.icns
 )
 
 # Create the Qt version of the app
-  if (APPLE)
+if(APPLE)
   add_executable(${APP_NAME} MACOSX_BUNDLE ${SOURCES} ${RESOURCES})
 else()
   add_executable(${APP_NAME} WIN32 ${SOURCES} ${RESOURCES}) # Win32 ignored on non-windows
 endif()
 
-if (APPLE)
+if(APPLE)
   set_target_properties(
     ${APP_NAME} PROPERTIES
     OUTPUT_NAME "Tau5"
@@ -87,7 +88,7 @@ if (APPLE)
     RESOURCE "images/app.icns"
     LINK_FLAGS "-framework AppKit"
     OUTPUT_NAME ${MACOS_APP_NAME}
-    )
+  )
 
   add_custom_command(
     TARGET ${APP_NAME}
@@ -119,12 +120,12 @@ message(STATUS "App Root: ${APP_ROOT}")
 set_property(TARGET ${APP_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON) # Qt requires this?
 
 target_include_directories(${APP_NAME}
-    PRIVATE
-    ${QTAPP_ROOT}
-    ${QTAPP_ROOT}/widgets
-    ${QTAPP_ROOT}/lib
-    ${CMAKE_BINARY_DIR}
-    include)
+  PRIVATE
+  ${QTAPP_ROOT}
+  ${QTAPP_ROOT}/widgets
+  ${QTAPP_ROOT}/lib
+  ${CMAKE_BINARY_DIR}
+  include)
 
 target_link_libraries(${APP_NAME}
   PRIVATE
@@ -136,12 +137,12 @@ target_link_libraries(${APP_NAME}
 
 # Deploy Qt binaries to the output on windows, and copy the CRT to the release folder
 if(WIN32)
-    # Visual Studio
-    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP true)
-    include(InstallRequiredSystemLibraries)
-    file(COPY ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Release)
+  # Visual Studio
+  set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP true)
+  include(InstallRequiredSystemLibraries)
+  file(COPY ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Release)
 
-    # Run winddeployqt if it can be found, to ensure installed dependencies
-    add_custom_command(TARGET ${APP_NAME} POST_BUILD
-        COMMAND ${CMAKE_PREFIX_PATH}/bin/windeployqt $<TARGET_FILE:${APP_NAME}>)
+  # Run winddeployqt if it can be found, to ensure installed dependencies
+  add_custom_command(TARGET ${APP_NAME} POST_BUILD
+    COMMAND ${CMAKE_PREFIX_PATH}/bin/windeployqt $<TARGET_FILE:${APP_NAME}>)
 endif() # Win32

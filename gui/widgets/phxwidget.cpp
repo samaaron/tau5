@@ -1,98 +1,93 @@
-#include <iostream>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QDesktopServices>
 #include <QTimer>
+#include <QResizeEvent>
+#include <QDebug>
 
 #include "phxwidget.h"
 #include "phxwebview.h"
+#include "../mainwindow.h"
 
 PhxWidget::PhxWidget(QWidget *parent)
     : QWidget(parent)
 {
 
   phxAlive = false;
+  consoleVisible = false;
   phxView = new PhxWebView(this);
   QSizePolicy sp_retain = phxView->sizePolicy();
   sp_retain.setRetainSizeWhenHidden(true);
   phxView->setSizePolicy(sp_retain);
   phxView->hide();
   mainLayout = new QHBoxLayout(this);
-  topRowSubLayout = new QVBoxLayout();
+  topRowSubLayout = new QHBoxLayout();
   sizeDownButton = new QPushButton("-");
   sizeUpButton = new QPushButton("+");
   openExternalBrowserButton = new QPushButton(" E ");
   resetBrowserButton = new QPushButton(" R ");
+  consoleToggleButton = new QPushButton(" ▲ ");
 
   QString buttonStyle = "background-color: rgb(240, 153, 55); color: black; border: 1px solid black;";
 
-  // Apply the style to each button
   sizeDownButton->setStyleSheet(buttonStyle);
   sizeUpButton->setStyleSheet(buttonStyle);
   openExternalBrowserButton->setStyleSheet(buttonStyle);
   resetBrowserButton->setStyleSheet(buttonStyle);
+  consoleToggleButton->setStyleSheet(buttonStyle);
 
-  sizeDownButton->setFixedWidth(30); // Adjust width as needed
+  sizeDownButton->setFixedWidth(30);
   sizeUpButton->setFixedWidth(30);
   openExternalBrowserButton->setFixedWidth(30);
   resetBrowserButton->setFixedWidth(30);
+  consoleToggleButton->setFixedWidth(30);
 
-  topRowSubLayout->addStretch(1);
-  topRowSubLayout->addWidget(resetBrowserButton, 0, Qt::AlignRight);
-  topRowSubLayout->addWidget(openExternalBrowserButton, 0, Qt::AlignRight);
-  topRowSubLayout->addWidget(sizeDownButton, 0, Qt::AlignRight);
-  topRowSubLayout->addWidget(sizeUpButton, 0, Qt::AlignRight);
+  topRowSubLayout->addWidget(consoleToggleButton);
+  topRowSubLayout->addWidget(resetBrowserButton);
+  topRowSubLayout->addWidget(openExternalBrowserButton);
+  topRowSubLayout->addWidget(sizeDownButton);
+  topRowSubLayout->addWidget(sizeUpButton);
 
-  // Create a widget to hold the layout and apply background color
-  QWidget *buttonContainer = new QWidget(this);
+  buttonContainer = new QWidget(this);
   buttonContainer->setLayout(topRowSubLayout);
-  buttonContainer->setStyleSheet("background-color: black;");
-
+  buttonContainer->setStyleSheet("background-color: rgba(0, 0, 0, 191); border-top: 1px solid rgba(255, 165, 0, 100); border-bottom: 1px solid rgba(255, 165, 0, 100);");
+  buttonContainer->setAttribute(Qt::WA_TranslucentBackground);
+  buttonContainer->raise();
+  
   mainLayout->addWidget(phxView, 1);
-  mainLayout->addWidget(buttonContainer);
-
-  // phxView->setScrollbarColours(theme->color("ScrollBar"),
-  //                            theme->color("ScrollBarBackground"),
-  //                            theme->color("ScrollBarHover"));
-
   this->setStyleSheet("background-color: black;");
 
   connect(sizeDownButton, &QPushButton::released, this, &PhxWidget::handleSizeDown);
   connect(sizeUpButton, &QPushButton::released, this, &PhxWidget::handleSizeUp);
   connect(openExternalBrowserButton, &QPushButton::released, this, &PhxWidget::handleOpenExternalBrowser);
   connect(resetBrowserButton, &QPushButton::released, this, &PhxWidget::handleResetBrowser);
+  connect(consoleToggleButton, &QPushButton::released, this, &PhxWidget::handleConsoleToggle);
   connect(phxView, &PhxWebView::loadFinished, this, &PhxWidget::handleLoadFinished);
   QTimer::singleShot(1000, this, SLOT(handleResetBrowser()));
+  positionButtonContainer();
 }
 
 void PhxWidget::handleSizeDown()
 {
-  // zoom out of webview
-  // min zoom is 0.25
   qreal size = phxView->zoomFactor();
   size = size - 0.2;
   if (size < 0.25)
   {
     size = 0.25;
   }
-
   phxView->setZoomFactor(size);
-  // resize button
 }
 
 void PhxWidget::handleSizeUp()
 {
-  // zoom into webview
-  // max zoom is 5.0
   qreal size = phxView->zoomFactor();
   size = size + 0.2;
   if (size > 5.0)
   {
     size = 5.0;
   }
-
   phxView->setZoomFactor(size);
 }
 
@@ -104,7 +99,7 @@ void PhxWidget::handleOpenExternalBrowser()
 void PhxWidget::connectToTauPhx(QUrl url)
 {
   defaultUrl = url;
-  std::cout << "[PHX] - connecting to: " << url.toString().toStdString() << std::endl;
+  qDebug() << "[PHX] - connecting to:" << url.toString();
   phxView->load(url);
 }
 
@@ -114,14 +109,14 @@ void PhxWidget::handleLoadFinished(bool ok)
   {
     if (!phxAlive)
     {
-      std::cout << "[PHX] - initial load finished" << std::endl;
+      qDebug() << "[PHX] - initial load finished";
       phxAlive = true;
       phxView->show();
     }
   }
   else
   {
-    std::cout << "[PHX] - load error" << std::endl;
+    qDebug() << "[PHX] - load error";
     phxView->load(defaultUrl);
   }
 }
@@ -130,3 +125,60 @@ void PhxWidget::handleResetBrowser()
 {
   phxView->load(defaultUrl);
 }
+
+void PhxWidget::handleConsoleToggle()
+{
+  emit toggleConsole();
+}
+
+void PhxWidget::setConsoleVisible(bool visible)
+{
+  consoleVisible = visible;
+  if (consoleVisible) {
+    consoleToggleButton->setText(" ▼ ");
+  } else {
+    consoleToggleButton->setText(" ▲ ");
+  }
+}
+
+void PhxWidget::positionButtonContainer()
+{
+  if (!buttonContainer) return;
+  
+  QSize containerSize = buttonContainer->sizeHint();
+  int margin = 10;
+  int scrollbarBuffer = 30;
+  
+  QWidget* parentWidget = buttonContainer->parentWidget();
+  if (!parentWidget) parentWidget = this;
+  
+  int xPos = parentWidget->width() - containerSize.width() - margin - scrollbarBuffer;
+  int yPos = parentWidget->height() - containerSize.height() - margin;
+  
+  buttonContainer->setGeometry(xPos, yPos, containerSize.width(), containerSize.height());
+  buttonContainer->raise();
+}
+
+void PhxWidget::raiseButtonContainer()
+{
+  if (buttonContainer) {
+    buttonContainer->raise();
+  }
+}
+
+void PhxWidget::reparentButtonContainer(QWidget* newParent)
+{
+  if (buttonContainer && newParent) {
+    buttonContainer->setParent(newParent);
+    buttonContainer->show();
+    buttonContainer->raise();
+    positionButtonContainer();
+  }
+}
+
+void PhxWidget::resizeEvent(QResizeEvent *event)
+{
+  QWidget::resizeEvent(event);
+  positionButtonContainer();
+}
+
