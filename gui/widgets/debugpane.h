@@ -67,6 +67,7 @@ private:
     void setupDevTools();
     void slide(bool show);
     void updateViewMode();
+    void applyDevToolsDarkTheme();
     QIcon createSvgIcon(const QString &normalSvg, const QString &hoverSvg = "", const QString &selectedSvg = "");
 
 private:

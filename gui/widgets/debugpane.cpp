@@ -270,6 +270,9 @@ void DebugPane::setupDevTools()
   QWebEngineSettings *settings = m_devToolsView->page()->settings();
   settings->setAttribute(QWebEngineSettings::JavascriptEnabled, true);
   settings->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
+  
+  // Set dark background while loading
+  m_devToolsView->page()->setBackgroundColor(QColor("#1e1e1e"));
 }
 
 void DebugPane::setWebView(PhxWebView *webView)
@@ -282,6 +285,13 @@ void DebugPane::setWebView(PhxWebView *webView)
     if (targetPage)
     {
       targetPage->setDevToolsPage(m_devToolsView->page());
+      
+      // Apply dark theme to DevTools after connection
+      connect(m_devToolsView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
+        if (ok) {
+          applyDevToolsDarkTheme();
+        }
+      });
     }
   }
 }
@@ -521,6 +531,37 @@ void DebugPane::leaveEvent(QEvent *event)
     setCursor(Qt::ArrowCursor);
   }
   QWidget::leaveEvent(event);
+}
+
+void DebugPane::applyDevToolsDarkTheme()
+{
+  // Simple CSS injection to invert colors for dark mode
+  QString darkModeCSS = R"(
+    (function() {
+      const style = document.createElement('style');
+      style.textContent = `
+        /* Invert the entire DevTools UI for dark mode */
+        :root {
+          filter: invert(1) hue-rotate(180deg);
+          background: #1e1e1e !important;
+        }
+        
+        /* Re-invert images and icons to preserve their original colors */
+        img, svg, video, canvas, embed, object,
+        .cm-color-swatch, .color-swatch {
+          filter: invert(1) hue-rotate(180deg);
+        }
+        
+        /* Fix for syntax highlighting */
+        .cm-s-default .cm-keyword { filter: invert(1) hue-rotate(180deg); }
+        .cm-s-default .cm-string { filter: invert(1) hue-rotate(180deg); }
+        .cm-s-default .cm-number { filter: invert(1) hue-rotate(180deg); }
+      `;
+      document.head.appendChild(style);
+    })();
+  )";
+  
+  m_devToolsView->page()->runJavaScript(darkModeCSS);
 }
 
 QIcon DebugPane::createSvgIcon(const QString &normalSvg, const QString &hoverSvg, const QString &selectedSvg)
