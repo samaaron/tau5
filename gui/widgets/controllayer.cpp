@@ -17,6 +17,7 @@ void ControlLayer::setupControls()
   m_openExternalBrowserButton = new QPushButton(" E ", this);
   m_resetBrowserButton = new QPushButton(" R ", this);
   m_consoleToggleButton = new QPushButton(" ▲ ", this);
+  m_consoleToggleButton->setToolTip("Toggle Debug Pane");
 
   QString buttonStyle = StyleManager::guiButton();
 

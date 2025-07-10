@@ -1,6 +1,7 @@
 #include <QWebEngineView>
 #include <QWebEngineScript>
 #include <QWebEngineScriptCollection>
+#include <QWebEngineSettings>
 #include <QFileDialog>
 #include "phxwebview.h"
 #include "phxurlinterceptor.h"
@@ -8,7 +9,6 @@
 PhxWebView::PhxWebView(QWidget *parent)
     : QWebEngineView(parent)
 {
-
   PhxUrlInterceptor *interceptor = new PhxUrlInterceptor;
   phxProfile = new QWebEngineProfile();
   phxProfile->setUrlRequestInterceptor(interceptor);
@@ -19,6 +19,11 @@ PhxWebView::PhxWebView(QWidget *parent)
   setContextMenuPolicy(Qt::NoContextMenu);
   setZoomFactor(1.0);
 
+  QWebEngineSettings *settings = phxPage->settings();
+  settings->setAttribute(QWebEngineSettings::JavascriptEnabled, true);
+  settings->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
+  settings->setAttribute(QWebEngineSettings::LocalContentCanAccessRemoteUrls, true);
+  
   setAttribute(Qt::WA_TranslucentBackground);
   setStyleSheet("background:transparent");
   setScrollbarColours("#5e5e5e", "black", "#1e90ff");

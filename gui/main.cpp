@@ -22,7 +22,6 @@ namespace Config
       "--autoplay-policy=no-user-gesture-required";
 }
 
-// Simple logging
 class Logger
 {
 public:
@@ -59,18 +58,16 @@ public:
 quint16 getFreePort()
 {
   QTcpServer server;
-  // Bind to port 0 to get an available port
   if (server.listen(QHostAddress::Any, 0))
   {
     quint16 freePort = server.serverPort();
-    // Close as we just want to know the port number
     server.close();
     return freePort;
   }
   else
   {
     Logger::log(Logger::Error, "Failed to find a free port.");
-    return 0; // Return 0 if no free port found
+    return 0;
   }
 }
 
@@ -92,7 +89,6 @@ bool setupConsoleOutput()
 
 bool initializeApplication(QApplication &app)
 {
-  // Set environment variables for Chromium
   qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS);
 
   QCoreApplication::setAttribute(Qt::AA_UseOpenGLES, true);
@@ -113,7 +109,6 @@ int main(int argc, char *argv[])
   Logger::log(Logger::Info, "Starting Tau5...");
 
   if (argc > 1 && std::strcmp(argv[1], "check") == 0)
-  // Quick check - useful for CI runners
   {
 #if defined(Q_OS_WIN)
     ExitProcess(EXIT_SUCCESS);
@@ -131,7 +126,6 @@ int main(int argc, char *argv[])
     Logger::log(Logger::Info, "Production mode enabled.");
     port = getFreePort();
 
-    // Error handling for port allocation
     if (port == 0)
     {
       QMessageBox::critical(nullptr, "Error", "Failed to allocate port");
@@ -157,7 +151,6 @@ int main(int argc, char *argv[])
   QString appDirPath = QCoreApplication::applicationDirPath();
   QDir dir(appDirPath);
 
-  // TODO : Make less brittle wrt platform build dirs
 #if defined(Q_OS_WIN)
   dir.cd("../../../server");
 #elif defined(Q_OS_MACOS)
@@ -169,14 +162,12 @@ int main(int argc, char *argv[])
   QString basePath = dir.absolutePath();
   Logger::log(Logger::Info, QString("Base path: %1").arg(basePath));
 
-  // Check if server path exists
   if (!QDir(basePath).exists())
   {
     QMessageBox::critical(nullptr, "Error", "Server directory not found at: " + basePath);
     return 1;
   }
 
-  // Use smart pointer for Beam to ensure cleanup
   std::unique_ptr<Beam> beam = std::make_unique<Beam>(&app, basePath, Config::APP_NAME,
                                                       Config::APP_VERSION, port, devMode);
 

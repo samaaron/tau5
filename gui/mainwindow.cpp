@@ -8,7 +8,7 @@
 #include <QWidget>
 #include "mainwindow.h"
 #include "widgets/phxwidget.h"
-#include "widgets/consolewidget.h"
+#include "widgets/debugpane.h"
 #include "widgets/controllayer.h"
 #include "lib/beam.h"
 
@@ -34,7 +34,7 @@ MainWindow::MainWindow(QWidget *parent)
   QAction *aboutAction = helpMenu->addAction(tr("&About"));
   connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
 
-  initializeConsole();
+  initializeDebugPane();
   initializeControlLayer();
 }
 
@@ -43,7 +43,7 @@ MainWindow::~MainWindow() = default;
 void MainWindow::setBeamInstance(Beam *beam)
 {
   beamInstance = beam;
-  if (beamInstance && consoleWidget) {
+  if (beamInstance && debugPane) {
     connect(beamInstance, &Beam::standardOutput,
             this, &MainWindow::handleBeamOutput);
     connect(beamInstance, &Beam::standardError,
@@ -74,19 +74,24 @@ void MainWindow::initializePhxWidget(quint16 port)
   phxWidget = std::make_unique<PhxWidget>(this);
   phxWidget->connectToTauPhx(phxUrl);
   setCentralWidget(phxWidget.get());
+  
+  // Connect the PhxWebView to the debug pane for DevTools
+  if (debugPane) {
+    debugPane->setWebView(phxWidget->getWebView());
+  }
 }
 
-void MainWindow::initializeConsole()
+void MainWindow::initializeDebugPane()
 {
-  consoleWidget = std::make_unique<ConsoleWidget>(this);
+  debugPane = std::make_unique<DebugPane>(this);
   
-  int defaultHeight = height() / 3;
-  consoleWidget->resize(width(), defaultHeight);
-  consoleWidget->move(0, height() - defaultHeight);
-  consoleWidget->raise();
-  consoleWidget->hide();
+  int defaultHeight = height() / 2;
+  debugPane->resize(width(), defaultHeight);
+  debugPane->move(0, height() - defaultHeight);
+  debugPane->raise();
+  debugPane->hide();
   
-  connect(consoleWidget.get(), &ConsoleWidget::visibilityChanged,
+  connect(debugPane.get(), &DebugPane::visibilityChanged,
           this, [this](bool visible) {
             if (controlLayer) {
               controlLayer->setConsoleVisible(visible);
@@ -109,22 +114,22 @@ void MainWindow::initializeControlLayer()
 
 void MainWindow::toggleConsole()
 {
-  if (consoleWidget) {
-    consoleWidget->toggle();
+  if (debugPane) {
+    debugPane->toggle();
   }
 }
 
 void MainWindow::handleBeamOutput(const QString &output)
 {
-  if (consoleWidget) {
-    consoleWidget->appendOutput(output, false);
+  if (debugPane) {
+    debugPane->appendOutput(output, false);
   }
 }
 
 void MainWindow::handleBeamError(const QString &error)
 {
-  if (consoleWidget) {
-    consoleWidget->appendOutput(error, true);
+  if (debugPane) {
+    debugPane->appendOutput(error, true);
   }
 }
 
@@ -132,9 +137,9 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 {
   QMainWindow::resizeEvent(event);
 
-  if (consoleWidget && consoleWidget->isVisible()) {
-    consoleWidget->resize(width(), consoleWidget->height());
-    consoleWidget->move(0, height() - consoleWidget->height());
+  if (debugPane && debugPane->isVisible()) {
+    debugPane->resize(width(), debugPane->height());
+    debugPane->move(0, height() - debugPane->height());
   }
   
   if (controlLayer) {

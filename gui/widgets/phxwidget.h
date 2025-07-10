@@ -19,6 +19,8 @@ public:
   void handleSizeUp();
   void handleOpenExternalBrowser();
   void handleResetBrowser();
+  
+  PhxWebView* getWebView() const { return phxView; }
 
 protected:
   void resizeEvent(QResizeEvent *event) override;

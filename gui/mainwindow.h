@@ -9,7 +9,7 @@
 #endif
 
 class PhxWidget;
-class ConsoleWidget;
+class DebugPane;
 class ControlLayer;
 class Beam;
 
@@ -40,12 +40,12 @@ private slots:
 
 private:
   void initializePhxWidget(quint16 port);
-  void initializeConsole();
+  void initializeDebugPane();
   void initializeControlLayer();
 
 private:
   std::unique_ptr<PhxWidget> phxWidget;
-  std::unique_ptr<ConsoleWidget> consoleWidget;
+  std::unique_ptr<DebugPane> debugPane;
   std::unique_ptr<ControlLayer> controlLayer;
   Beam *beamInstance;
 };

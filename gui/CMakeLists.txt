@@ -56,6 +56,8 @@ set(SOURCES
   ${QTAPP_ROOT}/widgets/phxurlinterceptor.cpp
   ${QTAPP_ROOT}/widgets/consolewidget.h
   ${QTAPP_ROOT}/widgets/consolewidget.cpp
+  ${QTAPP_ROOT}/widgets/debugpane.h
+  ${QTAPP_ROOT}/widgets/debugpane.cpp
   ${QTAPP_ROOT}/widgets/controllayer.h
   ${QTAPP_ROOT}/widgets/controllayer.cpp
   ${QTAPP_ROOT}/lib/beam.h
@@ -138,6 +140,7 @@ target_link_libraries(${APP_NAME}
   Qt::Gui
   Qt::Widgets
   Qt::Network
+  Qt::Svg
   Qt::WebEngineWidgets)
 
 # Deploy Qt binaries to the output on windows, and copy the CRT to the release folder

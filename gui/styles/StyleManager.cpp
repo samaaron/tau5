@@ -1,7 +1,7 @@
-3 #include "StyleManager.h"
+#include "StyleManager.h"
 
-    // Color Palette Definitions
-    const QString StyleManager::Colors::PRIMARY_ORANGE = "#ffa500";
+// Color Palette Definitions
+const QString StyleManager::Colors::PRIMARY_ORANGE = "#ffa500";
 const QString StyleManager::Colors::PRIMARY_ORANGE_RGB = "rgb(255, 165, 0)";
 const QString StyleManager::Colors::ERROR_BLUE = "#4169e1";
 const QString StyleManager::Colors::TIMESTAMP_GRAY = "#888888";
