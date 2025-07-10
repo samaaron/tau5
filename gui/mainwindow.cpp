@@ -9,6 +9,7 @@
 #include "mainwindow.h"
 #include "widgets/phxwidget.h"
 #include "widgets/consolewidget.h"
+#include "widgets/controllayer.h"
 #include "lib/beam.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -18,9 +19,8 @@ MainWindow::MainWindow(QWidget *parent)
   QCoreApplication::setOrganizationName("Tau5");
   QCoreApplication::setApplicationName("Tau5");
 
-  resize(1024, 768); // Set to a larger size initially
+  resize(1024, 768);
 
-  // Restore saved window geometry (size and position)
   QSettings settings;
   if (settings.contains("MainWindow/geometry"))
   {
@@ -29,28 +29,21 @@ MainWindow::MainWindow(QWidget *parent)
 
   this->setStyleSheet("background-color: black;");
 
-  // Create the menu bar
   QMenuBar *menuBar = this->menuBar();
-
-  // Add Help menu and About action
   QMenu *helpMenu = menuBar->addMenu(tr("&Help"));
   QAction *aboutAction = helpMenu->addAction(tr("&About"));
-
-  // Connect the About action to the slot
   connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
 
-  // Initialize console
   initializeConsole();
+  initializeControlLayer();
 }
 
-// Destructor must be defined here where PhxWidget is complete
 MainWindow::~MainWindow() = default;
 
 void MainWindow::setBeamInstance(Beam *beam)
 {
   beamInstance = beam;
   if (beamInstance && consoleWidget) {
-    // Connect Beam output signals to console
     connect(beamInstance, &Beam::standardOutput,
             this, &MainWindow::handleBeamOutput);
     connect(beamInstance, &Beam::standardError,
@@ -81,9 +74,6 @@ void MainWindow::initializePhxWidget(quint16 port)
   phxWidget = std::make_unique<PhxWidget>(this);
   phxWidget->connectToTauPhx(phxUrl);
   setCentralWidget(phxWidget.get());
-  
-  connect(phxWidget.get(), &PhxWidget::toggleConsole, this, &MainWindow::toggleConsole);
-  phxWidget->reparentButtonContainer(this);
 }
 
 void MainWindow::initializeConsole()
@@ -98,11 +88,23 @@ void MainWindow::initializeConsole()
   
   connect(consoleWidget.get(), &ConsoleWidget::visibilityChanged,
           this, [this](bool visible) {
-            if (phxWidget) {
-              phxWidget->setConsoleVisible(visible);
-              phxWidget->raiseButtonContainer();
+            if (controlLayer) {
+              controlLayer->setConsoleVisible(visible);
+              controlLayer->raise();
             }
           });
+}
+
+void MainWindow::initializeControlLayer()
+{
+  controlLayer = std::make_unique<ControlLayer>(this);
+  controlLayer->raise();
+  
+  connect(controlLayer.get(), &ControlLayer::sizeDown, this, &MainWindow::handleSizeDown);
+  connect(controlLayer.get(), &ControlLayer::sizeUp, this, &MainWindow::handleSizeUp);
+  connect(controlLayer.get(), &ControlLayer::openExternalBrowser, this, &MainWindow::handleOpenExternalBrowser);
+  connect(controlLayer.get(), &ControlLayer::resetBrowser, this, &MainWindow::handleResetBrowser);
+  connect(controlLayer.get(), &ControlLayer::toggleConsole, this, &MainWindow::toggleConsole);
 }
 
 void MainWindow::toggleConsole()
@@ -135,8 +137,9 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     consoleWidget->move(0, height() - consoleWidget->height());
   }
   
-  if (phxWidget) {
-    phxWidget->positionButtonContainer();
+  if (controlLayer) {
+    controlLayer->positionControls();
+    controlLayer->raise();
   }
 }
 
@@ -151,4 +154,32 @@ void MainWindow::showAbout() const
 {
   QMessageBox::about(const_cast<MainWindow*>(this), tr("About Tau5"),
                      tr("Sonic Pi Tau5 Tech\n\nby Sam Aaron"));
+}
+
+void MainWindow::handleSizeDown()
+{
+  if (phxWidget) {
+    phxWidget->handleSizeDown();
+  }
+}
+
+void MainWindow::handleSizeUp()
+{
+  if (phxWidget) {
+    phxWidget->handleSizeUp();
+  }
+}
+
+void MainWindow::handleOpenExternalBrowser()
+{
+  if (phxWidget) {
+    phxWidget->handleOpenExternalBrowser();
+  }
+}
+
+void MainWindow::handleResetBrowser()
+{
+  if (phxWidget) {
+    phxWidget->handleResetBrowser();
+  }
 }

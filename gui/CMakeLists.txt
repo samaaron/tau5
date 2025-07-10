@@ -56,6 +56,8 @@ set(SOURCES
   ${QTAPP_ROOT}/widgets/phxurlinterceptor.cpp
   ${QTAPP_ROOT}/widgets/consolewidget.h
   ${QTAPP_ROOT}/widgets/consolewidget.cpp
+  ${QTAPP_ROOT}/widgets/controllayer.h
+  ${QTAPP_ROOT}/widgets/controllayer.cpp
   ${QTAPP_ROOT}/lib/beam.h
   ${QTAPP_ROOT}/lib/beam.cpp
   ${QTAPP_ROOT}/styles/StyleManager.h
