@@ -11,27 +11,26 @@ class PhxWebView;
 
 class PhxWidget : public QWidget
 {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    PhxWidget(QWidget* parent = 0);
-    void connectToTauPhx(QUrl url);
-    void handleSizeDown();
-    void handleSizeUp();
-    void handleOpenExternalBrowser();
-    void handleResetBrowser();
+  PhxWidget(QWidget *parent = 0);
+  void connectToTauPhx(QUrl url);
+  void handleSizeDown();
+  void handleSizeUp();
+  void handleOpenExternalBrowser();
+  void handleResetBrowser();
 
 protected:
-    void resizeEvent(QResizeEvent *event) override;
+  void resizeEvent(QResizeEvent *event) override;
 
 private:
-    QHBoxLayout *mainLayout;
-    PhxWebView *phxView;
-    bool phxAlive;
-    QUrl defaultUrl;
+  QHBoxLayout *mainLayout;
+  PhxWebView *phxView;
+  bool phxAlive;
+  QUrl defaultUrl;
 
 private slots:
-    void handleLoadFinished(bool ok);
-
+  void handleLoadFinished(bool ok);
 };
 
 #endif // PHXWIDGET_H

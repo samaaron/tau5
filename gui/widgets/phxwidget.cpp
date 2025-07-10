@@ -18,10 +18,10 @@ PhxWidget::PhxWidget(QWidget *parent)
   phxView->setSizePolicy(sp_retain);
   phxView->hide();
   mainLayout = new QHBoxLayout(this);
-  
+
   mainLayout->addWidget(phxView, 1);
   this->setStyleSheet(QString("PhxWidget { background-color: %1; }")
-    .arg(StyleManager::Colors::BLACK));
+                          .arg(StyleManager::Colors::BLACK));
 
   connect(phxView, &PhxWebView::loadFinished, this, &PhxWidget::handleLoadFinished);
   QTimer::singleShot(1000, this, SLOT(handleResetBrowser()));
@@ -88,4 +88,3 @@ void PhxWidget::resizeEvent(QResizeEvent *event)
 {
   QWidget::resizeEvent(event);
 }
-
