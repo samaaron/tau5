@@ -17,6 +17,7 @@ class QPropertyAnimation;
 class QTextEdit;
 class ConsoleWidget;
 class PhxWebView;
+class SandboxedWebView;
 
 class DebugPane : public QWidget
 {
@@ -121,11 +122,11 @@ private:
     QPushButton *m_devToolsTabButton;
     QPushButton *m_liveDashboardTabButton;
     QWidget *m_devToolsContainer;
-    QWebEngineView *m_devToolsView;
+    SandboxedWebView *m_devToolsView;
     QPushButton *m_zoomInButton;
     QPushButton *m_zoomOutButton;
     QWidget *m_liveDashboardContainer;
-    QWebEngineView *m_liveDashboardView;
+    SandboxedWebView *m_liveDashboardView;
     QPushButton *m_liveDashboardZoomInButton;
     QPushButton *m_liveDashboardZoomOutButton;
     

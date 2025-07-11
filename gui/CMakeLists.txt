@@ -56,6 +56,8 @@ set(SOURCES
   ${QTAPP_ROOT}/widgets/phxwidget.cpp
   ${QTAPP_ROOT}/widgets/phxurlinterceptor.h
   ${QTAPP_ROOT}/widgets/phxurlinterceptor.cpp
+  ${QTAPP_ROOT}/widgets/sandboxedwebview.h
+  ${QTAPP_ROOT}/widgets/sandboxedwebview.cpp
   ${QTAPP_ROOT}/widgets/consolewidget.h
   ${QTAPP_ROOT}/widgets/consolewidget.cpp
   ${QTAPP_ROOT}/widgets/debugpane.h

@@ -1,30 +1,19 @@
 #ifndef PHXWEBVIEW_H
 #define PHXWEBVIEW_H
 
-#include <QWebEngineView>
-#include <QWebEngineProfile>
-#include <QWebEngineDownloadRequest>
+#include "sandboxedwebview.h"
 
-class QWebEngineProfile;
-class QWebEnginePage;
-class QWebEngineDownloadRequest;
+class QWebEngineSettings;
 
-class PhxWebView : public QWebEngineView
+class PhxWebView : public SandboxedWebView
 {
   Q_OBJECT
 
 public:
   explicit PhxWebView(QWidget *parent = nullptr);
-  void setScrollbarColours(QColor foreground, QColor background, QColor hover);
 
-private slots:
-  void handleDownloadRequested(QWebEngineDownloadRequest *download);
-
-private:
-  void insertStyleSheet(const QString &name, const QString &source);
-
-  QWebEngineProfile *phxProfile;
-  QWebEnginePage *phxPage;
+protected:
+  void applyCustomSettings(QWebEngineSettings *settings) override;
 };
 
 #endif // PHXWEBVIEW_H

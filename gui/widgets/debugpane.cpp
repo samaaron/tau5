@@ -4,6 +4,7 @@
 #include "debugpane.h"
 #include "StyleManager.h"
 #include "phxwebview.h"
+#include "sandboxedwebview.h"
 #include <QTextEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -428,10 +429,8 @@ void DebugPane::setupDevTools()
   devToolsLayout->setContentsMargins(0, 0, 0, 0);
   devToolsLayout->setSpacing(0);
   
-  m_devToolsView = new QWebEngineView(m_devToolsContainer);
-  QWebEngineSettings *settings = m_devToolsView->page()->settings();
-  settings->setAttribute(QWebEngineSettings::JavascriptEnabled, true);
-  settings->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
+  m_devToolsView = new SandboxedWebView(m_devToolsContainer);
+  m_devToolsView->setFallbackUrl(QUrl());  // No fallback for DevTools
   m_devToolsView->page()->setBackgroundColor(QColor("#1e1e1e"));
   devToolsLayout->addWidget(m_devToolsView);
   
@@ -440,10 +439,7 @@ void DebugPane::setupDevTools()
   liveDashboardLayout->setContentsMargins(0, 0, 0, 0);
   liveDashboardLayout->setSpacing(0);
   
-  m_liveDashboardView = new QWebEngineView(m_liveDashboardContainer);
-  QWebEngineSettings *dashboardSettings = m_liveDashboardView->page()->settings();
-  dashboardSettings->setAttribute(QWebEngineSettings::JavascriptEnabled, true);
-  dashboardSettings->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
+  m_liveDashboardView = new SandboxedWebView(m_liveDashboardContainer);
   m_liveDashboardView->page()->setBackgroundColor(QColor("#1e1e1e"));
   liveDashboardLayout->addWidget(m_liveDashboardView);
   
@@ -946,7 +942,9 @@ void DebugPane::setLiveDashboardUrl(const QString &url)
 {
   if (m_liveDashboardView && !url.isEmpty())
   {
-    m_liveDashboardView->setUrl(QUrl(url));
+    QUrl dashboardUrl(url);
+    m_liveDashboardView->setFallbackUrl(dashboardUrl);
+    m_liveDashboardView->setUrl(dashboardUrl);
     
     // Connect to page load finished to apply tau5 theme
     connect(m_liveDashboardView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
