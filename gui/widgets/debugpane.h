@@ -61,6 +61,8 @@ private slots:
     void handleGuiLogZoomOut();
     void showBeamLog();
     void showGuiLog();
+    void showDevToolsTab();
+    void showLiveDashboardTab();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -80,6 +82,13 @@ private:
     void applyDevToolsDarkTheme();
     QIcon createSvgIcon(const QString &normalSvg, const QString &hoverSvg = "", const QString &selectedSvg = "");
     QPixmap createSvgPixmap(const QString &svg, int width, int height);
+    
+    // Shared UI creation methods
+    QWidget* createTabToolbar(QWidget *parent);
+    QString getTabButtonStyle();
+    QString getZoomButtonStyle();
+    QPushButton* createTabButton(const QString &text, QWidget *parent);
+    QPushButton* createZoomButton(const QIcon &icon, const QString &tooltip, QWidget *parent);
 
 private:
     QVBoxLayout *m_mainLayout;
@@ -93,8 +102,6 @@ private:
     QPushButton *m_beamLogTabButton;
     QPushButton *m_guiLogTabButton;
     
-    QTabWidget *m_consoleTabs; // Keep for now for compatibility
-    
     // BEAM Log tab
     QWidget *m_beamLogContainer;
     QVBoxLayout *m_beamLogLayout;
@@ -102,6 +109,8 @@ private:
     QPushButton *m_autoScrollButton;
     QPushButton *m_consoleZoomInButton;
     QPushButton *m_consoleZoomOutButton;
+    QPushButton *m_devToolsZoomInButton;
+    QPushButton *m_devToolsZoomOutButton;
     
     // GUI Log tab
     QWidget *m_guiLogContainer;
@@ -113,6 +122,12 @@ private:
     
     // Right side - DevTools tabs
     QTabWidget *m_devToolsTabs;
+    
+    // DevTools main container with inline tabs
+    QWidget *m_devToolsMainContainer;
+    QStackedWidget *m_devToolsStack;
+    QPushButton *m_devToolsTabButton;
+    QPushButton *m_liveDashboardTabButton;
     
     // DevTools tab
     QWidget *m_devToolsContainer;
