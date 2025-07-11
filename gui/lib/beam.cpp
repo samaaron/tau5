@@ -6,9 +6,13 @@
 #include <QSysInfo>
 #include <QOperatingSystemVersion>
 #include <QApplication>
+#include <QTimer>
+#include <QRegularExpression>
+#include <QThread>
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode)
-    : QObject(parent), appBasePath(basePath), process(new QProcess(this))
+    : QObject(parent), appBasePath(basePath), process(new QProcess(this)), 
+      beamPid(0), serverReady(false)
 {
   appPort = port;
 
@@ -16,6 +20,10 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
           this, &Beam::handleStandardOutput);
   connect(process, &QProcess::readyReadStandardError,
           this, &Beam::handleStandardError);
+
+  heartbeatTimer = new QTimer(this);
+  heartbeatTimer->setInterval(5000);
+  connect(heartbeatTimer, &QTimer::timeout, this, &Beam::sendHeartbeat);
 
   if (devMode)
   {
@@ -59,19 +67,29 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
 
 Beam::~Beam()
 {
+  if (heartbeatTimer && heartbeatTimer->isActive())
+  {
+    heartbeatTimer->stop();
+  }
+
   if (process)
   {
     if (process->state() == QProcess::Running)
     {
       qDebug() << "Attempting to terminate process...";
-      process->terminate();                // Try to gracefully terminate
-      if (!process->waitForFinished(5000)) // Wait up to 5 seconds
+      process->terminate();
+      if (!process->waitForFinished(5000))
       {
         qDebug() << "Process did not terminate, killing it...";
-        process->kill();            // Force kill if terminate didn't work
-        process->waitForFinished(); // Ensure the process has exited
+        process->kill();
+        process->waitForFinished();
       }
     }
+  }
+  
+  if (beamPid > 0)
+  {
+    killBeamProcess();
   }
 }
 
@@ -79,6 +97,17 @@ void Beam::handleStandardOutput()
 {
   QByteArray output = process->readAllStandardOutput();
   QString outputStr = QString::fromUtf8(output);
+  
+  QRegularExpression pidRegex("\\[TAU5_BEAM_PID:(\\d+)\\]");
+  QRegularExpressionMatch match = pidRegex.match(outputStr);
+  if (match.hasMatch())
+  {
+    beamPid = match.captured(1).toLongLong();
+    qDebug() << "Captured BEAM PID:" << beamPid;
+    serverReady = true;
+    heartbeatTimer->start();
+  }
+  
   qDebug() << outputStr;
   emit standardOutput(outputStr);
 }
@@ -219,4 +248,105 @@ bool Beam::isMacOS() const
 bool Beam::isWindows() const
 {
   return (QOperatingSystemVersion::currentType() == QOperatingSystemVersion::Windows);
+}
+
+void Beam::sendHeartbeat()
+{
+  if (!serverReady || !process || process->state() != QProcess::Running)
+  {
+    return;
+  }
+
+  process->write("TAU5_HEARTBEAT\n");
+}
+
+void Beam::killBeamProcess()
+{
+  if (beamPid <= 0)
+  {
+    return;
+  }
+
+  qDebug() << "Attempting to kill BEAM process with PID:" << beamPid;
+
+#ifdef Q_OS_WIN
+  qDebug() << "Windows: Sending graceful termination to PID:" << beamPid;
+  QProcess::execute("taskkill", {"/PID", QString::number(beamPid)});
+  
+  for (int i = 5; i > 0; --i)
+  {
+    QProcess checkProcess;
+    checkProcess.start("tasklist", {"/FI", QString("PID eq %1").arg(beamPid)});
+    checkProcess.waitForFinished();
+    QString output = checkProcess.readAllStandardOutput();
+    
+    if (!output.contains(QString::number(beamPid)))
+    {
+      qDebug() << "Process" << beamPid << "terminated gracefully";
+      return;
+    }
+    
+    qDebug() << "Process" << beamPid << "still running, waiting..." << i;
+    QThread::msleep(1000);
+  }
+  
+  qDebug() << "Windows: Force killing PID:" << beamPid;
+  QProcess::execute("taskkill", {"/F", "/PID", QString::number(beamPid)});
+  
+#else
+  qDebug() << "Unix: Sending SIGTERM to PID:" << beamPid;
+  int result = QProcess::execute("kill", {"-TERM", QString::number(beamPid)});
+  
+  if (result != 0)
+  {
+    qDebug() << "Process" << beamPid << "not found or already terminated";
+    return;
+  }
+  
+  for (int i = 5; i > 0; --i)
+  {
+    result = QProcess::execute("kill", {"-0", QString::number(beamPid)});
+    
+    if (result != 0)
+    {
+      qDebug() << "Process" << beamPid << "terminated gracefully";
+      return;
+    }
+    
+    qDebug() << "Process" << beamPid << "still running, waiting..." << i;
+    QThread::msleep(1000);
+  }
+  
+  qDebug() << "Unix: Sending SIGKILL to PID:" << beamPid;
+  QProcess::execute("kill", {"-9", QString::number(beamPid)});
+#endif
+
+  QThread::msleep(1000);
+  
+#ifdef Q_OS_WIN
+  QProcess finalCheck;
+  finalCheck.start("tasklist", {"/FI", QString("PID eq %1").arg(beamPid)});
+  finalCheck.waitForFinished();
+  QString finalOutput = finalCheck.readAllStandardOutput();
+  
+  if (finalOutput.contains(QString::number(beamPid)))
+  {
+    qDebug() << "WARNING: Unable to terminate process" << beamPid;
+  }
+  else
+  {
+    qDebug() << "Process" << beamPid << "successfully terminated";
+  }
+#else
+  int finalResult = QProcess::execute("kill", {"-0", QString::number(beamPid)});
+  
+  if (finalResult == 0)
+  {
+    qDebug() << "WARNING: Unable to terminate process" << beamPid;
+  }
+  else
+  {
+    qDebug() << "Process" << beamPid << "successfully terminated";
+  }
+#endif
 }

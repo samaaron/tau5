@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include <QProcess>
+#include <QTimer>
 
 class Beam : public QObject
 {
@@ -23,6 +24,7 @@ signals:
 private slots:
   void handleStandardOutput();
   void handleStandardError();
+  void sendHeartbeat();
 
 private:
   quint16 appPort;
@@ -35,10 +37,14 @@ private:
   QString releaseLibPath;
   QString releaseErlBinPath;
   QProcess *process;
+  qint64 beamPid;
+  QTimer *heartbeatTimer;
+  bool serverReady;
 
   void startProcess(const QString &cmd, const QStringList &args);
   bool isWindows() const;
   bool isMacOS() const;
+  void killBeamProcess();
 };
 
 #endif // BEAM_H

@@ -8,12 +8,12 @@ defmodule Tau5.Application do
 
     children = [
       Tau5.ConfigRepo,
-      # Use the fixed version below
       Tau5.ConfigRepoMigrator,
       Tau5Web.Telemetry,
       {Phoenix.PubSub, name: Tau5.PubSub},
       {Finch, name: Tau5.Finch},
       Tau5Web.Endpoint,
+      Tau5.Heartbeat,
       Tau5.Link,
       Tau5.MIDI,
       {Tau5.Discovery, %{http_port: http_port}}
