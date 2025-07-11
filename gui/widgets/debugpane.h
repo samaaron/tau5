@@ -4,7 +4,6 @@
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QStackedWidget>
 #include <QSplitter>
 #include <QWebEngineView>
 #include <QWebEnginePage>
@@ -12,7 +11,6 @@
 
 class QPushButton;
 class QLabel;
-class QCheckBox;
 class QPropertyAnimation;
 class QTextEdit;
 class ConsoleWidget;
@@ -51,6 +49,10 @@ private slots:
     void showBeamLogOnly();
     void showDevToolsOnly();
     void showSideBySide();
+    void handleZoomIn();
+    void handleZoomOut();
+    void handleConsoleZoomIn();
+    void handleConsoleZoomOut();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -69,20 +71,30 @@ private:
     void updateViewMode();
     void applyDevToolsDarkTheme();
     QIcon createSvgIcon(const QString &normalSvg, const QString &hoverSvg = "", const QString &selectedSvg = "");
+    QPixmap createSvgPixmap(const QString &svg, int width, int height);
 
 private:
     QVBoxLayout *m_mainLayout;
     QWidget *m_headerWidget;
     QHBoxLayout *m_headerLayout;
-    QStackedWidget *m_contentStack;
     QSplitter *m_splitter;
 
-    QWidget *m_consoleWidget;
+    QWidget *m_consoleContainer;
     QVBoxLayout *m_consoleLayout;
     QTextEdit *m_outputDisplay;
-    QCheckBox *m_autoScrollToggle;
-
+    int m_currentFontSize;
+    
+    // BEAM log controls
+    QPushButton *m_autoScrollButton;
+    QPushButton *m_consoleZoomInButton;
+    QPushButton *m_consoleZoomOutButton;
+    
+    // DevTools
+    QWidget *m_devToolsContainer;
     QWebEngineView *m_devToolsView;
+    QPushButton *m_zoomInButton;
+    QPushButton *m_zoomOutButton;
+    
     PhxWebView *m_targetWebView;
 
     QPushButton *m_beamLogButton;

@@ -1,3 +1,7 @@
+// Icons used in this file are inspired by Microsoft VS Code Icons
+// https://github.com/microsoft/vscode-icons
+// Licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+
 #include "debugpane.h"
 #include "StyleManager.h"
 #include "phxwebview.h"
@@ -6,9 +10,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QCheckBox>
 #include <QScrollBar>
-#include <QStackedWidget>
 #include <QSplitter>
 #include <QWebEngineView>
 #include <QWebEngineProfile>
@@ -32,11 +34,13 @@
 #include <QSvgRenderer>
 #include <QByteArray>
 #include <QPainter>
+#include <QRegularExpression>
 
 DebugPane::DebugPane(QWidget *parent)
     : QWidget(parent), m_isVisible(false), m_autoScroll(true), m_maxLines(5000),
       m_currentMode(BeamLogOnly), m_isResizing(false), m_resizeStartY(0),
-      m_resizeStartHeight(0), m_targetWebView(nullptr), m_devToolsView(nullptr)
+      m_resizeStartHeight(0), m_targetWebView(nullptr), m_devToolsView(nullptr),
+      m_currentFontSize(12)
 {
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowFlags(Qt::FramelessWindowHint);
@@ -58,38 +62,24 @@ void DebugPane::setupUi()
   setupConsole();
   setupDevTools();
 
-  m_contentStack = new QStackedWidget(this);
+  // Create a simple container widget for full view mode
+  QWidget *fullViewContainer = new QWidget(this);
+  QVBoxLayout *fullViewLayout = new QVBoxLayout(fullViewContainer);
+  fullViewLayout->setContentsMargins(0, 0, 0, 0);
+  fullViewLayout->setSpacing(0);
+  
+  // Splitter for side-by-side view
   m_splitter = new QSplitter(Qt::Horizontal, this);
-
-  QWidget *consoleClone = new QWidget();
-  QVBoxLayout *consoleCloneLayout = new QVBoxLayout(consoleClone);
-  consoleCloneLayout->setContentsMargins(0, 0, 0, 0);
-  consoleCloneLayout->setSpacing(0);
-
-  QTextEdit *clonedOutput = new QTextEdit(consoleClone);
-  clonedOutput->setReadOnly(true);
-  clonedOutput->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-  clonedOutput->setStyleSheet(StyleManager::consoleOutput());
-  consoleCloneLayout->addWidget(clonedOutput);
-
-  connect(m_outputDisplay, &QTextEdit::textChanged, this, [clonedOutput, this]()
-          {
-        clonedOutput->setHtml(m_outputDisplay->toHtml());
-        if (m_autoScroll) {
-            QScrollBar *scrollBar = clonedOutput->verticalScrollBar();
-            scrollBar->setValue(scrollBar->maximum());
-        } });
-
-  m_splitter->addWidget(consoleClone);
-  m_splitter->addWidget(m_devToolsView);
+  
+  // Create left and right placeholders for the splitter
+  QWidget *leftPlaceholder = new QWidget();
+  QWidget *rightPlaceholder = new QWidget();
+  m_splitter->addWidget(leftPlaceholder);
+  m_splitter->addWidget(rightPlaceholder);
   m_splitter->setSizes({1000, 1000});
 
-  m_contentStack->addWidget(m_consoleWidget);
-  m_contentStack->addWidget(new QWidget());
-  m_contentStack->addWidget(m_splitter);
-
   m_mainLayout->addWidget(m_headerWidget);
-  m_mainLayout->addWidget(m_contentStack, 1);
+  m_mainLayout->addWidget(fullViewContainer, 1);
 
   setStyleSheet(
       QString("DebugPane { "
@@ -150,20 +140,20 @@ void DebugPane::setupViewControls()
 
   QIcon logIcon = createSvgIcon(
       terminalSvg.arg(normalColor),
-      terminalSvg.arg(hoverColor),
+      "",
       terminalSvg.arg(selectedColor));
 
   QString bugSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path fill-rule='evenodd' clip-rule='evenodd' d='M10.877 4.5v-.582a2.918 2.918 0 1 0-5.836 0V4.5h-.833L2.545 2.829l-.593.59 1.611 1.619-.019.049a8.03 8.03 0 0 0-.503 2.831c0 .196.007.39.02.58l.003.045H1v.836h2.169l.006.034c.172.941.504 1.802.954 2.531l.034.055L2.2 13.962l.592.592 1.871-1.872.058.066c.868.992 2.002 1.589 3.238 1.589 1.218 0 2.336-.579 3.199-1.544l.057-.064 1.91 1.92.593-.591-1.996-2.006.035-.056c.467-.74.81-1.619.986-2.583l.006-.034h2.171v-.836h-2.065l.003-.044a8.43 8.43 0 0 0 .02-.58 8.02 8.02 0 0 0-.517-2.866l-.019-.05 1.57-1.57-.592-.59L11.662 4.5h-.785zm-5 0v-.582a2.082 2.082 0 1 1 4.164 0V4.5H5.878z'/></svg>");
 
   QIcon devToolsIcon = createSvgIcon(
       bugSvg.arg(normalColor),
-      bugSvg.arg(hoverColor),
+      "",
       bugSvg.arg(selectedColor));
 
   QString splitSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path d='M14 1H3L2 2v11l1 1h11l1-1V2l-1-1zM8 13H3V2h5v11zm6 0H9V2h5v11z'/></svg>");
   QIcon sideBySideIcon = createSvgIcon(
       splitSvg.arg(normalColor),
-      splitSvg.arg(hoverColor),
+      "",
       splitSvg.arg(selectedColor));
 
   m_beamLogButton = new QPushButton(m_headerWidget);
@@ -189,10 +179,19 @@ void DebugPane::setupViewControls()
       "  min-height: 32px; "
       "  max-height: 32px; "
       "} "
-      "QPushButton:hover { } "
-      "QPushButton:pressed { }"
-
-  );
+      "QPushButton:hover { "
+      "  background: rgba(255, 165, 0, 0.1); "
+      "} "
+      "QPushButton:pressed { "
+      "  background: rgba(255, 165, 0, 0.2); "
+      "} "
+      "QPushButton:checked { "
+      "  background: rgba(65, 105, 225, 0.2); "
+      "  border-radius: 3px; "
+      "} "
+      "QPushButton:focus { "
+      "  outline: none; "
+      "}");
 
   m_beamLogButton->setStyleSheet(buttonStyle);
   m_devToolsButton->setStyleSheet(buttonStyle);
@@ -201,42 +200,13 @@ void DebugPane::setupViewControls()
   m_beamLogButton->setCheckable(true);
   m_devToolsButton->setCheckable(true);
   m_sideBySideButton->setCheckable(true);
-
-  QLabel *scrollLabel = new QLabel("Auto-scroll", m_headerWidget);
-  scrollLabel->setStyleSheet(
-      QString("QLabel { "
-              "  color: %1; "
-              "  font-family: %2; "
-              "  font-size: %3; "
-              "  font-weight: %4; "
-              "  background: transparent; "
-              "  margin-right: %5; "
-              "}")
-          .arg(StyleManager::Colors::PRIMARY_ORANGE)
-          .arg(StyleManager::Typography::MONOSPACE_FONT_FAMILY)
-          .arg(StyleManager::Typography::FONT_SIZE_SMALL)
-          .arg(StyleManager::Typography::FONT_WEIGHT_BOLD)
-          .arg(StyleManager::Spacing::SMALL));
-
-  m_autoScrollToggle = new QCheckBox(m_headerWidget);
-  m_autoScrollToggle->setToolTip("Toggle Auto-scroll");
-  m_autoScrollToggle->setChecked(true);
-  m_autoScrollToggle->setStyleSheet(StyleManager::checkbox());
+  
+  m_beamLogButton->setFocusPolicy(Qt::NoFocus);
+  m_devToolsButton->setFocusPolicy(Qt::NoFocus);
+  m_sideBySideButton->setFocusPolicy(Qt::NoFocus);
 
   m_headerLayout->addWidget(titleLabel);
   m_headerLayout->addStretch();
-  m_headerLayout->addWidget(scrollLabel);
-  m_headerLayout->addWidget(m_autoScrollToggle);
-
-  QLabel *separator = new QLabel("|", m_headerWidget);
-  separator->setStyleSheet(
-      QString("QLabel { "
-              "  color: %1; "
-              "  margin: 0 8px; "
-              "  background: transparent; "
-              "}")
-          .arg(StyleManager::Colors::primaryOrangeAlpha(100)));
-  m_headerLayout->addWidget(separator);
 
   m_headerLayout->addWidget(m_beamLogButton);
   m_headerLayout->addWidget(m_devToolsButton);
@@ -245,27 +215,235 @@ void DebugPane::setupViewControls()
   connect(m_beamLogButton, &QPushButton::clicked, this, &DebugPane::showBeamLogOnly);
   connect(m_devToolsButton, &QPushButton::clicked, this, &DebugPane::showDevToolsOnly);
   connect(m_sideBySideButton, &QPushButton::clicked, this, &DebugPane::showSideBySide);
-  connect(m_autoScrollToggle, &QCheckBox::toggled, this, &DebugPane::handleAutoScrollToggled);
 }
 
 void DebugPane::setupConsole()
 {
-  m_consoleWidget = new QWidget();
-  m_consoleLayout = new QVBoxLayout(m_consoleWidget);
+  m_consoleContainer = new QWidget();
+  m_consoleLayout = new QVBoxLayout(m_consoleContainer);
   m_consoleLayout->setContentsMargins(0, 0, 0, 0);
   m_consoleLayout->setSpacing(0);
 
-  m_outputDisplay = new QTextEdit(m_consoleWidget);
+  // Console toolbar with auto-scroll control
+  QWidget *consoleToolbar = new QWidget(m_consoleContainer);
+  consoleToolbar->setFixedHeight(26);
+  consoleToolbar->setStyleSheet(QString(
+      "QWidget { "
+      "  background-color: %1; "
+      "  border-bottom: 1px solid %2; "
+      "}")
+      .arg(StyleManager::Colors::blackAlpha(230))
+      .arg(StyleManager::Colors::primaryOrangeAlpha(50)));
+  
+  QHBoxLayout *toolbarLayout = new QHBoxLayout(consoleToolbar);
+  toolbarLayout->setContentsMargins(10, 2, 10, 2);
+  toolbarLayout->setSpacing(5);
+  
+  QLabel *consoleLabel = new QLabel("BEAM Log", consoleToolbar);
+  consoleLabel->setStyleSheet(QString(
+      "QLabel { "
+      "  color: %1; "
+      "  font-family: %2; "
+      "  font-size: %3; "
+      "  font-weight: %4; "
+      "  background: transparent; "
+      "}")
+      .arg(StyleManager::Colors::PRIMARY_ORANGE)
+      .arg(StyleManager::Typography::MONOSPACE_FONT_FAMILY)
+      .arg(StyleManager::Typography::FONT_SIZE_SMALL)
+      .arg(StyleManager::Typography::FONT_WEIGHT_BOLD));
+  
+  toolbarLayout->addWidget(consoleLabel);
+  toolbarLayout->addStretch();
+  
+  QString normalColor = StyleManager::Colors::PRIMARY_ORANGE;
+  QString hoverColor = StyleManager::Colors::WHITE;
+  QString activeColor = StyleManager::Colors::PRIMARY_ORANGE;
+  QString autoScrollOffSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'>"
+      "<path d='M8 3v7M5 7l3 3 3-3' stroke='%1' stroke-width='1.5' fill='none'/>"
+      "<rect x='4' y='12' width='8' height='2' fill='%1' opacity='0.3'/>"
+      "</svg>");
+  
+  QString autoScrollOnSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'>"
+      "<path d='M8 3v7M5 7l3 3 3-3' stroke='%1' stroke-width='1.5' fill='none'/>"
+      "<rect x='4' y='12' width='8' height='2' fill='%1'/>"
+      "</svg>");
+  
+  QIcon autoScrollIcon;
+  autoScrollIcon.addPixmap(createSvgPixmap(autoScrollOffSvg.arg(normalColor), 20, 20), QIcon::Normal, QIcon::Off);
+  autoScrollIcon.addPixmap(createSvgPixmap(autoScrollOffSvg.arg(hoverColor), 20, 20), QIcon::Active, QIcon::Off);
+  autoScrollIcon.addPixmap(createSvgPixmap(autoScrollOnSvg.arg(normalColor), 20, 20), QIcon::Normal, QIcon::On);
+  autoScrollIcon.addPixmap(createSvgPixmap(autoScrollOnSvg.arg(hoverColor), 20, 20), QIcon::Active, QIcon::On);
+  
+  m_autoScrollButton = new QPushButton(consoleToolbar);
+  m_autoScrollButton->setIcon(autoScrollIcon);
+  m_autoScrollButton->setCheckable(true);
+  m_autoScrollButton->setChecked(true);
+  m_autoScrollButton->setStyleSheet(QString(
+      "QPushButton { "
+      "  background: transparent; "
+      "  border: none; "
+      "  padding: 2px; "
+      "  min-width: 16px; "
+      "  max-width: 16px; "
+      "  min-height: 16px; "
+      "  max-height: 16px; "
+      "} "
+      "QPushButton:hover { "
+      "  background: rgba(255, 165, 0, 0.1); "
+      "}"
+      "QPushButton:checked { "
+      "  background: rgba(255, 165, 0, 0.25); "
+      "  border-radius: 2px; "
+      "}"));
+  m_autoScrollButton->setToolTip("Auto-scroll");
+  m_autoScrollButton->setFocusPolicy(Qt::NoFocus);
+  
+  toolbarLayout->addWidget(m_autoScrollButton);
+  toolbarLayout->addSpacing(5);
+  QString zoomOutSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'><path d='M3 8h10v1H3z'/></svg>");
+  QIcon zoomOutIcon;
+  zoomOutIcon.addPixmap(createSvgPixmap(zoomOutSvg.arg(normalColor), 16, 16), QIcon::Normal);
+  zoomOutIcon.addPixmap(createSvgPixmap(zoomOutSvg.arg(hoverColor), 16, 16), QIcon::Active);
+  
+  QString zoomInSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'><path d='M8 3v5H3v1h5v5h1V9h5V8H9V3H8z'/></svg>");
+  QIcon zoomInIcon;
+  zoomInIcon.addPixmap(createSvgPixmap(zoomInSvg.arg(normalColor), 16, 16), QIcon::Normal);
+  zoomInIcon.addPixmap(createSvgPixmap(zoomInSvg.arg(hoverColor), 16, 16), QIcon::Active);
+  
+  QString zoomButtonStyle = QString(
+      "QPushButton { "
+      "  background: transparent; "
+      "  border: none; "
+      "  padding: 2px; "
+      "  min-width: 16px; "
+      "  max-width: 16px; "
+      "  min-height: 16px; "
+      "  max-height: 16px; "
+      "} "
+      "QPushButton:hover { "
+      "  background: rgba(255, 165, 0, 0.1); "
+      "} "
+      "QPushButton:pressed { "
+      "  background: rgba(255, 165, 0, 0.15); "
+      "}");
+  
+  m_consoleZoomOutButton = new QPushButton(consoleToolbar);
+  m_consoleZoomOutButton->setIcon(zoomOutIcon);
+  m_consoleZoomOutButton->setStyleSheet(zoomButtonStyle);
+  m_consoleZoomOutButton->setToolTip("Zoom Out");
+  m_consoleZoomOutButton->setFocusPolicy(Qt::NoFocus);
+  
+  m_consoleZoomInButton = new QPushButton(consoleToolbar);
+  m_consoleZoomInButton->setIcon(zoomInIcon);
+  m_consoleZoomInButton->setStyleSheet(zoomButtonStyle);
+  m_consoleZoomInButton->setToolTip("Zoom In");
+  m_consoleZoomInButton->setFocusPolicy(Qt::NoFocus);
+  
+  toolbarLayout->addWidget(m_consoleZoomOutButton);
+  toolbarLayout->addWidget(m_consoleZoomInButton);
+  
+  connect(m_autoScrollButton, &QPushButton::toggled, this, &DebugPane::handleAutoScrollToggled);
+  connect(m_consoleZoomInButton, &QPushButton::clicked, this, &DebugPane::handleConsoleZoomIn);
+  connect(m_consoleZoomOutButton, &QPushButton::clicked, this, &DebugPane::handleConsoleZoomOut);
+
+  m_outputDisplay = new QTextEdit(m_consoleContainer);
   m_outputDisplay->setReadOnly(true);
   m_outputDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_outputDisplay->setStyleSheet(StyleManager::consoleOutput());
 
+  m_consoleLayout->addWidget(consoleToolbar);
   m_consoleLayout->addWidget(m_outputDisplay);
 }
 
 void DebugPane::setupDevTools()
 {
-  m_devToolsView = new QWebEngineView(this);
+  // Create a container widget for devtools with toolbar
+  m_devToolsContainer = new QWidget(this);
+  QVBoxLayout *devToolsLayout = new QVBoxLayout(m_devToolsContainer);
+  devToolsLayout->setContentsMargins(0, 0, 0, 0);
+  devToolsLayout->setSpacing(0);
+  
+  QWidget *devToolsToolbar = new QWidget(m_devToolsContainer);
+  devToolsToolbar->setFixedHeight(26);
+  devToolsToolbar->setStyleSheet(QString(
+      "QWidget { "
+      "  background-color: %1; "
+      "  border-bottom: 1px solid %2; "
+      "}")
+      .arg(StyleManager::Colors::blackAlpha(230))
+      .arg(StyleManager::Colors::primaryOrangeAlpha(50)));
+  
+  QHBoxLayout *toolbarLayout = new QHBoxLayout(devToolsToolbar);
+  toolbarLayout->setContentsMargins(10, 2, 10, 2);
+  toolbarLayout->setSpacing(5);
+  
+  QLabel *devToolsLabel = new QLabel("Developer Tools", devToolsToolbar);
+  devToolsLabel->setStyleSheet(QString(
+      "QLabel { "
+      "  color: %1; "
+      "  font-family: %2; "
+      "  font-size: %3; "
+      "  font-weight: %4; "
+      "  background: transparent; "
+      "}")
+      .arg(StyleManager::Colors::PRIMARY_ORANGE)
+      .arg(StyleManager::Typography::MONOSPACE_FONT_FAMILY)
+      .arg(StyleManager::Typography::FONT_SIZE_SMALL)
+      .arg(StyleManager::Typography::FONT_WEIGHT_BOLD));
+  
+  toolbarLayout->addWidget(devToolsLabel);
+  toolbarLayout->addStretch();
+  
+  QString devNormalColor = StyleManager::Colors::PRIMARY_ORANGE;
+  QString devHoverColor = StyleManager::Colors::WHITE;
+  QString devZoomOutSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'><path d='M3 8h10v1H3z'/></svg>");
+  QIcon devZoomOutIcon;
+  devZoomOutIcon.addPixmap(createSvgPixmap(devZoomOutSvg.arg(devNormalColor), 16, 16), QIcon::Normal);
+  devZoomOutIcon.addPixmap(createSvgPixmap(devZoomOutSvg.arg(devHoverColor), 16, 16), QIcon::Active);
+  
+  QString devZoomInSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'><path d='M8 3v5H3v1h5v5h1V9h5V8H9V3H8z'/></svg>");
+  QIcon devZoomInIcon;
+  devZoomInIcon.addPixmap(createSvgPixmap(devZoomInSvg.arg(devNormalColor), 16, 16), QIcon::Normal);
+  devZoomInIcon.addPixmap(createSvgPixmap(devZoomInSvg.arg(devHoverColor), 16, 16), QIcon::Active);
+  
+  QString devZoomButtonStyle = QString(
+      "QPushButton { "
+      "  background: transparent; "
+      "  border: none; "
+      "  padding: 2px; "
+      "  min-width: 16px; "
+      "  max-width: 16px; "
+      "  min-height: 16px; "
+      "  max-height: 16px; "
+      "} "
+      "QPushButton:hover { "
+      "  background: rgba(255, 165, 0, 0.1); "
+      "} "
+      "QPushButton:pressed { "
+      "  background: rgba(255, 165, 0, 0.15); "
+      "}");
+  
+  m_zoomOutButton = new QPushButton(devToolsToolbar);
+  m_zoomOutButton->setIcon(devZoomOutIcon);
+  m_zoomOutButton->setStyleSheet(devZoomButtonStyle);
+  m_zoomOutButton->setToolTip("Zoom Out");
+  m_zoomOutButton->setFocusPolicy(Qt::NoFocus);
+  
+  m_zoomInButton = new QPushButton(devToolsToolbar);
+  m_zoomInButton->setIcon(devZoomInIcon);
+  m_zoomInButton->setStyleSheet(devZoomButtonStyle);
+  m_zoomInButton->setToolTip("Zoom In");
+  m_zoomInButton->setFocusPolicy(Qt::NoFocus);
+  
+  toolbarLayout->addWidget(m_zoomOutButton);
+  toolbarLayout->addWidget(m_zoomInButton);
+  
+  connect(m_zoomInButton, &QPushButton::clicked, this, &DebugPane::handleZoomIn);
+  connect(m_zoomOutButton, &QPushButton::clicked, this, &DebugPane::handleZoomOut);
+  
+  // Create the actual devtools view
+  m_devToolsView = new QWebEngineView(m_devToolsContainer);
   
   QWebEngineSettings *settings = m_devToolsView->page()->settings();
   settings->setAttribute(QWebEngineSettings::JavascriptEnabled, true);
@@ -273,6 +451,9 @@ void DebugPane::setupDevTools()
   
   // Set dark background while loading
   m_devToolsView->page()->setBackgroundColor(QColor("#1e1e1e"));
+  
+  devToolsLayout->addWidget(devToolsToolbar);
+  devToolsLayout->addWidget(m_devToolsView);
 }
 
 void DebugPane::setWebView(PhxWebView *webView)
@@ -286,7 +467,6 @@ void DebugPane::setWebView(PhxWebView *webView)
     {
       targetPage->setDevToolsPage(m_devToolsView->page());
       
-      // Apply dark theme to DevTools after connection
       connect(m_devToolsView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
         if (ok) {
           applyDevToolsDarkTheme();
@@ -308,39 +488,52 @@ void DebugPane::updateViewMode()
   m_devToolsButton->setChecked(m_currentMode == DevToolsOnly);
   m_sideBySideButton->setChecked(m_currentMode == SideBySide);
 
+  QWidget *fullViewContainer = qobject_cast<QWidget*>(m_mainLayout->itemAt(1)->widget());
+  if (!fullViewContainer) return;
+  
+  QVBoxLayout *fullViewLayout = qobject_cast<QVBoxLayout*>(fullViewContainer->layout());
+  if (!fullViewLayout) return;
+  if (m_consoleContainer->parent())
+  {
+    m_consoleContainer->setParent(nullptr);
+  }
+  if (m_devToolsContainer->parent())
+  {
+    m_devToolsContainer->setParent(nullptr);
+  }
+  
+  while (fullViewLayout->count() > 0)
+  {
+    fullViewLayout->takeAt(0);
+  }
+  while (m_splitter->count() > 0)
+  {
+    m_splitter->widget(0)->setParent(nullptr);
+  }
+
   switch (m_currentMode)
   {
   case BeamLogOnly:
-    m_contentStack->setCurrentIndex(0);
+    fullViewLayout->addWidget(m_consoleContainer);
+    m_consoleContainer->show();
+    m_splitter->hide();
     break;
+    
   case DevToolsOnly:
-  {
-    m_contentStack->setCurrentIndex(2);
-    QWidget *consoleClone = m_splitter->widget(0);
-    if (consoleClone)
-    {
-      consoleClone->hide();
-    }
-    if (m_devToolsView)
-    {
-      m_devToolsView->show();
-    }
-  }
-  break;
+    fullViewLayout->addWidget(m_devToolsContainer);
+    m_devToolsContainer->show();
+    m_splitter->hide();
+    break;
+    
   case SideBySide:
-  {
-    m_contentStack->setCurrentIndex(2);
-    QWidget *consoleCloneForBoth = m_splitter->widget(0);
-    if (consoleCloneForBoth)
-    {
-      consoleCloneForBoth->show();
-    }
-    if (m_devToolsView)
-    {
-      m_devToolsView->show();
-    }
-  }
-  break;
+    m_splitter->addWidget(m_consoleContainer);
+    m_splitter->addWidget(m_devToolsContainer);
+    m_splitter->setSizes({1000, 1000});
+    fullViewLayout->addWidget(m_splitter);
+    m_consoleContainer->show();
+    m_devToolsContainer->show();
+    m_splitter->show();
+    break;
   }
 }
 
@@ -444,6 +637,52 @@ void DebugPane::handleAutoScrollToggled(bool checked)
   m_autoScroll = checked;
 }
 
+void DebugPane::handleZoomIn()
+{
+  if (m_devToolsView)
+  {
+    qreal currentZoom = m_devToolsView->zoomFactor();
+    m_devToolsView->setZoomFactor(currentZoom + 0.1);
+  }
+}
+
+void DebugPane::handleZoomOut()
+{
+  if (m_devToolsView)
+  {
+    qreal currentZoom = m_devToolsView->zoomFactor();
+    if (currentZoom > 0.5)
+    {
+      m_devToolsView->setZoomFactor(currentZoom - 0.1);
+    }
+  }
+}
+
+void DebugPane::handleConsoleZoomIn()
+{
+  if (m_outputDisplay && m_currentFontSize < 24)
+  {
+    m_currentFontSize += 2;
+    QFont font = m_outputDisplay->font();
+    font.setPixelSize(m_currentFontSize);
+    m_outputDisplay->setFont(font);
+    m_outputDisplay->document()->setDefaultFont(font);
+  }
+}
+
+void DebugPane::handleConsoleZoomOut()
+{
+  if (m_outputDisplay && m_currentFontSize > 8)
+  {
+    m_currentFontSize -= 2;
+    QFont font = m_outputDisplay->font();
+    font.setPixelSize(m_currentFontSize);
+    m_outputDisplay->setFont(font);
+    m_outputDisplay->document()->setDefaultFont(font);
+  }
+}
+
+
 void DebugPane::animationFinished()
 {
   if (!m_isVisible)
@@ -535,7 +774,6 @@ void DebugPane::leaveEvent(QEvent *event)
 
 void DebugPane::applyDevToolsDarkTheme()
 {
-  // Simple CSS injection to invert colors for dark mode
   QString darkModeCSS = R"(
     (function() {
       const style = document.createElement('style');
@@ -580,21 +818,6 @@ QIcon DebugPane::createSvgIcon(const QString &normalSvg, const QString &hoverSvg
   }
   icon.addPixmap(normalPixmap, QIcon::Normal, QIcon::Off);
 
-  if (!hoverSvg.isEmpty())
-  {
-    QByteArray hoverBytes = hoverSvg.toUtf8();
-    QPixmap hoverPixmap(32, 32);
-    hoverPixmap.fill(Qt::transparent);
-    QSvgRenderer hoverRenderer(hoverBytes);
-    if (hoverRenderer.isValid())
-    {
-      QPainter painter(&hoverPixmap);
-      painter.setRenderHint(QPainter::Antialiasing);
-      hoverRenderer.render(&painter);
-    }
-    icon.addPixmap(hoverPixmap, QIcon::Active, QIcon::Off);
-  }
-
   if (!selectedSvg.isEmpty())
   {
     QByteArray selectedBytes = selectedSvg.toUtf8();
@@ -608,11 +831,24 @@ QIcon DebugPane::createSvgIcon(const QString &normalSvg, const QString &hoverSvg
       selectedRenderer.render(&painter);
     }
     icon.addPixmap(selectedPixmap, QIcon::Normal, QIcon::On);
-    icon.addPixmap(selectedPixmap, QIcon::Active, QIcon::On);
-    icon.addPixmap(selectedPixmap, QIcon::Selected, QIcon::On);
   }
-
+  
   return icon;
+}
+
+QPixmap DebugPane::createSvgPixmap(const QString &svg, int width, int height)
+{
+  QByteArray svgBytes = svg.toUtf8();
+  QPixmap pixmap(width, height);
+  pixmap.fill(Qt::transparent);
+  QSvgRenderer renderer(svgBytes);
+  if (renderer.isValid())
+  {
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    renderer.render(&painter);
+  }
+  return pixmap;
 }
 
 #include "moc_debugpane.cpp"
