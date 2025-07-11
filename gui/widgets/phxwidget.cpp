@@ -18,6 +18,8 @@ PhxWidget::PhxWidget(QWidget *parent)
   phxView->setSizePolicy(sp_retain);
   phxView->hide();
   mainLayout = new QHBoxLayout(this);
+  mainLayout->setContentsMargins(0, 0, 0, 0);
+  mainLayout->setSpacing(0);
 
   mainLayout->addWidget(phxView, 1);
   this->setStyleSheet(QString("PhxWidget { background-color: %1; }")
