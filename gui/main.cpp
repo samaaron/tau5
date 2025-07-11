@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include "mainwindow.h"
 #include "lib/beam.h"
+#include "logger.h"
 
 namespace Config
 {
@@ -22,38 +23,6 @@ namespace Config
       "--autoplay-policy=no-user-gesture-required";
 }
 
-class Logger
-{
-public:
-  enum Level
-  {
-    Debug,
-    Info,
-    Warning,
-    Error
-  };
-
-  static void log(Level level, const QString &message)
-  {
-    QString prefix;
-    switch (level)
-    {
-    case Debug:
-      prefix = "[DEBUG]";
-      break;
-    case Info:
-      prefix = "[INFO]";
-      break;
-    case Warning:
-      prefix = "[WARN]";
-      break;
-    case Error:
-      prefix = "[ERROR]";
-      break;
-    }
-    qDebug() << prefix << message;
-  }
-};
 
 quint16 getFreePort()
 {

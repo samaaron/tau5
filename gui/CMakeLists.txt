@@ -48,6 +48,8 @@ set(SOURCES
   ${QTAPP_ROOT}/main.cpp
   ${QTAPP_ROOT}/mainwindow.cpp
   ${QTAPP_ROOT}/mainwindow.h
+  ${QTAPP_ROOT}/logger.h
+  ${QTAPP_ROOT}/logger.cpp
   ${QTAPP_ROOT}/widgets/phxwebview.h
   ${QTAPP_ROOT}/widgets/phxwebview.cpp
   ${QTAPP_ROOT}/widgets/phxwidget.h
