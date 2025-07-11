@@ -82,6 +82,7 @@ private:
     void slide(bool show);
     void updateViewMode();
     void applyDevToolsDarkTheme();
+    void applyLiveDashboardTau5Theme();
     QIcon createSvgIcon(const QString &normalSvg, const QString &hoverSvg = "", const QString &selectedSvg = "");
     QPixmap createSvgPixmap(const QString &svg, int width, int height);
     QWidget* createTabToolbar(QWidget *parent);

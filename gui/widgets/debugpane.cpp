@@ -38,6 +38,8 @@
 #include <QPainter>
 #include <QRegularExpression>
 #include <QSettings>
+#include <QFile>
+#include <QTextStream>
 
 DebugPane::DebugPane(QWidget *parent)
     : QWidget(parent), m_isVisible(false), m_autoScroll(true), m_guiLogAutoScroll(true),
@@ -817,6 +819,39 @@ void DebugPane::applyDevToolsDarkTheme()
   m_devToolsView->page()->runJavaScript(darkModeCSS);
 }
 
+void DebugPane::applyLiveDashboardTau5Theme()
+{
+  // Load CSS from resource file
+  QFile cssFile(":/styles/tau5-dashboard-theme.css");
+  QString cssContent;
+  
+  if (cssFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    QTextStream stream(&cssFile);
+    cssContent = stream.readAll();
+    cssFile.close();
+  } else {
+    qDebug() << "Failed to load tau5-dashboard-theme.css";
+    return;
+  }
+  
+  // Escape the CSS content for JavaScript
+  cssContent.replace("\\", "\\\\");
+  cssContent.replace("`", "\\`");
+  cssContent.replace("$", "\\$");
+  
+  QString tau5CSS = QString(R"TAU5(
+    (function() {
+      const style = document.createElement('style');
+      style.textContent = `%1`;
+      document.head.appendChild(style);
+    })();
+  )TAU5").arg(cssContent);
+  
+  if (m_liveDashboardView && m_liveDashboardView->page()) {
+    m_liveDashboardView->page()->runJavaScript(tau5CSS);
+  }
+}
+
 QIcon DebugPane::createSvgIcon(const QString &normalSvg, const QString &hoverSvg, const QString &selectedSvg)
 {
   QIcon icon;
@@ -912,6 +947,13 @@ void DebugPane::setLiveDashboardUrl(const QString &url)
   if (m_liveDashboardView && !url.isEmpty())
   {
     m_liveDashboardView->setUrl(QUrl(url));
+    
+    // Connect to page load finished to apply tau5 theme
+    connect(m_liveDashboardView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
+      if (ok) {
+        applyLiveDashboardTau5Theme();
+      }
+    });
   }
 }
 
@@ -993,6 +1035,11 @@ void DebugPane::showLiveDashboardTab()
   
   m_liveDashboardZoomOutButton->setVisible(true);
   m_liveDashboardZoomInButton->setVisible(true);
+  
+  // Apply tau5 theme when switching to LiveDashboard tab
+  if (m_liveDashboardView && m_liveDashboardView->page()) {
+    applyLiveDashboardTau5Theme();
+  }
 }
 
 QWidget* DebugPane::createTabToolbar(QWidget *parent)
