@@ -23,6 +23,33 @@ namespace Config
       "--autoplay-policy=no-user-gesture-required";
 }
 
+QString getTau5Logo()
+{
+  return R"(                            ╘
+                    ─       ╛▒╛
+                     ▐╫       ▄█├
+              ─╟╛      █▄      ╪▓▀
+    ╓┤┤┤┤┤┤┤┤┤  ╩▌      ██      ▀▓▌
+     ▐▒   ╬▒     ╟▓╘    ─▓█      ▓▓├
+     ▒╫   ▒╪      ▓█     ▓▓─     ▓▓▄
+    ╒▒─  │▒       ▓█     ▓▓     ─▓▓─
+    ╬▒   ▄▒ ╒    ╪▓═    ╬▓╬     ▌▓▄
+    ╥╒   ╦╥     ╕█╒    ╙▓▐     ▄▓╫
+               ▐╩     ▒▒      ▀▀
+                    ╒╪      ▐▄
+
+        ______           ______
+       /_  __/___  __  _/ ____/
+        / / / __ `/ / / /___ \
+       / / / /_/ / /_/ /___/ /
+      /_/  \__,_/\__,_/_____/
+
+     Collaborative Live Coding
+           for Everyone
+
+)";
+}
+
 
 quint16 getFreePort()
 {
@@ -149,8 +176,12 @@ int main(int argc, char *argv[])
   // Now set beam instance and connect
   mainWindow.setBeamInstance(beam.get());
   
-  // Test that GUI logging is working
+  // Print Tau5 logo
+  Logger::log(Logger::Info, getTau5Logo());
+  
   Logger::log(Logger::Info, "GUI Logger connected successfully");
+  Logger::log(Logger::Info, "Starting server connection...");
+  Logger::log(Logger::Debug, "Debug messages are enabled");
 
   if (!mainWindow.connectToServer(port))
   {
