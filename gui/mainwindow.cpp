@@ -6,6 +6,7 @@
 #include <QMenuBar>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QTimer>
 #include "mainwindow.h"
 #include "widgets/phxwidget.h"
 #include "widgets/debugpane.h"
@@ -91,6 +92,21 @@ void MainWindow::initializeDebugPane()
   debugPane->raise();
   debugPane->hide();
   
+  debugPane->restoreSettings();
+  
+  QSettings settings;
+  settings.beginGroup("DebugPane");
+  bool shouldBeVisible = settings.value("visible", false).toBool();
+  settings.endGroup();
+  
+  if (shouldBeVisible) {
+    QTimer::singleShot(100, [this]() {
+      if (debugPane) {
+        debugPane->toggle();
+      }
+    });
+  }
+  
   connect(debugPane.get(), &DebugPane::visibilityChanged,
           this, [this](bool visible) {
             if (controlLayer) {
@@ -159,6 +175,11 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
   QSettings settings;
   settings.setValue("MainWindow/geometry", saveGeometry());
+  
+  if (debugPane) {
+    debugPane->saveSettings();
+  }
+  
   QMainWindow::closeEvent(event);
 }
 

@@ -40,6 +40,8 @@ public:
     void setWebView(PhxWebView *webView);
     void setViewMode(ViewMode mode);
     void setLiveDashboardUrl(const QString &url);
+    void saveSettings();
+    void restoreSettings();
 
     int slidePosition() const { return pos().y(); }
     void setSlidePosition(int pos) { move(x(), pos); }

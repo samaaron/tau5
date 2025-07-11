@@ -37,6 +37,7 @@
 #include <QByteArray>
 #include <QPainter>
 #include <QRegularExpression>
+#include <QSettings>
 
 DebugPane::DebugPane(QWidget *parent)
     : QWidget(parent), m_isVisible(false), m_autoScroll(true), m_guiLogAutoScroll(true),
@@ -1072,6 +1073,99 @@ QPushButton* DebugPane::createZoomButton(const QIcon &icon, const QString &toolt
   button->setToolTip(tooltip);
   button->setFocusPolicy(Qt::NoFocus);
   return button;
+}
+
+void DebugPane::saveSettings()
+{
+  QSettings settings;
+  settings.beginGroup("DebugPane");
+  
+  settings.setValue("visible", m_isVisible);
+  settings.setValue("height", height());
+  settings.setValue("viewMode", static_cast<int>(m_currentMode));
+  
+  if (m_currentMode == SideBySide && m_splitter) {
+    settings.setValue("splitterSizes", m_splitter->saveState());
+  }
+  
+  settings.setValue("beamLogFontSize", m_currentFontSize);
+  settings.setValue("guiLogFontSize", m_guiLogFontSize);
+  settings.setValue("beamLogAutoScroll", m_autoScroll);
+  settings.setValue("guiLogAutoScroll", m_guiLogAutoScroll);
+  settings.setValue("consoleTabIndex", m_consoleStack->currentIndex());
+  settings.setValue("devToolsTabIndex", m_devToolsStack->currentIndex());
+  
+  settings.endGroup();
+}
+
+void DebugPane::restoreSettings()
+{
+  QSettings settings;
+  settings.beginGroup("DebugPane");
+  
+  if (settings.contains("height")) {
+    int savedHeight = settings.value("height", parentWidget()->height() / 2).toInt();
+    resize(width(), savedHeight);
+    if (parentWidget()) {
+      move(0, parentWidget()->height() - savedHeight);
+    }
+  }
+  
+  if (settings.contains("viewMode")) {
+    ViewMode savedMode = static_cast<ViewMode>(settings.value("viewMode", BeamLogOnly).toInt());
+    setViewMode(savedMode);
+  }
+  
+  if (m_currentMode == SideBySide && m_splitter && settings.contains("splitterSizes")) {
+    m_splitter->restoreState(settings.value("splitterSizes").toByteArray());
+  }
+  
+  if (settings.contains("beamLogFontSize")) {
+    m_currentFontSize = settings.value("beamLogFontSize", 12).toInt();
+    QFont font = m_outputDisplay->font();
+    font.setPixelSize(m_currentFontSize);
+    m_outputDisplay->setFont(font);
+    m_outputDisplay->document()->setDefaultFont(font);
+  }
+  
+  if (settings.contains("guiLogFontSize")) {
+    m_guiLogFontSize = settings.value("guiLogFontSize", 12).toInt();
+    QFont font = m_guiLogDisplay->font();
+    font.setPixelSize(m_guiLogFontSize);
+    m_guiLogDisplay->setFont(font);
+    m_guiLogDisplay->document()->setDefaultFont(font);
+  }
+  
+  m_autoScroll = settings.value("beamLogAutoScroll", true).toBool();
+  m_autoScrollButton->setChecked(m_autoScroll);
+  
+  m_guiLogAutoScroll = settings.value("guiLogAutoScroll", true).toBool();
+  m_guiLogAutoScrollButton->setChecked(m_guiLogAutoScroll);
+  
+  if (settings.contains("consoleTabIndex")) {
+    int consoleIndex = settings.value("consoleTabIndex", 0).toInt();
+    if (consoleIndex == 0) {
+      showBeamLog();
+    } else {
+      showGuiLog();
+    }
+  }
+  
+  if (settings.contains("devToolsTabIndex")) {
+    int devToolsIndex = settings.value("devToolsTabIndex", 0).toInt();
+    if (devToolsIndex == 0) {
+      showDevToolsTab();
+    } else {
+      showLiveDashboardTab();
+    }
+  }
+  
+  bool wasVisible = settings.value("visible", false).toBool();
+  if (wasVisible) {
+    m_isVisible = false;
+  }
+  
+  settings.endGroup();
 }
 
 #include "moc_debugpane.cpp"
