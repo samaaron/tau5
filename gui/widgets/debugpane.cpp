@@ -239,7 +239,6 @@ void DebugPane::setupConsole()
   autoScrollIcon.addPixmap(createSvgPixmap(autoScrollOnSvg.arg(normalColor), 20, 20), QIcon::Normal, QIcon::On);
   autoScrollIcon.addPixmap(createSvgPixmap(autoScrollOnSvg.arg(hoverColor), 20, 20), QIcon::Active, QIcon::On);
   
-  // Create containers for BEAM and GUI logs
   m_beamLogContainer = new QWidget();
   m_beamLogLayout = new QVBoxLayout(m_beamLogContainer);
   m_beamLogLayout->setContentsMargins(0, 0, 0, 0);
@@ -370,20 +369,17 @@ void DebugPane::setupConsole()
 
 void DebugPane::setupDevTools()
 {
-  // Create main devtools container
   m_devToolsMainContainer = new QWidget(this);
   QVBoxLayout *devToolsMainLayout = new QVBoxLayout(m_devToolsMainContainer);
   devToolsMainLayout->setContentsMargins(0, 0, 0, 0);
   devToolsMainLayout->setSpacing(0);
   
-  // Create single toolbar for tabs and controls
   QWidget *devToolsToolbar = createTabToolbar(m_devToolsMainContainer);
   
   QHBoxLayout *toolbarLayout = new QHBoxLayout(devToolsToolbar);
   toolbarLayout->setContentsMargins(5, 2, 10, 2);
   toolbarLayout->setSpacing(2);
   
-  // Create tab buttons for dev tools
   m_devToolsTabButton = createTabButton("Dev Tools", devToolsToolbar);
   m_devToolsTabButton->setChecked(true);
   
@@ -405,14 +401,12 @@ void DebugPane::setupDevTools()
   devZoomInIcon.addPixmap(createSvgPixmap(devZoomInSvg.arg(devNormalColor), 16, 16), QIcon::Normal);
   devZoomInIcon.addPixmap(createSvgPixmap(devZoomInSvg.arg(devHoverColor), 16, 16), QIcon::Active);
   
-  // DevTools zoom buttons (initially visible)
   m_zoomOutButton = createZoomButton(devZoomOutIcon, "Zoom Out", devToolsToolbar);
   m_zoomOutButton->setVisible(true);
   
   m_zoomInButton = createZoomButton(devZoomInIcon, "Zoom In", devToolsToolbar);
   m_zoomInButton->setVisible(true);
   
-  // Live Dashboard zoom buttons (initially hidden)
   m_liveDashboardZoomOutButton = createZoomButton(devZoomOutIcon, "Zoom Out", devToolsToolbar);
   m_liveDashboardZoomOutButton->setVisible(false);
   
@@ -424,10 +418,8 @@ void DebugPane::setupDevTools()
   toolbarLayout->addWidget(m_liveDashboardZoomOutButton);
   toolbarLayout->addWidget(m_liveDashboardZoomInButton);
   
-  // Create stacked widget for dev tools content
   m_devToolsStack = new QStackedWidget(m_devToolsMainContainer);
   
-  // Setup DevTools container
   m_devToolsContainer = new QWidget();
   QVBoxLayout *devToolsLayout = new QVBoxLayout(m_devToolsContainer);
   devToolsLayout->setContentsMargins(0, 0, 0, 0);
@@ -440,7 +432,6 @@ void DebugPane::setupDevTools()
   m_devToolsView->page()->setBackgroundColor(QColor("#1e1e1e"));
   devToolsLayout->addWidget(m_devToolsView);
   
-  // Setup Live Dashboard container
   m_liveDashboardContainer = new QWidget();
   QVBoxLayout *liveDashboardLayout = new QVBoxLayout(m_liveDashboardContainer);
   liveDashboardLayout->setContentsMargins(0, 0, 0, 0);
@@ -453,20 +444,16 @@ void DebugPane::setupDevTools()
   m_liveDashboardView->page()->setBackgroundColor(QColor("#1e1e1e"));
   liveDashboardLayout->addWidget(m_liveDashboardView);
   
-  // Add widgets to stacked widget
   m_devToolsStack->addWidget(m_devToolsContainer);
   m_devToolsStack->addWidget(m_liveDashboardContainer);
-  m_devToolsStack->setCurrentIndex(0); // Show dev tools by default
+  m_devToolsStack->setCurrentIndex(0);
   
-  // Add toolbar and stack to main dev tools layout
   devToolsMainLayout->addWidget(devToolsToolbar);
   devToolsMainLayout->addWidget(m_devToolsStack);
   
-  // Connect tab buttons
   connect(m_devToolsTabButton, &QPushButton::clicked, this, &DebugPane::showDevToolsTab);
   connect(m_liveDashboardTabButton, &QPushButton::clicked, this, &DebugPane::showLiveDashboardTab);
   
-  // Connect zoom controls
   connect(m_zoomInButton, &QPushButton::clicked, this, &DebugPane::handleZoomIn);
   connect(m_zoomOutButton, &QPushButton::clicked, this, &DebugPane::handleZoomOut);
   
@@ -808,19 +795,16 @@ void DebugPane::applyDevToolsDarkTheme()
     (function() {
       const style = document.createElement('style');
       style.textContent = `
-        /* Invert the entire DevTools UI for dark mode */
         :root {
           filter: invert(1) hue-rotate(180deg);
           background: #1e1e1e !important;
         }
         
-        /* Re-invert images and icons to preserve their original colors */
         img, svg, video, canvas, embed, object,
         .cm-color-swatch, .color-swatch {
           filter: invert(1) hue-rotate(180deg);
         }
         
-        /* Fix for syntax highlighting */
         .cm-s-default .cm-keyword { filter: invert(1) hue-rotate(180deg); }
         .cm-s-default .cm-string { filter: invert(1) hue-rotate(180deg); }
         .cm-s-default .cm-number { filter: invert(1) hue-rotate(180deg); }

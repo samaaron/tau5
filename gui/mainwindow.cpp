@@ -74,11 +74,8 @@ void MainWindow::initializePhxWidget(quint16 port)
   phxWidget->connectToTauPhx(phxUrl);
   setCentralWidget(phxWidget.get());
   
-  // Connect the PhxWebView to the debug pane for DevTools
   if (debugPane) {
     debugPane->setWebView(phxWidget->getWebView());
-    
-    // Set the Phoenix Live Dashboard URL
     QString dashboardUrl = QString("http://localhost:%1/dev/dashboard").arg(port);
     debugPane->setLiveDashboardUrl(dashboardUrl);
   }

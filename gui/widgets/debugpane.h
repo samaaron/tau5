@@ -82,8 +82,6 @@ private:
     void applyDevToolsDarkTheme();
     QIcon createSvgIcon(const QString &normalSvg, const QString &hoverSvg = "", const QString &selectedSvg = "");
     QPixmap createSvgPixmap(const QString &svg, int width, int height);
-    
-    // Shared UI creation methods
     QWidget* createTabToolbar(QWidget *parent);
     QString getTabButtonStyle();
     QString getZoomButtonStyle();
@@ -96,13 +94,10 @@ private:
     QHBoxLayout *m_headerLayout;
     QSplitter *m_splitter;
 
-    // Left side - Console
     QWidget *m_consoleContainer;
     QStackedWidget *m_consoleStack;
     QPushButton *m_beamLogTabButton;
     QPushButton *m_guiLogTabButton;
-    
-    // BEAM Log tab
     QWidget *m_beamLogContainer;
     QVBoxLayout *m_beamLogLayout;
     QTextEdit *m_outputDisplay;
@@ -111,31 +106,21 @@ private:
     QPushButton *m_consoleZoomOutButton;
     QPushButton *m_devToolsZoomInButton;
     QPushButton *m_devToolsZoomOutButton;
-    
-    // GUI Log tab
     QWidget *m_guiLogContainer;
     QVBoxLayout *m_guiLogLayout;
     QTextEdit *m_guiLogDisplay;
     QPushButton *m_guiLogAutoScrollButton;
     QPushButton *m_guiLogZoomInButton;
     QPushButton *m_guiLogZoomOutButton;
-    
-    // Right side - DevTools tabs
     QTabWidget *m_devToolsTabs;
-    
-    // DevTools main container with inline tabs
     QWidget *m_devToolsMainContainer;
     QStackedWidget *m_devToolsStack;
     QPushButton *m_devToolsTabButton;
     QPushButton *m_liveDashboardTabButton;
-    
-    // DevTools tab
     QWidget *m_devToolsContainer;
     QWebEngineView *m_devToolsView;
     QPushButton *m_zoomInButton;
     QPushButton *m_zoomOutButton;
-    
-    // Live Dashboard tab
     QWidget *m_liveDashboardContainer;
     QWebEngineView *m_liveDashboardView;
     QPushButton *m_liveDashboardZoomInButton;
