@@ -11,7 +11,6 @@
 #include "widgets/debugpane.h"
 #include "widgets/controllayer.h"
 #include "lib/beam.h"
-
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , beamInstance(nullptr)
@@ -78,6 +77,10 @@ void MainWindow::initializePhxWidget(quint16 port)
   // Connect the PhxWebView to the debug pane for DevTools
   if (debugPane) {
     debugPane->setWebView(phxWidget->getWebView());
+    
+    // Set the Phoenix Live Dashboard URL
+    QString dashboardUrl = QString("http://localhost:%1/dev/dashboard").arg(port);
+    debugPane->setLiveDashboardUrl(dashboardUrl);
   }
 }
 
@@ -130,6 +133,13 @@ void MainWindow::handleBeamError(const QString &error)
 {
   if (debugPane) {
     debugPane->appendOutput(error, true);
+  }
+}
+
+void MainWindow::handleGuiLog(const QString &message, bool isError)
+{
+  if (debugPane) {
+    debugPane->appendGuiLog(message, isError);
   }
 }
 

@@ -12,6 +12,7 @@
 #include <QLabel>
 #include <QScrollBar>
 #include <QSplitter>
+#include <QTabWidget>
 #include <QWebEngineView>
 #include <QWebEngineProfile>
 #include <QWebEnginePage>
@@ -37,10 +38,11 @@
 #include <QRegularExpression>
 
 DebugPane::DebugPane(QWidget *parent)
-    : QWidget(parent), m_isVisible(false), m_autoScroll(true), m_maxLines(5000),
-      m_currentMode(BeamLogOnly), m_isResizing(false), m_resizeStartY(0),
-      m_resizeStartHeight(0), m_targetWebView(nullptr), m_devToolsView(nullptr),
-      m_currentFontSize(12)
+    : QWidget(parent), m_isVisible(false), m_autoScroll(true), m_guiLogAutoScroll(true),
+      m_maxLines(5000), m_currentMode(BeamLogOnly), m_isResizing(false), 
+      m_resizeStartY(0), m_resizeStartHeight(0), m_targetWebView(nullptr), 
+      m_devToolsView(nullptr), m_liveDashboardView(nullptr),
+      m_currentFontSize(12), m_guiLogFontSize(12)
 {
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowFlags(Qt::FramelessWindowHint);
@@ -59,6 +61,13 @@ void DebugPane::setupUi()
   m_mainLayout->setSpacing(0);
 
   setupViewControls();
+  
+  // Create tab widgets - but we won't use m_consoleTabs
+  m_consoleTabs = new QTabWidget(this);
+  m_consoleTabs->hide(); // Hide it and never use it
+  
+  m_devToolsTabs = new QTabWidget(this);
+  
   setupConsole();
   setupDevTools();
 
@@ -70,13 +79,7 @@ void DebugPane::setupUi()
   
   // Splitter for side-by-side view
   m_splitter = new QSplitter(Qt::Horizontal, this);
-  
-  // Create left and right placeholders for the splitter
-  QWidget *leftPlaceholder = new QWidget();
-  QWidget *rightPlaceholder = new QWidget();
-  m_splitter->addWidget(leftPlaceholder);
-  m_splitter->addWidget(rightPlaceholder);
-  m_splitter->setSizes({1000, 1000});
+  // Don't add widgets here - they'll be added in updateViewMode()
 
   m_mainLayout->addWidget(m_headerWidget);
   m_mainLayout->addWidget(fullViewContainer, 1);
@@ -112,23 +115,7 @@ void DebugPane::setupViewControls()
   m_headerLayout = new QHBoxLayout(m_headerWidget);
   m_headerLayout->setContentsMargins(10, 5, 10, 5);
 
-  QLabel *titleLabel = new QLabel("Debug Pane", m_headerWidget);
-  titleLabel->setStyleSheet(
-      QString("QLabel { "
-              "  color: %1; "
-              "  background: transparent; "
-              "  font-family: %2; "
-              "  font-weight: %3; "
-              "  font-size: %4; "
-              "  letter-spacing: 1px; "
-              "  padding: %5 %6; "
-              "}")
-          .arg(StyleManager::Colors::PRIMARY_ORANGE)
-          .arg(StyleManager::Typography::MONOSPACE_FONT_FAMILY)
-          .arg(StyleManager::Typography::FONT_WEIGHT_BOLD)
-          .arg(StyleManager::Typography::FONT_SIZE_LARGE)
-          .arg(StyleManager::Spacing::SMALL)
-          .arg(StyleManager::Spacing::LARGE));
+  // Remove title label since tabs already show titles
 
   QString normalColor = StyleManager::Colors::PRIMARY_ORANGE;
   QString hoverColor = StyleManager::Colors::WHITE;
@@ -205,7 +192,6 @@ void DebugPane::setupViewControls()
   m_devToolsButton->setFocusPolicy(Qt::NoFocus);
   m_sideBySideButton->setFocusPolicy(Qt::NoFocus);
 
-  m_headerLayout->addWidget(titleLabel);
   m_headerLayout->addStretch();
 
   m_headerLayout->addWidget(m_beamLogButton);
@@ -219,12 +205,13 @@ void DebugPane::setupViewControls()
 
 void DebugPane::setupConsole()
 {
+  // Create main console container
   m_consoleContainer = new QWidget();
-  m_consoleLayout = new QVBoxLayout(m_consoleContainer);
-  m_consoleLayout->setContentsMargins(0, 0, 0, 0);
-  m_consoleLayout->setSpacing(0);
-
-  // Console toolbar with auto-scroll control
+  QVBoxLayout *consoleMainLayout = new QVBoxLayout(m_consoleContainer);
+  consoleMainLayout->setContentsMargins(0, 0, 0, 0);
+  consoleMainLayout->setSpacing(0);
+  
+  // Create single toolbar for tabs and controls
   QWidget *consoleToolbar = new QWidget(m_consoleContainer);
   consoleToolbar->setFixedHeight(26);
   consoleToolbar->setStyleSheet(QString(
@@ -236,24 +223,46 @@ void DebugPane::setupConsole()
       .arg(StyleManager::Colors::primaryOrangeAlpha(50)));
   
   QHBoxLayout *toolbarLayout = new QHBoxLayout(consoleToolbar);
-  toolbarLayout->setContentsMargins(10, 2, 10, 2);
-  toolbarLayout->setSpacing(5);
+  toolbarLayout->setContentsMargins(5, 2, 10, 2);
+  toolbarLayout->setSpacing(2);
   
-  QLabel *consoleLabel = new QLabel("BEAM Log", consoleToolbar);
-  consoleLabel->setStyleSheet(QString(
-      "QLabel { "
+  // Create tab buttons
+  QString tabButtonStyle = QString(
+      "QPushButton { "
+      "  background: transparent; "
       "  color: %1; "
+      "  border: none; "
+      "  padding: 2px 8px; "
       "  font-family: %2; "
       "  font-size: %3; "
       "  font-weight: %4; "
-      "  background: transparent; "
+      "} "
+      "QPushButton:hover { "
+      "  background: rgba(255, 165, 0, 0.1); "
+      "} "
+      "QPushButton:checked { "
+      "  background: rgba(255, 165, 0, 0.2); "
+      "  color: %5; "
       "}")
-      .arg(StyleManager::Colors::PRIMARY_ORANGE)
+      .arg(StyleManager::Colors::primaryOrangeAlpha(180))
       .arg(StyleManager::Typography::MONOSPACE_FONT_FAMILY)
       .arg(StyleManager::Typography::FONT_SIZE_SMALL)
-      .arg(StyleManager::Typography::FONT_WEIGHT_BOLD));
+      .arg(StyleManager::Typography::FONT_WEIGHT_BOLD)
+      .arg(StyleManager::Colors::PRIMARY_ORANGE);
   
-  toolbarLayout->addWidget(consoleLabel);
+  m_beamLogTabButton = new QPushButton("BEAM Log", consoleToolbar);
+  m_beamLogTabButton->setCheckable(true);
+  m_beamLogTabButton->setChecked(true);
+  m_beamLogTabButton->setStyleSheet(tabButtonStyle);
+  m_beamLogTabButton->setFocusPolicy(Qt::NoFocus);
+  
+  m_guiLogTabButton = new QPushButton("GUI Log", consoleToolbar);
+  m_guiLogTabButton->setCheckable(true);
+  m_guiLogTabButton->setStyleSheet(tabButtonStyle);
+  m_guiLogTabButton->setFocusPolicy(Qt::NoFocus);
+  
+  toolbarLayout->addWidget(m_beamLogTabButton);
+  toolbarLayout->addWidget(m_guiLogTabButton);
   toolbarLayout->addStretch();
   
   QString normalColor = StyleManager::Colors::PRIMARY_ORANGE;
@@ -275,6 +284,13 @@ void DebugPane::setupConsole()
   autoScrollIcon.addPixmap(createSvgPixmap(autoScrollOnSvg.arg(normalColor), 20, 20), QIcon::Normal, QIcon::On);
   autoScrollIcon.addPixmap(createSvgPixmap(autoScrollOnSvg.arg(hoverColor), 20, 20), QIcon::Active, QIcon::On);
   
+  // Create containers for BEAM and GUI logs
+  m_beamLogContainer = new QWidget();
+  m_beamLogLayout = new QVBoxLayout(m_beamLogContainer);
+  m_beamLogLayout->setContentsMargins(0, 0, 0, 0);
+  m_beamLogLayout->setSpacing(0);
+  
+  // BEAM Log-specific controls
   m_autoScrollButton = new QPushButton(consoleToolbar);
   m_autoScrollButton->setIcon(autoScrollIcon);
   m_autoScrollButton->setCheckable(true);
@@ -298,9 +314,7 @@ void DebugPane::setupConsole()
       "}"));
   m_autoScrollButton->setToolTip("Auto-scroll");
   m_autoScrollButton->setFocusPolicy(Qt::NoFocus);
-  
-  toolbarLayout->addWidget(m_autoScrollButton);
-  toolbarLayout->addSpacing(5);
+  m_autoScrollButton->setVisible(true); // Show for BEAM log by default
   QString zoomOutSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'><path d='M3 8h10v1H3z'/></svg>");
   QIcon zoomOutIcon;
   zoomOutIcon.addPixmap(createSvgPixmap(zoomOutSvg.arg(normalColor), 16, 16), QIcon::Normal);
@@ -339,21 +353,110 @@ void DebugPane::setupConsole()
   m_consoleZoomInButton->setStyleSheet(zoomButtonStyle);
   m_consoleZoomInButton->setToolTip("Zoom In");
   m_consoleZoomInButton->setFocusPolicy(Qt::NoFocus);
+  m_consoleZoomOutButton->setVisible(true);
+  m_consoleZoomInButton->setVisible(true);
   
+  // GUI Log controls (initially hidden)
+  m_guiLogAutoScrollButton = new QPushButton(consoleToolbar);
+  m_guiLogAutoScrollButton->setIcon(autoScrollIcon);
+  m_guiLogAutoScrollButton->setCheckable(true);
+  m_guiLogAutoScrollButton->setChecked(true);
+  m_guiLogAutoScrollButton->setStyleSheet(QString(
+      "QPushButton { "
+      "  background: transparent; "
+      "  border: none; "
+      "  padding: 2px; "
+      "  min-width: 16px; "
+      "  max-width: 16px; "
+      "  min-height: 16px; "
+      "  max-height: 16px; "
+      "} "
+      "QPushButton:hover { "
+      "  background: rgba(255, 165, 0, 0.1); "
+      "}"
+      "QPushButton:checked { "
+      "  background: rgba(255, 165, 0, 0.25); "
+      "  border-radius: 2px; "
+      "}"));
+  m_guiLogAutoScrollButton->setToolTip("Auto-scroll");
+  m_guiLogAutoScrollButton->setFocusPolicy(Qt::NoFocus);
+  m_guiLogAutoScrollButton->setVisible(false); // Hidden by default
+  
+  m_guiLogZoomOutButton = new QPushButton(consoleToolbar);
+  m_guiLogZoomOutButton->setIcon(zoomOutIcon);
+  m_guiLogZoomOutButton->setStyleSheet(zoomButtonStyle);
+  m_guiLogZoomOutButton->setToolTip("Zoom Out");
+  m_guiLogZoomOutButton->setFocusPolicy(Qt::NoFocus);
+  m_guiLogZoomOutButton->setVisible(false);
+  
+  m_guiLogZoomInButton = new QPushButton(consoleToolbar);
+  m_guiLogZoomInButton->setIcon(zoomInIcon);
+  m_guiLogZoomInButton->setStyleSheet(zoomButtonStyle);
+  m_guiLogZoomInButton->setToolTip("Zoom In");
+  m_guiLogZoomInButton->setFocusPolicy(Qt::NoFocus);
+  m_guiLogZoomInButton->setVisible(false);
+  
+  // Add all controls to the toolbar
+  toolbarLayout->addWidget(m_autoScrollButton);
+  toolbarLayout->addWidget(m_guiLogAutoScrollButton);
+  toolbarLayout->addSpacing(5);
   toolbarLayout->addWidget(m_consoleZoomOutButton);
   toolbarLayout->addWidget(m_consoleZoomInButton);
+  toolbarLayout->addWidget(m_guiLogZoomOutButton);
+  toolbarLayout->addWidget(m_guiLogZoomInButton);
   
-  connect(m_autoScrollButton, &QPushButton::toggled, this, &DebugPane::handleAutoScrollToggled);
-  connect(m_consoleZoomInButton, &QPushButton::clicked, this, &DebugPane::handleConsoleZoomIn);
-  connect(m_consoleZoomOutButton, &QPushButton::clicked, this, &DebugPane::handleConsoleZoomOut);
-
-  m_outputDisplay = new QTextEdit(m_consoleContainer);
+  // Create stacked widget for console content
+  m_consoleStack = new QStackedWidget(m_consoleContainer);
+  
+  // Setup BEAM Log display
+  m_outputDisplay = new QTextEdit(m_beamLogContainer);
   m_outputDisplay->setReadOnly(true);
   m_outputDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_outputDisplay->setStyleSheet(StyleManager::consoleOutput());
-
-  m_consoleLayout->addWidget(consoleToolbar);
-  m_consoleLayout->addWidget(m_outputDisplay);
+  m_beamLogLayout->addWidget(m_outputDisplay);
+  
+  // Setup GUI Log container
+  m_guiLogContainer = new QWidget();
+  m_guiLogLayout = new QVBoxLayout(m_guiLogContainer);
+  m_guiLogLayout->setContentsMargins(0, 0, 0, 0);
+  m_guiLogLayout->setSpacing(0);
+  
+  m_guiLogDisplay = new QTextEdit(m_guiLogContainer);
+  m_guiLogDisplay->setReadOnly(true);
+  m_guiLogDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+  m_guiLogDisplay->setStyleSheet(StyleManager::consoleOutput());
+  m_guiLogLayout->addWidget(m_guiLogDisplay);
+  
+  // Add widgets to stacked widget
+  m_consoleStack->addWidget(m_beamLogContainer);
+  m_consoleStack->addWidget(m_guiLogContainer);
+  m_consoleStack->setCurrentIndex(0); // Show BEAM log by default
+  
+  // Add toolbar and stack to main console layout
+  consoleMainLayout->addWidget(consoleToolbar);
+  consoleMainLayout->addWidget(m_consoleStack);
+  
+  // Connect tab buttons
+  connect(m_beamLogTabButton, &QPushButton::clicked, this, &DebugPane::showBeamLog);
+  connect(m_guiLogTabButton, &QPushButton::clicked, this, &DebugPane::showGuiLog);
+  
+  // Connect controls
+  connect(m_autoScrollButton, &QPushButton::toggled, this, &DebugPane::handleAutoScrollToggled);
+  connect(m_consoleZoomInButton, &QPushButton::clicked, this, &DebugPane::handleConsoleZoomIn);
+  connect(m_consoleZoomOutButton, &QPushButton::clicked, this, &DebugPane::handleConsoleZoomOut);
+  
+  connect(m_guiLogAutoScrollButton, &QPushButton::toggled, [this](bool checked) {
+    m_guiLogAutoScroll = checked;
+    if (checked) {
+      QScrollBar *scrollBar = m_guiLogDisplay->verticalScrollBar();
+      scrollBar->setValue(scrollBar->maximum());
+    }
+  });
+  connect(m_guiLogZoomInButton, &QPushButton::clicked, this, &DebugPane::handleGuiLogZoomIn);
+  connect(m_guiLogZoomOutButton, &QPushButton::clicked, this, &DebugPane::handleGuiLogZoomOut);
+  
+  // Don't add to tab widget - we're using our custom inline tabs now
+  // The console container is already set up with its layout
 }
 
 void DebugPane::setupDevTools()
@@ -378,21 +481,6 @@ void DebugPane::setupDevTools()
   toolbarLayout->setContentsMargins(10, 2, 10, 2);
   toolbarLayout->setSpacing(5);
   
-  QLabel *devToolsLabel = new QLabel("Developer Tools", devToolsToolbar);
-  devToolsLabel->setStyleSheet(QString(
-      "QLabel { "
-      "  color: %1; "
-      "  font-family: %2; "
-      "  font-size: %3; "
-      "  font-weight: %4; "
-      "  background: transparent; "
-      "}")
-      .arg(StyleManager::Colors::PRIMARY_ORANGE)
-      .arg(StyleManager::Typography::MONOSPACE_FONT_FAMILY)
-      .arg(StyleManager::Typography::FONT_SIZE_SMALL)
-      .arg(StyleManager::Typography::FONT_WEIGHT_BOLD));
-  
-  toolbarLayout->addWidget(devToolsLabel);
   toolbarLayout->addStretch();
   
   QString devNormalColor = StyleManager::Colors::PRIMARY_ORANGE;
@@ -454,6 +542,77 @@ void DebugPane::setupDevTools()
   
   devToolsLayout->addWidget(devToolsToolbar);
   devToolsLayout->addWidget(m_devToolsView);
+  
+  // Add DevTools tab
+  m_devToolsTabs->addTab(m_devToolsContainer, "Dev Tools");
+  
+  // Setup Live Dashboard tab
+  m_liveDashboardContainer = new QWidget(this);
+  QVBoxLayout *liveDashboardLayout = new QVBoxLayout(m_liveDashboardContainer);
+  liveDashboardLayout->setContentsMargins(0, 0, 0, 0);
+  liveDashboardLayout->setSpacing(0);
+  
+  QWidget *liveDashboardToolbar = new QWidget(m_liveDashboardContainer);
+  liveDashboardToolbar->setFixedHeight(26);
+  liveDashboardToolbar->setStyleSheet(QString(
+      "QWidget { "
+      "  background-color: %1; "
+      "  border-bottom: 1px solid %2; "
+      "}")
+      .arg(StyleManager::Colors::blackAlpha(230))
+      .arg(StyleManager::Colors::primaryOrangeAlpha(50)));
+  
+  QHBoxLayout *dashboardToolbarLayout = new QHBoxLayout(liveDashboardToolbar);
+  dashboardToolbarLayout->setContentsMargins(10, 2, 10, 2);
+  dashboardToolbarLayout->setSpacing(5);
+  
+  dashboardToolbarLayout->addStretch();
+  
+  // Live Dashboard zoom buttons
+  m_liveDashboardZoomOutButton = new QPushButton(liveDashboardToolbar);
+  m_liveDashboardZoomOutButton->setIcon(devZoomOutIcon);
+  m_liveDashboardZoomOutButton->setStyleSheet(devZoomButtonStyle);
+  m_liveDashboardZoomOutButton->setToolTip("Zoom Out");
+  m_liveDashboardZoomOutButton->setFocusPolicy(Qt::NoFocus);
+  
+  m_liveDashboardZoomInButton = new QPushButton(liveDashboardToolbar);
+  m_liveDashboardZoomInButton->setIcon(devZoomInIcon);
+  m_liveDashboardZoomInButton->setStyleSheet(devZoomButtonStyle);
+  m_liveDashboardZoomInButton->setToolTip("Zoom In");
+  m_liveDashboardZoomInButton->setFocusPolicy(Qt::NoFocus);
+  
+  dashboardToolbarLayout->addWidget(m_liveDashboardZoomOutButton);
+  dashboardToolbarLayout->addWidget(m_liveDashboardZoomInButton);
+  
+  connect(m_liveDashboardZoomInButton, &QPushButton::clicked, [this]() {
+    if (m_liveDashboardView) {
+      qreal currentZoom = m_liveDashboardView->zoomFactor();
+      m_liveDashboardView->setZoomFactor(currentZoom * 1.1);
+    }
+  });
+  
+  connect(m_liveDashboardZoomOutButton, &QPushButton::clicked, [this]() {
+    if (m_liveDashboardView) {
+      qreal currentZoom = m_liveDashboardView->zoomFactor();
+      m_liveDashboardView->setZoomFactor(currentZoom / 1.1);
+    }
+  });
+  
+  // Create the Live Dashboard view
+  m_liveDashboardView = new QWebEngineView(m_liveDashboardContainer);
+  
+  QWebEngineSettings *dashboardSettings = m_liveDashboardView->page()->settings();
+  dashboardSettings->setAttribute(QWebEngineSettings::JavascriptEnabled, true);
+  dashboardSettings->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
+  
+  // Set dark background while loading
+  m_liveDashboardView->page()->setBackgroundColor(QColor("#1e1e1e"));
+  
+  liveDashboardLayout->addWidget(liveDashboardToolbar);
+  liveDashboardLayout->addWidget(m_liveDashboardView);
+  
+  // Add Live Dashboard tab
+  m_devToolsTabs->addTab(m_liveDashboardContainer, "Live Dashboard");
 }
 
 void DebugPane::setWebView(PhxWebView *webView)
@@ -493,13 +652,15 @@ void DebugPane::updateViewMode()
   
   QVBoxLayout *fullViewLayout = qobject_cast<QVBoxLayout*>(fullViewContainer->layout());
   if (!fullViewLayout) return;
-  if (m_consoleContainer->parent())
+  // Detach widgets from their current parents
+  if (m_consoleContainer && m_consoleContainer->parent())
   {
     m_consoleContainer->setParent(nullptr);
   }
-  if (m_devToolsContainer->parent())
+  // m_consoleTabs no longer exists - we use m_consoleContainer
+  if (m_devToolsTabs->parent())
   {
-    m_devToolsContainer->setParent(nullptr);
+    m_devToolsTabs->setParent(nullptr);
   }
   
   while (fullViewLayout->count() > 0)
@@ -514,24 +675,26 @@ void DebugPane::updateViewMode()
   switch (m_currentMode)
   {
   case BeamLogOnly:
+    // Always use our custom console container with inline tabs
     fullViewLayout->addWidget(m_consoleContainer);
     m_consoleContainer->show();
     m_splitter->hide();
     break;
     
   case DevToolsOnly:
-    fullViewLayout->addWidget(m_devToolsContainer);
-    m_devToolsContainer->show();
+    fullViewLayout->addWidget(m_devToolsTabs);
+    m_devToolsTabs->show();
     m_splitter->hide();
     break;
     
   case SideBySide:
+    // Use custom console container in splitter
     m_splitter->addWidget(m_consoleContainer);
-    m_splitter->addWidget(m_devToolsContainer);
+    m_consoleContainer->show();
+    m_splitter->addWidget(m_devToolsTabs);
     m_splitter->setSizes({1000, 1000});
     fullViewLayout->addWidget(m_splitter);
-    m_consoleContainer->show();
-    m_devToolsContainer->show();
+    m_devToolsTabs->show();
     m_splitter->show();
     break;
   }
@@ -849,6 +1012,113 @@ QPixmap DebugPane::createSvgPixmap(const QString &svg, int width, int height)
     renderer.render(&painter);
   }
   return pixmap;
+}
+
+void DebugPane::appendGuiLog(const QString &text, bool isError)
+{
+  if (text.isEmpty())
+    return;
+
+  QTextCursor cursor = m_guiLogDisplay->textCursor();
+  cursor.movePosition(QTextCursor::End);
+
+  QString timestamp = QDateTime::currentDateTime().toString("[hh:mm:ss.zzz] ");
+
+  QTextCharFormat format;
+  format.setForeground(isError ? QColor(StyleManager::Colors::ERROR_BLUE) : QColor(StyleManager::Colors::PRIMARY_ORANGE));
+
+  QTextCharFormat timestampFormat;
+  timestampFormat.setForeground(QColor(StyleManager::Colors::TIMESTAMP_GRAY));
+  cursor.setCharFormat(timestampFormat);
+  cursor.insertText(timestamp);
+
+  cursor.setCharFormat(format);
+  cursor.insertText(text);
+
+  if (!text.endsWith('\n'))
+  {
+    cursor.insertText("\n");
+  }
+
+  if (m_guiLogDisplay->document()->lineCount() > m_maxLines)
+  {
+    cursor.movePosition(QTextCursor::Start);
+    cursor.movePosition(QTextCursor::Down, QTextCursor::KeepAnchor,
+                        m_guiLogDisplay->document()->lineCount() - m_maxLines);
+    cursor.removeSelectedText();
+  }
+
+  if (m_guiLogAutoScroll)
+  {
+    QScrollBar *scrollBar = m_guiLogDisplay->verticalScrollBar();
+    scrollBar->setValue(scrollBar->maximum());
+  }
+}
+
+void DebugPane::setLiveDashboardUrl(const QString &url)
+{
+  if (m_liveDashboardView && !url.isEmpty())
+  {
+    m_liveDashboardView->setUrl(QUrl(url));
+  }
+}
+
+void DebugPane::handleGuiLogZoomIn()
+{
+  if (m_guiLogDisplay && m_guiLogFontSize < 24)
+  {
+    m_guiLogFontSize += 2;
+    QFont font = m_guiLogDisplay->font();
+    font.setPixelSize(m_guiLogFontSize);
+    m_guiLogDisplay->setFont(font);
+    m_guiLogDisplay->document()->setDefaultFont(font);
+  }
+}
+
+void DebugPane::handleGuiLogZoomOut()
+{
+  if (m_guiLogDisplay && m_guiLogFontSize > 8)
+  {
+    m_guiLogFontSize -= 2;
+    QFont font = m_guiLogDisplay->font();
+    font.setPixelSize(m_guiLogFontSize);
+    m_guiLogDisplay->setFont(font);
+    m_guiLogDisplay->document()->setDefaultFont(font);
+  }
+}
+
+void DebugPane::showBeamLog()
+{
+  m_beamLogTabButton->setChecked(true);
+  m_guiLogTabButton->setChecked(false);
+  m_consoleStack->setCurrentIndex(0);
+  
+  // Show BEAM log controls
+  m_autoScrollButton->setVisible(true);
+  m_consoleZoomOutButton->setVisible(true);
+  m_consoleZoomInButton->setVisible(true);
+  
+  // Hide GUI log controls
+  m_guiLogAutoScrollButton->setVisible(false);
+  m_guiLogZoomOutButton->setVisible(false);
+  m_guiLogZoomInButton->setVisible(false);
+}
+
+void DebugPane::showGuiLog()
+{
+  m_beamLogTabButton->setChecked(false);
+  m_guiLogTabButton->setChecked(true);
+  m_consoleStack->setCurrentIndex(1);
+  
+  // Hide BEAM log controls
+  m_autoScrollButton->setVisible(false);
+  m_consoleZoomOutButton->setVisible(false);
+  m_consoleZoomInButton->setVisible(false);
+  
+  // Show GUI log controls
+  m_guiLogAutoScrollButton->setVisible(true);
+  m_guiLogZoomOutButton->setVisible(true);
+  m_guiLogZoomInButton->setVisible(true);
 }
 
 #include "moc_debugpane.cpp"

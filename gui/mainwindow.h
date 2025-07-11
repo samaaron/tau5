@@ -25,6 +25,9 @@ public:
   void setBeamInstance(Beam *beam);
   void toggleConsole();
 
+public slots:
+  void handleGuiLog(const QString &message, bool isError);
+
 protected:
   void closeEvent(QCloseEvent *event) override;
   void resizeEvent(QResizeEvent *event) override;

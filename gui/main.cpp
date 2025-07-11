@@ -141,7 +141,16 @@ int main(int argc, char *argv[])
                                                       Config::APP_VERSION, port, devMode);
 
   MainWindow mainWindow;
+  
+  // Connect logger to MainWindow for GUI logs FIRST
+  QObject::connect(&Logger::instance(), &Logger::logMessage,
+                   &mainWindow, &MainWindow::handleGuiLog);
+  
+  // Now set beam instance and connect
   mainWindow.setBeamInstance(beam.get());
+  
+  // Test that GUI logging is working
+  Logger::log(Logger::Info, "GUI Logger connected successfully");
 
   if (!mainWindow.connectToServer(port))
   {

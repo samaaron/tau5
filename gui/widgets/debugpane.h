@@ -7,6 +7,8 @@
 #include <QSplitter>
 #include <QWebEngineView>
 #include <QWebEnginePage>
+#include <QTabWidget>
+#include <QStackedWidget>
 #include <memory>
 
 class QPushButton;
@@ -32,10 +34,12 @@ public:
     ~DebugPane();
 
     void appendOutput(const QString &text, bool isError = false);
+    void appendGuiLog(const QString &text, bool isError = false);
     void toggle();
     bool isVisible() const { return m_isVisible; }
     void setWebView(PhxWebView *webView);
     void setViewMode(ViewMode mode);
+    void setLiveDashboardUrl(const QString &url);
 
     int slidePosition() const { return pos().y(); }
     void setSlidePosition(int pos) { move(x(), pos); }
@@ -53,6 +57,10 @@ private slots:
     void handleZoomOut();
     void handleConsoleZoomIn();
     void handleConsoleZoomOut();
+    void handleGuiLogZoomIn();
+    void handleGuiLogZoomOut();
+    void showBeamLog();
+    void showGuiLog();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -79,23 +87,48 @@ private:
     QHBoxLayout *m_headerLayout;
     QSplitter *m_splitter;
 
+    // Left side - Console
     QWidget *m_consoleContainer;
-    QVBoxLayout *m_consoleLayout;
-    QTextEdit *m_outputDisplay;
-    int m_currentFontSize;
+    QStackedWidget *m_consoleStack;
+    QPushButton *m_beamLogTabButton;
+    QPushButton *m_guiLogTabButton;
     
-    // BEAM log controls
+    QTabWidget *m_consoleTabs; // Keep for now for compatibility
+    
+    // BEAM Log tab
+    QWidget *m_beamLogContainer;
+    QVBoxLayout *m_beamLogLayout;
+    QTextEdit *m_outputDisplay;
     QPushButton *m_autoScrollButton;
     QPushButton *m_consoleZoomInButton;
     QPushButton *m_consoleZoomOutButton;
     
-    // DevTools
+    // GUI Log tab
+    QWidget *m_guiLogContainer;
+    QVBoxLayout *m_guiLogLayout;
+    QTextEdit *m_guiLogDisplay;
+    QPushButton *m_guiLogAutoScrollButton;
+    QPushButton *m_guiLogZoomInButton;
+    QPushButton *m_guiLogZoomOutButton;
+    
+    // Right side - DevTools tabs
+    QTabWidget *m_devToolsTabs;
+    
+    // DevTools tab
     QWidget *m_devToolsContainer;
     QWebEngineView *m_devToolsView;
     QPushButton *m_zoomInButton;
     QPushButton *m_zoomOutButton;
     
+    // Live Dashboard tab
+    QWidget *m_liveDashboardContainer;
+    QWebEngineView *m_liveDashboardView;
+    QPushButton *m_liveDashboardZoomInButton;
+    QPushButton *m_liveDashboardZoomOutButton;
+    
     PhxWebView *m_targetWebView;
+    int m_currentFontSize;
+    int m_guiLogFontSize;
 
     QPushButton *m_beamLogButton;
     QPushButton *m_devToolsButton;
@@ -104,6 +137,7 @@ private:
     std::unique_ptr<QPropertyAnimation> m_slideAnimation;
     bool m_isVisible;
     bool m_autoScroll;
+    bool m_guiLogAutoScroll;
     int m_maxLines;
     ViewMode m_currentMode;
 
