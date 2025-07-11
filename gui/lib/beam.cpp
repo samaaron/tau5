@@ -126,6 +126,7 @@ void Beam::startElixirServerDev()
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   env.insert("TAU5_ENV", "dev");
   env.insert("TAU5_TOKEN", "abcd");
+  env.insert("TAU5_HEARTBEAT_ENABLED", "true");
   QString portStr = QString::number(appPort);
   env.insert("PORT", portStr);
   env.insert("PHX_HOST", "127.0.0.1");
@@ -154,6 +155,7 @@ void Beam::startElixirServerProd()
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   env.insert("TAU5_ENV", "prod");
   env.insert("TAU5_TOKEN", "abcd");
+  env.insert("TAU5_HEARTBEAT_ENABLED", "true");
   QString portStr = QString::number(appPort);
   env.insert("PORT", portStr);
   env.insert("PHX_HOST", "127.0.0.1");

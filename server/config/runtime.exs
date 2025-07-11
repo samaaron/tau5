@@ -20,6 +20,12 @@ if System.get_env("PHX_SERVER") do
   config :tau5, Tau5Web.Endpoint, server: true
 end
 
+# Configure heartbeat monitoring
+# Set TAU5_HEARTBEAT_ENABLED=true to enable heartbeat monitoring
+# (required when running from GUI to prevent zombie processes)
+config :tau5, :heartbeat_enabled,
+  System.get_env("TAU5_HEARTBEAT_ENABLED", "false") == "true"
+
 config :tau5, Tau5.ConfigRepo,
   # Tau5.ConfigRepo.init/2 will inject :database at boot-time
   pool_size: 1,

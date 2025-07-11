@@ -11,19 +11,32 @@ defmodule Tau5.Heartbeat do
   end
 
   def init(_opts) do
-    send_pid_to_gui()
-    start_stdin_reader()
-    Process.send_after(self(), :check_heartbeat, @check_interval)
-    
-    {:ok, %{last_heartbeat: System.monotonic_time(:millisecond)}}
+    if heartbeat_enabled?() do
+      send_pid_to_gui()
+      start_stdin_reader()
+      Process.send_after(self(), :check_heartbeat, @check_interval)
+      
+      {:ok, %{last_heartbeat: System.monotonic_time(:millisecond), enabled: true}}
+    else
+      Logger.info("Heartbeat monitoring disabled")
+      {:ok, %{enabled: false}}
+    end
   end
 
   def beat do
     GenServer.cast(__MODULE__, :heartbeat)
   end
 
+  def handle_cast(:heartbeat, %{enabled: false} = state) do
+    {:noreply, state}
+  end
+
   def handle_cast(:heartbeat, state) do
     {:noreply, %{state | last_heartbeat: System.monotonic_time(:millisecond)}}
+  end
+
+  def handle_info(:check_heartbeat, %{enabled: false} = state) do
+    {:noreply, state}
   end
 
   def handle_info(:check_heartbeat, state) do
@@ -59,5 +72,9 @@ defmodule Tau5.Heartbeat do
       end)
       |> Stream.run()
     end)
+  end
+
+  defp heartbeat_enabled? do
+    Application.get_env(:tau5, :heartbeat_enabled, true)
   end
 end
