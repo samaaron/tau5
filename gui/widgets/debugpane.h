@@ -75,6 +75,7 @@ protected:
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
 
 private:
     void setupUi();
@@ -150,7 +151,11 @@ private:
     bool m_isResizing;
     int m_resizeStartY;
     int m_resizeStartHeight;
-    static constexpr int RESIZE_HANDLE_HEIGHT = 6;
+    bool m_isHoveringHandle;
+    static constexpr int RESIZE_HANDLE_HEIGHT = 10;  // Interaction area
+    static constexpr int RESIZE_HANDLE_VISUAL_HEIGHT = 4;  // Visual line height
+    
+    QWidget *m_dragHandleWidget;
 };
 
 #endif // DEBUGPANE_H

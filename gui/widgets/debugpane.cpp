@@ -37,6 +37,8 @@
 #include <QSvgRenderer>
 #include <QByteArray>
 #include <QPainter>
+#include <QPaintEvent>
+#include <QLinearGradient>
 #include <QRegularExpression>
 #include <QSettings>
 #include <QFile>
@@ -45,10 +47,11 @@
 DebugPane::DebugPane(QWidget *parent)
     : QWidget(parent), m_isVisible(false), m_autoScroll(true), m_guiLogAutoScroll(true),
       m_maxLines(5000), m_currentMode(BeamLogOnly), m_isResizing(false), 
-      m_resizeStartY(0), m_resizeStartHeight(0), m_targetWebView(nullptr), 
-      m_devToolsView(nullptr), m_liveDashboardView(nullptr),
+      m_resizeStartY(0), m_resizeStartHeight(0), m_isHoveringHandle(false),
+      m_targetWebView(nullptr), m_devToolsView(nullptr), m_liveDashboardView(nullptr),
       m_currentFontSize(12), m_guiLogFontSize(12), m_devToolsMainContainer(nullptr), 
-      m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr)
+      m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
+      m_dragHandleWidget(nullptr)
 {
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowFlags(Qt::FramelessWindowHint);
@@ -65,6 +68,14 @@ void DebugPane::setupUi()
   m_mainLayout = new QVBoxLayout(this);
   m_mainLayout->setContentsMargins(0, 0, 0, 0);
   m_mainLayout->setSpacing(0);
+  
+  m_dragHandleWidget = new QWidget(this);
+  m_dragHandleWidget->setFixedHeight(RESIZE_HANDLE_VISUAL_HEIGHT);
+  m_dragHandleWidget->setMouseTracking(true);
+  m_dragHandleWidget->hide();
+  m_dragHandleWidget->setStyleSheet(QString(
+      "background-color: %1;"
+      ).arg(StyleManager::Colors::PRIMARY_ORANGE));
 
   setupViewControls();
   
@@ -728,6 +739,10 @@ void DebugPane::mousePressEvent(QMouseEvent *event)
     m_isResizing = true;
     m_resizeStartY = event->globalPosition().y();
     m_resizeStartHeight = height();
+    if (m_dragHandleWidget)
+    {
+      m_dragHandleWidget->show();
+    }
     event->accept();
   }
   else
@@ -748,13 +763,28 @@ void DebugPane::mouseMoveEvent(QMouseEvent *event)
     move(x(), parentWidget()->height() - newHeight);
     event->accept();
   }
-  else if (event->position().y() < RESIZE_HANDLE_HEIGHT)
-  {
-    setCursor(Qt::SizeVerCursor);
-  }
   else
   {
-    setCursor(Qt::ArrowCursor);
+    bool wasHovering = m_isHoveringHandle;
+    m_isHoveringHandle = (event->position().y() < RESIZE_HANDLE_HEIGHT);
+    
+    if (m_isHoveringHandle)
+    {
+      setCursor(Qt::SizeVerCursor);
+      if (!wasHovering)
+      {
+        m_dragHandleWidget->show();
+        m_dragHandleWidget->raise();
+      }
+    }
+    else
+    {
+      setCursor(Qt::ArrowCursor);
+      if (wasHovering)
+      {
+        m_dragHandleWidget->hide();
+      }
+    }
   }
 
   QWidget::mouseMoveEvent(event);
@@ -765,6 +795,10 @@ void DebugPane::mouseReleaseEvent(QMouseEvent *event)
   if (event->button() == Qt::LeftButton && m_isResizing)
   {
     m_isResizing = false;
+    if (!m_isHoveringHandle && m_dragHandleWidget)
+    {
+      m_dragHandleWidget->hide();
+    }
     event->accept();
   }
   else
@@ -783,6 +817,11 @@ void DebugPane::leaveEvent(QEvent *event)
   if (!m_isResizing)
   {
     setCursor(Qt::ArrowCursor);
+    if (m_isHoveringHandle)
+    {
+      m_isHoveringHandle = false;
+      m_dragHandleWidget->hide();
+    }
   }
   QWidget::leaveEvent(event);
 }
@@ -791,7 +830,6 @@ void DebugPane::resizeEvent(QResizeEvent *event)
 {
   QWidget::resizeEvent(event);
   
-  // Ensure height never exceeds parent bounds
   if (parentWidget() && m_isVisible)
   {
     int constrainedHeight = constrainHeight(height());
@@ -800,6 +838,12 @@ void DebugPane::resizeEvent(QResizeEvent *event)
       resize(width(), constrainedHeight);
       move(x(), parentWidget()->height() - constrainedHeight);
     }
+  }
+  
+  if (m_dragHandleWidget)
+  {
+    m_dragHandleWidget->resize(width(), RESIZE_HANDLE_VISUAL_HEIGHT);
+    m_dragHandleWidget->move(0, 0);
   }
 }
 
@@ -812,6 +856,11 @@ int DebugPane::constrainHeight(int requestedHeight) const
   int maxHeight = parentWidget()->height();
   
   return qBound(minHeight, requestedHeight, maxHeight);
+}
+
+void DebugPane::paintEvent(QPaintEvent *event)
+{
+  QWidget::paintEvent(event);
 }
 
 void DebugPane::applyDevToolsDarkTheme()
