@@ -74,6 +74,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
     void setupUi();
@@ -91,6 +92,7 @@ private:
     QString getZoomButtonStyle();
     QPushButton* createTabButton(const QString &text, QWidget *parent);
     QPushButton* createZoomButton(const QIcon &icon, const QString &tooltip, QWidget *parent);
+    int constrainHeight(int requestedHeight) const;
 
 private:
     QVBoxLayout *m_mainLayout;

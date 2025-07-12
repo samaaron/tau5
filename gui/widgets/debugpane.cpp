@@ -628,6 +628,7 @@ void DebugPane::slide(bool show)
     paneHeight = parentHeight / 2;
   }
 
+  paneHeight = constrainHeight(paneHeight);
   resize(parentWidth, paneHeight);
 
   if (show)
@@ -741,9 +742,7 @@ void DebugPane::mouseMoveEvent(QMouseEvent *event)
   {
     int deltaY = m_resizeStartY - event->globalPosition().y();
     int newHeight = m_resizeStartHeight + deltaY;
-    int minHeight = 100;
-    int maxHeight = parentWidget() ? parentWidget()->height() * 0.8 : 600;
-    newHeight = qBound(minHeight, newHeight, maxHeight);
+    newHeight = constrainHeight(newHeight);
 
     resize(width(), newHeight);
     move(x(), parentWidget()->height() - newHeight);
@@ -786,6 +785,33 @@ void DebugPane::leaveEvent(QEvent *event)
     setCursor(Qt::ArrowCursor);
   }
   QWidget::leaveEvent(event);
+}
+
+void DebugPane::resizeEvent(QResizeEvent *event)
+{
+  QWidget::resizeEvent(event);
+  
+  // Ensure height never exceeds parent bounds
+  if (parentWidget() && m_isVisible)
+  {
+    int constrainedHeight = constrainHeight(height());
+    if (constrainedHeight != height())
+    {
+      resize(width(), constrainedHeight);
+      move(x(), parentWidget()->height() - constrainedHeight);
+    }
+  }
+}
+
+int DebugPane::constrainHeight(int requestedHeight) const
+{
+  if (!parentWidget())
+    return requestedHeight;
+    
+  int minHeight = 100;
+  int maxHeight = parentWidget()->height();
+  
+  return qBound(minHeight, requestedHeight, maxHeight);
 }
 
 void DebugPane::applyDevToolsDarkTheme()
@@ -1150,6 +1176,7 @@ void DebugPane::restoreSettings()
   
   if (settings.contains("height")) {
     int savedHeight = settings.value("height", parentWidget()->height() / 2).toInt();
+    savedHeight = constrainHeight(savedHeight);
     resize(width(), savedHeight);
     if (parentWidget()) {
       move(0, parentWidget()->height() - savedHeight);

@@ -161,8 +161,16 @@ void MainWindow::resizeEvent(QResizeEvent *event)
   QMainWindow::resizeEvent(event);
 
   if (debugPane && debugPane->isVisible()) {
-    debugPane->resize(width(), debugPane->height());
-    debugPane->move(0, height() - debugPane->height());
+    // Ensure debug pane height doesn't exceed window height
+    int maxHeight = height();
+    int currentHeight = debugPane->height();
+    
+    if (currentHeight > maxHeight) {
+      currentHeight = maxHeight;
+    }
+    
+    debugPane->resize(width(), currentHeight);
+    debugPane->move(0, height() - currentHeight);
   }
   
   if (controlLayer) {
