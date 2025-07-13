@@ -94,7 +94,7 @@ QString StyleManager::primaryButton()
       .arg(Colors::primaryOrangeAlpha(180));
 }
 
-QString StyleManager::transparentScrollbar()
+QString StyleManager::tau5Scrollbar()
 {
   return QString(
              "QScrollBar:vertical { "
@@ -214,7 +214,7 @@ QString StyleManager::consoleHeader()
 
 QString StyleManager::consoleOutput()
 {
-  return textEdit() + transparentScrollbar();
+  return textEdit() + tau5Scrollbar();
 }
 
 QString StyleManager::guiButton()

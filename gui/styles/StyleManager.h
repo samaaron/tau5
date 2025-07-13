@@ -52,7 +52,7 @@ public:
   static QString headerGradientBackground();
   static QString primaryButton();
   static QString secondaryButton();
-  static QString transparentScrollbar();
+  static QString tau5Scrollbar();
   static QString orangeBorder(const QString &width = "1px");
   static QString textEdit();
   static QString checkbox();
