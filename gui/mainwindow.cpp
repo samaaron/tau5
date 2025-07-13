@@ -79,6 +79,15 @@ void MainWindow::initializePhxWidget(quint16 port)
     debugPane->setWebView(phxWidget->getWebView());
     QString dashboardUrl = QString("http://localhost:%1/dev/dashboard").arg(port);
     debugPane->setLiveDashboardUrl(dashboardUrl);
+    
+    if (beamInstance) {
+      QString token = beamInstance->getSessionToken();
+      QString consoleUrl = QString("http://localhost:%1/dev/console?token=%2").arg(port).arg(token);
+      qDebug() << "Setting Tau5 Console URL with token:" << consoleUrl;
+      debugPane->setIexShellUrl(consoleUrl);
+    } else {
+      qDebug() << "WARNING: beamInstance is null when setting Tau5 Console URL";
+    }
   }
 }
 
@@ -161,7 +170,6 @@ void MainWindow::resizeEvent(QResizeEvent *event)
   QMainWindow::resizeEvent(event);
 
   if (debugPane && debugPane->isVisible()) {
-    // Ensure debug pane height doesn't exceed window height
     int maxHeight = height();
     int currentHeight = debugPane->height();
     

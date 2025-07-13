@@ -5,6 +5,7 @@
 #include "StyleManager.h"
 #include "phxwebview.h"
 #include "sandboxedwebview.h"
+#include "../logger.h"
 #include <QTextEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -49,6 +50,7 @@ DebugPane::DebugPane(QWidget *parent)
       m_maxLines(5000), m_currentMode(BeamLogOnly), m_isResizing(false), 
       m_resizeStartY(0), m_resizeStartHeight(0), m_isHoveringHandle(false),
       m_targetWebView(nullptr), m_devToolsView(nullptr), m_liveDashboardView(nullptr),
+      m_iexShellView(nullptr), m_iexShellTabButton(nullptr),
       m_currentFontSize(12), m_guiLogFontSize(12), m_devToolsMainContainer(nullptr), 
       m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
       m_dragHandleWidget(nullptr)
@@ -231,8 +233,11 @@ void DebugPane::setupConsole()
   
   m_guiLogTabButton = createTabButton("GUI Log", consoleToolbar);
   
+  m_iexShellTabButton = createTabButton("Elixir", consoleToolbar);
+  
   toolbarLayout->addWidget(m_beamLogTabButton);
   toolbarLayout->addWidget(m_guiLogTabButton);
+  toolbarLayout->addWidget(m_iexShellTabButton);
   toolbarLayout->addStretch();
   
   QString normalColor = StyleManager::Colors::PRIMARY_ORANGE;
@@ -329,6 +334,12 @@ void DebugPane::setupConsole()
   m_guiLogZoomInButton = createZoomButton(zoomInIcon, "Zoom In", consoleToolbar);
   m_guiLogZoomInButton->setVisible(false);
   
+  m_iexShellZoomOutButton = createZoomButton(zoomOutIcon, "Zoom Out", consoleToolbar);
+  m_iexShellZoomOutButton->setVisible(false);
+  
+  m_iexShellZoomInButton = createZoomButton(zoomInIcon, "Zoom In", consoleToolbar);
+  m_iexShellZoomInButton->setVisible(false);
+  
   toolbarLayout->addWidget(m_autoScrollButton);
   toolbarLayout->addWidget(m_guiLogAutoScrollButton);
   toolbarLayout->addSpacing(5);
@@ -336,6 +347,8 @@ void DebugPane::setupConsole()
   toolbarLayout->addWidget(m_consoleZoomInButton);
   toolbarLayout->addWidget(m_guiLogZoomOutButton);
   toolbarLayout->addWidget(m_guiLogZoomInButton);
+  toolbarLayout->addWidget(m_iexShellZoomOutButton);
+  toolbarLayout->addWidget(m_iexShellZoomInButton);
   
   m_consoleStack = new QStackedWidget(m_consoleContainer);
   
@@ -356,8 +369,21 @@ void DebugPane::setupConsole()
   m_guiLogDisplay->setStyleSheet(StyleManager::consoleOutput());
   m_guiLogLayout->addWidget(m_guiLogDisplay);
   
+  // Create Elixir console container
+  m_iexShellContainer = new QWidget();
+  QVBoxLayout *iexShellLayout = new QVBoxLayout(m_iexShellContainer);
+  iexShellLayout->setContentsMargins(0, 0, 0, 0);
+  iexShellLayout->setSpacing(0);
+  
+  m_iexShellView = new SandboxedWebView(m_iexShellContainer);
+  // Don't set fallback URL here - it will be set in setIexShellUrl with token
+  m_iexShellView->page()->setBackgroundColor(QColor("#000000"));
+  // Don't load URL here - wait for setIexShellUrl to be called with token
+  iexShellLayout->addWidget(m_iexShellView);
+  
   m_consoleStack->addWidget(m_beamLogContainer);
   m_consoleStack->addWidget(m_guiLogContainer);
+  m_consoleStack->addWidget(m_iexShellContainer);
   m_consoleStack->setCurrentIndex(0);
   
   consoleMainLayout->addWidget(consoleToolbar);
@@ -365,6 +391,7 @@ void DebugPane::setupConsole()
   
   connect(m_beamLogTabButton, &QPushButton::clicked, this, &DebugPane::showBeamLog);
   connect(m_guiLogTabButton, &QPushButton::clicked, this, &DebugPane::showGuiLog);
+  connect(m_iexShellTabButton, &QPushButton::clicked, this, &DebugPane::showIexShell);
   
   connect(m_autoScrollButton, &QPushButton::toggled, this, &DebugPane::handleAutoScrollToggled);
   connect(m_consoleZoomInButton, &QPushButton::clicked, this, &DebugPane::handleConsoleZoomIn);
@@ -379,6 +406,9 @@ void DebugPane::setupConsole()
   });
   connect(m_guiLogZoomInButton, &QPushButton::clicked, this, &DebugPane::handleGuiLogZoomIn);
   connect(m_guiLogZoomOutButton, &QPushButton::clicked, this, &DebugPane::handleGuiLogZoomOut);
+  
+  connect(m_iexShellZoomInButton, &QPushButton::clicked, this, &DebugPane::handleIexShellZoomIn);
+  connect(m_iexShellZoomOutButton, &QPushButton::clicked, this, &DebugPane::handleIexShellZoomOut);
   
 }
 
@@ -1030,6 +1060,19 @@ void DebugPane::setLiveDashboardUrl(const QString &url)
   }
 }
 
+void DebugPane::setIexShellUrl(const QString &url)
+{
+  if (m_iexShellView && !url.isEmpty())
+  {
+    QUrl iexUrl(url);
+    Logger::log(Logger::Debug, QString("DebugPane::setIexShellUrl - Setting URL: %1").arg(url));
+    m_iexShellView->setFallbackUrl(iexUrl);
+    m_iexShellView->load(iexUrl);
+  } else {
+    Logger::log(Logger::Warning, "DebugPane::setIexShellUrl - m_iexShellView is null or url is empty");
+  }
+}
+
 void DebugPane::handleGuiLogZoomIn()
 {
   if (m_guiLogDisplay && m_guiLogFontSize < 24)
@@ -1054,10 +1097,29 @@ void DebugPane::handleGuiLogZoomOut()
   }
 }
 
+void DebugPane::handleIexShellZoomIn()
+{
+  if (m_iexShellView)
+  {
+    qreal currentZoom = m_iexShellView->zoomFactor();
+    m_iexShellView->setZoomFactor(currentZoom * 1.1);
+  }
+}
+
+void DebugPane::handleIexShellZoomOut()
+{
+  if (m_iexShellView)
+  {
+    qreal currentZoom = m_iexShellView->zoomFactor();
+    m_iexShellView->setZoomFactor(currentZoom / 1.1);
+  }
+}
+
 void DebugPane::showBeamLog()
 {
   m_beamLogTabButton->setChecked(true);
   m_guiLogTabButton->setChecked(false);
+  m_iexShellTabButton->setChecked(false);
   m_consoleStack->setCurrentIndex(0);
   
   m_autoScrollButton->setVisible(true);
@@ -1067,12 +1129,16 @@ void DebugPane::showBeamLog()
   m_guiLogAutoScrollButton->setVisible(false);
   m_guiLogZoomOutButton->setVisible(false);
   m_guiLogZoomInButton->setVisible(false);
+  
+  m_iexShellZoomOutButton->setVisible(false);
+  m_iexShellZoomInButton->setVisible(false);
 }
 
 void DebugPane::showGuiLog()
 {
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(true);
+  m_iexShellTabButton->setChecked(false);
   m_consoleStack->setCurrentIndex(1);
   
   m_autoScrollButton->setVisible(false);
@@ -1082,6 +1148,28 @@ void DebugPane::showGuiLog()
   m_guiLogAutoScrollButton->setVisible(true);
   m_guiLogZoomOutButton->setVisible(true);
   m_guiLogZoomInButton->setVisible(true);
+  
+  m_iexShellZoomOutButton->setVisible(false);
+  m_iexShellZoomInButton->setVisible(false);
+}
+
+void DebugPane::showIexShell()
+{
+  m_beamLogTabButton->setChecked(false);
+  m_guiLogTabButton->setChecked(false);
+  m_iexShellTabButton->setChecked(true);
+  m_consoleStack->setCurrentIndex(2);
+  
+  m_autoScrollButton->setVisible(false);
+  m_consoleZoomOutButton->setVisible(false);
+  m_consoleZoomInButton->setVisible(false);
+  
+  m_guiLogAutoScrollButton->setVisible(false);
+  m_guiLogZoomOutButton->setVisible(false);
+  m_guiLogZoomInButton->setVisible(false);
+  
+  m_iexShellZoomOutButton->setVisible(true);
+  m_iexShellZoomInButton->setVisible(true);
 }
 
 void DebugPane::showDevToolsTab()
@@ -1267,8 +1355,10 @@ void DebugPane::restoreSettings()
     int consoleIndex = settings.value("consoleTabIndex", 0).toInt();
     if (consoleIndex == 0) {
       showBeamLog();
-    } else {
+    } else if (consoleIndex == 1) {
       showGuiLog();
+    } else if (consoleIndex == 2) {
+      showIexShell();
     }
   }
   

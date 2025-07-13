@@ -6,4 +6,7 @@
 /* Please note that this is a workaround and may not be the best solution */
 @import "../vendor/monaco-editor/min/vs/editor/editor.main.css";
 
+/* Tau5 Console styling */
+@import "./tau5_console.css";
+
 /* This file is for your main application CSS */

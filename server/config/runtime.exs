@@ -32,6 +32,16 @@ config :tau5, Tau5.ConfigRepo,
   busy_timeout: 5_000,
   journal_mode: :wal
 
+# Security configuration for development tools
+# IMPORTANT: These should NEVER be enabled in production!
+if config_env() == :prod do
+  # Disable all development routes in production
+  config :tau5, dev_routes: false
+  
+  # Explicitly disable console in production
+  config :tau5, console_enabled: false
+end
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

@@ -41,6 +41,7 @@ public:
     void setWebView(PhxWebView *webView);
     void setViewMode(ViewMode mode);
     void setLiveDashboardUrl(const QString &url);
+    void setIexShellUrl(const QString &url);
     void saveSettings();
     void restoreSettings();
 
@@ -62,8 +63,11 @@ private slots:
     void handleConsoleZoomOut();
     void handleGuiLogZoomIn();
     void handleGuiLogZoomOut();
+    void handleIexShellZoomIn();
+    void handleIexShellZoomOut();
     void showBeamLog();
     void showGuiLog();
+    void showIexShell();
     void showDevToolsTab();
     void showLiveDashboardTab();
 
@@ -105,6 +109,7 @@ private:
     QStackedWidget *m_consoleStack;
     QPushButton *m_beamLogTabButton;
     QPushButton *m_guiLogTabButton;
+    QPushButton *m_iexShellTabButton;
     QWidget *m_beamLogContainer;
     QVBoxLayout *m_beamLogLayout;
     QTextEdit *m_outputDisplay;
@@ -119,6 +124,10 @@ private:
     QPushButton *m_guiLogAutoScrollButton;
     QPushButton *m_guiLogZoomInButton;
     QPushButton *m_guiLogZoomOutButton;
+    QWidget *m_iexShellContainer;
+    SandboxedWebView *m_iexShellView;
+    QPushButton *m_iexShellZoomInButton;
+    QPushButton *m_iexShellZoomOutButton;
     QTabWidget *m_devToolsTabs;
     QWidget *m_devToolsMainContainer;
     QStackedWidget *m_devToolsStack;

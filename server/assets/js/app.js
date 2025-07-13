@@ -29,12 +29,42 @@ import Tau5Hydra from "./lib/tau5_hydra";
 hydraCanvas = document.getElementById("hydra-canvas");
 hydra = new Tau5Hydra(hydraCanvas);
 
+// Terminal hooks for IEx console
+const TerminalScroll = {
+  mounted() {
+    this.scrollToBottom();
+  },
+  updated() {
+    this.scrollToBottom();
+  },
+  scrollToBottom() {
+    this.el.scrollTop = this.el.scrollHeight;
+  }
+};
+
+const TerminalInput = {
+  mounted() {
+    this.handleEvent("scroll_to_bottom", () => {
+      const output = document.getElementById("terminal-output");
+      if (output) {
+        output.scrollTop = output.scrollHeight;
+      }
+    });
+    
+    this.handleEvent("update_input_value", ({ value }) => {
+      this.el.value = value;
+    });
+  }
+};
+
 let csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute("content");
 let liveSocket = new LiveSocket("/live", Socket, {
   hooks: {
     Tau5EditorHook,
+    TerminalScroll,
+    TerminalInput,
   },
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },

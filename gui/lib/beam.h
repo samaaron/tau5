@@ -13,6 +13,8 @@ class Beam : public QObject
 public:
   explicit Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode);
   ~Beam();
+  
+  QString getSessionToken() const { return sessionToken; }
 
   void startElixirServerDev();
   void startElixirServerProd();
@@ -40,6 +42,7 @@ private:
   qint64 beamPid;
   QTimer *heartbeatTimer;
   bool serverReady;
+  QString sessionToken;
 
   void startProcess(const QString &cmd, const QStringList &args);
   bool isWindows() const;

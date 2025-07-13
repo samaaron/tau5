@@ -9,11 +9,14 @@
 #include <QTimer>
 #include <QRegularExpression>
 #include <QThread>
+#include <QUuid>
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode)
     : QObject(parent), appBasePath(basePath), process(new QProcess(this)), 
       beamPid(0), serverReady(false)
 {
+  sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  qDebug() << "Generated session token:" << sessionToken;
   appPort = port;
 
   connect(process, &QProcess::readyReadStandardOutput,
@@ -125,7 +128,7 @@ void Beam::startElixirServerDev()
   qDebug() << "Starting Elixir server in Development mode";
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   env.insert("TAU5_ENV", "dev");
-  env.insert("TAU5_TOKEN", "abcd");
+  env.insert("TAU5_SESSION_TOKEN", sessionToken);
   env.insert("TAU5_HEARTBEAT_ENABLED", "true");
   QString portStr = QString::number(appPort);
   env.insert("PORT", portStr);
@@ -154,7 +157,7 @@ void Beam::startElixirServerProd()
 
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   env.insert("TAU5_ENV", "prod");
-  env.insert("TAU5_TOKEN", "abcd");
+  env.insert("TAU5_SESSION_TOKEN", sessionToken);
   env.insert("TAU5_HEARTBEAT_ENABLED", "true");
   QString portStr = QString::number(appPort);
   env.insert("PORT", portStr);
