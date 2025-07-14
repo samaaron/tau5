@@ -98,40 +98,38 @@ QString StyleManager::tau5Scrollbar()
 {
   return QString(
              "QScrollBar:vertical { "
-             "  background: rgba(0, 0, 0, 50); "
-             "  width: %1; "
+             "  background: transparent; "
+             "  width: 8px; "
              "  border: none; "
              "  margin: 0px; "
              "}"
              "QScrollBar::handle:vertical { "
-             "  background: %2; "
-             "  border-radius: 6px; "
-             "  min-height: 20px; "
-             "  margin: %3; "
-             "  border: 1px solid rgba(0, 0, 0, 100); "
+             "  background: %1; "
+             "  border-radius: 0px; "
+             "  min-height: 30px; "
+             "  margin: 0px; "
+             "  border: none; "
              "}"
              "QScrollBar::handle:vertical:hover { "
-             "  background: %4; "
+             "  background: %2; "
              "}"
              "QScrollBar::handle:vertical:pressed { "
-             "  background: %4; "
+             "  background: %2; "
              "}"
              "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { "
              "  height: 0px; "
-             "  background: rgba(0, 0, 0, 0); "
+             "  background: transparent; "
              "  border: none; "
              "}"
              "QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { "
-             "  background: rgba(0, 0, 0, 0); "
+             "  background: transparent; "
              "  border: none; "
              "}"
              "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { "
-             "  background: rgba(0, 0, 0, 0); "
+             "  background: transparent; "
              "  border: none; "
              "}")
-      .arg(Spacing::LARGE)
       .arg(Colors::primaryOrangeAlpha(240))
-      .arg(Spacing::EXTRA_SMALL)
       .arg(Colors::primaryOrangeAlpha(255));
 }
 

@@ -2,5 +2,6 @@
   <qresource prefix="/">
     <file>images/app.ico</file>
     <file>styles/tau5-dashboard-theme.css</file>
+    <file>fonts/CascadiaCodePL.ttf</file>
   </qresource>
 </RCC>

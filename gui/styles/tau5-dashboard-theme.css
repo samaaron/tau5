@@ -40,6 +40,15 @@ html, body {
   color: var(--text-primary) !important;
 }
 
+/* Set Cascadia Code font for code/console elements */
+pre, code, .code, .console, .terminal,
+.log-output, .log-entry, .log-message,
+.code-block, .code-snippet, .highlight,
+.monospace, .mono, tt, kbd, samp,
+.process-info, .stacktrace, .traceback {
+  font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
+}
+
 .card, .card-body, .card-header, .card-footer {
   background-color: var(--bg-card) !important;
   border: 1px solid var(--border-subtle) !important;

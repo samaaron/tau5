@@ -2,11 +2,12 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
-/* We seem to need to import the Monaco editor CSS here to placate esbuild */
-/* Please note that this is a workaround and may not be the best solution */
+/* Monaco editor CSS import required for esbuild */
 @import "../vendor/monaco-editor/min/vs/editor/editor.main.css";
-
-/* Tau5 Console styling */
-@import "./tau5_console.css";
-
-/* This file is for your main application CSS */
+@font-face {
+  font-family: 'CascadiaCode PL';
+  src: url('/fonts/CascadiaCodePL.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}

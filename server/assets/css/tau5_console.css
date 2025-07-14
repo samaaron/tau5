@@ -1,5 +1,6 @@
 .tau5-terminal {
   @apply bg-black text-white flex flex-col font-mono text-sm;
+  font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace;
   position: absolute;
   top: 0;
   left: 0;

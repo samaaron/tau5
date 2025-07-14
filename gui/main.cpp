@@ -6,6 +6,7 @@
 #include <QTcpServer>
 #include <QDebug>
 #include <QMessageBox>
+#include <QFontDatabase>
 #include "mainwindow.h"
 #include "lib/beam.h"
 #include "logger.h"
@@ -93,6 +94,12 @@ bool initializeApplication(QApplication &app)
   Q_INIT_RESOURCE(Tau5);
   app.setApplicationName(Config::APP_NAME);
   app.setStyle("gtk");
+
+  int fontId = QFontDatabase::addApplicationFont(":/fonts/CascadiaCodePL.ttf");
+  if (fontId != -1) {
+    QStringList fontFamilies = QFontDatabase::applicationFontFamilies(fontId);
+    Logger::log(Logger::Info, QString("Loaded font families: %1").arg(fontFamilies.join(", ")));
+  }
 
   return true;
 }

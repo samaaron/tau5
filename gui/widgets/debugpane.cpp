@@ -20,6 +20,8 @@
 #include <QWebEngineProfile>
 #include <QWebEnginePage>
 #include <QWebEngineSettings>
+#include <QWebEngineScript>
+#include <QWebEngineScriptCollection>
 #include <QDateTime>
 #include <QTextCursor>
 #include <QTextCharFormat>
@@ -44,6 +46,7 @@
 #include <QSettings>
 #include <QFile>
 #include <QTextStream>
+#include <QFont>
 
 DebugPane::DebugPane(QWidget *parent)
     : QWidget(parent), m_isVisible(false), m_autoScroll(true), m_guiLogAutoScroll(true),
@@ -356,6 +359,13 @@ void DebugPane::setupConsole()
   m_outputDisplay->setReadOnly(true);
   m_outputDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_outputDisplay->setStyleSheet(StyleManager::consoleOutput());
+  
+  QFont consoleFont("CascadiaCode PL", 10);
+  consoleFont.setStyleHint(QFont::Monospace);
+  consoleFont.setPixelSize(m_currentFontSize);
+  m_outputDisplay->setFont(consoleFont);
+  m_outputDisplay->document()->setDefaultFont(consoleFont);
+  
   m_beamLogLayout->addWidget(m_outputDisplay);
   
   m_guiLogContainer = new QWidget();
@@ -367,6 +377,13 @@ void DebugPane::setupConsole()
   m_guiLogDisplay->setReadOnly(true);
   m_guiLogDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_guiLogDisplay->setStyleSheet(StyleManager::consoleOutput());
+  
+  QFont guiLogFont("CascadiaCode PL", 10);
+  guiLogFont.setStyleHint(QFont::Monospace);
+  guiLogFont.setPixelSize(m_guiLogFontSize);
+  m_guiLogDisplay->setFont(guiLogFont);
+  m_guiLogDisplay->document()->setDefaultFont(guiLogFont);
+  
   m_guiLogLayout->addWidget(m_guiLogDisplay);
   
   // Create Elixir console container
@@ -473,6 +490,15 @@ void DebugPane::setupDevTools()
   m_devToolsView = new SandboxedWebView(m_devToolsContainer);
   m_devToolsView->setFallbackUrl(QUrl());  // No fallback for DevTools
   m_devToolsView->page()->setBackgroundColor(QColor("#1e1e1e"));
+  
+  // Configure Qt WebEngine font settings for fixed-width fonts
+  QWebEngineSettings* devToolsSettings = m_devToolsView->settings();
+  devToolsSettings->setFontFamily(QWebEngineSettings::FixedFont, "Cascadia Code");
+  devToolsSettings->setFontSize(QWebEngineSettings::DefaultFixedFontSize, 14);
+  
+  // Inject persistent font override script for DevTools
+  injectDevToolsFontScript();
+  
   devToolsLayout->addWidget(m_devToolsView);
   
   m_liveDashboardContainer = new QWidget();
@@ -524,9 +550,13 @@ void DebugPane::setWebView(PhxWebView *webView)
     {
       targetPage->setDevToolsPage(m_devToolsView->page());
       
+      // Re-inject font script when DevTools page is set
+      injectDevToolsFontScript();
+      
       connect(m_devToolsView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
         if (ok) {
           applyDevToolsDarkTheme();
+          injectDevToolsFontScript();
         }
       });
     }
@@ -721,7 +751,8 @@ void DebugPane::handleConsoleZoomIn()
   if (m_outputDisplay && m_currentFontSize < 24)
   {
     m_currentFontSize += 2;
-    QFont font = m_outputDisplay->font();
+    QFont font("Cascadia Code", 10);
+    font.setStyleHint(QFont::Monospace);
     font.setPixelSize(m_currentFontSize);
     m_outputDisplay->setFont(font);
     m_outputDisplay->document()->setDefaultFont(font);
@@ -733,7 +764,8 @@ void DebugPane::handleConsoleZoomOut()
   if (m_outputDisplay && m_currentFontSize > 8)
   {
     m_currentFontSize -= 2;
-    QFont font = m_outputDisplay->font();
+    QFont font("Cascadia Code", 10);
+    font.setStyleHint(QFont::Monospace);
     font.setPixelSize(m_currentFontSize);
     m_outputDisplay->setFont(font);
     m_outputDisplay->document()->setDefaultFont(font);
@@ -902,6 +934,8 @@ void DebugPane::applyDevToolsDarkTheme()
         :root {
           filter: invert(1) hue-rotate(180deg);
           background: #1e1e1e !important;
+          /* Try setting font via CSS variable */
+          --monospace-font: 'CascadiaCode PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
         }
         
         img, svg, video, canvas, embed, object,
@@ -912,12 +946,138 @@ void DebugPane::applyDevToolsDarkTheme()
         .cm-s-default .cm-keyword { filter: invert(1) hue-rotate(180deg); }
         .cm-s-default .cm-string { filter: invert(1) hue-rotate(180deg); }
         .cm-s-default .cm-number { filter: invert(1) hue-rotate(180deg); }
+        
+        /* Set Cascadia Code font ONLY for code and console elements */
+        /* Note: Chrome DevTools often ignores font-family changes for security reasons */
+        .console-message-text,
+        .console-user-command,
+        .console-user-command-result,
+        .monospace,
+        .source-code,
+        .cm-s-default,
+        .CodeMirror,
+        .CodeMirror pre,
+        .object-value-string,
+        .object-value-number,
+        .object-value-boolean,
+        .object-value-null,
+        .object-value-undefined,
+        .object-value-function,
+        .object-value-regexp,
+        .console-formatted-string,
+        .console-formatted-object,
+        .console-formatted-node,
+        .console-formatted-array,
+        span.monospace,
+        .webkit-css-property,
+        .devtools-link[data-url],
+        .console-message-wrapper .source-code {
+          font-family: var(--monospace-font, 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace) !important;
+        }
       `;
       document.head.appendChild(style);
     })();
   )";
   
   m_devToolsView->page()->runJavaScript(darkModeCSS);
+  
+  QTimer::singleShot(500, this, [this]() {
+    if (m_devToolsView && m_devToolsView->page()) {
+      QString devToolsScrollbarCSS = R"(
+        (function() {
+          const style = document.createElement('style');
+          style.setAttribute('id', 'tau5-devtools-scrollbar');
+          style.textContent = `
+            *::-webkit-scrollbar,
+            body ::-webkit-scrollbar,
+            .vbox ::-webkit-scrollbar,
+            .widget ::-webkit-scrollbar,
+            .console-view ::-webkit-scrollbar,
+            .elements-tree-outline ::-webkit-scrollbar,
+            .monospace ::-webkit-scrollbar,
+            .source-code ::-webkit-scrollbar,
+            .viewport ::-webkit-scrollbar,
+            .scroller ::-webkit-scrollbar,
+            ::-webkit-scrollbar {
+              width: 8px !important;
+              height: 8px !important;
+              background: transparent !important;
+              background-color: transparent !important;
+            }
+            
+            *::-webkit-scrollbar-track,
+            body ::-webkit-scrollbar-track,
+            .vbox ::-webkit-scrollbar-track,
+            .widget ::-webkit-scrollbar-track,
+            .viewport ::-webkit-scrollbar-track,
+            .scroller ::-webkit-scrollbar-track,
+            ::-webkit-scrollbar-track {
+              background: transparent !important;
+              background-color: transparent !important;
+              border: none !important;
+              box-shadow: none !important;
+            }
+            
+            *::-webkit-scrollbar-thumb,
+            body ::-webkit-scrollbar-thumb,
+            .vbox ::-webkit-scrollbar-thumb,
+            .widget ::-webkit-scrollbar-thumb,
+            .viewport ::-webkit-scrollbar-thumb,
+            .scroller ::-webkit-scrollbar-thumb,
+            ::-webkit-scrollbar-thumb {
+              background: rgba(255, 165, 0, 0.941) !important;
+              background-color: rgba(255, 165, 0, 0.941) !important;
+              border-radius: 0px !important;
+              min-height: 30px !important;
+              border: none !important;
+              margin: 0px !important;
+              box-shadow: none !important;
+            }
+            
+            *::-webkit-scrollbar-thumb:hover,
+            body ::-webkit-scrollbar-thumb:hover,
+            .vbox ::-webkit-scrollbar-thumb:hover,
+            .widget ::-webkit-scrollbar-thumb:hover,
+            ::-webkit-scrollbar-thumb:hover {
+              background: rgba(255, 165, 0, 1.0) !important;
+              background-color: rgba(255, 165, 0, 1.0) !important;
+            }
+            
+            *::-webkit-scrollbar-corner,
+            body ::-webkit-scrollbar-corner,
+            ::-webkit-scrollbar-corner {
+              background: transparent !important;
+              background-color: transparent !important;
+            }
+            
+            *::-webkit-scrollbar-button,
+            body ::-webkit-scrollbar-button,
+            ::-webkit-scrollbar-button {
+              display: none !important;
+              width: 0 !important;
+              height: 0 !important;
+            }
+          `;
+          
+          const existing = document.getElementById('tau5-devtools-scrollbar');
+          if (existing) {
+            existing.remove();
+          }
+          document.head.appendChild(style);
+          
+          document.querySelectorAll('*').forEach(el => {
+            if (el.shadowRoot) {
+              const shadowStyle = style.cloneNode(true);
+              el.shadowRoot.appendChild(shadowStyle);
+            }
+          });
+        })();
+      )";
+      
+      m_devToolsView->page()->runJavaScript(devToolsScrollbarCSS);
+    }
+  });
+  
 }
 
 void DebugPane::applyLiveDashboardTau5Theme()
@@ -950,7 +1110,305 @@ void DebugPane::applyLiveDashboardTau5Theme()
   
   if (m_liveDashboardView && m_liveDashboardView->page()) {
     m_liveDashboardView->page()->runJavaScript(tau5CSS);
+    
+    // Apply shared scrollbar styling
+    m_liveDashboardView->page()->runJavaScript(getDarkScrollbarCSS());
   }
+}
+
+void DebugPane::applyConsoleDarkTheme()
+{
+  if (m_iexShellView && m_iexShellView->page()) {
+    m_iexShellView->page()->runJavaScript(getDarkScrollbarCSS());
+    QString consoleCSS = R"(
+      (function() {
+        const style = document.createElement('style');
+        style.textContent = `
+          .tau5-terminal {
+            display: flex;
+            flex-direction: column;
+            background-color: #000000;
+            color: #ffffff;
+            font-family: 'CascadiaCode PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            user-select: text;
+          }
+          
+          .tau5-terminal-output {
+            flex: 1 1 0%;
+            overflow-y: auto;
+            padding: 1rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            user-select: text;
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+          }
+          
+          .tau5-terminal-output pre {
+            user-select: text;
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+          }
+          
+          .tau5-input-line {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-top: 1px solid #1f2937;
+          }
+          
+          .tau5-prompt {
+            color: #f97316;
+            font-weight: 700;
+            margin-right: 0.5rem;
+            white-space: nowrap;
+          }
+          
+          .tau5-terminal-input {
+            background-color: transparent;
+            border: none;
+            outline: none;
+            flex: 1 1 0%;
+            color: #ffffff;
+            font-family: inherit;
+          }
+          
+          .tau5-atom { color: #FFA500; }
+          .tau5-string { color: #00FF00; }
+          .tau5-number { color: #4169E1; }
+          .tau5-keyword { color: #FF00FF; }
+          .tau5-module { color: #00FFFF; }
+          .tau5-regex { color: #FF1493; }
+          .tau5-output-error { color: #FF1493; }
+          
+          .tau5-access-denied {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          
+          .tau5-error-container {
+            text-align: center;
+            padding: 2rem;
+          }
+          
+          .tau5-error-title {
+            font-size: 1.875rem;
+            line-height: 2.25rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #FF1493;
+          }
+          
+          .tau5-error-message {
+            color: #9ca3af;
+            margin-bottom: 1.5rem;
+            white-space: pre-line;
+          }
+          
+          .tau5-error-icon {
+            font-size: 3.75rem;
+            line-height: 1;
+          }
+          
+          body:has(.tau5-terminal) main {
+            padding: 0 !important;
+            max-width: none !important;
+            height: 100vh !important;
+          }
+          
+          body:has(.tau5-terminal) main > div {
+            max-width: none !important;
+            height: 100% !important;
+            position: relative;
+          }
+          
+          .tau5-terminal-output::-webkit-scrollbar {
+            width: 8px !important;
+            height: 8px !important;
+            background: transparent !important;
+          }
+          
+          .tau5-terminal-output::-webkit-scrollbar-track {
+            background: transparent !important;
+            border: none !important;
+          }
+          
+          .tau5-terminal-output::-webkit-scrollbar-thumb {
+            background: rgba(255, 165, 0, 0.941) !important;
+            border-radius: 0px !important;
+            min-height: 30px !important;
+            border: none !important;
+            margin: 0px !important;
+          }
+          
+          .tau5-terminal-output::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 165, 0, 1.0) !important;
+          }
+        `;
+        document.head.appendChild(style);
+      })();
+    )";
+    
+    m_iexShellView->page()->runJavaScript(consoleCSS);
+  }
+}
+
+void DebugPane::injectDevToolsFontScript()
+{
+  if (!m_devToolsView || !m_devToolsView->page()) {
+    return;
+  }
+  
+  QWebEngineScript fontScript;
+  fontScript.setName("CascadiaCodeFont");
+  fontScript.setWorldId(QWebEngineScript::ApplicationWorld);
+  fontScript.setInjectionPoint(QWebEngineScript::DocumentCreation);
+  fontScript.setRunsOnSubFrames(true);
+  
+  QString scriptSource = R"SCRIPT(
+    (function() {
+      const observer = new MutationObserver(function(mutations) {
+        const style = document.getElementById('tau5-cascadia-font') || document.createElement('style');
+        style.id = 'tau5-cascadia-font';
+        style.textContent = `
+          :root {
+            --monospace-font-size: 14px !important;
+            --monospace-font-family: 'CascadiaCode PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
+            --source-code-font-size: 14px !important;
+            --source-code-font-family: 'CascadiaCode PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
+          }
+          .monospace,
+          .source-code,
+          .cm-s-default,
+          .cm-line,
+          .CodeMirror,
+          .CodeMirror pre,
+          .CodeMirror-code,
+          .console-message-text,
+          .console-user-command,
+          .webkit-html-attribute-value,
+          .webkit-html-js-node,
+          .webkit-html-css-node,
+          .webkit-line-content,
+          .text-editor-contents,
+          .elements-disclosure li,
+          .navigator-file-tree-item,
+          .network-log-grid .data-grid td,
+          [class*="monospace"],
+          [class*="source-code"],
+          [class*="console"],
+          [class*="CodeMirror"] {
+            font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
+            font-size: 14px !important;
+          }
+          
+          /* Force font in shadow DOM components */
+          * {
+            --monospace-font: 'CascadiaCode PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
+          }
+        `;
+        
+        if (!document.getElementById('tau5-cascadia-font')) {
+          document.head.appendChild(style);
+        }
+        
+        // Also inject into any shadow roots
+        document.querySelectorAll('*').forEach(el => {
+          if (el.shadowRoot && !el.shadowRoot.getElementById('tau5-cascadia-font-shadow')) {
+            const shadowStyle = style.cloneNode(true);
+            shadowStyle.id = 'tau5-cascadia-font-shadow';
+            el.shadowRoot.appendChild(shadowStyle);
+          }
+        });
+      });
+      
+      // Start observing
+      observer.observe(document, {
+        childList: true,
+        subtree: true
+      });
+      
+      // Also run immediately
+      observer.callback = observer._callback;
+      observer.callback([]);
+    })();
+  )SCRIPT";
+  
+  fontScript.setSourceCode(scriptSource);
+  
+  // Remove any existing font script and add the new one
+  QWebEngineScriptCollection &scripts = m_devToolsView->page()->scripts();
+  QList<QWebEngineScript> existingScripts = scripts.find("CascadiaCodeFont");
+  for (const QWebEngineScript &script : existingScripts) {
+    scripts.remove(script);
+  }
+  scripts.insert(fontScript);
+}
+
+QString DebugPane::getDarkScrollbarCSS() const
+{
+  return R"(
+    (function() {
+      const style = document.createElement('style');
+      style.textContent = `
+        *::-webkit-scrollbar,
+        ::-webkit-scrollbar {
+          width: 8px !important;
+          height: 8px !important;
+          background: transparent !important;
+        }
+        
+        *::-webkit-scrollbar-track,
+        ::-webkit-scrollbar-track {
+          background: transparent !important;
+          border: none !important;
+        }
+        
+        *::-webkit-scrollbar-thumb,
+        ::-webkit-scrollbar-thumb {
+          background: rgba(255, 165, 0, 0.941) !important;
+          border-radius: 0px !important;
+          min-height: 30px !important;
+          border: none !important;
+          margin: 0px !important;
+        }
+        
+        *::-webkit-scrollbar-thumb:hover,
+        ::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 165, 0, 1.0) !important;
+        }
+        
+        *::-webkit-scrollbar-thumb:active,
+        ::-webkit-scrollbar-thumb:active {
+          background: rgba(255, 165, 0, 1.0) !important;
+        }
+        
+        ::-webkit-scrollbar-corner {
+          background: rgba(0, 0, 0, 0);
+        }
+        
+        /* Hide scrollbar buttons */
+        ::-webkit-scrollbar-button {
+          height: 0px;
+          background: rgba(0, 0, 0, 0);
+          display: none;
+        }
+      `;
+      document.head.appendChild(style);
+    })();
+  )";
 }
 
 QIcon DebugPane::createSvgIcon(const QString &normalSvg, const QString &hoverSvg, const QString &selectedSvg)
@@ -1068,6 +1526,13 @@ void DebugPane::setIexShellUrl(const QString &url)
     Logger::log(Logger::Debug, QString("DebugPane::setIexShellUrl - Setting URL: %1").arg(url));
     m_iexShellView->setFallbackUrl(iexUrl);
     m_iexShellView->load(iexUrl);
+    
+    // Apply dark theme when console loads
+    connect(m_iexShellView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
+      if (ok) {
+        applyConsoleDarkTheme();
+      }
+    });
   } else {
     Logger::log(Logger::Warning, "DebugPane::setIexShellUrl - m_iexShellView is null or url is empty");
   }
@@ -1078,7 +1543,8 @@ void DebugPane::handleGuiLogZoomIn()
   if (m_guiLogDisplay && m_guiLogFontSize < 24)
   {
     m_guiLogFontSize += 2;
-    QFont font = m_guiLogDisplay->font();
+    QFont font("Cascadia Code", 10);
+    font.setStyleHint(QFont::Monospace);
     font.setPixelSize(m_guiLogFontSize);
     m_guiLogDisplay->setFont(font);
     m_guiLogDisplay->document()->setDefaultFont(font);
@@ -1090,7 +1556,8 @@ void DebugPane::handleGuiLogZoomOut()
   if (m_guiLogDisplay && m_guiLogFontSize > 8)
   {
     m_guiLogFontSize -= 2;
-    QFont font = m_guiLogDisplay->font();
+    QFont font("Cascadia Code", 10);
+    font.setStyleHint(QFont::Monospace);
     font.setPixelSize(m_guiLogFontSize);
     m_guiLogDisplay->setFont(font);
     m_guiLogDisplay->document()->setDefaultFont(font);
@@ -1331,7 +1798,8 @@ void DebugPane::restoreSettings()
   
   if (settings.contains("beamLogFontSize")) {
     m_currentFontSize = settings.value("beamLogFontSize", 12).toInt();
-    QFont font = m_outputDisplay->font();
+    QFont font("Cascadia Code", 10);
+    font.setStyleHint(QFont::Monospace);
     font.setPixelSize(m_currentFontSize);
     m_outputDisplay->setFont(font);
     m_outputDisplay->document()->setDefaultFont(font);
@@ -1339,7 +1807,8 @@ void DebugPane::restoreSettings()
   
   if (settings.contains("guiLogFontSize")) {
     m_guiLogFontSize = settings.value("guiLogFontSize", 12).toInt();
-    QFont font = m_guiLogDisplay->font();
+    QFont font("Cascadia Code", 10);
+    font.setStyleHint(QFont::Monospace);
     font.setPixelSize(m_guiLogFontSize);
     m_guiLogDisplay->setFont(font);
     m_guiLogDisplay->document()->setDefaultFont(font);
