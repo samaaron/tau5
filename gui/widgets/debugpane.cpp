@@ -6,6 +6,7 @@
 #include "phxwebview.h"
 #include "sandboxedwebview.h"
 #include "../logger.h"
+#include "../lib/fontloader.h"
 #include <QTextEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -1044,7 +1045,7 @@ void DebugPane::applyDevToolsDarkTheme()
         .webkit-css-property,
         .devtools-link[data-url],
         .console-message-wrapper .source-code {
-          font-family: var(--monospace-font, 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace) !important;
+          font-family: var(--monospace-font, 'SF Mono', 'Monaco', 'Menlo', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace) !important;
         }
       `;
       document.head.appendChild(style);
@@ -1154,6 +1155,28 @@ void DebugPane::applyDevToolsDarkTheme()
 
 void DebugPane::applyLiveDashboardTau5Theme()
 {
+  // First inject the embedded font
+  QString cascadiaCodeCss = FontLoader::getCascadiaCodeCss();
+  if (!cascadiaCodeCss.isEmpty()) {
+    // Escape the CSS for JavaScript
+    cascadiaCodeCss.replace("\\", "\\\\");
+    cascadiaCodeCss.replace("`", "\\`");
+    cascadiaCodeCss.replace("$", "\\$");
+    
+    QString fontInjectScript = QString(R"(
+      (function() {
+        const fontStyle = document.createElement('style');
+        fontStyle.id = 'tau5-cascadia-font-dashboard';
+        fontStyle.textContent = `%1`;
+        document.head.appendChild(fontStyle);
+      })();
+    )").arg(cascadiaCodeCss);
+    
+    if (m_liveDashboardView && m_liveDashboardView->page()) {
+      m_liveDashboardView->page()->runJavaScript(fontInjectScript);
+    }
+  }
+  
   // Load CSS from resource file
   QFile cssFile(":/styles/tau5-dashboard-theme.css");
   QString cssContent;
@@ -1192,6 +1215,28 @@ void DebugPane::applyConsoleDarkTheme()
 {
   if (m_iexShellView && m_iexShellView->page()) {
     m_iexShellView->page()->runJavaScript(getDarkScrollbarCSS());
+    
+    // Get the CSS with embedded base64 font
+    QString cascadiaCodeCss = FontLoader::getCascadiaCodeCss();
+    if (!cascadiaCodeCss.isEmpty()) {
+      // Escape the CSS for JavaScript
+      cascadiaCodeCss.replace("\\", "\\\\");
+      cascadiaCodeCss.replace("`", "\\`");
+      cascadiaCodeCss.replace("$", "\\$");
+      
+      // Inject the font CSS first
+      QString fontInjectScript = QString(R"(
+        (function() {
+          const fontStyle = document.createElement('style');
+          fontStyle.id = 'tau5-cascadia-font-console';
+          fontStyle.textContent = `%1`;
+          document.head.appendChild(fontStyle);
+        })();
+      )").arg(cascadiaCodeCss);
+      
+      m_iexShellView->page()->runJavaScript(fontInjectScript);
+    }
+    
     QString consoleCSS = R"(
       (function() {
         const style = document.createElement('style');
@@ -1201,7 +1246,7 @@ void DebugPane::applyConsoleDarkTheme()
             flex-direction: column;
             background-color: #000000;
             color: #ffffff;
-            font-family: 'Cascadia Code PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace;
+            font-family: 'Cascadia Code PL', 'SF Mono', 'Monaco', 'Menlo', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace;
             font-size: 0.875rem;
             line-height: 1.25rem;
             position: absolute;
@@ -1343,54 +1388,34 @@ void DebugPane::injectDevToolsFontScript()
     return;
   }
   
+  Logger::log(Logger::Debug, "Injecting Cascadia Code font into DevTools");
+  
+  // Get the CSS with embedded base64 font
+  QString cascadiaCodeCss = FontLoader::getCascadiaCodeCss();
+  if (cascadiaCodeCss.isEmpty()) {
+    Logger::log(Logger::Warning, "Failed to load Cascadia Code font for DevTools");
+    return;
+  }
+  
+  Logger::log(Logger::Debug, QString("Cascadia Code CSS size: %1 characters").arg(cascadiaCodeCss.length()));
+  
+  // Escape the CSS for JavaScript
+  cascadiaCodeCss.replace("\\", "\\\\");
+  cascadiaCodeCss.replace("`", "\\`");
+  cascadiaCodeCss.replace("$", "\\$");
+  
   QWebEngineScript fontScript;
   fontScript.setName("CascadiaCodeFont");
   fontScript.setWorldId(QWebEngineScript::ApplicationWorld);
   fontScript.setInjectionPoint(QWebEngineScript::DocumentCreation);
   fontScript.setRunsOnSubFrames(true);
   
-  QString scriptSource = R"SCRIPT(
+  QString scriptSource = QString(R"SCRIPT(
     (function() {
       const observer = new MutationObserver(function(mutations) {
         const style = document.getElementById('tau5-cascadia-font') || document.createElement('style');
         style.id = 'tau5-cascadia-font';
-        style.textContent = `
-          :root {
-            --monospace-font-size: 14px !important;
-            --monospace-font-family: 'Cascadia Code PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
-            --source-code-font-size: 14px !important;
-            --source-code-font-family: 'Cascadia Code PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
-          }
-          .monospace,
-          .source-code,
-          .cm-s-default,
-          .cm-line,
-          .CodeMirror,
-          .CodeMirror pre,
-          .CodeMirror-code,
-          .console-message-text,
-          .console-user-command,
-          .webkit-html-attribute-value,
-          .webkit-html-js-node,
-          .webkit-html-css-node,
-          .webkit-line-content,
-          .text-editor-contents,
-          .elements-disclosure li,
-          .navigator-file-tree-item,
-          .network-log-grid .data-grid td,
-          [class*="monospace"],
-          [class*="source-code"],
-          [class*="console"],
-          [class*="CodeMirror"] {
-            font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
-            font-size: 14px !important;
-          }
-          
-          /* Force font in shadow DOM components */
-          * {
-            --monospace-font: 'Cascadia Code PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
-          }
-        `;
+        style.textContent = `%1`;
         
         if (!document.getElementById('tau5-cascadia-font')) {
           document.head.appendChild(style);
@@ -1416,7 +1441,7 @@ void DebugPane::injectDevToolsFontScript()
       observer.callback = observer._callback;
       observer.callback([]);
     })();
-  )SCRIPT";
+  )SCRIPT").arg(cascadiaCodeCss);
   
   fontScript.setSourceCode(scriptSource);
   

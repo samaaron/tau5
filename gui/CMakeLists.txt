@@ -66,6 +66,8 @@ set(SOURCES
   ${QTAPP_ROOT}/widgets/controllayer.cpp
   ${QTAPP_ROOT}/lib/beam.h
   ${QTAPP_ROOT}/lib/beam.cpp
+  ${QTAPP_ROOT}/lib/fontloader.h
+  ${QTAPP_ROOT}/lib/fontloader.cpp
   ${QTAPP_ROOT}/styles/StyleManager.h
   ${QTAPP_ROOT}/styles/StyleManager.cpp
 )

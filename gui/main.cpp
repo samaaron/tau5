@@ -99,6 +99,23 @@ bool initializeApplication(QApplication &app)
   if (fontId != -1) {
     QStringList fontFamilies = QFontDatabase::applicationFontFamilies(fontId);
     Logger::log(Logger::Info, QString("Loaded font families: %1").arg(fontFamilies.join(", ")));
+    
+    // Also log available font families for debugging on macOS
+#ifdef Q_OS_MACOS
+    Logger::log(Logger::Debug, "Available monospace fonts on macOS:");
+    QFontDatabase fontDb;
+    QStringList families = fontDb.families();
+    for (const QString &family : families) {
+      if (family.contains("Cascadia", Qt::CaseInsensitive) || 
+          family.contains("Consolas", Qt::CaseInsensitive) ||
+          family.contains("Monaco", Qt::CaseInsensitive) ||
+          family.contains("Courier", Qt::CaseInsensitive)) {
+        Logger::log(Logger::Debug, QString("  - %1").arg(family));
+      }
+    }
+#endif
+  } else {
+    Logger::log(Logger::Warning, "Failed to load Cascadia Code font from resources");
   }
 
   return true;
