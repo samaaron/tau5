@@ -164,10 +164,12 @@ private:
     int m_resizeStartY;
     int m_resizeStartHeight;
     bool m_isHoveringHandle;
-    static constexpr int RESIZE_HANDLE_HEIGHT = 10;  // Interaction area
-    static constexpr int RESIZE_HANDLE_VISUAL_HEIGHT = 4;  // Visual line height
     
     QWidget *m_dragHandleWidget;
+    
+public:
+    static constexpr int RESIZE_HANDLE_HEIGHT = 10;  // Interaction area
+    static constexpr int RESIZE_HANDLE_VISUAL_HEIGHT = 4;  // Visual line height
 };
 
 #endif // DEBUGPANE_H

@@ -47,6 +47,74 @@
 #include <QFile>
 #include <QTextStream>
 #include <QFont>
+#include <QSplitterHandle>
+
+// Custom splitter class to handle hover effects
+class CustomSplitter : public QSplitter
+{
+public:
+    CustomSplitter(Qt::Orientation orientation, QWidget *parent = nullptr) 
+        : QSplitter(orientation, parent) {}
+    
+protected:
+    QSplitterHandle *createHandle() override
+    {
+        return new CustomSplitterHandle(orientation(), this);
+    }
+    
+private:
+    class CustomSplitterHandle : public QSplitterHandle
+    {
+    public:
+        CustomSplitterHandle(Qt::Orientation orientation, QSplitter *parent)
+            : QSplitterHandle(orientation, parent), m_isHovered(false)
+        {
+            setMouseTracking(true);
+        }
+        
+    protected:
+        void paintEvent(QPaintEvent *event) override
+        {
+            Q_UNUSED(event);
+            QPainter painter(this);
+            
+            if (m_isHovered)
+            {
+                if (orientation() == Qt::Horizontal)
+                {
+                    // For horizontal splitter, draw vertical bar
+                    int centerStart = (width() - DebugPane::RESIZE_HANDLE_VISUAL_HEIGHT) / 2;
+                    painter.fillRect(centerStart, 0, DebugPane::RESIZE_HANDLE_VISUAL_HEIGHT, height(), 
+                                   QColor(StyleManager::Colors::PRIMARY_ORANGE));
+                }
+                else
+                {
+                    // For vertical splitter, draw horizontal bar
+                    int centerStart = (height() - DebugPane::RESIZE_HANDLE_VISUAL_HEIGHT) / 2;
+                    painter.fillRect(0, centerStart, width(), DebugPane::RESIZE_HANDLE_VISUAL_HEIGHT, 
+                                   QColor(StyleManager::Colors::PRIMARY_ORANGE));
+                }
+            }
+        }
+        
+        void enterEvent(QEnterEvent *event) override
+        {
+            Q_UNUSED(event);
+            m_isHovered = true;
+            update();
+        }
+        
+        void leaveEvent(QEvent *event) override
+        {
+            Q_UNUSED(event);
+            m_isHovered = false;
+            update();
+        }
+        
+    private:
+        bool m_isHovered;
+    };
+};
 
 DebugPane::DebugPane(QWidget *parent)
     : QWidget(parent), m_isVisible(false), m_autoScroll(true), m_guiLogAutoScroll(true),
@@ -95,7 +163,11 @@ void DebugPane::setupUi()
   fullViewLayout->setContentsMargins(0, 0, 0, 0);
   fullViewLayout->setSpacing(0);
   
-  m_splitter = new QSplitter(Qt::Horizontal, this);
+  m_splitter = new CustomSplitter(Qt::Horizontal, this);
+  m_splitter->setHandleWidth(RESIZE_HANDLE_HEIGHT);
+  m_splitter->setChildrenCollapsible(false);
+  
+  m_splitter->setStyleSheet("QSplitter { background: transparent; }");
 
   m_mainLayout->addWidget(m_headerWidget);
   m_mainLayout->addWidget(fullViewContainer, 1);
