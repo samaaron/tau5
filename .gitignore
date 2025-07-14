@@ -7,3 +7,6 @@ installer/wix/*.wixobj
 installer/wix/ReleaseFiles*
 installer/wix/*.msi
 installer/wix/*.wixpdb
+
+.claude
+.vscode
