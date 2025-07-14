@@ -432,7 +432,7 @@ void DebugPane::setupConsole()
   m_outputDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_outputDisplay->setStyleSheet(StyleManager::consoleOutput());
   
-  QFont consoleFont("CascadiaCode PL", 10);
+  QFont consoleFont("Cascadia Code PL", 10);
   consoleFont.setStyleHint(QFont::Monospace);
   consoleFont.setPixelSize(m_currentFontSize);
   m_outputDisplay->setFont(consoleFont);
@@ -450,7 +450,7 @@ void DebugPane::setupConsole()
   m_guiLogDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_guiLogDisplay->setStyleSheet(StyleManager::consoleOutput());
   
-  QFont guiLogFont("CascadiaCode PL", 10);
+  QFont guiLogFont("Cascadia Code PL", 10);
   guiLogFont.setStyleHint(QFont::Monospace);
   guiLogFont.setPixelSize(m_guiLogFontSize);
   m_guiLogDisplay->setFont(guiLogFont);
@@ -823,7 +823,7 @@ void DebugPane::handleConsoleZoomIn()
   if (m_outputDisplay && m_currentFontSize < 24)
   {
     m_currentFontSize += 2;
-    QFont font("Cascadia Code", 10);
+    QFont font("Cascadia Code PL", 10);
     font.setStyleHint(QFont::Monospace);
     font.setPixelSize(m_currentFontSize);
     m_outputDisplay->setFont(font);
@@ -836,7 +836,7 @@ void DebugPane::handleConsoleZoomOut()
   if (m_outputDisplay && m_currentFontSize > 8)
   {
     m_currentFontSize -= 2;
-    QFont font("Cascadia Code", 10);
+    QFont font("Cascadia Code PL", 10);
     font.setStyleHint(QFont::Monospace);
     font.setPixelSize(m_currentFontSize);
     m_outputDisplay->setFont(font);
@@ -1007,7 +1007,7 @@ void DebugPane::applyDevToolsDarkTheme()
           filter: invert(1) hue-rotate(180deg);
           background: #1e1e1e !important;
           /* Try setting font via CSS variable */
-          --monospace-font: 'CascadiaCode PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
+          --monospace-font: 'Cascadia Code PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
         }
         
         img, svg, video, canvas, embed, object,
@@ -1201,7 +1201,7 @@ void DebugPane::applyConsoleDarkTheme()
             flex-direction: column;
             background-color: #000000;
             color: #ffffff;
-            font-family: 'CascadiaCode PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace;
+            font-family: 'Cascadia Code PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace;
             font-size: 0.875rem;
             line-height: 1.25rem;
             position: absolute;
@@ -1357,9 +1357,9 @@ void DebugPane::injectDevToolsFontScript()
         style.textContent = `
           :root {
             --monospace-font-size: 14px !important;
-            --monospace-font-family: 'CascadiaCode PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
+            --monospace-font-family: 'Cascadia Code PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
             --source-code-font-size: 14px !important;
-            --source-code-font-family: 'CascadiaCode PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
+            --source-code-font-family: 'Cascadia Code PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
           }
           .monospace,
           .source-code,
@@ -1388,7 +1388,7 @@ void DebugPane::injectDevToolsFontScript()
           
           /* Force font in shadow DOM components */
           * {
-            --monospace-font: 'CascadiaCode PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
+            --monospace-font: 'Cascadia Code PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
           }
         `;
         
@@ -1615,7 +1615,7 @@ void DebugPane::handleGuiLogZoomIn()
   if (m_guiLogDisplay && m_guiLogFontSize < 24)
   {
     m_guiLogFontSize += 2;
-    QFont font("Cascadia Code", 10);
+    QFont font("Cascadia Code PL", 10);
     font.setStyleHint(QFont::Monospace);
     font.setPixelSize(m_guiLogFontSize);
     m_guiLogDisplay->setFont(font);
@@ -1628,7 +1628,7 @@ void DebugPane::handleGuiLogZoomOut()
   if (m_guiLogDisplay && m_guiLogFontSize > 8)
   {
     m_guiLogFontSize -= 2;
-    QFont font("Cascadia Code", 10);
+    QFont font("Cascadia Code PL", 10);
     font.setStyleHint(QFont::Monospace);
     font.setPixelSize(m_guiLogFontSize);
     m_guiLogDisplay->setFont(font);
@@ -1870,7 +1870,7 @@ void DebugPane::restoreSettings()
   
   if (settings.contains("beamLogFontSize")) {
     m_currentFontSize = settings.value("beamLogFontSize", 12).toInt();
-    QFont font("Cascadia Code", 10);
+    QFont font("Cascadia Code PL", 10);
     font.setStyleHint(QFont::Monospace);
     font.setPixelSize(m_currentFontSize);
     m_outputDisplay->setFont(font);
@@ -1879,7 +1879,7 @@ void DebugPane::restoreSettings()
   
   if (settings.contains("guiLogFontSize")) {
     m_guiLogFontSize = settings.value("guiLogFontSize", 12).toInt();
-    QFont font("Cascadia Code", 10);
+    QFont font("Cascadia Code PL", 10);
     font.setStyleHint(QFont::Monospace);
     font.setPixelSize(m_guiLogFontSize);
     m_guiLogDisplay->setFont(font);
