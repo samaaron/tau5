@@ -6,7 +6,7 @@ set WORKING_DIR=%CD%
 set ROOT_DIR=%SCRIPT_DIR%..\..
 
 cd /d "%ROOT_DIR%"
-gui\build\Release\tau5-devtools-mcp.exe %*
+gui\build\Release\tau5-gui-dev-mcp.exe %*
 
 cd /d "%WORKING_DIR%"
 endlocal

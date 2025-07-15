@@ -1,7 +1,7 @@
-# Tau5 DevTools MCP Server
+# Tau5 GUI Dev MCP Server
 
 ## Overview
-The Tau5 DevTools MCP Server provides programmatic access to Chrome DevTools Protocol functionality through the Model Context Protocol (MCP). This allows AI assistants like Claude to inspect and manipulate the DOM, execute JavaScript, and monitor console output in the Tau5 application.
+The Tau5 GUI Dev MCP Server provides programmatic access to Chrome DevTools Protocol functionality through the Model Context Protocol (MCP). This allows AI assistants like Claude to inspect and manipulate the DOM, execute JavaScript, and monitor console output in the Tau5 application.
 
 ## Architecture
 The MCP server consists of three main components:
@@ -12,43 +12,43 @@ The MCP server consists of three main components:
 
 ## How It Works
 1. When Tau5 starts in dev mode, it enables Chrome DevTools Protocol on port 9223
-2. The MCP server (tau5-devtools-mcp) runs as a separate process communicating via stdio
+2. The MCP server (tau5-gui-dev-mcp) runs as a separate process communicating via stdio
 3. The CDPClient connects to the Chrome DevTools Protocol via WebSocket
 4. MCP tools are registered to provide various DevTools functionalities
 
 ## Available MCP Tools
 
 ### DOM Inspection
-- **devtools.getDocument** - Get the full DOM document structure
-- **devtools.querySelector** - Find elements matching a CSS selector
-- **devtools.getOuterHTML** - Get the outer HTML of a DOM node
+- **chromium_devtools_getDocument** - Get the full DOM document structure
+- **chromium_devtools_querySelector** - Find elements matching a CSS selector
+- **chromium_devtools_getOuterHTML** - Get the outer HTML of a DOM node
 
 ### JavaScript Execution
-- **devtools.evaluateJavaScript** - Execute JavaScript in the page context
+- **chromium_devtools_evaluateJavaScript** - Execute JavaScript in the page context
 
 ### DOM Manipulation
-- **devtools.setAttribute** - Set an attribute on a DOM element
-- **devtools.removeAttribute** - Remove an attribute from a DOM element
+- **chromium_devtools_setAttribute** - Set an attribute on a DOM element
+- **chromium_devtools_removeAttribute** - Remove an attribute from a DOM element
 
 ### Navigation
-- **devtools.navigate** - Navigate to a URL
+- **chromium_devtools_navigate** - Navigate to a URL
 
 ### Style Inspection
-- **devtools.getComputedStyle** - Get computed styles for an element
+- **chromium_devtools_getComputedStyle** - Get computed styles for an element
 
 
 ## Usage
 
 ### Running the MCP Server
-The tau5-devtools-mcp server runs as a standalone executable that bridges AI assistants to Tau5's Chrome DevTools. It must be configured in your AI assistant's MCP settings.
+The tau5-gui-dev-mcp server runs as a standalone executable that bridges AI assistants to Tau5's Chrome DevTools. It must be configured in your AI assistant's MCP settings.
 
 ### Configuration for Claude Desktop
 Add to your Claude Desktop configuration:
 ```json
 {
   "mcpServers": {
-    "tau5-devtools": {
-      "command": "C:\\path\\to\\tau5\\bin\\win\\tau5-devtools-mcp.bat",
+    "tau5-gui-dev": {
+      "command": "C:\\path\\to\\tau5\\bin\\win\\tau5-gui-dev-mcp.bat",
       "args": []
     }
   }

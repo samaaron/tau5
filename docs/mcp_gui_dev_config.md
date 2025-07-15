@@ -1,12 +1,12 @@
-# Tau5 DevTools MCP Configuration
+# Tau5 GUI Dev MCP Configuration
 
 ## Overview
-The Tau5 DevTools MCP server provides Model Context Protocol access to Chrome DevTools, allowing AI assistants to inspect and manipulate the DOM, execute JavaScript, and monitor the Tau5 application.
+The Tau5 GUI Dev MCP server provides Model Context Protocol access to Chrome DevTools, allowing AI assistants to inspect and manipulate the DOM, execute JavaScript, and monitor the Tau5 application.
 
 ## Prerequisites
 1. Tau5 must be running in dev mode (`tau5 dev`)
 2. Chrome DevTools Protocol is enabled on port 9223 (default)
-3. The `tau5-devtools-mcp` executable must be built
+3. The `tau5-gui-dev-mcp` executable must be built
 
 ## Building the MCP Server
 ```bash
@@ -19,7 +19,7 @@ cd tau5
 ./bin/mac/build-gui.sh  # or ./bin/linux/build-gui.sh
 ```
 
-This will build both Tau5 and the tau5-devtools-mcp executable.
+This will build both Tau5 and the tau5-gui-dev-mcp executable.
 
 ## Claude Code Configuration
 
@@ -29,17 +29,17 @@ The easiest way to add the MCP server is using the Claude Code CLI:
 
 #### Windows
 ```bash
-claude mcp add tau5-devtools cmd.exe /c "C:\path\to\tau5\bin\win\tau5-devtools-mcp.bat"
+claude mcp add tau5-gui-dev cmd.exe /c "C:\path\to\tau5\bin\win\tau5-gui-dev-mcp.bat"
 ```
 
 #### macOS
 ```bash
-claude mcp add tau5-devtools /path/to/tau5/bin/mac/tau5-devtools-mcp.sh
+claude mcp add tau5-gui-dev /path/to/tau5/bin/mac/tau5-gui-dev-mcp.sh
 ```
 
 #### Linux
 ```bash
-claude mcp add tau5-devtools /path/to/tau5/bin/linux/tau5-devtools-mcp.sh
+claude mcp add tau5-gui-dev /path/to/tau5/bin/linux/tau5-gui-dev-mcp.sh
 ```
 
 ### Manual Configuration (Alternative)
@@ -50,8 +50,8 @@ You can also manually edit your Claude Code MCP settings:
 ```json
 {
   "mcpServers": {
-    "tau5-devtools": {
-      "command": "C:\\path\\to\\tau5\\bin\\win\\tau5-devtools-mcp.bat",
+    "tau5-gui-dev": {
+      "command": "C:\\path\\to\\tau5\\bin\\win\\tau5-gui-dev-mcp.bat",
       "args": []
     }
   }
@@ -62,8 +62,8 @@ You can also manually edit your Claude Code MCP settings:
 ```json
 {
   "mcpServers": {
-    "tau5-devtools": {
-      "command": "/path/to/tau5/bin/mac/tau5-devtools-mcp.sh",
+    "tau5-gui-dev": {
+      "command": "/path/to/tau5/bin/mac/tau5-gui-dev-mcp.sh",
       "args": []
     }
   }
@@ -74,8 +74,8 @@ You can also manually edit your Claude Code MCP settings:
 ```json
 {
   "mcpServers": {
-    "tau5-devtools": {
-      "command": "/path/to/tau5/bin/linux/tau5-devtools-mcp.sh",
+    "tau5-gui-dev": {
+      "command": "/path/to/tau5/bin/linux/tau5-gui-dev-mcp.sh",
       "args": []
     }
   }
@@ -88,8 +88,8 @@ If Tau5 is configured to use a different DevTools port, specify it in the args:
 ```json
 {
   "mcpServers": {
-    "tau5-devtools": {
-      "command": "path/to/tau5-devtools-mcp",
+    "tau5-gui-dev": {
+      "command": "path/to/tau5-gui-dev-mcp",
       "args": ["--devtools-port", "9999"]
     }
   }
@@ -99,22 +99,22 @@ If Tau5 is configured to use a different DevTools port, specify it in the args:
 ## Available Tools
 
 ### DOM Inspection
-- `devtools.getDocument` - Get the full DOM tree
-- `devtools.querySelector` - Find elements by CSS selector
-- `devtools.getOuterHTML` - Get HTML of a specific node
+- `chromium_devtools_getDocument` - Get the full DOM tree
+- `chromium_devtools_querySelector` - Find elements by CSS selector
+- `chromium_devtools_getOuterHTML` - Get HTML of a specific node
 
 ### JavaScript Execution
-- `devtools.evaluateJavaScript` - Execute JavaScript in the page context
+- `chromium_devtools_evaluateJavaScript` - Execute JavaScript in the page context
 
 ### DOM Manipulation
-- `devtools.setAttribute` - Set attributes on elements
-- `devtools.removeAttribute` - Remove attributes from elements
+- `chromium_devtools_setAttribute` - Set attributes on elements
+- `chromium_devtools_removeAttribute` - Remove attributes from elements
 
 ### Navigation
-- `devtools.navigate` - Navigate to a different URL
+- `chromium_devtools_navigate` - Navigate to a different URL
 
 ### Style Inspection
-- `devtools.getComputedStyle` - Get all computed CSS styles for an element
+- `chromium_devtools_getComputedStyle` - Get all computed CSS styles for an element
 
 ## Usage Workflow
 
@@ -128,13 +128,13 @@ If Tau5 is configured to use a different DevTools port, specify it in the args:
 3. Use the tools to inspect and manipulate the application:
    ```
    // Find an element
-   devtools.querySelector({ selector: "#my-button" })
+   chromium_devtools_querySelector({ selector: "#my-button" })
    
    // Execute JavaScript
-   devtools.evaluateJavaScript({ expression: "document.title" })
+   chromium_devtools_evaluateJavaScript({ expression: "document.title" })
    
    // Get computed styles
-   devtools.getComputedStyle({ selector: ".my-class" })
+   chromium_devtools_getComputedStyle({ selector: ".my-class" })
    ```
 
 ## Troubleshooting
@@ -163,8 +163,8 @@ Here's a complete example with both Tidewave (backend) and DevTools (frontend) M
       "url": "http://localhost:5555/tidewave",
       "transport": "sse"
     },
-    "tau5-devtools": {
-      "command": "C:\\tau5\\bin\\win\\tau5-devtools-mcp.bat",
+    "tau5-gui-dev": {
+      "command": "C:\\tau5\\bin\\win\\tau5-gui-dev-mcp.bat",
       "args": []
     }
   }

@@ -164,4 +164,4 @@ if(WIN32)
 endif() # Win32
 
 # Build DevTools MCP server as a separate executable
-add_subdirectory(devtools-mcp)
+add_subdirectory(gui-dev-mcp)

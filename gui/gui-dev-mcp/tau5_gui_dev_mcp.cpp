@@ -102,12 +102,12 @@ private:
     CDPClient* m_client;
 };
 
-#include "tau5_devtools_mcp.moc"
+#include "tau5_gui_dev_mcp.moc"
 
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
-    app.setApplicationName("tau5-devtools-mcp");
+    app.setApplicationName("tau5-gui-dev-mcp");
     app.setOrganizationName("Tau5");
     
     quint16 devToolsPort = 9223;
@@ -117,17 +117,17 @@ int main(int argc, char *argv[])
         if (arg == "--devtools-port" && i + 1 < argc) {
             devToolsPort = QString::fromUtf8(argv[++i]).toUInt();
         } else if (arg == "--help" || arg == "-h") {
-            std::cout << "Tau5 DevTools MCP Server\n\n";
+            std::cout << "Tau5 GUI Dev MCP Server\n\n";
             std::cout << "This server provides MCP (Model Context Protocol) access to Chrome DevTools.\n";
             std::cout << "It connects to a running Tau5 instance with DevTools enabled.\n\n";
-            std::cout << "Usage: tau5-devtools-mcp [options]\n\n";
+            std::cout << "Usage: tau5-gui-dev-mcp [options]\n\n";
             std::cout << "Options:\n";
             std::cout << "  --devtools-port <port>  Chrome DevTools port (default: 9223)\n";
             std::cout << "  --help, -h              Show this help message\n\n";
             std::cout << "Configure in Claude Code with:\n";
             std::cout << "  \"mcpServers\": {\n";
-            std::cout << "    \"tau5-devtools\": {\n";
-            std::cout << "      \"command\": \"path/to/tau5-devtools-mcp\",\n";
+            std::cout << "    \"tau5-gui-dev\": {\n";
+            std::cout << "      \"command\": \"path/to/tau5-gui-dev-mcp\",\n";
             std::cout << "      \"args\": [\"--devtools-port\", \"9223\"]\n";
             std::cout << "    }\n";
             std::cout << "  }\n";
@@ -136,11 +136,11 @@ int main(int argc, char *argv[])
     }
     
     // Write startup message to stderr (MCP clients ignore lines starting with #)
-    std::cerr << "# Tau5 DevTools MCP Server v1.0.0" << std::endl;
+    std::cerr << "# Tau5 GUI Dev MCP Server v1.0.0" << std::endl;
     std::cerr << "# Connecting to Chrome DevTools on port " << devToolsPort << std::endl;
     
     MCPServerStdio server;
-    server.setServerInfo("Tau5 DevTools MCP", "1.0.0");
+    server.setServerInfo("Tau5 GUI Dev MCP", "1.0.0");
     server.setCapabilities(QJsonObject{
         {"tools", QJsonObject{}}
     });
@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
     CDPBridge bridge(cdpClient.get());
     
     server.registerTool({
-        "devtools_getDocument",
+        "chromium_devtools_getDocument",
         "Get the full DOM document structure",
         QJsonObject{
             {"type", "object"},
@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "devtools_querySelector", 
+        "chromium_devtools_querySelector", 
         "Find elements matching a CSS selector",
         QJsonObject{
             {"type", "object"},
@@ -215,7 +215,7 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "devtools_getOuterHTML",
+        "chromium_devtools_getOuterHTML",
         "Get the outer HTML of a DOM node",
         QJsonObject{
             {"type", "object"},
@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "devtools_evaluateJavaScript",
+        "chromium_devtools_evaluateJavaScript",
         "Execute JavaScript in the page context",
         QJsonObject{
             {"type", "object"},
@@ -303,7 +303,7 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "devtools_setAttribute",
+        "chromium_devtools_setAttribute",
         "Set an attribute on a DOM element",
         QJsonObject{
             {"type", "object"},
@@ -344,7 +344,7 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "devtools_removeAttribute",
+        "chromium_devtools_removeAttribute",
         "Remove an attribute from a DOM element",
         QJsonObject{
             {"type", "object"},
@@ -380,7 +380,7 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "devtools_navigate",
+        "chromium_devtools_navigate",
         "Navigate to a URL",
         QJsonObject{
             {"type", "object"},
@@ -411,7 +411,7 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "devtools_getComputedStyle",
+        "chromium_devtools_getComputedStyle",
         "Get computed styles for an element",
         QJsonObject{
             {"type", "object"},
