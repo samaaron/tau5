@@ -103,8 +103,7 @@ bool initializeApplication(QApplication &app)
     // Also log available font families for debugging on macOS
 #ifdef Q_OS_MACOS
     Logger::log(Logger::Debug, "Available monospace fonts on macOS:");
-    QFontDatabase fontDb;
-    QStringList families = fontDb.families();
+    QStringList families = QFontDatabase::families();
     for (const QString &family : families) {
       if (family.contains("Cascadia", Qt::CaseInsensitive) || 
           family.contains("Consolas", Qt::CaseInsensitive) ||
