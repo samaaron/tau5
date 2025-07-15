@@ -466,6 +466,12 @@ int main(int argc, char *argv[])
         }
     });
     
+    // Connect stdin closure to application quit
+    QObject::connect(&server, &MCPServerStdio::stdinClosed, &app, [&app]() {
+        std::cerr << "# Stdin closed, shutting down MCP server..." << std::endl;
+        QTimer::singleShot(100, &app, &QCoreApplication::quit);
+    });
+    
     server.start();
     
     auto connectionTimer = new QTimer(&app);

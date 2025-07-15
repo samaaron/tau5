@@ -6,6 +6,12 @@
 #include <QCoreApplication>
 #include <QTimer>
 #include <iostream>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 MCPServerStdio::MCPServerStdio(QObject* parent)
     : QObject(parent)
@@ -73,8 +79,58 @@ void MCPServerStdio::handleStdinReady()
         return;
     }
     
+    // Check if stdin is closed (EOF)
+#ifdef Q_OS_WIN
+    // On Windows, check if stdin handle is still valid
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    if (hStdin == INVALID_HANDLE_VALUE) {
+        std::cerr << "# stdin handle is invalid, exiting..." << std::endl;
+        emit stdinClosed();
+        return;
+    }
+    
+    // Check if the pipe is broken
+    DWORD available = 0;
+    if (!PeekNamedPipe(hStdin, NULL, 0, NULL, &available, NULL)) {
+        DWORD error = GetLastError();
+        if (error == ERROR_BROKEN_PIPE || error == ERROR_PIPE_NOT_CONNECTED) {
+            std::cerr << "# stdin pipe is broken, exiting..." << std::endl;
+            emit stdinClosed();
+            return;
+        }
+    }
+#else
+    // On Unix-like systems, check if stdin is closed
+    if (feof(stdin) || ferror(stdin)) {
+        std::cerr << "# stdin closed, exiting..." << std::endl;
+        emit stdinClosed();
+        return;
+    }
+#endif
+    
+    // Try to read available data
+    if (m_stdin.atEnd()) {
+        // Additional check: try to read from stdin directly
+        char ch;
+        if (std::cin.get(ch)) {
+            // Put the character back
+            std::cin.unget();
+        } else {
+            // EOF reached
+            std::cerr << "# EOF detected on stdin, exiting..." << std::endl;
+            emit stdinClosed();
+            return;
+        }
+    }
+    
     while (!m_stdin.atEnd()) {
         QString line = m_stdin.readLine();
+        if (line.isNull()) { // Null string indicates EOF
+            std::cerr << "# Null line read from stdin, exiting..." << std::endl;
+            emit stdinClosed();
+            return;
+        }
+        
         m_inputBuffer += line;
         
         QJsonParseError error;
