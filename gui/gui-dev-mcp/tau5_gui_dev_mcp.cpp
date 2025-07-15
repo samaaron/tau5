@@ -6,7 +6,10 @@
 #include "mcpserver_stdio.h"
 #include "cdpclient.h"
 
-// Helper class to bridge async CDP operations to sync MCP tool handlers
+static void debugLog(const QString& message) {
+    std::cerr << "# " << message.toStdString() << std::endl;
+}
+
 class CDPBridge : public QObject
 {
     Q_OBJECT
@@ -50,44 +53,52 @@ public:
     
     QJsonObject executeCommand(std::function<void(CDPClient*, CDPClient::ResponseCallback)> command)
     {
-        if (!m_client->isConnected()) {
-            std::cerr << "# Waiting for Chrome DevTools connection..." << std::endl;
-            if (!waitForConnection()) {
-                return createErrorResult("Failed to connect to Chrome DevTools. Make sure Tau5 is running in dev mode.");
+        try {
+            if (!m_client->isConnected()) {
+                debugLog("CDP not connected, attempting to connect...");
+                m_client->connect();
+                
+                if (!waitForConnection(2000)) {
+                    debugLog("CDP connection timeout - Tau5 may not be running");
+                    return createErrorResult("Chrome DevTools not responding. Make sure Tau5 is running in dev mode with --remote-debugging-port=9223");
+                }
             }
-            std::cerr << "# Connected to Chrome DevTools" << std::endl;
+            
+            QEventLoop loop;
+            QTimer timeout;
+            timeout.setSingleShot(true);
+            timeout.setInterval(5000);
+            
+            QJsonObject result;
+            QString error;
+            bool completed = false;
+            
+            connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+            
+            command(m_client, [&](const QJsonObject& cdpResult, const QString& cdpError) {
+                result = cdpResult;
+                error = cdpError;
+                completed = true;
+                loop.quit();
+            });
+            
+            timeout.start();
+            loop.exec();
+            
+            if (!completed) {
+                return createErrorResult("CDP command timed out");
+            }
+            
+            if (!error.isEmpty()) {
+                return createErrorResult(error);
+            }
+            
+            return result;
+        } catch (const std::exception& e) {
+            return createErrorResult(QString("Exception: %1").arg(e.what()));
+        } catch (...) {
+            return createErrorResult("Unknown exception occurred");
         }
-        
-        QEventLoop loop;
-        QTimer timeout;
-        timeout.setSingleShot(true);
-        timeout.setInterval(5000);
-        
-        QJsonObject result;
-        QString error;
-        bool completed = false;
-        
-        connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
-        
-        command(m_client, [&](const QJsonObject& cdpResult, const QString& cdpError) {
-            result = cdpResult;
-            error = cdpError;
-            completed = true;
-            loop.quit();
-        });
-        
-        timeout.start();
-        loop.exec();
-        
-        if (!completed) {
-            return createErrorResult("CDP command timed out");
-        }
-        
-        if (!error.isEmpty()) {
-            return createErrorResult(error);
-        }
-        
-        return result;
     }
     
 private:
@@ -111,11 +122,14 @@ int main(int argc, char *argv[])
     app.setOrganizationName("Tau5");
     
     quint16 devToolsPort = 9223;
+    bool debugMode = false;
     
     for (int i = 1; i < argc; i++) {
         QString arg = QString::fromUtf8(argv[i]);
         if (arg == "--devtools-port" && i + 1 < argc) {
             devToolsPort = QString::fromUtf8(argv[++i]).toUInt();
+        } else if (arg == "--debug") {
+            debugMode = true;
         } else if (arg == "--help" || arg == "-h") {
             std::cout << "Tau5 GUI Dev MCP Server\n\n";
             std::cout << "This server provides MCP (Model Context Protocol) access to Chrome DevTools.\n";
@@ -123,6 +137,7 @@ int main(int argc, char *argv[])
             std::cout << "Usage: tau5-gui-dev-mcp [options]\n\n";
             std::cout << "Options:\n";
             std::cout << "  --devtools-port <port>  Chrome DevTools port (default: 9223)\n";
+            std::cout << "  --debug                 Enable debug logging to tau5-mcp-debug.log\n";
             std::cout << "  --help, -h              Show this help message\n\n";
             std::cout << "Configure in Claude Code with:\n";
             std::cout << "  \"mcpServers\": {\n";
@@ -135,19 +150,27 @@ int main(int argc, char *argv[])
         }
     }
     
-    // Write startup message to stderr (MCP clients ignore lines starting with #)
-    std::cerr << "# Tau5 GUI Dev MCP Server v1.0.0" << std::endl;
-    std::cerr << "# Connecting to Chrome DevTools on port " << devToolsPort << std::endl;
+    debugLog("Tau5 GUI Dev MCP Server v1.0.0");
+    debugLog(QString("Connecting to Chrome DevTools on port %1").arg(devToolsPort));
     
     MCPServerStdio server;
     server.setServerInfo("Tau5 GUI Dev MCP", "1.0.0");
     server.setCapabilities(QJsonObject{
         {"tools", QJsonObject{}}
     });
+    server.setDebugMode(debugMode);
     
     auto cdpClient = std::make_unique<CDPClient>(devToolsPort);
     
     CDPBridge bridge(cdpClient.get());
+    
+    QObject::connect(cdpClient.get(), &CDPClient::disconnected, [&cdpClient]() {
+        debugLog("CDP Client disconnected - Tau5 may not be running");
+    });
+    
+    QObject::connect(cdpClient.get(), &CDPClient::connectionFailed, [](const QString& error) {
+        debugLog(QString("CDP connection error: %1").arg(error));
+    });
     
     server.registerTool({
         "chromium_devtools_getDocument",
@@ -466,54 +489,23 @@ int main(int argc, char *argv[])
         }
     });
     
-    // Connect stdin closure to application quit
     QObject::connect(&server, &MCPServerStdio::stdinClosed, &app, [&app]() {
-        std::cerr << "# Stdin closed, shutting down MCP server..." << std::endl;
+        debugLog("Stdin closed, shutting down MCP server...");
         QTimer::singleShot(100, &app, &QCoreApplication::quit);
     });
     
     server.start();
     
-    auto connectionTimer = new QTimer(&app);
-    connectionTimer->setInterval(2000);
+    debugLog("MCP server ready. CDP connection will be attempted when first tool is called.");
     
-    int retryCount = 0;
-    const int maxRetries = 5;
-    
-    auto attemptConnection = [&cdpClient, &retryCount, maxRetries, connectionTimer]() {
-        if (cdpClient->isConnected()) {
-            connectionTimer->stop();
-            return;
-        }
-        
-        retryCount++;
-        std::cerr << "# Attempting to connect to Chrome DevTools (attempt " << retryCount << "/" << maxRetries << ")..." << std::endl;
-        
-        if (cdpClient->connect()) {
-            std::cerr << "# Connection initiated to Chrome DevTools" << std::endl;
-        } else {
-            std::cerr << "# Failed to initiate connection to Chrome DevTools" << std::endl;
-            if (retryCount >= maxRetries) {
-                std::cerr << "# Maximum retry attempts reached. Make sure Tau5 is running in dev mode." << std::endl;
-                connectionTimer->stop();
-            }
-        }
-    };
-    
-    QObject::connect(cdpClient.get(), &CDPClient::connected, [connectionTimer]() {
-        std::cerr << "# Successfully connected to Chrome DevTools" << std::endl;
-        connectionTimer->stop();
+    QObject::connect(cdpClient.get(), &CDPClient::connected, []() {
+        debugLog("Successfully connected to Chrome DevTools");
     });
     
-    QObject::connect(connectionTimer, &QTimer::timeout, attemptConnection);
-    QTimer::singleShot(500, [connectionTimer, attemptConnection]() {
-        attemptConnection();
-        connectionTimer->start();
-    });
     
     QObject::connect(cdpClient.get(), &CDPClient::consoleMessage,
                      [](const QString& level, const QString& text) {
-        std::cerr << "# [Console " << level.toStdString() << "] " << text.toStdString() << std::endl;
+        debugLog(QString("[Console %1] %2").arg(level).arg(text));
     });
     
     return app.exec();

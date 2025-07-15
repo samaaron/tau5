@@ -11,9 +11,6 @@
 #include <functional>
 #include <memory>
 
-// Stdio-based MCP server implementation
-// Reads JSON-RPC messages from stdin and writes responses to stdout
-
 class MCPServerStdio : public QObject
 {
     Q_OBJECT
@@ -38,6 +35,7 @@ public:
 
     void setServerInfo(const QString& name, const QString& version);
     void setCapabilities(const QJsonObject& capabilities);
+    void setDebugMode(bool enabled);
 
 signals:
     void logMessage(const QString& message);
@@ -72,7 +70,6 @@ private:
     bool m_initialized;
     bool m_running;
     
-    // JSON-RPC constants
     static constexpr const char* JSONRPC_VERSION = "2.0";
     static constexpr const char* MCP_VERSION = "2024-11-05";
 };

@@ -41,6 +41,7 @@ public:
 signals:
     void connected();
     void disconnected();
+    void connectionFailed(const QString& errorMessage);
     void consoleMessage(const QString& level, const QString& text);
     void domContentUpdated();
     void logMessage(const QString& message);

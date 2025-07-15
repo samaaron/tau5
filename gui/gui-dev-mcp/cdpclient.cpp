@@ -32,16 +32,22 @@ CDPClient::~CDPClient()
 
 bool CDPClient::connect()
 {
-    if (m_isConnected || m_isConnecting) {
-        return m_isConnected;
+    if (m_isConnected) {
+        return true;
     }
+    
+    if (m_isConnecting) {
+        return false;
+    }
+    
+    disconnect();
     
     m_isConnecting = true;
     Logger::log(Logger::Info, QString("Connecting to Chrome DevTools Protocol on port %1").arg(m_devToolsPort));
     
     fetchTargetList();
     
-    return true;
+    return false;
 }
 
 void CDPClient::disconnect()
@@ -53,6 +59,8 @@ void CDPClient::disconnect()
     m_pendingCommands.clear();
     m_isConnected = false;
     m_isConnecting = false;
+    m_webSocketDebuggerUrl.clear();
+    m_targetId.clear();
 }
 
 bool CDPClient::isConnected() const
@@ -70,17 +78,27 @@ void CDPClient::fetchTargetList()
         reply->deleteLater();
         
         if (reply->error() != QNetworkReply::NoError) {
-            Logger::log(Logger::Error, QString("Failed to fetch DevTools targets: %1").arg(reply->errorString()));
+            QString errorMsg = QString("Cannot connect to Chrome DevTools on port %1: %2").arg(m_devToolsPort).arg(reply->errorString());
+            Logger::log(Logger::Debug, errorMsg);
             m_isConnecting = false;
-            emit disconnected();
+            m_isConnected = false;
+            if (m_webSocket->state() != QAbstractSocket::UnconnectedState) {
+                m_webSocket->abort();
+            }
+            emit connectionFailed(errorMsg);
             return;
         }
         
         QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
         if (!doc.isArray()) {
-            Logger::log(Logger::Error, "Invalid DevTools target list format");
+            QString errorMsg = "Invalid DevTools target list format - Tau5 may not be running";
+            Logger::log(Logger::Debug, errorMsg);
             m_isConnecting = false;
-            emit disconnected();
+            m_isConnected = false;
+            if (m_webSocket->state() != QAbstractSocket::UnconnectedState) {
+                m_webSocket->abort();
+            }
+            emit connectionFailed(errorMsg);
             return;
         }
         
@@ -88,9 +106,14 @@ void CDPClient::fetchTargetList()
         QString targetId = findMainPageTarget(targets);
         
         if (targetId.isEmpty()) {
-            Logger::log(Logger::Error, "No suitable DevTools target found");
+            QString errorMsg = "No suitable DevTools target found - check if Tau5 is running in dev mode";
+            Logger::log(Logger::Debug, errorMsg);
             m_isConnecting = false;
-            emit disconnected();
+            m_isConnected = false;
+            if (m_webSocket->state() != QAbstractSocket::UnconnectedState) {
+                m_webSocket->abort();
+            }
+            emit connectionFailed(errorMsg);
             return;
         }
         
@@ -103,9 +126,14 @@ void CDPClient::fetchTargetList()
         }
         
         if (m_webSocketDebuggerUrl.isEmpty()) {
-            Logger::log(Logger::Error, "No WebSocket debugger URL found for target");
+            QString errorMsg = "No WebSocket debugger URL found - ensure Tau5 is running with DevTools enabled";
+            Logger::log(Logger::Debug, errorMsg);
             m_isConnecting = false;
-            emit disconnected();
+            m_isConnected = false;
+            if (m_webSocket->state() != QAbstractSocket::UnconnectedState) {
+                m_webSocket->abort();
+            }
+            emit connectionFailed(errorMsg);
             return;
         }
         
@@ -115,7 +143,6 @@ void CDPClient::fetchTargetList()
 
 QString CDPClient::findMainPageTarget(const QJsonArray& targets)
 {
-    // Look for the main page target (not DevTools itself)
     for (const QJsonValue& value : targets) {
         QJsonObject target = value.toObject();
         QString type = target["type"].toString();
@@ -256,8 +283,13 @@ void CDPClient::enableDomains()
 
 void CDPClient::sendCommand(const QString& method, const QJsonObject& params, ResponseCallback callback)
 {
-    if (!m_isConnected) {
-        callback(QJsonObject(), "Not connected to DevTools");
+    if (!m_isConnected && !m_isConnecting) {
+        callback(QJsonObject(), "Not connected to Chrome DevTools. Ensure Tau5 is running with --remote-debugging-port=9223");
+        return;
+    }
+    
+    if (!m_isConnected && m_isConnecting) {
+        callback(QJsonObject(), "Chrome DevTools connection in progress. Please try again in a moment.");
         return;
     }
     
@@ -324,7 +356,6 @@ void CDPClient::evaluateJavaScript(const QString& expression, ResponseCallback c
 
 void CDPClient::getConsoleMessages(ResponseCallback callback)
 {
-    // TODO: This would need to maintain a buffer of console messages
     callback(QJsonObject{{"messages", QJsonArray()}}, QString());
 }
 
