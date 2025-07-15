@@ -3,7 +3,7 @@
 :root {
   --color-orange: #ff6600 !important;
   --color-blue: #4169E1 !important;
-  --color-cyan: #00d4ff !important;
+  --color-cyan: #e0e0e0 !important;
   --color-white: #b0b0b0 !important;
   
   --text-primary: #e6e6e6 !important;
@@ -323,7 +323,7 @@ dl.fields-card dd {
 }
 
 .metric-value, .banner-card-value {
-  color: var(--color-cyan) !important;
+  color: #FFA500 !important;
 }
 
 .metric-label, .banner-card-title {
@@ -351,7 +351,7 @@ dl.fields-card dd {
 #elixir-card .banner-card-value,
 #phoenix-card .banner-card-value,
 #app-card .banner-card-value {
-  color: var(--color-cyan) !important;
+  color: #ffffff !important;
   font-weight: bold;
 }
 
@@ -374,6 +374,7 @@ h1, h2, h3, h4, h5, h6 {
 .metric-card-title {
   color: var(--color-blue) !important;
 }
+
 
 /* Specific Phoenix Dashboard card styles */
 .phx-dashboard-card .card-title,
