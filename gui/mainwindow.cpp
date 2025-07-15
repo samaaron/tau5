@@ -12,9 +12,11 @@
 #include "widgets/debugpane.h"
 #include "widgets/controllayer.h"
 #include "lib/beam.h"
-MainWindow::MainWindow(QWidget *parent)
+#include "logger.h"
+MainWindow::MainWindow(bool devMode, QWidget *parent)
     : QMainWindow(parent)
     , beamInstance(nullptr)
+    , m_devMode(devMode)
 {
   QCoreApplication::setOrganizationName("Tau5");
   QCoreApplication::setApplicationName("Tau5");
@@ -195,6 +197,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
   if (debugPane) {
     debugPane->saveSettings();
   }
+  
   
   QMainWindow::closeEvent(event);
 }

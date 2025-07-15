@@ -39,7 +39,8 @@ set_property(GLOBAL PROPERTY AUTOMOC_FOLDER Automoc)
 set_property(GLOBAL PROPERTY AUTOGEN_TARGETS_FOLDER Automoc)
 
 find_package(Qt6 QUIET)
-find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg LinguistTools WebEngineWidgets REQUIRED)
+find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg LinguistTools WebEngineWidgets WebSockets REQUIRED)
+
 
 set(APP_NAME tau5)
 set(MACOS_APP_NAME "Tau5")
@@ -147,7 +148,8 @@ target_link_libraries(${APP_NAME}
   Qt::Widgets
   Qt::Network
   Qt::Svg
-  Qt::WebEngineWidgets)
+  Qt::WebEngineWidgets
+  Qt::WebSockets)
 
 # Deploy Qt binaries to the output on windows, and copy the CRT to the release folder
 if(WIN32)
@@ -160,3 +162,6 @@ if(WIN32)
   add_custom_command(TARGET ${APP_NAME} POST_BUILD
     COMMAND ${CMAKE_PREFIX_PATH}/bin/windeployqt $<TARGET_FILE:${APP_NAME}>)
 endif() # Win32
+
+# Build DevTools MCP server as a separate executable
+add_subdirectory(devtools-mcp)

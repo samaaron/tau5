@@ -18,7 +18,7 @@ class MainWindow : public QMainWindow
   Q_OBJECT
 
 public:
-  explicit MainWindow(QWidget *parent = nullptr);
+  explicit MainWindow(bool devMode = false, QWidget *parent = nullptr);
   ~MainWindow();
 
   bool connectToServer(quint16 port);
@@ -51,4 +51,5 @@ private:
   std::unique_ptr<DebugPane> debugPane;
   std::unique_ptr<ControlLayer> controlLayer;
   Beam *beamInstance;
+  bool m_devMode;
 };

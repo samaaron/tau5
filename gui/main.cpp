@@ -14,6 +14,7 @@
 namespace Config
 {
   constexpr quint16 DEFAULT_PORT = 5555;
+  constexpr quint16 DEVTOOLS_PORT = 9223; // Chrome DevTools Protocol port
   constexpr const char *APP_NAME = "Tau5";
   constexpr const char *APP_VERSION = "0.1.0";
   constexpr const char *CHROMIUM_FLAGS =
@@ -22,6 +23,13 @@ namespace Config
       "--disable-backgrounding-occluded-windows "
       "--disable-features=AudioServiceOutOfProcess "
       "--autoplay-policy=no-user-gesture-required";
+  constexpr const char *CHROMIUM_FLAGS_DEV =
+      "--disable-background-timer-throttling "
+      "--disable-renderer-backgrounding "
+      "--disable-backgrounding-occluded-windows "
+      "--disable-features=AudioServiceOutOfProcess "
+      "--autoplay-policy=no-user-gesture-required "
+      "--remote-debugging-port=9223"; // Enable Chrome DevTools Protocol
 }
 
 QString getTau5Logo()
@@ -84,9 +92,14 @@ bool setupConsoleOutput()
 #endif
 }
 
-bool initializeApplication(QApplication &app)
+bool initializeApplication(QApplication &app, bool devMode)
 {
-  qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS);
+  if (devMode) {
+    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS_DEV);
+    Logger::log(Logger::Info, QString("Chrome DevTools Protocol enabled on port %1").arg(Config::DEVTOOLS_PORT));
+  } else {
+    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS);
+  }
 
   QCoreApplication::setAttribute(Qt::AA_UseOpenGLES, true);
   QCoreApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
@@ -159,7 +172,7 @@ int main(int argc, char *argv[])
 
   QApplication app(argc, argv);
 
-  if (!initializeApplication(app))
+  if (!initializeApplication(app, devMode))
   {
     QMessageBox::critical(nullptr, "Error", "Failed to initialize application");
     return 1;
@@ -190,7 +203,7 @@ int main(int argc, char *argv[])
   std::unique_ptr<Beam> beam = std::make_unique<Beam>(&app, basePath, Config::APP_NAME,
                                                       Config::APP_VERSION, port, devMode);
 
-  MainWindow mainWindow;
+  MainWindow mainWindow(devMode);
   
   // Connect logger to MainWindow for GUI logs FIRST
   QObject::connect(&Logger::instance(), &Logger::logMessage,
