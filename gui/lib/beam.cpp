@@ -276,7 +276,11 @@ void Beam::killBeamProcess()
 
 #ifdef Q_OS_WIN
   qDebug() << "Windows: Sending graceful termination to PID:" << beamPid;
-  QProcess::execute("taskkill", {"/PID", QString::number(beamPid)});
+  
+  // Use QProcess instance to suppress error output
+  QProcess gracefulKill;
+  gracefulKill.start("taskkill", {"/PID", QString::number(beamPid)});
+  gracefulKill.waitForFinished();
   
   for (int i = 5; i > 0; --i)
   {
@@ -296,7 +300,11 @@ void Beam::killBeamProcess()
   }
   
   qDebug() << "Windows: Force killing PID:" << beamPid;
-  QProcess::execute("taskkill", {"/F", "/PID", QString::number(beamPid)});
+  
+  // Use QProcess instance to suppress error output
+  QProcess forceKill;
+  forceKill.start("taskkill", {"/F", "/PID", QString::number(beamPid)});
+  forceKill.waitForFinished();
   
 #else
   qDebug() << "Unix: Sending SIGTERM to PID:" << beamPid;
