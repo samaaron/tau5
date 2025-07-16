@@ -20,6 +20,7 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
     , terminalScrollOffset(0.0f)
     , targetScrollOffset(0.0f)
     , updateTimer(nullptr)
+    , renderTimer(nullptr)
     , needsTextureUpdate(false)
     , fadeToBlackValue(0.0f)
 {
@@ -44,7 +45,7 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
   
   svgRenderer = nullptr;
   
-  QTimer *renderTimer = new QTimer(this);
+  renderTimer = new QTimer(this);
   connect(renderTimer, &QTimer::timeout, this, QOverload<>::of(&QOpenGLWidget::update));
   renderTimer->start(33);
   
@@ -61,6 +62,7 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
 LoadingOverlay::~LoadingOverlay()
 {
   makeCurrent();
+  delete shaderProgram;
   delete logoTexture;
   delete terminalTexture;
   doneCurrent();
@@ -69,6 +71,21 @@ LoadingOverlay::~LoadingOverlay()
 void LoadingOverlay::fadeOut()
 {
   if (fadeAnimation && fadeAnimation->state() != QAbstractAnimation::Running) {
+    // Stop timers to save resources
+    if (renderTimer) {
+      renderTimer->stop();
+    }
+    if (updateTimer) {
+      updateTimer->stop();
+    }
+    
+    // Clear log buffer
+    {
+      QMutexLocker locker(&logMutex);
+      logLines.clear();
+      pendingLogLines.clear();
+    }
+    
     fadeAnimation->start();
   }
 }

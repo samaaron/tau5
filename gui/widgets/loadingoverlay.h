@@ -59,6 +59,7 @@ private:
   float terminalScrollOffset;
   float targetScrollOffset;
   QTimer *updateTimer;
+  QTimer *renderTimer;
   bool needsTextureUpdate;
   float fadeToBlackValue;
   Q_PROPERTY(float fadeToBlackValue READ getFadeToBlackValue WRITE setFadeToBlackValue)
