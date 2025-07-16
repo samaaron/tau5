@@ -6,6 +6,8 @@
 #include <QFontMetrics>
 #include <QMutexLocker>
 #include <QTransform>
+#include <QSurfaceFormat>
+#include "../logger.h"
 
 LoadingOverlay::LoadingOverlay(QWidget *parent)
     : QOpenGLWidget(nullptr)
@@ -21,6 +23,12 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
     , needsTextureUpdate(false)
     , fadeToBlackValue(0.0f)
 {
+  // Set OpenGL format for better compatibility
+  QSurfaceFormat format;
+  format.setVersion(3, 2);
+  format.setProfile(QSurfaceFormat::CoreProfile);
+  setFormat(format);
+  
   setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
   setAttribute(Qt::WA_TranslucentBackground);
   setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -201,15 +209,15 @@ void LoadingOverlay::initializeGL()
   timer.start();
   
   const char *vertexShaderSource = R"(
-    #version 330 core
-    layout (location = 0) in vec2 aPos;
+    #version 150
+    in vec2 aPos;
     void main() {
       gl_Position = vec4(aPos, 0.0, 1.0);
     }
   )";
   
   const char *fragmentShaderSource = R"(
-    #version 330 core
+    #version 150
     uniform float time;
     uniform vec2 resolution;
     uniform sampler2D logoTexture;
@@ -432,9 +440,15 @@ void LoadingOverlay::initializeGL()
   )";
   
   shaderProgram = new QOpenGLShaderProgram(this);
-  shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource);
-  shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource);
-  shaderProgram->link();
+  if (!shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource)) {
+    Logger::log(Logger::Error, QString("[LoadingOverlay] Vertex shader compilation failed: %1").arg(shaderProgram->log()));
+  }
+  if (!shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource)) {
+    Logger::log(Logger::Error, QString("[LoadingOverlay] Fragment shader compilation failed: %1").arg(shaderProgram->log()));
+  }
+  if (!shaderProgram->link()) {
+    Logger::log(Logger::Error, QString("[LoadingOverlay] Shader linking failed: %1").arg(shaderProgram->log()));
+  }
   
   timeUniform = shaderProgram->uniformLocation("time");
   resolutionUniform = shaderProgram->uniformLocation("resolution");
@@ -486,10 +500,11 @@ void LoadingOverlay::paintGL()
      1.0f,  1.0f
   };
   
-  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, vertices);
-  glEnableVertexAttribArray(0);
+  int vertexLocation = shaderProgram->attributeLocation("aPos");
+  shaderProgram->enableAttributeArray(vertexLocation);
+  shaderProgram->setAttributeArray(vertexLocation, vertices, 2);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-  glDisableVertexAttribArray(0);
+  shaderProgram->disableAttributeArray(vertexLocation);
   
   shaderProgram->release();
 }
