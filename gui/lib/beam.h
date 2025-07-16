@@ -22,6 +22,7 @@ public:
 signals:
   void standardOutput(const QString &output);
   void standardError(const QString &error);
+  void otpReady();
 
 private slots:
   void handleStandardOutput();
@@ -42,6 +43,7 @@ private:
   qint64 beamPid;
   QTimer *heartbeatTimer;
   bool serverReady;
+  bool otpTreeReady;
   QString sessionToken;
 
   void startProcess(const QString &cmd, const QStringList &args);

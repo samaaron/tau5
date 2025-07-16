@@ -17,6 +17,9 @@ class MainWindow : public QMainWindow
 {
   Q_OBJECT
 
+signals:
+  void allComponentsLoaded();
+
 public:
   explicit MainWindow(bool devMode = false, QWidget *parent = nullptr);
   ~MainWindow();
@@ -27,6 +30,10 @@ public:
 
 public slots:
   void handleGuiLog(const QString &message, bool isError);
+  void handleMainWindowLoaded();
+  void handleLiveDashboardLoaded();
+  void handleElixirConsoleLoaded();
+  void handleWebDevToolsLoaded();
 
 protected:
   void closeEvent(QCloseEvent *event) override;
@@ -45,6 +52,7 @@ private:
   void initializePhxWidget(quint16 port);
   void initializeDebugPane();
   void initializeControlLayer();
+  void checkAllComponentsLoaded();
 
 private:
   std::unique_ptr<PhxWidget> phxWidget;
@@ -52,4 +60,9 @@ private:
   std::unique_ptr<ControlLayer> controlLayer;
   Beam *beamInstance;
   bool m_devMode;
+  
+  bool m_mainWindowLoaded;
+  bool m_liveDashboardLoaded;
+  bool m_elixirConsoleLoaded;
+  bool m_webDevToolsLoaded;
 };

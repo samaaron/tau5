@@ -22,6 +22,9 @@ public:
   
   PhxWebView* getWebView() const { return phxView; }
 
+signals:
+  void pageLoaded();
+
 protected:
   void resizeEvent(QResizeEvent *event) override;
 

@@ -20,7 +20,16 @@ defmodule Tau5.Application do
     ]
 
     opts = [strategy: :one_for_one, name: Tau5.Supervisor]
-    Supervisor.start_link(children, opts)
+    
+    case Supervisor.start_link(children, opts) do
+      {:ok, pid} ->
+        # Log unique marker that GUI can wait for
+        Logger.info("[TAU5_OTP_READY] OTP supervision tree is up and running")
+        {:ok, pid}
+      
+      error ->
+        error
+    end
   end
 
   @impl true

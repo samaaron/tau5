@@ -50,6 +50,9 @@ public:
 
 signals:
     void visibilityChanged(bool visible);
+    void liveDashboardLoaded();
+    void elixirConsoleLoaded();
+    void webDevToolsLoaded();
 
 private slots:
     void handleAutoScrollToggled(bool checked);

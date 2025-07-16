@@ -7,6 +7,7 @@
 #include "phxwidget.h"
 #include "phxwebview.h"
 #include "StyleManager.h"
+#include "../logger.h"
 
 PhxWidget::PhxWidget(QWidget *parent)
     : QWidget(parent)
@@ -59,7 +60,7 @@ void PhxWidget::handleOpenExternalBrowser()
 void PhxWidget::connectToTauPhx(QUrl url)
 {
   defaultUrl = url;
-  qDebug() << "[PHX] - connecting to:" << url.toString();
+  Logger::log(Logger::Info, QString("[PHX] - connecting to: %1").arg(url.toString()));
   phxView->load(url);
 }
 
@@ -69,14 +70,15 @@ void PhxWidget::handleLoadFinished(bool ok)
   {
     if (!phxAlive)
     {
-      qDebug() << "[PHX] - initial load finished";
+      Logger::log(Logger::Info, "[PHX] - initial load finished");
       phxAlive = true;
       phxView->show();
+      emit pageLoaded();
     }
   }
   else
   {
-    qDebug() << "[PHX] - load error";
+    Logger::log(Logger::Warning, "[PHX] - load error");
     phxView->load(defaultUrl);
   }
 }

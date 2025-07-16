@@ -205,25 +205,25 @@ int main(int argc, char *argv[])
 
   MainWindow mainWindow(devMode);
   
-  // Connect logger to MainWindow for GUI logs FIRST
   QObject::connect(&Logger::instance(), &Logger::logMessage,
                    &mainWindow, &MainWindow::handleGuiLog);
   
-  // Now set beam instance and connect
   mainWindow.setBeamInstance(beam.get());
   
-  // Print Tau5 logo
   Logger::log(Logger::Info, getTau5Logo());
   
   Logger::log(Logger::Info, "GUI Logger connected successfully");
-  Logger::log(Logger::Info, "Starting server connection...");
+  Logger::log(Logger::Info, "Waiting for OTP supervision tree to start...");
   Logger::log(Logger::Debug, "Debug messages are enabled");
 
-  if (!mainWindow.connectToServer(port))
-  {
-    QMessageBox::critical(nullptr, "Error", "Failed to connect to server");
-    return 1;
-  }
+  QObject::connect(beam.get(), &Beam::otpReady, [&mainWindow, port]() {
+    Logger::log(Logger::Info, "OTP supervision tree ready, connecting to server...");
+    if (!mainWindow.connectToServer(port))
+    {
+      QMessageBox::critical(nullptr, "Error", "Failed to connect to server");
+      QApplication::quit();
+    }
+  });
 
 #if defined(Q_OS_WIN)
   mainWindow.setWindowIcon(QIcon(":/images/app.ico"));

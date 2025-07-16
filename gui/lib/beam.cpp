@@ -10,13 +10,14 @@
 #include <QRegularExpression>
 #include <QThread>
 #include <QUuid>
+#include "../logger.h"
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode)
     : QObject(parent), appBasePath(basePath), process(new QProcess(this)), 
-      beamPid(0), serverReady(false)
+      beamPid(0), serverReady(false), otpTreeReady(false)
 {
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
-  qDebug() << "Generated session token:" << sessionToken;
+  Logger::log(Logger::Debug, QString("Generated session token: %1").arg(sessionToken));
   appPort = port;
 
   connect(process, &QProcess::readyReadStandardOutput,
@@ -79,11 +80,11 @@ Beam::~Beam()
   {
     if (process->state() == QProcess::Running)
     {
-      qDebug() << "Attempting to terminate process...";
+      Logger::log(Logger::Info, "Attempting to terminate BEAM process...");
       process->terminate();
       if (!process->waitForFinished(5000))
       {
-        qDebug() << "Process did not terminate, killing it...";
+        Logger::log(Logger::Warning, "Process did not terminate gracefully, killing it...");
         process->kill();
         process->waitForFinished();
       }
@@ -101,17 +102,23 @@ void Beam::handleStandardOutput()
   QByteArray output = process->readAllStandardOutput();
   QString outputStr = QString::fromUtf8(output);
   
+  // Check for BEAM PID marker
   QRegularExpression pidRegex("\\[TAU5_BEAM_PID:(\\d+)\\]");
-  QRegularExpressionMatch match = pidRegex.match(outputStr);
-  if (match.hasMatch())
+  QRegularExpressionMatch pidMatch = pidRegex.match(outputStr);
+  if (pidMatch.hasMatch())
   {
-    beamPid = match.captured(1).toLongLong();
-    qDebug() << "Captured BEAM PID:" << beamPid;
+    beamPid = pidMatch.captured(1).toLongLong();
+    Logger::log(Logger::Debug, QString("Captured BEAM PID: %1").arg(beamPid));
     serverReady = true;
     heartbeatTimer->start();
   }
   
-  qDebug() << outputStr;
+  // Check for OTP ready marker
+  if (outputStr.contains("[TAU5_OTP_READY]"))
+  {
+    otpTreeReady = true;
+    emit otpReady();
+  }
   emit standardOutput(outputStr);
 }
 
@@ -119,13 +126,12 @@ void Beam::handleStandardError()
 {
   QByteArray error = process->readAllStandardError();
   QString errorStr = QString::fromUtf8(error);
-  qDebug() << errorStr;
   emit standardError(errorStr);
 }
 
 void Beam::startElixirServerDev()
 {
-  qDebug() << "Starting Elixir server in Development mode";
+  Logger::log(Logger::Info, "Starting Elixir server in Development mode");
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   env.insert("TAU5_ENV", "dev");
   env.insert("TAU5_SESSION_TOKEN", sessionToken);
@@ -153,7 +159,7 @@ void Beam::startElixirServerDev()
 
 void Beam::startElixirServerProd()
 {
-  qDebug() << "Starting Elixir server in Production mode";
+  Logger::log(Logger::Info, "Starting Elixir server in Production mode");
 
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   env.insert("TAU5_ENV", "prod");
@@ -190,8 +196,8 @@ void Beam::startElixirServerProd()
 
 void Beam::startProcess(const QString &cmd, const QStringList &args)
 {
-  qDebug() << "Server process working directory: " << process->workingDirectory();
-  qDebug() << "Starting process: " << cmd << " " << args.join(" ");
+  Logger::log(Logger::Debug, QString("Server process working directory: %1").arg(process->workingDirectory()));
+  Logger::log(Logger::Debug, QString("Starting process: %1 %2").arg(cmd).arg(args.join(" ")));
 
   connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
           this, [this](int exitCode, QProcess::ExitStatus status)
@@ -199,7 +205,7 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
             QString message = QString("Process finished with exit code: %1 status: %2")
                             .arg(exitCode)
                             .arg(status == QProcess::NormalExit ? "Normal" : "Crashed");
-            qDebug() << message;
+            Logger::log(Logger::Info, message);
             emit standardOutput(message);
           });
 
@@ -228,7 +234,7 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
       errorMsg = "An unknown error occurred.";
       break;
     }
-    qDebug() << errorMsg;
+    Logger::log(Logger::Error, errorMsg);
     emit standardError(errorMsg);
   });
 
@@ -240,7 +246,7 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
                       .arg(process->errorString())
                       .arg(cmd)
                       .arg(args.join(" "));
-    qDebug() << errorMsg;
+    Logger::log(Logger::Error, errorMsg);
     emit standardError(errorMsg);
   }
 }

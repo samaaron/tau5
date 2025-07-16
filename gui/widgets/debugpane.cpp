@@ -623,13 +623,13 @@ void DebugPane::setWebView(PhxWebView *webView)
     {
       targetPage->setDevToolsPage(m_devToolsView->page());
       
-      // Re-inject font script when DevTools page is set
       injectDevToolsFontScript();
       
       connect(m_devToolsView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
         if (ok) {
           applyDevToolsDarkTheme();
           injectDevToolsFontScript();
+          emit webDevToolsLoaded();
         }
       });
     }
@@ -1606,10 +1606,10 @@ void DebugPane::setLiveDashboardUrl(const QString &url)
     m_liveDashboardView->setFallbackUrl(dashboardUrl);
     m_liveDashboardView->setUrl(dashboardUrl);
     
-    // Connect to page load finished to apply tau5 theme
     connect(m_liveDashboardView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
       if (ok) {
         applyLiveDashboardTau5Theme();
+        emit liveDashboardLoaded();
       }
     });
   }
@@ -1624,10 +1624,10 @@ void DebugPane::setIexShellUrl(const QString &url)
     m_iexShellView->setFallbackUrl(iexUrl);
     m_iexShellView->load(iexUrl);
     
-    // Apply dark theme when console loads
     connect(m_iexShellView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
       if (ok) {
         applyConsoleDarkTheme();
+        emit elixirConsoleLoaded();
       }
     });
   } else {
