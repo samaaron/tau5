@@ -6,7 +6,6 @@
 #include <QFontMetrics>
 #include <QMutexLocker>
 #include <QTransform>
-#include <QSurfaceFormat>
 #include "../logger.h"
 
 LoadingOverlay::LoadingOverlay(QWidget *parent)
@@ -24,12 +23,6 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
     , needsTextureUpdate(false)
     , fadeToBlackValue(0.0f)
 {
-  // Set OpenGL format for better compatibility
-  QSurfaceFormat format;
-  format.setVersion(3, 2);
-  format.setProfile(QSurfaceFormat::CoreProfile);
-  setFormat(format);
-  
   setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
   setAttribute(Qt::WA_TranslucentBackground);
   setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -223,25 +216,27 @@ void LoadingOverlay::initializeGL()
 {
   initializeOpenGLFunctions();
   
+  Logger::log(Logger::Info, QString("[LoadingOverlay] OpenGL version: %1").arg(reinterpret_cast<const char*>(glGetString(GL_VERSION))));
+  Logger::log(Logger::Info, QString("[LoadingOverlay] GLSL version: %1").arg(reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION))));
+  
   timer.start();
   
   const char *vertexShaderSource = R"(
-    #version 150
-    in vec2 aPos;
+    #version 120
+    attribute vec2 aPos;
     void main() {
       gl_Position = vec4(aPos, 0.0, 1.0);
     }
   )";
   
   const char *fragmentShaderSource = R"(
-    #version 150
+    #version 120
     uniform float time;
     uniform vec2 resolution;
     uniform sampler2D logoTexture;
     uniform sampler2D terminalTexture;
     uniform float terminalOffset;
     uniform float fadeToBlack;
-    out vec4 FragColor;
     
     #define PI 3.14159265359
     #define TAU 6.28318530718
@@ -452,7 +447,7 @@ void LoadingOverlay::initializeGL()
       
       col = mix(col, vec3(0.0), fadeToBlack);
       
-      FragColor = vec4(col, 1.0);
+      gl_FragColor = vec4(col, 1.0);
     }
   )";
   
@@ -465,6 +460,8 @@ void LoadingOverlay::initializeGL()
   }
   if (!shaderProgram->link()) {
     Logger::log(Logger::Error, QString("[LoadingOverlay] Shader linking failed: %1").arg(shaderProgram->log()));
+  } else {
+    Logger::log(Logger::Info, "[LoadingOverlay] Shader linked successfully");
   }
   
   timeUniform = shaderProgram->uniformLocation("time");
@@ -473,6 +470,9 @@ void LoadingOverlay::initializeGL()
   terminalTextureUniform = shaderProgram->uniformLocation("terminalTexture");
   terminalOffsetUniform = shaderProgram->uniformLocation("terminalOffset");
   fadeToBlackUniform = shaderProgram->uniformLocation("fadeToBlack");
+  
+  Logger::log(Logger::Info, QString("[LoadingOverlay] Shader uniforms - time: %1, resolution: %2, logoTexture: %3")
+              .arg(timeUniform).arg(resolutionUniform).arg(logoTextureUniform));
   
   createLogoTexture();
   createTerminalTexture();
