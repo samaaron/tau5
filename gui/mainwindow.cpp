@@ -7,6 +7,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 #include <QTimer>
+#include <QMoveEvent>
 #include "mainwindow.h"
 #include "widgets/phxwidget.h"
 #include "widgets/debugpane.h"
@@ -55,18 +56,37 @@ MainWindow::MainWindow(bool devMode, QWidget *parent)
   connect(this, &MainWindow::allComponentsLoaded, [this]() {
     Logger::log(Logger::Info, "=== Tau5 is ready! ===");
     if (loadingOverlay) {
-      loadingOverlay->fadeOut();
+      QTimer::singleShot(3000, [this]() {
+        if (loadingOverlay) {
+          loadingOverlay->fadeOut();
+          QTimer::singleShot(600, [this]() {
+            this->show();
+            this->raise();
+            this->activateWindow();
+          });
+        }
+      });
     }
   });
   
-  QTimer::singleShot(5000, this, [this]() {
+  QTimer::singleShot(20000, this, [this]() {
     if (loadingOverlay && loadingOverlay->isVisible()) {
+      Logger::log(Logger::Warning, "Loading overlay timeout - forcing fade out after 20 seconds");
       loadingOverlay->fadeOut();
+      QTimer::singleShot(600, [this]() {
+        this->show();
+        this->raise();
+        this->activateWindow();
+      });
     }
   });
 }
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow() {
+  if (loadingOverlay && loadingOverlay->isVisible()) {
+    loadingOverlay->close();
+  }
+}
 
 void MainWindow::setBeamInstance(Beam *beam)
 {
@@ -117,11 +137,9 @@ void MainWindow::initializePhxWidget(quint16 port)
       Logger::log(Logger::Warning, "BeamInstance is null when setting Tau5 Console URL");
     }
 
-    // Ensure debug pane stays on top if it's visible
     debugPane->raise();
   }
 
-  // Ensure control layer stays on top
   if (controlLayer) {
     controlLayer->raise();
   }
@@ -225,6 +243,23 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     controlLayer->positionControls();
     controlLayer->raise();
   }
+
+  if (loadingOverlay && loadingOverlay->isVisible()) {
+    QRect globalGeometry = geometry();
+    globalGeometry.moveTopLeft(mapToGlobal(QPoint(0, 0)));
+    loadingOverlay->updateGeometry(globalGeometry);
+  }
+}
+
+void MainWindow::moveEvent(QMoveEvent *event)
+{
+  QMainWindow::moveEvent(event);
+  
+  if (loadingOverlay && loadingOverlay->isVisible()) {
+    QRect globalGeometry = geometry();
+    globalGeometry.moveTopLeft(mapToGlobal(QPoint(0, 0)));
+    loadingOverlay->updateGeometry(globalGeometry);
+  }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -236,6 +271,9 @@ void MainWindow::closeEvent(QCloseEvent *event)
     debugPane->saveSettings();
   }
 
+  if (loadingOverlay) {
+    loadingOverlay->close();
+  }
 
   QMainWindow::closeEvent(event);
 }

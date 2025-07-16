@@ -39,7 +39,7 @@ set_property(GLOBAL PROPERTY AUTOMOC_FOLDER Automoc)
 set_property(GLOBAL PROPERTY AUTOGEN_TARGETS_FOLDER Automoc)
 
 find_package(Qt6 QUIET)
-find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg LinguistTools WebEngineWidgets WebSockets REQUIRED)
+find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg SvgWidgets LinguistTools WebEngineWidgets WebSockets OpenGLWidgets REQUIRED)
 
 
 set(APP_NAME tau5)
@@ -150,8 +150,10 @@ target_link_libraries(${APP_NAME}
   Qt::Widgets
   Qt::Network
   Qt::Svg
+  Qt::SvgWidgets
   Qt::WebEngineWidgets
-  Qt::WebSockets)
+  Qt::WebSockets
+  Qt::OpenGLWidgets)
 
 # Deploy Qt binaries to the output on windows, and copy the CRT to the release folder
 if(WIN32)

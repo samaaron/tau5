@@ -1,6 +1,9 @@
 <RCC>
   <qresource prefix="/">
     <file>images/app.ico</file>
+    <file>images/tau5-hirez.png</file>
+    <file>images/tau5-bw.png</file>
+    <file>images/tau5-bw-hirez.png</file>
     <file>styles/tau5-dashboard-theme.css</file>
     <file>fonts/CascadiaCodePL.ttf</file>
   </qresource>
