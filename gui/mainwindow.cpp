@@ -11,6 +11,7 @@
 #include "widgets/phxwidget.h"
 #include "widgets/debugpane.h"
 #include "widgets/controllayer.h"
+#include "widgets/loadingoverlay.h"
 #include "lib/beam.h"
 #include "logger.h"
 MainWindow::MainWindow(bool devMode, QWidget *parent)
@@ -43,8 +44,25 @@ MainWindow::MainWindow(bool devMode, QWidget *parent)
   initializeDebugPane();
   initializeControlLayer();
 
-  connect(this, &MainWindow::allComponentsLoaded, []() {
+  QTimer::singleShot(0, this, [this]() {
+    loadingOverlay = std::make_unique<LoadingOverlay>();
+    QRect globalGeometry = geometry();
+    globalGeometry.moveTopLeft(mapToGlobal(QPoint(0, 0)));
+    loadingOverlay->updateGeometry(globalGeometry);
+    loadingOverlay->show();
+  });
+
+  connect(this, &MainWindow::allComponentsLoaded, [this]() {
     Logger::log(Logger::Info, "=== Tau5 is ready! ===");
+    if (loadingOverlay) {
+      loadingOverlay->fadeOut();
+    }
+  });
+  
+  QTimer::singleShot(5000, this, [this]() {
+    if (loadingOverlay && loadingOverlay->isVisible()) {
+      loadingOverlay->fadeOut();
+    }
   });
 }
 
@@ -288,7 +306,6 @@ void MainWindow::checkAllComponentsLoaded()
 {
   if (m_mainWindowLoaded && m_liveDashboardLoaded &&
       m_elixirConsoleLoaded && m_webDevToolsLoaded) {
-    Logger::log(Logger::Info, "All components loaded successfully!");
     emit allComponentsLoaded();
   }
 }

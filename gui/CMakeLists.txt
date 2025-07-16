@@ -65,6 +65,8 @@ set(SOURCES
   ${QTAPP_ROOT}/widgets/debugpane.cpp
   ${QTAPP_ROOT}/widgets/controllayer.h
   ${QTAPP_ROOT}/widgets/controllayer.cpp
+  ${QTAPP_ROOT}/widgets/loadingoverlay.h
+  ${QTAPP_ROOT}/widgets/loadingoverlay.cpp
   ${QTAPP_ROOT}/lib/beam.h
   ${QTAPP_ROOT}/lib/beam.cpp
   ${QTAPP_ROOT}/lib/fontloader.h

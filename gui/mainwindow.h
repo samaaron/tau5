@@ -12,6 +12,7 @@ class PhxWidget;
 class DebugPane;
 class ControlLayer;
 class Beam;
+class LoadingOverlay;
 
 class MainWindow : public QMainWindow
 {
@@ -58,6 +59,7 @@ private:
   std::unique_ptr<PhxWidget> phxWidget;
   std::unique_ptr<DebugPane> debugPane;
   std::unique_ptr<ControlLayer> controlLayer;
+  std::unique_ptr<LoadingOverlay> loadingOverlay;
   Beam *beamInstance;
   bool m_devMode;
   
