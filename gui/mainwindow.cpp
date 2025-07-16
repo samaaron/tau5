@@ -8,6 +8,7 @@
 #include <QWidget>
 #include <QTimer>
 #include <QMoveEvent>
+#include <QPropertyAnimation>
 #include "mainwindow.h"
 #include "widgets/phxwidget.h"
 #include "widgets/debugpane.h"
@@ -45,8 +46,9 @@ MainWindow::MainWindow(bool devMode, QWidget *parent)
   initializeDebugPane();
   initializeControlLayer();
 
+  // Create loading overlay immediately to ensure it's ready for BEAM output
+  loadingOverlay = std::make_unique<LoadingOverlay>();
   QTimer::singleShot(0, this, [this]() {
-    loadingOverlay = std::make_unique<LoadingOverlay>();
     QRect globalGeometry = geometry();
     globalGeometry.moveTopLeft(mapToGlobal(QPoint(0, 0)));
     loadingOverlay->updateGeometry(globalGeometry);
@@ -58,6 +60,13 @@ MainWindow::MainWindow(bool devMode, QWidget *parent)
     if (loadingOverlay) {
       QTimer::singleShot(3000, [this]() {
         if (loadingOverlay) {
+          // Disconnect BEAM output from loading overlay before fading
+          if (beamInstance) {
+            disconnect(beamInstance, &Beam::standardOutput,
+                      loadingOverlay.get(), &LoadingOverlay::appendLog);
+            disconnect(beamInstance, &Beam::standardError,
+                      loadingOverlay.get(), &LoadingOverlay::appendLog);
+          }
           loadingOverlay->fadeOut();
           QTimer::singleShot(600, [this]() {
             this->show();
@@ -65,18 +74,6 @@ MainWindow::MainWindow(bool devMode, QWidget *parent)
             this->activateWindow();
           });
         }
-      });
-    }
-  });
-  
-  QTimer::singleShot(20000, this, [this]() {
-    if (loadingOverlay && loadingOverlay->isVisible()) {
-      Logger::log(Logger::Warning, "Loading overlay timeout - forcing fade out after 20 seconds");
-      loadingOverlay->fadeOut();
-      QTimer::singleShot(600, [this]() {
-        this->show();
-        this->raise();
-        this->activateWindow();
       });
     }
   });
@@ -91,11 +88,22 @@ MainWindow::~MainWindow() {
 void MainWindow::setBeamInstance(Beam *beam)
 {
   beamInstance = beam;
-  if (beamInstance && debugPane) {
-    connect(beamInstance, &Beam::standardOutput,
-            this, &MainWindow::handleBeamOutput);
-    connect(beamInstance, &Beam::standardError,
-            this, &MainWindow::handleBeamError);
+  if (beamInstance) {
+    // Connect to loading overlay for initial display
+    if (loadingOverlay) {
+      connect(beamInstance, &Beam::standardOutput,
+              loadingOverlay.get(), &LoadingOverlay::appendLog);
+      connect(beamInstance, &Beam::standardError,
+              loadingOverlay.get(), &LoadingOverlay::appendLog);
+    }
+    
+    // Connect to debug pane for later
+    if (debugPane) {
+      connect(beamInstance, &Beam::standardOutput,
+              this, &MainWindow::handleBeamOutput);
+      connect(beamInstance, &Beam::standardError,
+              this, &MainWindow::handleBeamError);
+    }
   }
 }
 

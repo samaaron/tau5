@@ -2,13 +2,24 @@
 #include <QTimer>
 #include <QPainter>
 #include <QImage>
+#include <QFont>
+#include <QFontMetrics>
+#include <QMutexLocker>
+#include <QTransform>
 
 LoadingOverlay::LoadingOverlay(QWidget *parent)
     : QOpenGLWidget(nullptr)
     , fadeAnimation(nullptr)
+    , fadeToBlackAnimation(nullptr)
     , shaderProgram(nullptr)
     , logoTexture(nullptr)
+    , terminalTexture(nullptr)
     , svgRenderer(nullptr)
+    , terminalScrollOffset(0.0f)
+    , targetScrollOffset(0.0f)
+    , updateTimer(nullptr)
+    , needsTextureUpdate(false)
+    , fadeToBlackValue(0.0f)
 {
   setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
   setAttribute(Qt::WA_TranslucentBackground);
@@ -25,15 +36,25 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
   
   svgRenderer = nullptr;
   
-  QTimer *updateTimer = new QTimer(this);
-  connect(updateTimer, &QTimer::timeout, this, QOverload<>::of(&QOpenGLWidget::update));
-  updateTimer->start(16);
+  QTimer *renderTimer = new QTimer(this);
+  connect(renderTimer, &QTimer::timeout, this, QOverload<>::of(&QOpenGLWidget::update));
+  renderTimer->start(33);
+  
+  updateTimer = new QTimer(this);
+  connect(updateTimer, &QTimer::timeout, this, [this]() {
+    if (needsTextureUpdate) {
+      updateTerminalTexture();
+      needsTextureUpdate = false;
+    }
+  });
+  updateTimer->start(100);
 }
 
 LoadingOverlay::~LoadingOverlay()
 {
   makeCurrent();
   delete logoTexture;
+  delete terminalTexture;
   doneCurrent();
 }
 
@@ -41,6 +62,13 @@ void LoadingOverlay::fadeOut()
 {
   if (fadeAnimation && fadeAnimation->state() != QAbstractAnimation::Running) {
     fadeAnimation->start();
+  }
+}
+
+void LoadingOverlay::startFadeToBlack()
+{
+  if (fadeToBlackAnimation && fadeToBlackAnimation->state() != QAbstractAnimation::Running) {
+    fadeToBlackAnimation->start();
   }
 }
 
@@ -67,6 +95,105 @@ void LoadingOverlay::createLogoTexture()
   logoTexture->setWrapMode(QOpenGLTexture::ClampToEdge);
 }
 
+void LoadingOverlay::createTerminalTexture()
+{
+  if (terminalTexture) {
+    delete terminalTexture;
+  }
+  
+  QImage terminalImage(1024, 512, QImage::Format_ARGB32);
+  terminalImage.fill(Qt::black);
+  
+  terminalTexture = new QOpenGLTexture(terminalImage);
+  terminalTexture->setMinificationFilter(QOpenGLTexture::Linear);
+  terminalTexture->setMagnificationFilter(QOpenGLTexture::Linear);
+  terminalTexture->setWrapMode(QOpenGLTexture::ClampToEdge);
+  
+  logLines.append("[TAU5] System initializing...");
+  logLines.append("[BEAM] Starting Erlang VM...");
+  updateTerminalTexture();
+}
+
+void LoadingOverlay::updateTerminalTexture()
+{
+  if (!terminalTexture || !isValid()) return;
+  
+  {
+    QMutexLocker locker(&logMutex);
+    if (!pendingLogLines.isEmpty()) {
+      logLines.append(pendingLogLines);
+      pendingLogLines.clear();
+      
+      while (logLines.size() > MAX_LOG_LINES) {
+        logLines.removeFirst();
+      }
+    }
+  }
+  
+  QImage terminalImage(1024, 512, QImage::Format_ARGB32);
+  terminalImage.fill(Qt::black);
+  
+  QPainter painter(&terminalImage);
+  painter.setRenderHint(QPainter::TextAntialiasing, true);
+  painter.setRenderHint(QPainter::Antialiasing, true);
+  
+  QFont font("Cascadia Code", 16);
+  font.setPixelSize(22);
+  font.setBold(true);
+  font.setItalic(true);
+  font.setStyleHint(QFont::Monospace);
+  font.setHintingPreference(QFont::PreferFullHinting);
+  font.setLetterSpacing(QFont::AbsoluteSpacing, 2.0);
+  painter.setFont(font);
+  
+  QColor baseColor(255, 165, 0);
+  
+  int lineHeight = 28;
+  int y = 30;
+  
+  for (int i = 0; i < logLines.size() && y < terminalImage.height() - 15; ++i) {
+    QString line = logLines[i];
+    
+    if (line.length() > 60) {
+      line = line.left(57) + "...";
+    }
+    
+    painter.setPen(QColor(255, 165, 0));
+    painter.drawText(15, y, line);
+    
+    y += lineHeight;
+  }
+  
+  painter.setPen(QColor(0, 0, 0, 20));
+  for (int i = 0; i < terminalImage.height(); i += 2) {
+    painter.drawLine(0, i, terminalImage.width(), i);
+  }
+  
+  if (isValid()) {
+    makeCurrent();
+    if (terminalTexture) {
+      terminalTexture->destroy();
+      terminalTexture->create();
+      terminalTexture->setData(terminalImage);
+    }
+    doneCurrent();
+  }
+}
+
+void LoadingOverlay::appendLog(const QString &message)
+{
+  QMutexLocker locker(&logMutex);
+  
+  QStringList lines = message.split('\n');
+  for (const QString &line : lines) {
+    if (!line.trimmed().isEmpty()) {
+      pendingLogLines.append(line);
+    }
+  }
+  
+  needsTextureUpdate = true;
+}
+
 void LoadingOverlay::initializeGL()
 {
   initializeOpenGLFunctions();
@@ -86,6 +213,9 @@ void LoadingOverlay::initializeGL()
     uniform float time;
     uniform vec2 resolution;
     uniform sampler2D logoTexture;
+    uniform sampler2D terminalTexture;
+    uniform float terminalOffset;
+    uniform float fadeToBlack;
     out vec4 FragColor;
     
     #define PI 3.14159265359
@@ -146,23 +276,16 @@ void LoadingOverlay::initializeGL()
       
       float t = time * 0.15;
       
-      for(float i = 0.0; i < 30.0; i++) {
+      for(float i = 0.0; i < 15.0; i++) {
         vec2 pos = vec2(
           sin(i * 1.37 + t) * 0.8,
           cos(i * 1.73 + t * 0.7) * 0.8
         );
         
-        float turb = smoothNoise(vec2(i * 0.1, t * 0.25));
-        pos += vec2(
-          sin(turb * TAU + t * 0.5) * 0.3,
-          cos(turb * TAU + t * 0.65) * 0.3
-        );
-        
         float d = length(p - pos);
-        
         float glow = exp(-d * d * 20.0);
         
-        vec3 particleCol = mix(vec3(1.0, 0.4, 0.0), vec3(1.0, 0.0, 0.3), turb);
+        vec3 particleCol = vec3(1.0, 0.3, 0.1);
         col += particleCol * glow;
       }
       
@@ -264,8 +387,45 @@ void LoadingOverlay::initializeGL()
         col = mix(col, 1.0 - col, logoMask);
       }
       
+      vec2 terminalUV = uv;
+      
+      terminalUV = vec2(terminalUV.y, terminalUV.x);
+      
+      terminalUV = (terminalUV - vec2(0.5, 0.25)) * 1.25 + vec2(0.1, -0.3);
+      
+      terminalUV -= vec2(0.5, 0.5);
+      vec2 rotated = vec2(terminalUV.y, -terminalUV.x);
+      terminalUV = rotated + vec2(0.5, 0.5);
+      
+      if(terminalUV.x >= 0.0 && terminalUV.x <= 1.0 && terminalUV.y >= 0.0 && terminalUV.y <= 1.0) {
+        vec4 terminalColor = texture(terminalTexture, terminalUV);
+        
+        float brightness = max(terminalColor.r, terminalColor.g);
+        vec3 orange = vec3(1.0, 0.5, 0.0);
+        vec3 phosphor = orange * brightness * 1.5;
+        
+        vec2 texelSize = 1.0 / vec2(1024.0, 512.0);
+        float bloom = 0.0;
+        for(int i = -2; i <= 2; i++) {
+          for(int j = -2; j <= 2; j++) {
+            vec2 offset = vec2(float(i), float(j)) * texelSize * 2.0;
+            vec4 sample = texture(terminalTexture, terminalUV + offset);
+            float dist = length(vec2(float(i), float(j))) / 2.0;
+            bloom += max(sample.r, sample.g) * exp(-dist * dist);
+          }
+        }
+        bloom *= 0.05;
+        
+        phosphor += orange * bloom * 0.8;
+        
+        float terminalAlpha = brightness * 0.9;
+        col = mix(col, col * 0.3 + phosphor, terminalAlpha);
+      }
+      
       col = col / (col + vec3(1.0));
       col = pow(col, vec3(0.4545));
+      
+      col = mix(col, vec3(0.0), fadeToBlack);
       
       FragColor = vec4(col, 1.0);
     }
@@ -279,8 +439,12 @@ void LoadingOverlay::initializeGL()
   timeUniform = shaderProgram->uniformLocation("time");
   resolutionUniform = shaderProgram->uniformLocation("resolution");
   logoTextureUniform = shaderProgram->uniformLocation("logoTexture");
+  terminalTextureUniform = shaderProgram->uniformLocation("terminalTexture");
+  terminalOffsetUniform = shaderProgram->uniformLocation("terminalOffset");
+  fadeToBlackUniform = shaderProgram->uniformLocation("fadeToBlack");
   
   createLogoTexture();
+  createTerminalTexture();
   
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 }
@@ -296,14 +460,24 @@ void LoadingOverlay::paintGL()
   
   if (!shaderProgram || !logoTexture) return;
   
+  terminalScrollOffset += (targetScrollOffset - terminalScrollOffset) * 0.1f;
+  
   shaderProgram->bind();
   
   shaderProgram->setUniformValue(timeUniform, timer.elapsed() / 1000.0f);
   shaderProgram->setUniformValue(resolutionUniform, QVector2D(width(), height()));
   shaderProgram->setUniformValue(logoTextureUniform, 0);
+  shaderProgram->setUniformValue(terminalTextureUniform, 1);
+  shaderProgram->setUniformValue(terminalOffsetUniform, terminalScrollOffset);
+  shaderProgram->setUniformValue(fadeToBlackUniform, fadeToBlackValue);
   
   glActiveTexture(GL_TEXTURE0);
   logoTexture->bind();
+  
+  glActiveTexture(GL_TEXTURE1);
+  if (terminalTexture) {
+    terminalTexture->bind();
+  }
   
   static const GLfloat vertices[] = {
     -1.0f, -1.0f,
