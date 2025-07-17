@@ -158,9 +158,20 @@ bool initializeApplication(QApplication &app, bool devMode)
 
 int main(int argc, char *argv[])
 {
+  // Check for dev mode early
+  bool devMode = false;
+  if (argc > 1 && std::strcmp(argv[1], "dev") == 0)
+  {
+    devMode = true;
+  }
+
+  // Set up console output early if in dev mode
+  if (devMode)
+  {
+    setupConsoleOutput();
+  }
 
   quint16 port = Config::DEFAULT_PORT;
-  bool devMode = false;
   Logger::log(Logger::Info, "Starting Tau5...");
 
   if (argc > 1 && std::strcmp(argv[1], "check") == 0)
@@ -174,7 +185,6 @@ int main(int argc, char *argv[])
   else if (argc > 1 && std::strcmp(argv[1], "dev") == 0)
   {
     Logger::log(Logger::Info, "Development mode enabled.");
-    devMode = true;
   }
   else
   {
@@ -186,11 +196,6 @@ int main(int argc, char *argv[])
       QMessageBox::critical(nullptr, "Error", "Failed to allocate port");
       return 1;
     }
-  }
-
-  if (devMode)
-  {
-    setupConsoleOutput();
   }
 
   QApplication app(argc, argv);
