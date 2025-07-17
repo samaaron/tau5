@@ -202,7 +202,7 @@ void DebugPane::setupViewControls()
   m_headerWidget->setMouseTracking(true);
 
   m_headerLayout = new QHBoxLayout(m_headerWidget);
-  m_headerLayout->setContentsMargins(10, 5, 10, 5);
+  m_headerLayout->setContentsMargins(10, 2, 10, 2);
 
 
   QString normalColor = StyleManager::Colors::PRIMARY_ORANGE;
@@ -247,12 +247,12 @@ void DebugPane::setupViewControls()
       "QPushButton { "
       "  background: transparent; "
       "  border: none; "
-      "  padding: 4px; "
+      "  padding: 2px; "
       "  margin: 0 2px; "
-      "  min-width: 32px; "
-      "  max-width: 32px; "
-      "  min-height: 32px; "
-      "  max-height: 32px; "
+      "  min-width: 24px; "
+      "  max-width: 24px; "
+      "  min-height: 16px; "
+      "  max-height: 16px; "
       "} "
       "QPushButton:hover { "
       "  background: rgba(255, 165, 0, 0.1); "
@@ -869,7 +869,7 @@ bool DebugPane::eventFilter(QObject *obj, QEvent *event)
 void DebugPane::mousePressEvent(QMouseEvent *event)
 {
   if (event->button() == Qt::LeftButton &&
-      event->position().y() < RESIZE_HANDLE_HEIGHT)
+      m_headerWidget && m_headerWidget->geometry().contains(event->position().toPoint()))
   {
     m_isResizing = true;
     m_resizeStartY = event->globalPosition().y();
@@ -901,6 +901,7 @@ void DebugPane::mouseMoveEvent(QMouseEvent *event)
   else
   {
     bool wasHovering = m_isHoveringHandle;
+    // Check if hovering over the orange drag handle only
     m_isHoveringHandle = (event->position().y() < RESIZE_HANDLE_HEIGHT);
     
     if (m_isHoveringHandle)
