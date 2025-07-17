@@ -157,14 +157,13 @@ void LoadingOverlay::updateTerminalTexture()
   
   QFont font("Cascadia Code", 16);
   font.setPixelSize(22);
-  font.setBold(true);
   font.setItalic(true);
   font.setStyleHint(QFont::Monospace);
   font.setHintingPreference(QFont::PreferFullHinting);
   font.setLetterSpacing(QFont::AbsoluteSpacing, 2.0);
   painter.setFont(font);
   
-  QColor baseColor(255, 165, 0);
+  QColor baseColor(255, 20, 147);  // Deep pink FF1493
   
   int lineHeight = 28;
   int y = 30;
@@ -176,7 +175,7 @@ void LoadingOverlay::updateTerminalTexture()
       line = line.left(57) + "...";
     }
     
-    painter.setPen(QColor(255, 165, 0));
+    painter.setPen(QColor(255, 20, 147));  // Deep pink FF1493
     painter.drawText(15, y, line);
     
     y += lineHeight;
