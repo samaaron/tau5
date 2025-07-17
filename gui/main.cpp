@@ -1,6 +1,11 @@
 #include <iostream>
 #include <memory>
 #include <cstdlib>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+#endif
 #include <QApplication>
 #include <QDir>
 #include <QTcpServer>
@@ -79,13 +84,31 @@ quint16 getFreePort()
 bool setupConsoleOutput()
 {
 #if defined(Q_OS_WIN)
-  if (AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole())
+  // First try to attach to parent console (if started from cmd.exe)
+  if (AttachConsole(ATTACH_PARENT_PROCESS))
   {
     FILE *stream;
     freopen_s(&stream, "CONOUT$", "w", stdout);
     freopen_s(&stream, "CONOUT$", "w", stderr);
+    freopen_s(&stream, "CONIN$", "r", stdin);
+    
+    // Make cout, wcout, cin, wcin, wcerr, cerr, wclog and clog
+    // point to console as well
+    std::ios::sync_with_stdio();
     return true;
   }
+  // If that fails, try to attach to any console
+  else if (AttachConsole(-1))
+  {
+    FILE *stream;
+    freopen_s(&stream, "CONOUT$", "w", stdout);
+    freopen_s(&stream, "CONOUT$", "w", stderr);
+    freopen_s(&stream, "CONIN$", "r", stdin);
+    
+    std::ios::sync_with_stdio();
+    return true;
+  }
+  // As a last resort, allocate a new console (only in dev mode)
   return false;
 #else
   return true;
