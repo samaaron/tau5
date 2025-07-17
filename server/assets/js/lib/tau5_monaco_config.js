@@ -5,7 +5,16 @@ export const configureMonaco = (monaco) => {
   if (!monacoConfigured) {
     self.MonacoEnvironment = {
       getWorkerUrl: function (moduleId, label) {
-        return "/assets/js/monaco-worker/editor.worker.js";
+        // All workers are built to the same location
+        const workerUrl = `${window.location.origin}/assets/js/monaco-worker/editor.worker.js`;
+        console.log(`Monaco requesting worker for ${label}, returning: ${workerUrl}`);
+        return workerUrl;
+      },
+      getWorker: function (moduleId, label) {
+        // Monaco sometimes expects getWorker instead of getWorkerUrl
+        const workerUrl = self.MonacoEnvironment.getWorkerUrl(moduleId, label);
+        console.log(`Creating worker from URL: ${workerUrl}`);
+        return new Worker(workerUrl);
       },
     };
 

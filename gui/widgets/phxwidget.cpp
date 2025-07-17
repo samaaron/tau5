@@ -27,7 +27,7 @@ PhxWidget::PhxWidget(QWidget *parent)
                           .arg(StyleManager::Colors::BLACK));
 
   connect(phxView, &PhxWebView::loadFinished, this, &PhxWidget::handleLoadFinished);
-  QTimer::singleShot(1000, this, SLOT(handleResetBrowser()));
+  QTimer::singleShot(1000, this, &PhxWidget::handleResetBrowser);
 }
 
 void PhxWidget::handleSizeDown()

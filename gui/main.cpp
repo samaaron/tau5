@@ -124,7 +124,6 @@ bool initializeApplication(QApplication &app, bool devMode)
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS);
   }
 
-  QCoreApplication::setAttribute(Qt::AA_UseOpenGLES, true);
   QCoreApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
 
   Q_INIT_RESOURCE(Tau5);
