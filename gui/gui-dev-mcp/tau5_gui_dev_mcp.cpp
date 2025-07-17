@@ -1,6 +1,7 @@
 #include <QCoreApplication>
 #include <QTimer>
 #include <QEventLoop>
+#include <QThread>
 #include <iostream>
 #include <memory>
 #include "mcpserver_stdio.h"
@@ -51,54 +52,126 @@ public:
         return connected;
     }
     
-    QJsonObject executeCommand(std::function<void(CDPClient*, CDPClient::ResponseCallback)> command)
+    bool ensureConnected()
     {
-        try {
-            if (!m_client->isConnected()) {
-                debugLog("CDP not connected, attempting to connect...");
+        if (m_client->isConnected()) {
+            return true;
+        }
+        
+        const int maxAttempts = 3;
+        const int baseTimeout = 1000; // 1 second
+        
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            debugLog(QString("CDP connection attempt %1/%2").arg(attempt + 1).arg(maxAttempts));
+            
+            // Check if already connecting
+            auto state = m_client->getConnectionState();
+            if (state == CDPClient::ConnectionState::Connecting) {
+                debugLog("Connection already in progress, waiting...");
+                // If already connecting, just wait longer
+                int timeout = baseTimeout * (1 << attempt);
+                if (waitForConnection(timeout)) {
+                    debugLog("CDP connection successful");
+                    return true;
+                }
+            } else if (state == CDPClient::ConnectionState::NotConnected || 
+                       state == CDPClient::ConnectionState::Failed) {
+                // Start new connection attempt
                 m_client->connect();
                 
-                if (!waitForConnection(2000)) {
-                    debugLog("CDP connection timeout - Tau5 may not be running");
-                    return createErrorResult("Chrome DevTools not responding. Make sure Tau5 is running in dev mode with --remote-debugging-port=9223");
+                // Exponential backoff: 1s, 2s, 4s
+                int timeout = baseTimeout * (1 << attempt);
+                
+                if (waitForConnection(timeout)) {
+                    debugLog("CDP connection successful");
+                    return true;
                 }
             }
             
-            QEventLoop loop;
-            QTimer timeout;
-            timeout.setSingleShot(true);
-            timeout.setInterval(5000);
-            
-            QJsonObject result;
-            QString error;
-            bool completed = false;
-            
-            connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
-            
-            command(m_client, [&](const QJsonObject& cdpResult, const QString& cdpError) {
-                result = cdpResult;
-                error = cdpError;
-                completed = true;
-                loop.quit();
-            });
-            
-            timeout.start();
-            loop.exec();
-            
-            if (!completed) {
-                return createErrorResult("CDP command timed out");
+            // If not last attempt, wait before retrying
+            if (attempt < maxAttempts - 1) {
+                int waitTime = baseTimeout * (1 << attempt) / 2;
+                debugLog(QString("Connection failed, waiting %1ms before retry").arg(waitTime));
+                QThread::msleep(waitTime);
             }
-            
-            if (!error.isEmpty()) {
-                return createErrorResult(error);
-            }
-            
-            return result;
-        } catch (const std::exception& e) {
-            return createErrorResult(QString("Exception: %1").arg(e.what()));
-        } catch (...) {
-            return createErrorResult("Unknown exception occurred");
         }
+        
+        return false;
+    }
+    
+    QJsonObject executeCommand(std::function<void(CDPClient*, CDPClient::ResponseCallback)> command)
+    {
+        const int maxRetries = 2;
+        
+        for (int retry = 0; retry <= maxRetries; retry++) {
+            try {
+                if (!ensureConnected()) {
+                    debugLog("CDP connection failed after retries");
+                    return createErrorResult("Chrome DevTools not responding after multiple attempts. Make sure Tau5 is running in dev mode with --remote-debugging-port=9223");
+                }
+                
+                QEventLoop loop;
+                QTimer timeout;
+                timeout.setSingleShot(true);
+                timeout.setInterval(5000);
+                
+                QJsonObject result;
+                QString error;
+                bool completed = false;
+                
+                connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+                
+                command(m_client, [&](const QJsonObject& cdpResult, const QString& cdpError) {
+                    result = cdpResult;
+                    error = cdpError;
+                    completed = true;
+                    loop.quit();
+                });
+                
+                timeout.start();
+                loop.exec();
+                
+                if (!completed) {
+                    debugLog("Command timeout");
+                    // Check if this is a connection issue
+                    if (!m_client->isConnected() && retry < maxRetries) {
+                        debugLog("Connection lost, retrying command...");
+                        QThread::msleep(1000);
+                        continue;
+                    }
+                    return createErrorResult("CDP command timed out");
+                }
+                
+                if (!error.isEmpty()) {
+                    // Check if this is a connection-related error and we can retry
+                    if ((error.contains("Not connected") || error.contains("Connection lost")) && retry < maxRetries) {
+                        debugLog(QString("Connection error, retrying command: %1").arg(error));
+                        QThread::msleep(1000);
+                        continue;
+                    }
+                    debugLog(QString("Command error: %1").arg(error));
+                    return createErrorResult(error);
+                }
+                
+                return result;
+            } catch (const std::exception& e) {
+                if (retry < maxRetries) {
+                    debugLog(QString("Exception caught, retrying: %1").arg(e.what()));
+                    QThread::msleep(1000);
+                    continue;
+                }
+                return createErrorResult(QString("Exception: %1").arg(e.what()));
+            } catch (...) {
+                if (retry < maxRetries) {
+                    debugLog("Unknown exception caught, retrying...");
+                    QThread::msleep(1000);
+                    continue;
+                }
+                return createErrorResult("Unknown exception occurred");
+            }
+        }
+        
+        return createErrorResult("Failed after all retries");
     }
     
 private:
@@ -496,7 +569,13 @@ int main(int argc, char *argv[])
     
     server.start();
     
-    debugLog("MCP server ready. CDP connection will be attempted when first tool is called.");
+    debugLog("MCP server ready. Starting pre-emptive CDP connection...");
+    
+    // Pre-emptively start the connection process to reduce first-request latency
+    QTimer::singleShot(500, [&bridge]() {
+        debugLog("Starting pre-emptive CDP connection attempt");
+        bridge.ensureConnected();
+    });
     
     QObject::connect(cdpClient.get(), &CDPClient::connected, []() {
         debugLog("Successfully connected to Chrome DevTools");

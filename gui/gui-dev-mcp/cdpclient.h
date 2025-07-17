@@ -16,6 +16,13 @@ class CDPClient : public QObject
     Q_OBJECT
 
 public:
+    enum class ConnectionState {
+        NotConnected,
+        Connecting,
+        Connected,
+        Failed
+    };
+
     using ResponseCallback = std::function<void(const QJsonObject& result, const QString& error)>;
 
     explicit CDPClient(quint16 devToolsPort, QObject* parent = nullptr);
@@ -24,6 +31,7 @@ public:
     bool connect();
     void disconnect();
     bool isConnected() const;
+    ConnectionState getConnectionState() const;
 
     void sendCommand(const QString& method, const QJsonObject& params, ResponseCallback callback);
     
@@ -76,6 +84,7 @@ private:
     
     bool m_isConnecting;
     bool m_isConnected;
+    ConnectionState m_connectionState;
     
     static constexpr int PING_INTERVAL_MS = 30000;
     static constexpr int CONNECTION_TIMEOUT_MS = 5000;

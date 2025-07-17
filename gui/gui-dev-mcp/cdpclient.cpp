@@ -16,6 +16,7 @@ CDPClient::CDPClient(quint16 devToolsPort, QObject* parent)
     , m_nextCommandId(1)
     , m_isConnecting(false)
     , m_isConnected(false)
+    , m_connectionState(ConnectionState::NotConnected)
 {
     QObject::connect(m_webSocket, &QWebSocket::connected, this, &CDPClient::onConnected);
     QObject::connect(m_webSocket, &QWebSocket::disconnected, this, &CDPClient::onDisconnected);
@@ -43,6 +44,7 @@ bool CDPClient::connect()
     disconnect();
     
     m_isConnecting = true;
+    m_connectionState = ConnectionState::Connecting;
     Logger::log(Logger::Info, QString("Connecting to Chrome DevTools Protocol on port %1").arg(m_devToolsPort));
     
     fetchTargetList();
@@ -59,6 +61,7 @@ void CDPClient::disconnect()
     m_pendingCommands.clear();
     m_isConnected = false;
     m_isConnecting = false;
+    m_connectionState = ConnectionState::NotConnected;
     m_webSocketDebuggerUrl.clear();
     m_targetId.clear();
 }
@@ -66,6 +69,11 @@ void CDPClient::disconnect()
 bool CDPClient::isConnected() const
 {
     return m_isConnected;
+}
+
+CDPClient::ConnectionState CDPClient::getConnectionState() const
+{
+    return m_connectionState;
 }
 
 void CDPClient::fetchTargetList()
@@ -82,6 +90,7 @@ void CDPClient::fetchTargetList()
             Logger::log(Logger::Debug, errorMsg);
             m_isConnecting = false;
             m_isConnected = false;
+            m_connectionState = ConnectionState::Failed;
             if (m_webSocket->state() != QAbstractSocket::UnconnectedState) {
                 m_webSocket->abort();
             }
@@ -95,6 +104,7 @@ void CDPClient::fetchTargetList()
             Logger::log(Logger::Debug, errorMsg);
             m_isConnecting = false;
             m_isConnected = false;
+            m_connectionState = ConnectionState::Failed;
             if (m_webSocket->state() != QAbstractSocket::UnconnectedState) {
                 m_webSocket->abort();
             }
@@ -178,6 +188,7 @@ void CDPClient::onConnected()
     Logger::log(Logger::Info, "Connected to Chrome DevTools Protocol");
     m_isConnected = true;
     m_isConnecting = false;
+    m_connectionState = ConnectionState::Connected;
     m_pingTimer->start();
     
     enableDomains();
@@ -191,6 +202,7 @@ void CDPClient::onDisconnected()
     Logger::log(Logger::Info, "Disconnected from Chrome DevTools Protocol");
     m_isConnected = false;
     m_isConnecting = false;
+    m_connectionState = ConnectionState::NotConnected;
     m_pingTimer->stop();
     
     for (auto it = m_pendingCommands.begin(); it != m_pendingCommands.end(); ++it) {
