@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QDateTime>
 #include <memory>
 
 // On windows, we need to include winsock2 before other instances of winsock
@@ -61,6 +62,7 @@ private:
   std::unique_ptr<DebugPane> debugPane;
   std::unique_ptr<ControlLayer> controlLayer;
   std::unique_ptr<LoadingOverlay> loadingOverlay;
+  QDateTime loadingOverlayStartTime;
   Beam *beamInstance;
   bool m_devMode;
   

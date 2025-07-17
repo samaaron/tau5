@@ -221,16 +221,96 @@ void LoadingOverlay::initializeGL()
   
   timer.start();
   
-  const char *vertexShaderSource = R"(
-    #version 120
-    attribute vec2 aPos;
-    void main() {
-      gl_Position = vec4(aPos, 0.0, 1.0);
-    }
-  )";
+  // Create simple test shader first
+  bool useSimpleShader = false; // Use full shader
   
-  const char *fragmentShaderSource = R"(
-    #version 120
+  const char *vertexShaderSource;
+  const char *fragmentShaderSource;
+  
+  if (useSimpleShader) {
+    // Simplified shader that works on all platforms
+    vertexShaderSource = R"(
+      #version 120
+      attribute vec2 aPos;
+      void main() {
+        gl_Position = vec4(aPos, 0.0, 1.0);
+      }
+    )";
+    
+    fragmentShaderSource = R"(
+      #version 120
+      uniform float time;
+      uniform vec2 resolution;
+      uniform sampler2D logoTexture;
+      uniform sampler2D terminalTexture;
+      
+      void main() {
+        vec2 uv = gl_FragCoord.xy / resolution.xy;
+        vec2 p = (gl_FragCoord.xy - 0.5 * resolution.xy) / min(resolution.x, resolution.y);
+        
+        // Simple animated background
+        vec3 col = vec3(0.0);
+        float t = time * 0.5;
+        col += vec3(0.1, 0.0, 0.1) * (0.5 + 0.5 * sin(t + p.x * 3.0));
+        col += vec3(0.1, 0.0, 0.2) * (0.5 + 0.5 * cos(t * 0.7 + p.y * 2.0));
+        
+        // Simple swirl effect
+        float r = length(p);
+        float a = atan(p.y, p.x);
+        col += vec3(1.0, 0.5, 0.0) * 0.3 * sin(r * 10.0 - a * 3.0 - t) * exp(-r * 2.0);
+        
+        // Logo
+        vec2 logoUV = (uv - 0.5) * 0.8 + 0.5;
+        if(logoUV.x >= 0.0 && logoUV.x <= 1.0 && logoUV.y >= 0.0 && logoUV.y <= 1.0) {
+          vec4 logoColor = texture2D(logoTexture, logoUV);
+          float logoMask = (logoColor.a > 0.5 && length(logoColor.rgb) < 0.5) ? 1.0 : 0.0;
+          col = mix(col, vec3(1.0) - col, logoMask);
+        }
+        
+        // Terminal
+        vec2 terminalUV = uv;
+        terminalUV = vec2(terminalUV.y, terminalUV.x);
+        terminalUV = (terminalUV - vec2(0.5, 0.25)) * 1.25 + vec2(0.1, -0.3);
+        terminalUV -= vec2(0.5, 0.5);
+        vec2 rotated = vec2(terminalUV.y, -terminalUV.x);
+        terminalUV = rotated + vec2(0.5, 0.5);
+        
+        if(terminalUV.x >= 0.0 && terminalUV.x <= 1.0 && terminalUV.y >= 0.0 && terminalUV.y <= 1.0) {
+          vec4 terminalColor = texture2D(terminalTexture, terminalUV);
+          float brightness = max(terminalColor.r, terminalColor.g);
+          vec3 orange = vec3(1.0, 0.5, 0.0);
+          vec3 phosphor = orange * brightness * 2.0;
+          float terminalAlpha = brightness * 0.9;
+          col = mix(col, col * 0.3 + phosphor, terminalAlpha);
+        }
+        
+        gl_FragColor = vec4(col, 1.0);
+      }
+    )";
+  } else {
+    // Platform-specific vertex shader
+#ifdef Q_OS_MAC
+    vertexShaderSource = R"(
+      #version 120
+      attribute vec2 aPos;
+      void main() {
+        gl_Position = vec4(aPos, 0.0, 1.0);
+      }
+    )";
+#else
+    // Windows and Linux
+    vertexShaderSource = R"(
+      #version 120
+      attribute vec2 aPos;
+      void main() {
+        gl_Position = vec4(aPos, 0.0, 1.0);
+      }
+    )";
+#endif
+    
+    // Use same fragment shader for all platforms now
+    fragmentShaderSource = R"(
+      #version 120
     uniform float time;
     uniform vec2 resolution;
     uniform sampler2D logoTexture;
@@ -284,8 +364,8 @@ void LoadingOverlay::initializeGL()
         float swirl = sin(r * 10.0 - a * 3.0 - t * 1.0);
         swirl *= exp(-r * 0.5);
         
-        vec3 layerCol = mix(vec3(1.0, 0.5, 0.0), vec3(0.8, 0.0, 0.4), i / 4.0);
-        col += layerCol * swirl * 0.15 / (1.0 + i);
+        vec3 layerCol = mix(vec3(0.0, 0.2, 0.6), vec3(0.5, 0.0, 0.7), i / 4.0);
+        col += layerCol * swirl * 0.1 / (1.0 + i);
       }
       
       return col;
@@ -305,11 +385,11 @@ void LoadingOverlay::initializeGL()
         float d = length(p - pos);
         float glow = exp(-d * d * 20.0);
         
-        vec3 particleCol = vec3(1.0, 0.3, 0.1);
+        vec3 particleCol = mix(vec3(0.05, 0.4, 0.8), vec3(0.7, 0.1, 0.8), sin(i * 0.5 + t));
         col += particleCol * glow;
       }
       
-      return col * 0.5;
+      return col * 0.35;
     }
     
     vec3 cubeWireframe(vec2 p) {
@@ -319,14 +399,14 @@ void LoadingOverlay::initializeGL()
       vec3 angles = vec3(t, t * 0.7, t * 0.3);
       
       vec3 vertices[8];
-      vertices[0] = vec3(-1, -1, -1);
-      vertices[1] = vec3( 1, -1, -1);
-      vertices[2] = vec3( 1,  1, -1);
-      vertices[3] = vec3(-1,  1, -1);
-      vertices[4] = vec3(-1, -1,  1);
-      vertices[5] = vec3( 1, -1,  1);
-      vertices[6] = vec3( 1,  1,  1);
-      vertices[7] = vec3(-1,  1,  1);
+      vertices[0] = vec3(-1.0, -1.0, -1.0);
+      vertices[1] = vec3( 1.0, -1.0, -1.0);
+      vertices[2] = vec3( 1.0,  1.0, -1.0);
+      vertices[3] = vec3(-1.0,  1.0, -1.0);
+      vertices[4] = vec3(-1.0, -1.0,  1.0);
+      vertices[5] = vec3( 1.0, -1.0,  1.0);
+      vertices[6] = vec3( 1.0,  1.0,  1.0);
+      vertices[7] = vec3(-1.0,  1.0,  1.0);
       
       vec2 proj[8];
       for(int i = 0; i < 8; i++) {
@@ -340,23 +420,85 @@ void LoadingOverlay::initializeGL()
         proj[i] = v.xy * scale * 0.5;
       }
       
-      int edges[24] = int[](
-        0,1, 1,2, 2,3, 3,0,
-        4,5, 5,6, 6,7, 7,4,
-        0,4, 1,5, 2,6, 3,7
-      );
+      // Edge indices - avoiding array constructor
+      int edge0 = 0; int edge1 = 1;
+      int edge2 = 1; int edge3 = 2;
+      int edge4 = 2; int edge5 = 3;
+      int edge6 = 3; int edge7 = 0;
+      int edge8 = 4; int edge9 = 5;
+      int edge10 = 5; int edge11 = 6;
+      int edge12 = 6; int edge13 = 7;
+      int edge14 = 7; int edge15 = 4;
+      int edge16 = 0; int edge17 = 4;
+      int edge18 = 1; int edge19 = 5;
+      int edge20 = 2; int edge21 = 6;
+      int edge22 = 3; int edge23 = 7;
       
       float minDist = 1e10;
-      for(int i = 0; i < 12; i++) {
-        vec2 a = proj[edges[i*2]];
-        vec2 b = proj[edges[i*2+1]];
-        
-        vec2 pa = p - a;
-        vec2 ba = b - a;
-        float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-        float d = length(pa - ba * h);
-        minDist = min(minDist, d);
-      }
+      
+      // Manually check each edge - avoiding dynamic array access
+      vec2 pa, ba;
+      float h, d;
+      
+      // Edge 0-1
+      pa = p - proj[0]; ba = proj[1] - proj[0];
+      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      minDist = min(minDist, length(pa - ba * h));
+      
+      // Edge 1-2
+      pa = p - proj[1]; ba = proj[2] - proj[1];
+      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      minDist = min(minDist, length(pa - ba * h));
+      
+      // Edge 2-3
+      pa = p - proj[2]; ba = proj[3] - proj[2];
+      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      minDist = min(minDist, length(pa - ba * h));
+      
+      // Edge 3-0
+      pa = p - proj[3]; ba = proj[0] - proj[3];
+      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      minDist = min(minDist, length(pa - ba * h));
+      
+      // Edge 4-5
+      pa = p - proj[4]; ba = proj[5] - proj[4];
+      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      minDist = min(minDist, length(pa - ba * h));
+      
+      // Edge 5-6
+      pa = p - proj[5]; ba = proj[6] - proj[5];
+      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      minDist = min(minDist, length(pa - ba * h));
+      
+      // Edge 6-7
+      pa = p - proj[6]; ba = proj[7] - proj[6];
+      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      minDist = min(minDist, length(pa - ba * h));
+      
+      // Edge 7-4
+      pa = p - proj[7]; ba = proj[4] - proj[7];
+      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      minDist = min(minDist, length(pa - ba * h));
+      
+      // Edge 0-4
+      pa = p - proj[0]; ba = proj[4] - proj[0];
+      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      minDist = min(minDist, length(pa - ba * h));
+      
+      // Edge 1-5
+      pa = p - proj[1]; ba = proj[5] - proj[1];
+      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      minDist = min(minDist, length(pa - ba * h));
+      
+      // Edge 2-6
+      pa = p - proj[2]; ba = proj[6] - proj[2];
+      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      minDist = min(minDist, length(pa - ba * h));
+      
+      // Edge 3-7
+      pa = p - proj[3]; ba = proj[7] - proj[3];
+      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      minDist = min(minDist, length(pa - ba * h));
       
       col += vec3(1.0, 0.647, 0.0) * smoothstep(0.02, 0.0, minDist) * 2.0;
       
@@ -378,7 +520,7 @@ void LoadingOverlay::initializeGL()
       float flow = sin(q.x * 5.0 + q.y * 3.0 + t * 1.0);
       flow = smoothstep(0.0, 0.1, abs(flow));
       
-      col += vec3(0.8, 0.1, 0.5) * (1.0 - flow) * 0.2;
+      col += vec3(0.4, 0.05, 0.6) * (1.0 - flow) * 0.18;
       
       return col;
     }
@@ -389,19 +531,19 @@ void LoadingOverlay::initializeGL()
       
       vec3 col = vec3(0.0);
       
-      col += turbulentSwirls(p) * 0.7;
-      col += particleField(p) * 0.8;
-      col += flowField(p) * 0.5;
+      col += turbulentSwirls(p) * 0.4;
+      col += particleField(p) * 0.5;
+      col += flowField(p) * 0.35;
       
       col += cubeWireframe(p) * 1.5;
       
-      float vignette = 1.0 - length(p) * 0.5;
+      float vignette = 1.0 - length(p) * 0.6;
       col *= vignette;
       
       vec2 logoUV = (uv - 0.5) * 0.8 + 0.5;
       
       if(logoUV.x >= 0.0 && logoUV.x <= 1.0 && logoUV.y >= 0.0 && logoUV.y <= 1.0) {
-        vec4 logoColor = texture(logoTexture, logoUV);
+        vec4 logoColor = texture2D(logoTexture, logoUV);
         float luminance = dot(logoColor.rgb, vec3(0.299, 0.587, 0.114));
         float logoMask = (logoColor.a > 0.5 && luminance < 0.5) ? 1.0 : 0.0;
         col = mix(col, 1.0 - col, logoMask);
@@ -418,7 +560,7 @@ void LoadingOverlay::initializeGL()
       terminalUV = rotated + vec2(0.5, 0.5);
       
       if(terminalUV.x >= 0.0 && terminalUV.x <= 1.0 && terminalUV.y >= 0.0 && terminalUV.y <= 1.0) {
-        vec4 terminalColor = texture(terminalTexture, terminalUV);
+        vec4 terminalColor = texture2D(terminalTexture, terminalUV);
         
         float brightness = max(terminalColor.r, terminalColor.g);
         vec3 orange = vec3(1.0, 0.5, 0.0);
@@ -429,7 +571,7 @@ void LoadingOverlay::initializeGL()
         for(int i = -2; i <= 2; i++) {
           for(int j = -2; j <= 2; j++) {
             vec2 offset = vec2(float(i), float(j)) * texelSize * 2.0;
-            vec4 sample = texture(terminalTexture, terminalUV + offset);
+            vec4 sample = texture2D(terminalTexture, terminalUV + offset);
             float dist = length(vec2(float(i), float(j))) / 2.0;
             bloom += max(sample.r, sample.g) * exp(-dist * dist);
           }
@@ -450,6 +592,7 @@ void LoadingOverlay::initializeGL()
       gl_FragColor = vec4(col, 1.0);
     }
   )";
+  } // End of else block for useSimpleShader
   
   shaderProgram = new QOpenGLShaderProgram(this);
   if (!shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource)) {
@@ -487,13 +630,30 @@ void LoadingOverlay::resizeGL(int w, int h)
 
 void LoadingOverlay::paintGL()
 {
+  glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT);
   
-  if (!shaderProgram || !logoTexture) return;
+  if (!shaderProgram || !logoTexture) {
+    // Fallback: draw a simple colored background if shader fails
+    glClearColor(0.1f, 0.0f, 0.1f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    Logger::log(Logger::Warning, "[LoadingOverlay] Shader or texture not ready");
+    return;
+  }
+  
+  if (!shaderProgram->isLinked()) {
+    Logger::log(Logger::Error, "[LoadingOverlay] Shader program is not linked!");
+    glClearColor(0.1f, 0.1f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    return;
+  }
   
   terminalScrollOffset += (targetScrollOffset - terminalScrollOffset) * 0.1f;
   
-  shaderProgram->bind();
+  if (!shaderProgram->bind()) {
+    Logger::log(Logger::Error, "[LoadingOverlay] Failed to bind shader program!");
+    return;
+  }
   
   shaderProgram->setUniformValue(timeUniform, timer.elapsed() / 1000.0f);
   shaderProgram->setUniformValue(resolutionUniform, QVector2D(width(), height()));

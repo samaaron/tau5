@@ -48,6 +48,7 @@ MainWindow::MainWindow(bool devMode, QWidget *parent)
 
   // Create loading overlay immediately to ensure it's ready for BEAM output
   loadingOverlay = std::make_unique<LoadingOverlay>();
+  loadingOverlayStartTime = QDateTime::currentDateTime();
   QTimer::singleShot(0, this, [this]() {
     QRect globalGeometry = geometry();
     globalGeometry.moveTopLeft(mapToGlobal(QPoint(0, 0)));
@@ -58,7 +59,11 @@ MainWindow::MainWindow(bool devMode, QWidget *parent)
   connect(this, &MainWindow::allComponentsLoaded, [this]() {
     Logger::log(Logger::Info, "=== Tau5 is ready! ===");
     if (loadingOverlay) {
-      QTimer::singleShot(3000, [this]() {
+      // Calculate remaining time to ensure minimum 8 seconds display
+      qint64 elapsedMs = loadingOverlayStartTime.msecsTo(QDateTime::currentDateTime());
+      qint64 remainingMs = qMax(0LL, 8000LL - elapsedMs);
+      
+      QTimer::singleShot(remainingMs + 500, [this]() {
         if (loadingOverlay) {
           // Disconnect BEAM output from loading overlay before fading
           if (beamInstance) {
