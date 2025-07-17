@@ -170,6 +170,8 @@ void DebugPane::setupUi()
   
   m_splitter->setStyleSheet("QSplitter { background: transparent; }");
 
+  // Add space at the top for the drag handle
+  m_mainLayout->addSpacing(RESIZE_HANDLE_VISUAL_HEIGHT);
   m_mainLayout->addWidget(m_headerWidget);
   m_mainLayout->addWidget(fullViewContainer, 1);
 
@@ -648,7 +650,9 @@ void DebugPane::updateViewMode()
   m_devToolsButton->setChecked(m_currentMode == DevToolsOnly);
   m_sideBySideButton->setChecked(m_currentMode == SideBySide);
 
-  QWidget *fullViewContainer = qobject_cast<QWidget*>(m_mainLayout->itemAt(1)->widget());
+  // Account for the spacing at index 0, header at index 1, so fullViewContainer is at index 2
+  if (m_mainLayout->count() < 3) return;
+  QWidget *fullViewContainer = qobject_cast<QWidget*>(m_mainLayout->itemAt(2)->widget());
   if (!fullViewContainer) return;
   
   QVBoxLayout *fullViewLayout = qobject_cast<QVBoxLayout*>(fullViewContainer->layout());
@@ -979,6 +983,7 @@ void DebugPane::resizeEvent(QResizeEvent *event)
   if (m_dragHandleWidget)
   {
     m_dragHandleWidget->resize(width(), RESIZE_HANDLE_VISUAL_HEIGHT);
+    // Position the drag handle at the top of the widget
     m_dragHandleWidget->move(0, 0);
   }
 }
