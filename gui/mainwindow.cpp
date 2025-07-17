@@ -24,6 +24,7 @@ MainWindow::MainWindow(bool devMode, QWidget *parent)
     , m_liveDashboardLoaded(false)
     , m_elixirConsoleLoaded(false)
     , m_webDevToolsLoaded(false)
+    , m_allComponentsSignalEmitted(false)
 {
   QCoreApplication::setOrganizationName("Tau5");
   QCoreApplication::setApplicationName("Tau5");
@@ -362,7 +363,8 @@ void MainWindow::handleWebDevToolsLoaded()
 void MainWindow::checkAllComponentsLoaded()
 {
   if (m_mainWindowLoaded && m_liveDashboardLoaded &&
-      m_elixirConsoleLoaded && m_webDevToolsLoaded) {
+      m_elixirConsoleLoaded && m_webDevToolsLoaded && !m_allComponentsSignalEmitted) {
+    m_allComponentsSignalEmitted = true;
     emit allComponentsLoaded();
   }
 }

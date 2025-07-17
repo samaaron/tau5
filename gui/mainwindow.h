@@ -70,4 +70,5 @@ private:
   bool m_liveDashboardLoaded;
   bool m_elixirConsoleLoaded;
   bool m_webDevToolsLoaded;
+  bool m_allComponentsSignalEmitted;
 };
