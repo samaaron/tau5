@@ -549,12 +549,20 @@ void LoadingOverlay::initializeGL()
         col = mix(col, 1.0 - col, logoMask);
       }
       
+      // Calculate aspect-corrected terminal UV coordinates
+      float aspect = resolution.x / resolution.y;
       vec2 terminalUV = uv;
       
+      // Apply aspect correction before transformations
+      terminalUV.x = terminalUV.x * aspect;
+      
+      // Swap coordinates for rotation
       terminalUV = vec2(terminalUV.y, terminalUV.x);
       
-      terminalUV = (terminalUV - vec2(0.5, 0.25)) * 1.25 + vec2(0.1, -0.3);
+      // Position and scale
+      terminalUV = (terminalUV - vec2(0.5, 0.5 * aspect)) * 1.25 + vec2(0.1, -0.3);
       
+      // Rotate 90 degrees clockwise
       terminalUV -= vec2(0.5, 0.5);
       vec2 rotated = vec2(terminalUV.y, -terminalUV.x);
       terminalUV = rotated + vec2(0.5, 0.5);
