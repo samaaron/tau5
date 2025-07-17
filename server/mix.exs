@@ -74,7 +74,8 @@ defmodule Tau5.MixProject do
        ref: "f1a15212007e12a50f6fa703f62079ac82e75b17",
        app: false,
        compile: false},
-      {:tidewave, "~> 0.2", only: :dev}
+      {:tidewave, "~> 0.2", only: :dev},
+      {:lua, "~> 0.3.0"}
     ]
   end
 
