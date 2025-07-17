@@ -58,6 +58,12 @@ MainWindow::MainWindow(bool devMode, QWidget *parent)
 
   connect(this, &MainWindow::allComponentsLoaded, [this]() {
     Logger::log(Logger::Info, "=== Tau5 is ready! ===");
+    
+    // Refresh the main browser now that all components are loaded
+    if (phxWidget) {
+      phxWidget->handleResetBrowser();
+    }
+    
     if (loadingOverlay) {
       // Calculate remaining time to ensure minimum 8 seconds display
       qint64 elapsedMs = loadingOverlayStartTime.msecsTo(QDateTime::currentDateTime());
