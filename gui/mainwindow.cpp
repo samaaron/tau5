@@ -201,6 +201,7 @@ void MainWindow::initializeDebugPane()
   connect(debugPane.get(), &DebugPane::liveDashboardLoaded, this, &MainWindow::handleLiveDashboardLoaded);
   connect(debugPane.get(), &DebugPane::elixirConsoleLoaded, this, &MainWindow::handleElixirConsoleLoaded);
   connect(debugPane.get(), &DebugPane::webDevToolsLoaded, this, &MainWindow::handleWebDevToolsLoaded);
+  connect(debugPane.get(), &DebugPane::restartBeamRequested, this, &MainWindow::handleBeamRestart);
 }
 
 void MainWindow::initializeControlLayer()
@@ -367,5 +368,72 @@ void MainWindow::checkAllComponentsLoaded()
     m_allComponentsSignalEmitted = true;
     emit allComponentsLoaded();
   }
+}
+
+void MainWindow::handleBeamRestart()
+{
+  if (!beamInstance)
+  {
+    Logger::log(Logger::Error, "Cannot restart BEAM: beamInstance is null");
+    return;
+  }
+  
+  Logger::log(Logger::Info, "User requested BEAM restart");
+  
+  // Disable the restart button to prevent multiple restarts
+  if (debugPane)
+  {
+    debugPane->setRestartButtonEnabled(false);
+    
+    // Add a clear visual separator in the log
+    QString separator = "\n" + QString("=").repeated(60) + "\n";
+    debugPane->appendOutput(separator + "       BEAM RESTART IN PROGRESS..." + separator, false);
+  }
+  
+  // Reset component loaded flags
+  m_mainWindowLoaded = false;
+  m_liveDashboardLoaded = false;
+  m_elixirConsoleLoaded = false;
+  m_webDevToolsLoaded = false;
+  m_allComponentsSignalEmitted = false;
+  
+  // Connect to the restart complete signal
+  QObject *context = new QObject();
+  connect(beamInstance, &Beam::restartComplete, context, [this, context]() {
+    Logger::log(Logger::Info, "BEAM restart complete, reconnecting to server...");
+    
+    // Re-enable the restart button
+    if (debugPane)
+    {
+      debugPane->setRestartButtonEnabled(true);
+      
+      // Add completion message
+      QString separator = "\n" + QString("=").repeated(60) + "\n";
+      debugPane->appendOutput(separator + "       BEAM RESTART COMPLETE!" + separator, false);
+    }
+    
+    // Get the new session token
+    QString newToken = beamInstance->getSessionToken();
+    
+    // Reconnect the Phoenix widget
+    if (phxWidget)
+    {
+      phxWidget->handleResetBrowser();
+    }
+    
+    // Update the IEx shell URL with the new token
+    if (debugPane && beamInstance)
+    {
+      // Use the port stored in the Beam instance
+      quint16 port = beamInstance->getPort();
+      QString consoleUrl = QString("http://localhost:%1/dev/console?token=%2").arg(port).arg(newToken);
+      debugPane->setIexShellUrl(consoleUrl);
+    }
+    
+    context->deleteLater();
+  });
+  
+  // Trigger the restart
+  beamInstance->restart();
 }
 

@@ -15,14 +15,17 @@ public:
   ~Beam();
   
   QString getSessionToken() const { return sessionToken; }
+  quint16 getPort() const { return appPort; }
 
   void startElixirServerDev();
   void startElixirServerProd();
+  void restart();
 
 signals:
   void standardOutput(const QString &output);
   void standardError(const QString &error);
   void otpReady();
+  void restartComplete();
 
 private slots:
   void handleStandardOutput();
@@ -45,11 +48,18 @@ private:
   bool serverReady;
   bool otpTreeReady;
   QString sessionToken;
+  bool devMode;
+  QString appName;
+  QString appVersion;
+  bool isRestarting;
 
   void startProcess(const QString &cmd, const QStringList &args);
   bool isWindows() const;
   bool isMacOS() const;
   void killBeamProcess();
+  void continueRestart();
+  void checkPortAndStartNewProcess();
+  void startNewBeamProcess();
 };
 
 #endif // BEAM_H

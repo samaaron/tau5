@@ -44,6 +44,7 @@ public:
     void setIexShellUrl(const QString &url);
     void saveSettings();
     void restoreSettings();
+    void setRestartButtonEnabled(bool enabled);
 
     int slidePosition() const { return pos().y(); }
     void setSlidePosition(int pos) { move(x(), pos); }
@@ -53,6 +54,7 @@ signals:
     void liveDashboardLoaded();
     void elixirConsoleLoaded();
     void webDevToolsLoaded();
+    void restartBeamRequested();
 
 private slots:
     void handleAutoScrollToggled(bool checked);
@@ -155,6 +157,9 @@ private:
     QPushButton *m_beamLogButton;
     QPushButton *m_devToolsButton;
     QPushButton *m_sideBySideButton;
+    QPushButton *m_restartButton;
+    QTimer *m_restartAnimationTimer;
+    int m_restartAnimationFrame;
 
     std::unique_ptr<QPropertyAnimation> m_slideAnimation;
     bool m_isVisible;

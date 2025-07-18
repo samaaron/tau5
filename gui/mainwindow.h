@@ -50,6 +50,7 @@ private slots:
   void handleSizeUp();
   void handleOpenExternalBrowser();
   void handleResetBrowser();
+  void handleBeamRestart();
 
 private:
   void initializePhxWidget(quint16 port);

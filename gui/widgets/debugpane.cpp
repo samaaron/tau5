@@ -49,6 +49,7 @@
 #include <QTextStream>
 #include <QFont>
 #include <QSplitterHandle>
+#include <cmath>
 
 // Custom splitter class to handle hover effects
 class CustomSplitter : public QSplitter
@@ -125,7 +126,8 @@ DebugPane::DebugPane(QWidget *parent)
       m_iexShellView(nullptr), m_iexShellTabButton(nullptr),
       m_currentFontSize(12), m_guiLogFontSize(12), m_devToolsMainContainer(nullptr), 
       m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
-      m_dragHandleWidget(nullptr)
+      m_dragHandleWidget(nullptr), m_restartButton(nullptr), m_restartAnimationTimer(nullptr),
+      m_restartAnimationFrame(0)
 {
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowFlags(Qt::FramelessWindowHint);
@@ -206,7 +208,6 @@ void DebugPane::setupViewControls()
   m_headerLayout = new QHBoxLayout(m_headerWidget);
   m_headerLayout->setContentsMargins(10, 2, 10, 2);
 
-
   QString normalColor = StyleManager::Colors::PRIMARY_ORANGE;
   QString hoverColor = StyleManager::Colors::WHITE;
   QString selectedColor = StyleManager::Colors::ERROR_BLUE;
@@ -233,14 +234,23 @@ void DebugPane::setupViewControls()
       "",
       splitSvg.arg(selectedColor));
 
+  QString restartSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path d='M12.75 8a4.5 4.5 0 0 1-8.61 1.834l-1.391.565A6.001 6.001 0 0 0 14.25 8 6 6 0 0 0 3.5 4.334V2.5H2v4l.75.75h3.5v-1.5H4.352A4.5 4.5 0 0 1 12.75 8z'/></svg>");
+  QIcon restartIcon = createSvgIcon(
+      restartSvg.arg(normalColor),
+      restartSvg.arg(hoverColor),
+      "");
+
+  m_restartButton = new QPushButton(m_headerWidget);
   m_beamLogButton = new QPushButton(m_headerWidget);
   m_devToolsButton = new QPushButton(m_headerWidget);
   m_sideBySideButton = new QPushButton(m_headerWidget);
 
+  m_restartButton->setIcon(restartIcon);
   m_beamLogButton->setIcon(logIcon);
   m_devToolsButton->setIcon(devToolsIcon);
   m_sideBySideButton->setIcon(sideBySideIcon);
 
+  m_restartButton->setToolTip("Restart BEAM");
   m_beamLogButton->setToolTip("BEAM Log Only");
   m_devToolsButton->setToolTip("DevTools Only");
   m_sideBySideButton->setToolTip("Side by Side View");
@@ -270,6 +280,7 @@ void DebugPane::setupViewControls()
       "  outline: none; "
       "}");
 
+  m_restartButton->setStyleSheet(buttonStyle);
   m_beamLogButton->setStyleSheet(buttonStyle);
   m_devToolsButton->setStyleSheet(buttonStyle);
   m_sideBySideButton->setStyleSheet(buttonStyle);
@@ -278,16 +289,20 @@ void DebugPane::setupViewControls()
   m_devToolsButton->setCheckable(true);
   m_sideBySideButton->setCheckable(true);
   
+  m_restartButton->setFocusPolicy(Qt::NoFocus);
   m_beamLogButton->setFocusPolicy(Qt::NoFocus);
   m_devToolsButton->setFocusPolicy(Qt::NoFocus);
   m_sideBySideButton->setFocusPolicy(Qt::NoFocus);
 
+  m_headerLayout->addWidget(m_restartButton);
+  m_headerLayout->addSpacing(20);  // Add some visual separation
   m_headerLayout->addStretch();
 
   m_headerLayout->addWidget(m_beamLogButton);
   m_headerLayout->addWidget(m_devToolsButton);
   m_headerLayout->addWidget(m_sideBySideButton);
 
+  connect(m_restartButton, &QPushButton::clicked, this, &DebugPane::restartBeamRequested);
   connect(m_beamLogButton, &QPushButton::clicked, this, &DebugPane::showBeamLogOnly);
   connect(m_devToolsButton, &QPushButton::clicked, this, &DebugPane::showDevToolsOnly);
   connect(m_sideBySideButton, &QPushButton::clicked, this, &DebugPane::showSideBySide);
@@ -1949,6 +1964,115 @@ void DebugPane::restoreSettings()
   }
   
   settings.endGroup();
+}
+
+void DebugPane::setRestartButtonEnabled(bool enabled)
+{
+  if (!m_restartButton)
+    return;
+    
+  m_restartButton->setEnabled(enabled);
+  
+  QString normalColor = StyleManager::Colors::PRIMARY_ORANGE;
+  QString activeColor = StyleManager::Colors::WHITE;
+  
+  if (enabled)
+  {
+    // Stop animation timer if running
+    if (m_restartAnimationTimer)
+    {
+      m_restartAnimationTimer->stop();
+      m_restartAnimationTimer->deleteLater();
+      m_restartAnimationTimer = nullptr;
+    }
+    
+    // Restore normal style
+    QString buttonStyle = QString(
+        "QPushButton { "
+        "  background: transparent; "
+        "  border: none; "
+        "  padding: 2px; "
+        "  margin: 0 2px; "
+        "  min-width: 24px; "
+        "  max-width: 24px; "
+        "  min-height: 16px; "
+        "  max-height: 16px; "
+        "} "
+        "QPushButton:hover { "
+        "  background: rgba(255, 165, 0, 0.1); "
+        "} "
+        "QPushButton:pressed { "
+        "  background: rgba(255, 165, 0, 0.2); "
+        "} "
+        "QPushButton:focus { "
+        "  outline: none; "
+        "}");
+    m_restartButton->setStyleSheet(buttonStyle);
+    
+    // Normal restart icon
+    QString restartSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path d='M12.75 8a4.5 4.5 0 0 1-8.61 1.834l-1.391.565A6.001 6.001 0 0 0 14.25 8 6 6 0 0 0 3.5 4.334V2.5H2v4l.75.75h3.5v-1.5H4.352A4.5 4.5 0 0 1 12.75 8z'/></svg>");
+    QIcon restartIcon = createSvgIcon(
+        restartSvg.arg(normalColor),
+        restartSvg.arg(activeColor),
+        "");
+    m_restartButton->setIcon(restartIcon);
+    m_restartButton->setToolTip("Restart BEAM");
+  }
+  else
+  {
+    // Show progress state with animated background
+    m_restartButton->setToolTip("BEAM restart in progress...");
+    
+    // Use a spinner/progress icon
+    QString progressSvg = QString("<svg viewBox='0 0 16 16' fill='%1'>"
+        "<path d='M8 1.5a6.5 6.5 0 1 0 6.5 6.5h1.5a8 8 0 1 1-8-8v1.5z'/>"
+        "</svg>");
+    QIcon progressIcon = createSvgIcon(progressSvg.arg(normalColor), "", "");
+    m_restartButton->setIcon(progressIcon);
+    
+    // Keep the button style consistent but disabled
+    QString buttonStyle = QString(
+        "QPushButton { "
+        "  background: transparent; "
+        "  border: none; "
+        "  padding: 2px; "
+        "  margin: 0 2px; "
+        "  min-width: 24px; "
+        "  max-width: 24px; "
+        "  min-height: 16px; "
+        "  max-height: 16px; "
+        "} "
+        "QPushButton:disabled { "
+        "  background: transparent; "
+        "}");
+    m_restartButton->setStyleSheet(buttonStyle);
+    
+    // Create animation timer for spinning icon
+    if (!m_restartAnimationTimer)
+    {
+      m_restartAnimationTimer = new QTimer(this);
+      m_restartAnimationTimer->setInterval(50); // Update every 50ms for smooth rotation
+      m_restartAnimationFrame = 0;
+      
+      // Store the base icon
+      QString progressSvg = QString("<svg viewBox='0 0 16 16' fill='%1'>"
+          "<path d='M8 1.5a6.5 6.5 0 1 0 6.5 6.5h1.5a8 8 0 1 1-8-8v1.5z'/>"
+          "</svg>");
+      QPixmap basePixmap = createSvgPixmap(progressSvg.arg(normalColor), 16, 16);
+      
+      connect(m_restartAnimationTimer, &QTimer::timeout, [this, basePixmap]() {
+        m_restartAnimationFrame = (m_restartAnimationFrame + 1) % 36; // 36 frames for smooth 360 rotation
+        
+        // Rotate the icon clockwise (negative rotation)
+        QTransform transform;
+        transform.rotate(-m_restartAnimationFrame * 10); // -10 degrees per frame for clockwise
+        QPixmap rotated = basePixmap.transformed(transform, Qt::SmoothTransformation);
+        m_restartButton->setIcon(QIcon(rotated));
+      });
+      
+      m_restartAnimationTimer->start();
+    }
+  }
 }
 
 #include "moc_debugpane.cpp"
