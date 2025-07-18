@@ -539,7 +539,12 @@ void LoadingOverlay::initializeGL()
       float vignette = 1.0 - length(p) * 0.6;
       col *= vignette;
       
-      vec2 logoUV = (uv - 0.5) * 0.8 + 0.5;
+      // Logo with fixed aspect ratio using p coordinate system
+      float logoSize = 0.8; // Size in aspect-corrected space
+      vec2 logoP = p / logoSize; // Scale the coordinate system
+      
+      // Convert from aspect-corrected space back to UV space for texture sampling
+      vec2 logoUV = logoP * 0.5 + 0.5;
       
       if(logoUV.x >= 0.0 && logoUV.x <= 1.0 && logoUV.y >= 0.0 && logoUV.y <= 1.0) {
         vec4 logoColor = texture2D(logoTexture, logoUV);
