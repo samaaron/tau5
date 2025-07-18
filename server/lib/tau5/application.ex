@@ -12,6 +12,8 @@ defmodule Tau5.Application do
       Tau5Web.Telemetry,
       {Phoenix.PubSub, name: Tau5.PubSub},
       {Finch, name: Tau5.Finch},
+      Hermes.Server.Registry,
+      {Tau5MCP.Server, transport: {:sse, base_url: "/tau5/mcp", post_path: "/message"}},
       Tau5Web.Endpoint,
       Tau5.Heartbeat,
       Tau5.Link,
@@ -23,7 +25,6 @@ defmodule Tau5.Application do
     
     case Supervisor.start_link(children, opts) do
       {:ok, pid} ->
-        # Log unique marker that GUI can wait for
         Logger.info("[TAU5_OTP_READY] OTP supervision tree is up and running")
         {:ok, pid}
       

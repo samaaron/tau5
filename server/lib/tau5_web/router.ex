@@ -24,6 +24,17 @@ defmodule Tau5Web.Router do
     live("/", MainLive)
   end
 
+  pipeline :sse do
+    plug :accepts, ["json", "event-stream"]
+  end
+
+  scope "/tau5/mcp" do
+    pipe_through(:sse)
+    
+    get("/", Hermes.Server.Transport.SSE.Plug, server: Tau5MCP.Server, mode: :sse)
+    post("/message", Hermes.Server.Transport.SSE.Plug, server: Tau5MCP.Server, mode: :post)
+  end
+
   if Application.compile_env(:tau5, :dev_routes) do
     import Phoenix.LiveDashboard.Router
 
