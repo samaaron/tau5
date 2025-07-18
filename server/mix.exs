@@ -75,7 +75,8 @@ defmodule Tau5.MixProject do
        app: false,
        compile: false},
       {:tidewave, "~> 0.2", only: :dev},
-      {:lua, "~> 0.3.0"}
+      {:lua, "~> 0.3.0"},
+      {:hermes_mcp, "~> 0.12.1"}
     ]
   end
 
