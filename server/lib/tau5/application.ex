@@ -13,7 +13,7 @@ defmodule Tau5.Application do
       {Phoenix.PubSub, name: Tau5.PubSub},
       {Finch, name: Tau5.Finch},
       Hermes.Server.Registry,
-      {Tau5MCP.Server, transport: {:sse, base_url: "/tau5/mcp", post_path: "/message"}},
+      {Tau5MCP.Server, transport: :streamable_http},
       Tau5Web.Endpoint,
       Tau5.Heartbeat,
       Tau5.Link,

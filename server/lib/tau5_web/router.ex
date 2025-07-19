@@ -1,5 +1,7 @@
 defmodule Tau5Web.Router do
   use Tau5Web, :router
+  
+  alias Hermes.Server.Transport.StreamableHTTP
 
   pipeline :browser do
     plug(:accepts, ["html"])
@@ -31,8 +33,8 @@ defmodule Tau5Web.Router do
   scope "/tau5/mcp" do
     pipe_through(:sse)
     
-    get("/", Hermes.Server.Transport.SSE.Plug, server: Tau5MCP.Server, mode: :sse)
-    post("/message", Hermes.Server.Transport.SSE.Plug, server: Tau5MCP.Server, mode: :post)
+    # Use Streamable HTTP transport - handles GET, POST, DELETE at the same endpoint
+    forward("/", StreamableHTTP.Plug, server: Tau5MCP.Server)
   end
 
   if Application.compile_env(:tau5, :dev_routes) do
