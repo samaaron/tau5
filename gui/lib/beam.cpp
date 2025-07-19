@@ -421,19 +421,25 @@ void Beam::restart()
     process->terminate();
     
     // Set up a timer to force kill if it doesn't terminate gracefully
-    QTimer::singleShot(5000, this, [this]() {
-      if (process && process->state() == QProcess::Running)
+    // Capture the process pointer to ensure we're working with the right one
+    QProcess* processToKill = process;
+    QTimer::singleShot(5000, this, [this, processToKill]() {
+      // Only proceed if we're still restarting and it's the same process
+      if (isRestarting && process == processToKill && process->state() == QProcess::Running)
       {
         Logger::log(Logger::Warning, "Process did not terminate gracefully, killing it...");
         process->kill();
         
         // Wait a bit more, then force continue
-        QTimer::singleShot(2000, this, [this]() {
-          if (process && process->state() == QProcess::Running)
+        QTimer::singleShot(2000, this, [this, processToKill]() {
+          if (isRestarting && process == processToKill && process->state() == QProcess::Running)
           {
             Logger::log(Logger::Error, "Failed to kill process, forcing restart");
           }
-          continueRestart();
+          if (isRestarting)
+          {
+            continueRestart();
+          }
         });
       }
     });
