@@ -2,7 +2,7 @@ defmodule Tau5MCP.Server do
   use Hermes.Server, capabilities: [:tools]
 
   alias Hermes.Server.Response
-  alias Tau5MCP.LuaEvaluator
+  alias Tau5.LuaEvaluator
 
   require Logger
   
@@ -33,15 +33,11 @@ defmodule Tau5MCP.Server do
   def handle_tool_call("lua_eval", %{code: code}, frame) do
     Logger.info("[#{__MODULE__}] => lua_eval tool was called #{frame.assigns.counter + 1}")
     
-    # Define print callback that sends log messages
     print_callback = fn message ->
-      # Send as MCP log message for proper async handling via SSE
       send_log_message(frame, :info, "[Lua] #{message}")
-      
       Logger.debug("[#{__MODULE__}] Lua print output: #{message}")
     end
     
-    # Evaluate the Lua code
     case LuaEvaluator.evaluate(code, print_callback: print_callback) do
       {:ok, result} ->
         resp = Response.text(Response.tool(), result)
