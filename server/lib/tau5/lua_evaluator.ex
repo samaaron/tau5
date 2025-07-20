@@ -8,7 +8,7 @@ defmodule Tau5.LuaEvaluator do
   import :erlang, only: [spawn_opt: 2]
 
   @timeout_ms 5000
-  @max_heap_size 1_000_000  # 1MB - tight constraint for live coding
+  @max_heap_size 1_000_000
   @max_output_size 1_000_000
 
   @doc """
@@ -55,6 +55,7 @@ defmodule Tau5.LuaEvaluator do
                 case Lua.eval!(lua_state, code) do
                   {values, _new_state} ->
                     formatted = format_result(values)
+
                     if byte_size(formatted) > @max_output_size do
                       {:error, "Output too large (max #{@max_output_size} bytes)"}
                     else
@@ -80,12 +81,13 @@ defmodule Tau5.LuaEvaluator do
         end,
         [
           {:message_queue_data, :off_heap},
-          {:max_heap_size, %{
-            size: @max_heap_size,
-            kill: true,
-            include_shared_binaries: true,
-            error_logger: false
-          }}
+          {:max_heap_size,
+           %{
+             size: @max_heap_size,
+             kill: true,
+             include_shared_binaries: true,
+             error_logger: false
+           }}
         ]
       )
 
@@ -196,46 +198,87 @@ defmodule Tau5.LuaEvaluator do
 
     cond do
       # Filter out internal state dumps
-      String.contains?(line, "{:luerl,") -> nil
-      String.contains?(line, "{:tstruct,") -> nil
-      String.contains?(line, "{:tref,") -> nil
-      String.contains?(line, "#Reference<") -> nil
-      String.contains?(line, "#Function<") -> nil
-      String.contains?(line, "{:erl_mfa,") -> nil
-      String.contains?(line, "{:erl_func,") -> nil
-      String.contains?(line, "{:array,") -> nil
-      String.contains?(line, "{:table,") -> nil
-      String.contains?(line, "{:lua_func,") -> nil
-      String.contains?(line, "%{max:") -> nil
-      
+      String.contains?(line, "{:luerl,") ->
+        nil
+
+      String.contains?(line, "{:tstruct,") ->
+        nil
+
+      String.contains?(line, "{:tref,") ->
+        nil
+
+      String.contains?(line, "#Reference<") ->
+        nil
+
+      String.contains?(line, "#Function<") ->
+        nil
+
+      String.contains?(line, "{:erl_mfa,") ->
+        nil
+
+      String.contains?(line, "{:erl_func,") ->
+        nil
+
+      String.contains?(line, "{:array,") ->
+        nil
+
+      String.contains?(line, "{:table,") ->
+        nil
+
+      String.contains?(line, "{:lua_func,") ->
+        nil
+
+      String.contains?(line, "%{max:") ->
+        nil
+
       # Keep user-friendly error messages
-      String.contains?(line, "Lua runtime error:") -> 
+      String.contains?(line, "Lua runtime error:") ->
         line
         |> String.replace("Lua runtime error:", "")
         |> String.trim()
-      
-      String.contains?(line, "is sandboxed") -> line
-      String.contains?(line, "invalid index") -> extract_user_friendly_error(line)
-      String.contains?(line, "syntax error") -> line
-      String.contains?(line, "unexpected") -> line
-      String.contains?(line, "attempt to") -> line
-      String.contains?(line, "bad argument") -> line
-      
-      line == "" -> nil
-      
+
+      String.contains?(line, "is sandboxed") ->
+        line
+
+      String.contains?(line, "invalid index") ->
+        extract_user_friendly_error(line)
+
+      String.contains?(line, "syntax error") ->
+        line
+
+      String.contains?(line, "unexpected") ->
+        line
+
+      String.contains?(line, "attempt to") ->
+        line
+
+      String.contains?(line, "bad argument") ->
+        line
+
+      line == "" ->
+        nil
+
       # Skip lines that look like internal details
-      String.starts_with?(line, "{") -> nil
-      String.starts_with?(line, "[") -> nil
-      String.starts_with?(line, "%") -> nil
-      
-      true -> line
+      String.starts_with?(line, "{") ->
+        nil
+
+      String.starts_with?(line, "[") ->
+        nil
+
+      String.starts_with?(line, "%") ->
+        nil
+
+      true ->
+        line
     end
   end
 
   defp extract_user_friendly_error(line) do
     case Regex.run(~r/invalid index\s+["']([^"']+)["']/, line) do
-      [_, index] -> "invalid index: #{index}"
-      _ -> 
+      [_, index] ->
+        "invalid index: #{index}"
+
+      _ ->
         case Regex.run(~r/invalid index in .+?: ["']([^"']+)["']/, line) do
           [_, index] -> "invalid index: #{index}"
           _ -> "invalid index"
@@ -245,6 +288,7 @@ defmodule Tau5.LuaEvaluator do
 
   defp limit_error_size(error) do
     max_size = 200
+
     if String.length(error) > max_size do
       String.slice(error, 0, max_size) <> "..."
     else
