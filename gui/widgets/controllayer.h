@@ -13,6 +13,7 @@ public:
     explicit ControlLayer(QWidget *parent = nullptr);
     
     void setConsoleVisible(bool visible);
+    void setDebugPaneAvailable(bool available);
     void positionControls();
 
 signals:

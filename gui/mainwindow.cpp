@@ -11,19 +11,28 @@
 #include <QPropertyAnimation>
 #include "mainwindow.h"
 #include "widgets/phxwidget.h"
+#ifdef BUILD_WITH_DEBUG_PANE
 #include "widgets/debugpane.h"
+#endif
 #include "widgets/controllayer.h"
 #include "widgets/loadingoverlay.h"
 #include "lib/beam.h"
 #include "logger.h"
-MainWindow::MainWindow(bool devMode, QWidget *parent)
+MainWindow::MainWindow(bool devMode, bool enableDebugPane, QWidget *parent)
     : QMainWindow(parent)
     , beamInstance(nullptr)
     , m_devMode(devMode)
+    , m_enableDebugPane(enableDebugPane)
     , m_mainWindowLoaded(false)
-    , m_liveDashboardLoaded(false)
-    , m_elixirConsoleLoaded(false)
-    , m_webDevToolsLoaded(false)
+#ifdef BUILD_WITH_DEBUG_PANE
+    , m_liveDashboardLoaded(!enableDebugPane)  // If debug pane disabled, consider these loaded
+    , m_elixirConsoleLoaded(!enableDebugPane)
+    , m_webDevToolsLoaded(!enableDebugPane)
+#else
+    , m_liveDashboardLoaded(true)  // Always true when debug pane not built
+    , m_elixirConsoleLoaded(true)
+    , m_webDevToolsLoaded(true)
+#endif
     , m_allComponentsSignalEmitted(false)
 {
   QCoreApplication::setOrganizationName("Tau5");
@@ -44,7 +53,11 @@ MainWindow::MainWindow(bool devMode, QWidget *parent)
   QAction *aboutAction = helpMenu->addAction(tr("&About"));
   connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
 
-  initializeDebugPane();
+#ifdef BUILD_WITH_DEBUG_PANE
+  if (m_enableDebugPane) {
+    initializeDebugPane();
+  }
+#endif
   initializeControlLayer();
 
   // Create loading overlay immediately to ensure it's ready for BEAM output
@@ -109,6 +122,7 @@ void MainWindow::setBeamInstance(Beam *beam)
               loadingOverlay.get(), &LoadingOverlay::appendLog);
     }
     
+#ifdef BUILD_WITH_DEBUG_PANE
     // Connect to debug pane for later
     if (debugPane) {
       connect(beamInstance, &Beam::standardOutput,
@@ -116,6 +130,7 @@ void MainWindow::setBeamInstance(Beam *beam)
       connect(beamInstance, &Beam::standardError,
               this, &MainWindow::handleBeamError);
     }
+#endif
   }
 }
 
@@ -144,6 +159,7 @@ void MainWindow::initializePhxWidget(quint16 port)
   phxWidget->connectToTauPhx(phxUrl);
   setCentralWidget(phxWidget.get());
 
+#ifdef BUILD_WITH_DEBUG_PANE
   if (debugPane) {
     debugPane->setWebView(phxWidget->getWebView());
     QString dashboardUrl = QString("http://localhost:%1/dev/dashboard").arg(port);
@@ -159,12 +175,14 @@ void MainWindow::initializePhxWidget(quint16 port)
 
     debugPane->raise();
   }
+#endif
 
   if (controlLayer) {
     controlLayer->raise();
   }
 }
 
+#ifdef BUILD_WITH_DEBUG_PANE
 void MainWindow::initializeDebugPane()
 {
   debugPane = std::make_unique<DebugPane>(this);
@@ -203,11 +221,18 @@ void MainWindow::initializeDebugPane()
   connect(debugPane.get(), &DebugPane::webDevToolsLoaded, this, &MainWindow::handleWebDevToolsLoaded);
   connect(debugPane.get(), &DebugPane::restartBeamRequested, this, &MainWindow::handleBeamRestart);
 }
+#endif
 
 void MainWindow::initializeControlLayer()
 {
   controlLayer = std::make_unique<ControlLayer>(this);
   controlLayer->raise();
+
+#ifdef BUILD_WITH_DEBUG_PANE
+  controlLayer->setDebugPaneAvailable(m_enableDebugPane);
+#else
+  controlLayer->setDebugPaneAvailable(false);
+#endif
 
   connect(controlLayer.get(), &ControlLayer::sizeDown, this, &MainWindow::handleSizeDown);
   connect(controlLayer.get(), &ControlLayer::sizeUp, this, &MainWindow::handleSizeUp);
@@ -218,36 +243,52 @@ void MainWindow::initializeControlLayer()
 
 void MainWindow::toggleConsole()
 {
+#ifdef BUILD_WITH_DEBUG_PANE
   if (debugPane) {
     debugPane->toggle();
   }
+#endif
 }
 
 void MainWindow::handleBeamOutput(const QString &output)
 {
+#ifdef BUILD_WITH_DEBUG_PANE
   if (debugPane) {
     debugPane->appendOutput(output, false);
   }
+#else
+  Q_UNUSED(output);
+#endif
 }
 
 void MainWindow::handleBeamError(const QString &error)
 {
+#ifdef BUILD_WITH_DEBUG_PANE
   if (debugPane) {
     debugPane->appendOutput(error, true);
   }
+#else
+  Q_UNUSED(error);
+#endif
 }
 
 void MainWindow::handleGuiLog(const QString &message, bool isError)
 {
+#ifdef BUILD_WITH_DEBUG_PANE
   if (debugPane) {
     debugPane->appendGuiLog(message, isError);
   }
+#else
+  Q_UNUSED(message);
+  Q_UNUSED(isError);
+#endif
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
   QMainWindow::resizeEvent(event);
 
+#ifdef BUILD_WITH_DEBUG_PANE
   if (debugPane && debugPane->isVisible()) {
     int maxHeight = height();
     int currentHeight = debugPane->height();
@@ -259,6 +300,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     debugPane->resize(width(), currentHeight);
     debugPane->move(0, height() - currentHeight);
   }
+#endif
 
   if (controlLayer) {
     controlLayer->positionControls();
@@ -288,9 +330,11 @@ void MainWindow::closeEvent(QCloseEvent *event)
   QSettings settings;
   settings.setValue("MainWindow/geometry", saveGeometry());
 
+#ifdef BUILD_WITH_DEBUG_PANE
   if (debugPane) {
     debugPane->saveSettings();
   }
+#endif
 
   if (loadingOverlay) {
     loadingOverlay->close();
@@ -363,8 +407,12 @@ void MainWindow::handleWebDevToolsLoaded()
 
 void MainWindow::checkAllComponentsLoaded()
 {
-  if (m_mainWindowLoaded && m_liveDashboardLoaded &&
-      m_elixirConsoleLoaded && m_webDevToolsLoaded && !m_allComponentsSignalEmitted) {
+#ifdef BUILD_WITH_DEBUG_PANE
+  bool debugPaneReady = !m_enableDebugPane || (m_liveDashboardLoaded && m_elixirConsoleLoaded && m_webDevToolsLoaded);
+  if (m_mainWindowLoaded && debugPaneReady && !m_allComponentsSignalEmitted) {
+#else
+  if (m_mainWindowLoaded && !m_allComponentsSignalEmitted) {
+#endif
     m_allComponentsSignalEmitted = true;
     emit allComponentsLoaded();
   }
@@ -372,6 +420,7 @@ void MainWindow::checkAllComponentsLoaded()
 
 void MainWindow::handleBeamRestart()
 {
+#ifdef BUILD_WITH_DEBUG_PANE
   if (!beamInstance)
   {
     Logger::log(Logger::Error, "Cannot restart BEAM: beamInstance is null");
@@ -435,5 +484,6 @@ void MainWindow::handleBeamRestart()
   
   // Trigger the restart
   beamInstance->restart();
+#endif
 }
 

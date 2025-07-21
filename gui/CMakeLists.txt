@@ -59,10 +59,6 @@ set(SOURCES
   ${QTAPP_ROOT}/widgets/phxurlinterceptor.cpp
   ${QTAPP_ROOT}/widgets/sandboxedwebview.h
   ${QTAPP_ROOT}/widgets/sandboxedwebview.cpp
-  ${QTAPP_ROOT}/widgets/consolewidget.h
-  ${QTAPP_ROOT}/widgets/consolewidget.cpp
-  ${QTAPP_ROOT}/widgets/debugpane.h
-  ${QTAPP_ROOT}/widgets/debugpane.cpp
   ${QTAPP_ROOT}/widgets/controllayer.h
   ${QTAPP_ROOT}/widgets/controllayer.cpp
   ${QTAPP_ROOT}/widgets/loadingoverlay.h
@@ -74,6 +70,16 @@ set(SOURCES
   ${QTAPP_ROOT}/styles/StyleManager.h
   ${QTAPP_ROOT}/styles/StyleManager.cpp
 )
+
+# Conditionally add debug pane sources
+if(BUILD_DEBUG_PANE)
+  list(APPEND SOURCES
+    ${QTAPP_ROOT}/widgets/consolewidget.h
+    ${QTAPP_ROOT}/widgets/consolewidget.cpp
+    ${QTAPP_ROOT}/widgets/debugpane.h
+    ${QTAPP_ROOT}/widgets/debugpane.cpp
+  )
+endif()
 
 SET(RESOURCES
   ${QTAPP_ROOT}/Tau5.qrc
@@ -155,6 +161,11 @@ target_link_libraries(${APP_NAME}
   Qt::WebSockets
   Qt::OpenGLWidgets)
 
+# Add compile definitions based on build options
+if(BUILD_DEBUG_PANE)
+  target_compile_definitions(${APP_NAME} PRIVATE BUILD_WITH_DEBUG_PANE)
+endif()
+
 # Deploy Qt binaries to the output on windows, and copy the CRT to the release folder
 if(WIN32)
   # Visual Studio
@@ -167,8 +178,11 @@ if(WIN32)
     COMMAND ${CMAKE_PREFIX_PATH}/bin/windeployqt $<TARGET_FILE:${APP_NAME}>)
 endif() # Win32
 
-# Build DevTools MCP server as a separate executable (optional)
+# Build options
 option(BUILD_MCP_SERVER "Build the MCP DevTools server" OFF)
+option(BUILD_DEBUG_PANE "Include debug pane in the build" ON)
+
+# Build DevTools MCP server as a separate executable (optional)
 if(BUILD_MCP_SERVER)
   add_subdirectory(gui-dev-mcp)
 endif()

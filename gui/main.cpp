@@ -159,9 +159,15 @@ int main(int argc, char *argv[])
 {
   // Check for dev mode early
   bool devMode = false;
-  if (argc > 1 && std::strcmp(argv[1], "dev") == 0)
-  {
-    devMode = true;
+  bool enableDebugPane = true;
+  
+  // Parse command line arguments
+  for (int i = 1; i < argc; ++i) {
+    if (std::strcmp(argv[i], "dev") == 0) {
+      devMode = true;
+    } else if (std::strcmp(argv[i], "--no-debug-pane") == 0) {
+      enableDebugPane = false;
+    }
   }
 
   // Set up console output early if in dev mode
@@ -230,7 +236,7 @@ int main(int argc, char *argv[])
   std::unique_ptr<Beam> beam = std::make_unique<Beam>(&app, basePath, Config::APP_NAME,
                                                       Config::APP_VERSION, port, devMode);
 
-  MainWindow mainWindow(devMode);
+  MainWindow mainWindow(devMode, enableDebugPane);
   
   QObject::connect(&Logger::instance(), &Logger::logMessage,
                    &mainWindow, &MainWindow::handleGuiLog);
@@ -240,6 +246,13 @@ int main(int argc, char *argv[])
   Logger::log(Logger::Info, getTau5Logo());
   
   Logger::log(Logger::Info, "GUI Logger connected successfully");
+#ifdef BUILD_WITH_DEBUG_PANE
+  if (!enableDebugPane) {
+    Logger::log(Logger::Info, "Debug pane disabled via command line");
+  }
+#else
+  Logger::log(Logger::Info, "Debug pane not included in build");
+#endif
   Logger::log(Logger::Info, "Waiting for OTP supervision tree to start...");
   Logger::log(Logger::Debug, "Debug messages are enabled");
 

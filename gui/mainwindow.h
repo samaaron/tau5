@@ -10,7 +10,9 @@
 #endif
 
 class PhxWidget;
+#ifdef BUILD_WITH_DEBUG_PANE
 class DebugPane;
+#endif
 class ControlLayer;
 class Beam;
 class LoadingOverlay;
@@ -23,7 +25,7 @@ signals:
   void allComponentsLoaded();
 
 public:
-  explicit MainWindow(bool devMode = false, QWidget *parent = nullptr);
+  explicit MainWindow(bool devMode = false, bool enableDebugPane = true, QWidget *parent = nullptr);
   ~MainWindow();
 
   bool connectToServer(quint16 port);
@@ -60,12 +62,15 @@ private:
 
 private:
   std::unique_ptr<PhxWidget> phxWidget;
+#ifdef BUILD_WITH_DEBUG_PANE
   std::unique_ptr<DebugPane> debugPane;
+#endif
   std::unique_ptr<ControlLayer> controlLayer;
   std::unique_ptr<LoadingOverlay> loadingOverlay;
   QDateTime loadingOverlayStartTime;
   Beam *beamInstance;
   bool m_devMode;
+  bool m_enableDebugPane;
   
   bool m_mainWindowLoaded;
   bool m_liveDashboardLoaded;

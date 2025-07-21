@@ -76,6 +76,18 @@ void ControlLayer::setConsoleVisible(bool visible)
   }
 }
 
+void ControlLayer::setDebugPaneAvailable(bool available)
+{
+  m_consoleToggleButton->setVisible(available);
+  if (!available && m_buttonLayout) {
+    // Adjust layout to remove empty space
+    m_buttonLayout->invalidate();
+    m_buttonLayout->update();
+    adjustSize();
+    positionControls();
+  }
+}
+
 void ControlLayer::positionControls()
 {
   QWidget *parentWidget = this->parentWidget();
