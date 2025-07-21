@@ -7,29 +7,80 @@
 class StyleManager
 {
 public:
-  // Color Palette
+  // Color Palette with semantic naming
   struct Colors
   {
-    static const QString PRIMARY_ORANGE;
-    static const QString PRIMARY_ORANGE_RGB;
-    static const QString ERROR_BLUE;
-    static const QString TIMESTAMP_GRAY;
-    static const QString BLACK;
-    static const QString WHITE;
-    static const QString DEEP_PINK;
-    static const QString DARK_BACKGROUND;
-    static const QString CONSOLE_BACKGROUND;
+    // Primary brand colors
+    static const QString ACCENT_PRIMARY;          // Primary accent color (orange)
+    static const QString ACCENT_PRIMARY_RGB;      // Primary accent in RGB format
+    static const QString ACCENT_SECONDARY;        // Secondary accent (deep pink)
+    static const QString ACCENT_HIGHLIGHT;        // Highlight color (blue)
+    
+    // Background colors
+    static const QString BACKGROUND_PRIMARY;      // Main background (black)
+    static const QString BACKGROUND_SECONDARY;    // Secondary background (dark gray)
+    static const QString BACKGROUND_TERTIARY;     // Tertiary background (medium dark)
+    static const QString BACKGROUND_CONSOLE;      // Console specific background
+    static const QString BACKGROUND_SURFACE;      // Surface/card background
+    static const QString BACKGROUND_SURFACE_LIGHT;// Lighter surface background
+    
+    // Text colors
+    static const QString TEXT_PRIMARY;            // Primary text (white)
+    static const QString TEXT_SECONDARY;          // Secondary text (light gray)
+    static const QString TEXT_TERTIARY;           // Tertiary text (medium gray)
+    static const QString TEXT_MUTED;              // Muted text (dark gray)
+    static const QString TEXT_TIMESTAMP;          // Timestamp specific text
+    
+    // Interactive element colors
+    static const QString SCROLLBAR_TRACK;         // Scrollbar track color
+    static const QString SCROLLBAR_THUMB;         // Scrollbar thumb color
+    static const QString SCROLLBAR_THUMB_HOVER;   // Scrollbar thumb hover
+    static const QString BUTTON_HOVER;            // Button hover state
+    static const QString BUTTON_ACTIVE;           // Button active/pressed state
+    
+    // Special purpose colors
+    static const QString TERMINAL_CURSOR;         // Terminal cursor color
+    static const QString SELECTION_BACKGROUND;    // Text selection background
+    static const QString SELECTION_TEXT;          // Text selection foreground
+    static const QString BORDER_DEFAULT;          // Default border color
+    static const QString SCANLINE_OVERLAY;        // CRT scanline effect
+    
+    // Status colors
+    static const QString STATUS_ERROR;            // Error status (currently blue)
+    static const QString STATUS_WARNING;          // Warning status
+    static const QString STATUS_SUCCESS;          // Success status
+    static const QString STATUS_INFO;             // Info status
 
     // Alpha variants for transparency
-    static QString primaryOrangeAlpha(int alpha);
-    static QString blackAlpha(int alpha);
-    static QString whiteAlpha(int alpha);
-    static QString errorBlueAlpha(int alpha);
+    static QString accentPrimaryAlpha(int alpha);
+    static QString backgroundPrimaryAlpha(int alpha);
+    static QString textPrimaryAlpha(int alpha);
+    static QString statusErrorAlpha(int alpha);
     
-    // Alpha conversion helpers
-    static QString primaryOrangeAlpha(double alpha);  // Takes 0.0-1.0
-    static QString blackAlpha(double alpha);
-    static QString errorBlueAlpha(double alpha);
+    // Alpha conversion helpers (0.0-1.0)
+    static QString accentPrimaryAlpha(double alpha);
+    static QString backgroundPrimaryAlpha(double alpha);
+    static QString statusErrorAlpha(double alpha);
+    
+    // Legacy color name mappings (for backward compatibility)
+    static const QString& PRIMARY_ORANGE;
+    static const QString& PRIMARY_ORANGE_RGB;
+    static const QString& ERROR_BLUE;
+    static const QString& TIMESTAMP_GRAY;
+    static const QString& BLACK;
+    static const QString& WHITE;
+    static const QString& DEEP_PINK;
+    static const QString& DARK_BACKGROUND;
+    static const QString& CONSOLE_BACKGROUND;
+    
+    // Legacy alpha functions
+    static QString primaryOrangeAlpha(int alpha) { return accentPrimaryAlpha(alpha); }
+    static QString primaryOrangeAlpha(double alpha) { return accentPrimaryAlpha(alpha); }
+    static QString blackAlpha(int alpha) { return backgroundPrimaryAlpha(alpha); }
+    static QString blackAlpha(double alpha) { return backgroundPrimaryAlpha(alpha); }
+    static QString whiteAlpha(int alpha) { return textPrimaryAlpha(alpha); }
+    static QString errorBlueAlpha(int alpha) { return statusErrorAlpha(alpha); }
+    static QString errorBlueAlpha(double alpha) { return statusErrorAlpha(alpha); }
   };
 
   // Typography

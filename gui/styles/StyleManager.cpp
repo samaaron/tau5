@@ -1,48 +1,90 @@
 #include "StyleManager.h"
 
-// Color Palette Definitions
-const QString StyleManager::Colors::PRIMARY_ORANGE = "#ffa500";
-const QString StyleManager::Colors::PRIMARY_ORANGE_RGB = "rgb(255, 165, 0)";
-const QString StyleManager::Colors::ERROR_BLUE = "#4169e1";
-const QString StyleManager::Colors::TIMESTAMP_GRAY = "#888888";
-const QString StyleManager::Colors::BLACK = "#000000";
-const QString StyleManager::Colors::WHITE = "#ffffff";
-const QString StyleManager::Colors::DEEP_PINK = "rgb(255, 20, 147)";
-const QString StyleManager::Colors::DARK_BACKGROUND = "#1e1e1e";
-const QString StyleManager::Colors::CONSOLE_BACKGROUND = "#000000";
+// Primary brand colors
+const QString StyleManager::Colors::ACCENT_PRIMARY = "#ffa500";
+const QString StyleManager::Colors::ACCENT_PRIMARY_RGB = "rgb(255, 165, 0)";
+const QString StyleManager::Colors::ACCENT_SECONDARY = "rgb(255, 20, 147)";
+const QString StyleManager::Colors::ACCENT_HIGHLIGHT = "#1e90ff";
 
-QString StyleManager::Colors::primaryOrangeAlpha(int alpha)
+// Background colors
+const QString StyleManager::Colors::BACKGROUND_PRIMARY = "#000000";
+const QString StyleManager::Colors::BACKGROUND_SECONDARY = "#1e1e1e";
+const QString StyleManager::Colors::BACKGROUND_TERTIARY = "#1a1a1a";
+const QString StyleManager::Colors::BACKGROUND_CONSOLE = "#000000";
+const QString StyleManager::Colors::BACKGROUND_SURFACE = "#0a0a0a";
+const QString StyleManager::Colors::BACKGROUND_SURFACE_LIGHT = "#333333";
+
+// Text colors
+const QString StyleManager::Colors::TEXT_PRIMARY = "#ffffff";
+const QString StyleManager::Colors::TEXT_SECONDARY = "#e0e0e0";
+const QString StyleManager::Colors::TEXT_TERTIARY = "#b0b0b0";
+const QString StyleManager::Colors::TEXT_MUTED = "#888888";
+const QString StyleManager::Colors::TEXT_TIMESTAMP = "#888888";
+
+// Interactive element colors
+const QString StyleManager::Colors::SCROLLBAR_TRACK = "#1e1e1e";
+const QString StyleManager::Colors::SCROLLBAR_THUMB = "#5e5e5e";
+const QString StyleManager::Colors::SCROLLBAR_THUMB_HOVER = "#888888";
+const QString StyleManager::Colors::BUTTON_HOVER = "#ff8c00";
+const QString StyleManager::Colors::BUTTON_ACTIVE = "#cc6600";
+
+// Special purpose colors
+const QString StyleManager::Colors::TERMINAL_CURSOR = "rgb(255, 20, 147)";
+const QString StyleManager::Colors::SELECTION_BACKGROUND = "rgb(255, 20, 147)";
+const QString StyleManager::Colors::SELECTION_TEXT = "#000000";
+const QString StyleManager::Colors::BORDER_DEFAULT = "#ffa500";
+const QString StyleManager::Colors::SCANLINE_OVERLAY = "rgba(0, 0, 0, 0.08)";
+
+// Status colors
+const QString StyleManager::Colors::STATUS_ERROR = "#4169e1";
+const QString StyleManager::Colors::STATUS_WARNING = "#ff6600";
+const QString StyleManager::Colors::STATUS_SUCCESS = "#00ff00";
+const QString StyleManager::Colors::STATUS_INFO = "#1e90ff";
+
+// Legacy color name mappings
+const QString& StyleManager::Colors::PRIMARY_ORANGE = ACCENT_PRIMARY;
+const QString& StyleManager::Colors::PRIMARY_ORANGE_RGB = ACCENT_PRIMARY_RGB;
+const QString& StyleManager::Colors::ERROR_BLUE = STATUS_ERROR;
+const QString& StyleManager::Colors::TIMESTAMP_GRAY = TEXT_TIMESTAMP;
+const QString& StyleManager::Colors::BLACK = BACKGROUND_PRIMARY;
+const QString& StyleManager::Colors::WHITE = TEXT_PRIMARY;
+const QString& StyleManager::Colors::DEEP_PINK = ACCENT_SECONDARY;
+const QString& StyleManager::Colors::DARK_BACKGROUND = BACKGROUND_SECONDARY;
+const QString& StyleManager::Colors::CONSOLE_BACKGROUND = BACKGROUND_CONSOLE;
+
+// Alpha variants implementation
+QString StyleManager::Colors::accentPrimaryAlpha(int alpha)
 {
   return QString("rgba(255, 165, 0, %1)").arg(alpha);
 }
 
-QString StyleManager::Colors::blackAlpha(int alpha)
+QString StyleManager::Colors::backgroundPrimaryAlpha(int alpha)
 {
   return QString("rgba(0, 0, 0, %1)").arg(alpha);
 }
 
-QString StyleManager::Colors::whiteAlpha(int alpha)
+QString StyleManager::Colors::textPrimaryAlpha(int alpha)
 {
   return QString("rgba(255, 255, 255, %1)").arg(alpha);
 }
 
-QString StyleManager::Colors::errorBlueAlpha(int alpha)
+QString StyleManager::Colors::statusErrorAlpha(int alpha)
 {
   return QString("rgba(65, 105, 225, %1)").arg(alpha);
 }
 
 // Alpha conversion helpers - takes decimal 0.0-1.0
-QString StyleManager::Colors::primaryOrangeAlpha(double alpha)
+QString StyleManager::Colors::accentPrimaryAlpha(double alpha)
 {
   return QString("rgba(255, 165, 0, %1)").arg(alpha);
 }
 
-QString StyleManager::Colors::blackAlpha(double alpha)
+QString StyleManager::Colors::backgroundPrimaryAlpha(double alpha)
 {
   return QString("rgba(0, 0, 0, %1)").arg(alpha);
 }
 
-QString StyleManager::Colors::errorBlueAlpha(double alpha)
+QString StyleManager::Colors::statusErrorAlpha(double alpha)
 {
   return QString("rgba(65, 105, 225, %1)").arg(alpha);
 }

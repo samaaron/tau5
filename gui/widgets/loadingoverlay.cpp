@@ -9,6 +9,7 @@
 #include <QScreen>
 #include <QWindow>
 #include "../logger.h"
+#include "../styles/StyleManager.h"
 
 LoadingOverlay::LoadingOverlay(QWidget *parent)
     : QOpenGLWidget(nullptr)
@@ -163,7 +164,7 @@ void LoadingOverlay::updateTerminalTexture()
   font.setLetterSpacing(QFont::AbsoluteSpacing, 2.0);
   painter.setFont(font);
   
-  QColor baseColor(255, 20, 147);  // Deep pink FF1493
+  QColor baseColor = QColor(StyleManager::Colors::TERMINAL_CURSOR);
   
   int lineHeight = 28;
   int y = 30;
@@ -175,13 +176,14 @@ void LoadingOverlay::updateTerminalTexture()
       line = line.left(117) + "...";
     }
     
-    painter.setPen(QColor(255, 20, 147));  // Deep pink FF1493
+    painter.setPen(QColor(StyleManager::Colors::TERMINAL_CURSOR));
     painter.drawText(15, y, line);
     
     y += lineHeight;
   }
   
-  painter.setPen(QColor(0, 0, 0, 20));
+  // Scanline effect with semantic color
+  painter.setPen(QColor(StyleManager::Colors::backgroundPrimaryAlpha(20)));
   for (int i = 0; i < terminalImage.height(); i += 2) {
     painter.drawLine(0, i, terminalImage.width(), i);
   }

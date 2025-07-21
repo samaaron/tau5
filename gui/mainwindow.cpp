@@ -18,6 +18,7 @@
 #include "widgets/loadingoverlay.h"
 #include "lib/beam.h"
 #include "logger.h"
+#include "styles/StyleManager.h"
 MainWindow::MainWindow(bool devMode, bool enableDebugPane, QWidget *parent)
     : QMainWindow(parent)
     , beamInstance(nullptr)
@@ -46,7 +47,7 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, QWidget *parent)
     restoreGeometry(settings.value("MainWindow/geometry").toByteArray());
   }
 
-  this->setStyleSheet("background-color: black;");
+  this->setStyleSheet(StyleManager::mainWindow());
 
   QMenuBar *menuBar = this->menuBar();
   QMenu *helpMenu = menuBar->addMenu(tr("&Help"));

@@ -1,31 +1,43 @@
 /* Tau5 Theme - Dark theme for Phoenix LiveDashboard */
 
 :root {
-  --color-orange: #ff6600 !important;
-  --color-blue: #4169E1 !important;
-  --color-cyan: #e0e0e0 !important;
-  --color-white: #b0b0b0 !important;
+  /* Primary colors aligned with StyleManager */
+  --accent-primary: #ffa500 !important;
+  --accent-secondary: rgb(255, 20, 147) !important;
+  --accent-highlight: #1e90ff !important;
+  --status-error: #4169e1 !important;
+  --status-warning: #ff6600 !important;
   
-  --text-primary: #e6e6e6 !important;
-  --text-secondary: #999999 !important;
-  --text-muted: #cccccc !important;
+  /* Text colors */
+  --text-primary: #ffffff !important;
+  --text-secondary: #e0e0e0 !important;
+  --text-tertiary: #b0b0b0 !important;
+  --text-muted: #888888 !important;
   --text-disabled: #7a7a7a !important;
   
+  /* Background colors */
   --bg-body: #0a0a0a !important;
   --bg-card: #1a1a1a !important;
   --bg-button: #333333 !important;
   --bg-button-hover: #404040 !important;
   --bg-chart: rgba(100, 100, 100, 0.4) !important;
   
+  /* Border colors */
   --border-subtle: #262626 !important;
   --border-default: #333333 !important;
   --border-button: #4d4d4d !important;
   
-  --elixir-purple: var(--color-orange) !important;
-  --phoenix-orange: var(--color-cyan) !important;
-  --dashboard-blue: var(--color-cyan) !important;
-  --primary: var(--color-orange) !important;
-  --secondary: var(--color-cyan) !important;
+  /* Legacy mappings for compatibility */
+  --color-orange: var(--accent-primary) !important;
+  --color-blue: var(--status-error) !important;
+  --color-cyan: var(--text-secondary) !important;
+  --color-white: var(--text-tertiary) !important;
+  
+  --elixir-purple: var(--accent-primary) !important;
+  --phoenix-orange: var(--text-secondary) !important;
+  --dashboard-blue: var(--text-secondary) !important;
+  --primary: var(--accent-primary) !important;
+  --secondary: var(--text-secondary) !important;
   
   --gray-100: var(--bg-body) !important;
   --gray-200: var(--bg-card) !important;

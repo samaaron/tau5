@@ -1,4 +1,5 @@
 #include "phxwebview.h"
+#include "../styles/StyleManager.h"
 #include <QWebEngineSettings>
 
 PhxWebView::PhxWebView(QWidget *parent)
@@ -7,7 +8,9 @@ PhxWebView::PhxWebView(QWidget *parent)
   setZoomFactor(1.0);
   setAttribute(Qt::WA_TranslucentBackground);
   setStyleSheet("background:transparent");
-  setScrollbarColours("#5e5e5e", "black", "#1e90ff");
+  setScrollbarColours(StyleManager::Colors::SCROLLBAR_THUMB, 
+                     StyleManager::Colors::BACKGROUND_PRIMARY, 
+                     StyleManager::Colors::ACCENT_HIGHLIGHT);
 }
 
 void PhxWebView::applyCustomSettings(QWebEngineSettings *settings)
