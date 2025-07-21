@@ -73,11 +73,13 @@ set(SOURCES
 
 # Conditionally add debug pane sources
 if(BUILD_DEBUG_PANE)
+  # Include the debugpane module
+  include(${QTAPP_ROOT}/widgets/debugpane/CMakeLists.txt)
+  
   list(APPEND SOURCES
-    ${QTAPP_ROOT}/widgets/consolewidget.h
-    ${QTAPP_ROOT}/widgets/consolewidget.cpp
     ${QTAPP_ROOT}/widgets/debugpane.h
     ${QTAPP_ROOT}/widgets/debugpane.cpp
+    ${DEBUGPANE_SOURCES}
   )
 endif()
 

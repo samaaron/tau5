@@ -1,0 +1,21 @@
+# DebugPane module sources
+set(DEBUGPANE_SOURCES
+    ${CMAKE_CURRENT_LIST_DIR}/customsplitter.h
+    ${CMAKE_CURRENT_LIST_DIR}/customsplitter.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/searchfunctionality.h
+    ${CMAKE_CURRENT_LIST_DIR}/searchfunctionality.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/iconutilities.h
+    ${CMAKE_CURRENT_LIST_DIR}/iconutilities.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/buttonutilities.h
+    ${CMAKE_CURRENT_LIST_DIR}/buttonutilities.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/themestyles.h
+    ${CMAKE_CURRENT_LIST_DIR}/themestyles.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/zoomcontrol.h
+    ${CMAKE_CURRENT_LIST_DIR}/zoomcontrol.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/tabswitcher.h
+    ${CMAKE_CURRENT_LIST_DIR}/tabswitcher.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/animationcontrol.h
+    ${CMAKE_CURRENT_LIST_DIR}/animationcontrol.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/resizedragcontrol.h
+    ${CMAKE_CURRENT_LIST_DIR}/resizedragcontrol.cpp
+)

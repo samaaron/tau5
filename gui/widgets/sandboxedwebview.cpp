@@ -28,6 +28,10 @@ SandboxedWebView::SandboxedWebView(QWidget *parent)
     
     applyCustomSettings(settings);
     
+    // Apply default Tau5 theme scrollbar colors (orange on black)
+    // Child classes can override by calling setScrollbarColours again
+    setScrollbarColours("#ffa500", "#000000", "#ffa500");
+    
     connect(m_profile, &QWebEngineProfile::downloadRequested, 
             this, &SandboxedWebView::handleDownloadRequested);
     

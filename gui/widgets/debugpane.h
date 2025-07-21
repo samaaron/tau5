@@ -13,6 +13,7 @@
 #include <memory>
 
 class QPushButton;
+class SearchFunctionality;
 class QLabel;
 class QPropertyAnimation;
 class QTextEdit;
@@ -42,7 +43,7 @@ public:
     void setWebView(PhxWebView *webView);
     void setViewMode(ViewMode mode);
     void setLiveDashboardUrl(const QString &url);
-    void setIexShellUrl(const QString &url);
+    void setElixirConsoleUrl(const QString &url);
     void saveSettings();
     void restoreSettings();
     void setRestartButtonEnabled(bool enabled);
@@ -69,11 +70,11 @@ private slots:
     void handleConsoleZoomOut();
     void handleGuiLogZoomIn();
     void handleGuiLogZoomOut();
-    void handleIexShellZoomIn();
-    void handleIexShellZoomOut();
+    void handleElixirConsoleZoomIn();
+    void handleElixirConsoleZoomOut();
     void showBeamLog();
     void showGuiLog();
-    void showIexShell();
+    void showElixirConsole();
     void showDevToolsTab();
     void showLiveDashboardTab();
     void findNext();
@@ -99,27 +100,11 @@ private:
     void setupDevTools();
     void slide(bool show);
     void updateViewMode();
-    void applyDevToolsDarkTheme();
-    void applyLiveDashboardTau5Theme();
-    void applyConsoleDarkTheme();
-    void injectDevToolsFontScript();
-    QString getDarkScrollbarCSS() const;
-    QIcon createSvgIcon(const QString &normalSvg, const QString &hoverSvg = "", const QString &selectedSvg = "");
-    QPixmap createSvgPixmap(const QString &svg, int width, int height);
-    QWidget* createTabToolbar(QWidget *parent);
-    QString getTabButtonStyle();
-    QString getZoomButtonStyle();
-    QPushButton* createTabButton(const QString &text, QWidget *parent);
-    QPushButton* createZoomButton(const QIcon &icon, const QString &tooltip, QWidget *parent);
-    QWidget* createSearchWidget(QWidget *parent, QLineEdit *&searchInput, QPushButton *&closeButton);
     int constrainHeight(int requestedHeight) const;
-    void getCurrentSearchContext(QWidget *&searchWidget, QLineEdit *&searchInput, QTextEdit *&textEdit, QString *&lastSearchText);
-    void highlightAllMatches(QTextEdit *textEdit, const QString &searchText, const QTextCursor &currentMatch);
-    void zoomWebView(QWebEngineView *view, bool zoomIn);
-    void zoomTextEdit(QTextEdit *textEdit, int &fontSize, bool zoomIn);
-    void applyFontToTextEdit(QTextEdit *textEdit, int fontSize);
     void switchConsoleTab(int index, const QList<QPushButton*> &tabButtons);
     void switchDevToolsTab(int index);
+    void getCurrentSearchContext(QWidget *&searchWidget, QLineEdit *&searchInput, QTextEdit *&textEdit, QString *&lastSearchText);
+    void highlightAllMatches(QTextEdit *textEdit, const QString &searchText, const QTextCursor &currentMatch);
 
 private:
     QVBoxLayout *m_mainLayout;
@@ -131,7 +116,7 @@ private:
     QStackedWidget *m_consoleStack;
     QPushButton *m_beamLogTabButton;
     QPushButton *m_guiLogTabButton;
-    QPushButton *m_iexShellTabButton;
+    QPushButton *m_elixirConsoleTabButton;
     QWidget *m_beamLogContainer;
     QVBoxLayout *m_beamLogLayout;
     QTextEdit *m_outputDisplay;
@@ -148,10 +133,10 @@ private:
     QPushButton *m_guiLogSearchButton;
     QPushButton *m_guiLogZoomInButton;
     QPushButton *m_guiLogZoomOutButton;
-    QWidget *m_iexShellContainer;
-    SandboxedWebView *m_iexShellView;
-    QPushButton *m_iexShellZoomInButton;
-    QPushButton *m_iexShellZoomOutButton;
+    QWidget *m_elixirConsoleContainer;
+    SandboxedWebView *m_elixirConsoleView;
+    QPushButton *m_elixirConsoleZoomInButton;
+    QPushButton *m_elixirConsoleZoomOutButton;
     QTabWidget *m_devToolsTabs;
     QWidget *m_devToolsMainContainer;
     QStackedWidget *m_devToolsStack;
@@ -175,7 +160,6 @@ private:
     QPushButton *m_sideBySideButton;
     QPushButton *m_restartButton;
     QTimer *m_restartAnimationTimer;
-    int m_restartAnimationFrame;
 
     std::unique_ptr<QPropertyAnimation> m_slideAnimation;
     bool m_isVisible;
@@ -201,6 +185,7 @@ private:
     QLineEdit *m_guiLogSearchInput;
     QPushButton *m_guiLogSearchCloseButton;
     QString m_guiLogLastSearchText;
+    SearchFunctionality *m_searchFunctionality;
     
 public:
     static constexpr int RESIZE_HANDLE_HEIGHT = 10;  // Interaction area

@@ -168,7 +168,7 @@ void MainWindow::initializePhxWidget(quint16 port)
     if (beamInstance) {
       QString token = beamInstance->getSessionToken();
       QString consoleUrl = QString("http://localhost:%1/dev/console?token=%2").arg(port).arg(token);
-      debugPane->setIexShellUrl(consoleUrl);
+      debugPane->setElixirConsoleUrl(consoleUrl);
     } else {
       Logger::log(Logger::Warning, "BeamInstance is null when setting Tau5 Console URL");
     }
@@ -470,13 +470,13 @@ void MainWindow::handleBeamRestart()
       phxWidget->handleResetBrowser();
     }
     
-    // Update the IEx shell URL with the new token
+    // Update the Elixir Console URL with the new token
     if (debugPane && beamInstance)
     {
       // Use the port stored in the Beam instance
       quint16 port = beamInstance->getPort();
       QString consoleUrl = QString("http://localhost:%1/dev/console?token=%2").arg(port).arg(newToken);
-      debugPane->setIexShellUrl(consoleUrl);
+      debugPane->setElixirConsoleUrl(consoleUrl);
     }
     
     context->deleteLater();

@@ -2,6 +2,14 @@
 // https://github.com/microsoft/vscode-icons
 // Licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
 #include "debugpane.h"
+#include "debugpane/customsplitter.h"
+#include "debugpane/searchfunctionality.h"
+#include "debugpane/iconutilities.h"
+#include "debugpane/buttonutilities.h"
+#include "debugpane/themestyles.h"
+#include "debugpane/zoomcontrol.h"
+#include "debugpane/tabswitcher.h"
+#include "debugpane/animationcontrol.h"
 #include "StyleManager.h"
 #include "phxwebview.h"
 #include "sandboxedwebview.h"
@@ -54,85 +62,19 @@
 #include <QTextEdit>
 #include <cmath>
 
-// Custom splitter class to handle hover effects
-class CustomSplitter : public QSplitter
-{
-public:
-    CustomSplitter(Qt::Orientation orientation, QWidget *parent = nullptr) 
-        : QSplitter(orientation, parent) {}
-    
-protected:
-    QSplitterHandle *createHandle() override
-    {
-        return new CustomSplitterHandle(orientation(), this);
-    }
-    
-private:
-    class CustomSplitterHandle : public QSplitterHandle
-    {
-    public:
-        CustomSplitterHandle(Qt::Orientation orientation, QSplitter *parent)
-            : QSplitterHandle(orientation, parent), m_isHovered(false)
-        {
-            setMouseTracking(true);
-        }
-        
-    protected:
-        void paintEvent(QPaintEvent *event) override
-        {
-            Q_UNUSED(event);
-            QPainter painter(this);
-            
-            if (m_isHovered)
-            {
-                if (orientation() == Qt::Horizontal)
-                {
-                    // For horizontal splitter, draw vertical bar
-                    int centerStart = (width() - DebugPane::RESIZE_HANDLE_VISUAL_HEIGHT) / 2;
-                    painter.fillRect(centerStart, 0, DebugPane::RESIZE_HANDLE_VISUAL_HEIGHT, height(), 
-                                   QColor(StyleManager::Colors::PRIMARY_ORANGE));
-                }
-                else
-                {
-                    // For vertical splitter, draw horizontal bar
-                    int centerStart = (height() - DebugPane::RESIZE_HANDLE_VISUAL_HEIGHT) / 2;
-                    painter.fillRect(0, centerStart, width(), DebugPane::RESIZE_HANDLE_VISUAL_HEIGHT, 
-                                   QColor(StyleManager::Colors::PRIMARY_ORANGE));
-                }
-            }
-        }
-        
-        void enterEvent(QEnterEvent *event) override
-        {
-            Q_UNUSED(event);
-            m_isHovered = true;
-            update();
-        }
-        
-        void leaveEvent(QEvent *event) override
-        {
-            Q_UNUSED(event);
-            m_isHovered = false;
-            update();
-        }
-        
-    private:
-        bool m_isHovered;
-    };
-};
-
 DebugPane::DebugPane(QWidget *parent)
     : QWidget(parent), m_isVisible(false), m_autoScroll(true), m_guiLogAutoScroll(true),
       m_maxLines(5000), m_currentMode(BeamLogOnly), m_isResizing(false), 
       m_resizeStartY(0), m_resizeStartHeight(0), m_isHoveringHandle(false),
       m_targetWebView(nullptr), m_devToolsView(nullptr), m_liveDashboardView(nullptr),
-      m_iexShellView(nullptr), m_iexShellTabButton(nullptr),
+      m_elixirConsoleView(nullptr), m_elixirConsoleTabButton(nullptr),
       m_currentFontSize(12), m_guiLogFontSize(12), m_devToolsMainContainer(nullptr), 
       m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
       m_dragHandleWidget(nullptr), m_restartButton(nullptr), m_restartAnimationTimer(nullptr),
-      m_restartAnimationFrame(0), m_beamLogSearchWidget(nullptr), m_beamLogSearchInput(nullptr), 
+      m_beamLogSearchWidget(nullptr), m_beamLogSearchInput(nullptr), 
       m_beamLogSearchCloseButton(nullptr), m_guiLogSearchWidget(nullptr), m_guiLogSearchInput(nullptr),
-      m_guiLogSearchCloseButton(nullptr), m_beamLogSearchButton(nullptr), m_guiLogSearchButton(nullptr)
+      m_guiLogSearchCloseButton(nullptr), m_beamLogSearchButton(nullptr), m_guiLogSearchButton(nullptr),
+      m_searchFunctionality(new SearchFunctionality(this))
 {
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowFlags(Qt::FramelessWindowHint);
@@ -194,9 +136,7 @@ void DebugPane::setupUi()
           .arg(StyleManager::Colors::primaryOrangeAlpha(150))
           .arg(StyleManager::Colors::primaryOrangeAlpha(100)));
 
-  m_slideAnimation = std::make_unique<QPropertyAnimation>(this, "slidePosition");
-  m_slideAnimation->setDuration(300);
-  m_slideAnimation->setEasingCurve(QEasingCurve::OutCubic);
+  m_slideAnimation = AnimationControl::createSlideAnimation(this, "slidePosition");
   connect(m_slideAnimation.get(), &QPropertyAnimation::finished,
           this, &DebugPane::animationFinished);
 
@@ -216,32 +156,24 @@ void DebugPane::setupViewControls()
   QString hoverColor = StyleManager::Colors::WHITE;
   QString selectedColor = StyleManager::Colors::ERROR_BLUE;
 
-  QString terminalSvg = QString("<svg viewBox='0 0 24 24' fill='%1'><path fill-rule='evenodd' clip-rule='evenodd' d='M1.5 3L3 1.5H21L22.5 3V21L21 22.5H3L1.5 21V3ZM3 3V21H21V3H3Z'/><path d='M7.06078 7.49988L6.00012 8.56054L10.2427 12.8032L6 17.0459L7.06066 18.1066L12 13.1673V12.4391L7.06078 7.49988Z'/><rect x='12' y='16.5' width='6' height='1.5'/></svg>");
-
-  QString listSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><rect x='4' y='9' width='9' height='1'/><rect x='4' y='12' width='7' height='1'/><rect x='4' y='6' width='10' height='1'/><rect x='1' y='3' width='11' height='1'/><rect x='4' y='4' width='1' height='9'/></svg>");
-
-  QIcon logIcon = createSvgIcon(
-      terminalSvg.arg(normalColor),
+  QIcon logIcon = IconUtilities::createSvgIcon(
+      IconUtilities::Icons::terminalSvg(normalColor),
       "",
-      terminalSvg.arg(selectedColor));
+      IconUtilities::Icons::terminalSvg(selectedColor));
 
-  QString bugSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path fill-rule='evenodd' clip-rule='evenodd' d='M10.877 4.5v-.582a2.918 2.918 0 1 0-5.836 0V4.5h-.833L2.545 2.829l-.593.59 1.611 1.619-.019.049a8.03 8.03 0 0 0-.503 2.831c0 .196.007.39.02.58l.003.045H1v.836h2.169l.006.034c.172.941.504 1.802.954 2.531l.034.055L2.2 13.962l.592.592 1.871-1.872.058.066c.868.992 2.002 1.589 3.238 1.589 1.218 0 2.336-.579 3.199-1.544l.057-.064 1.91 1.92.593-.591-1.996-2.006.035-.056c.467-.74.81-1.619.986-2.583l.006-.034h2.171v-.836h-2.065l.003-.044a8.43 8.43 0 0 0 .02-.58 8.02 8.02 0 0 0-.517-2.866l-.019-.05 1.57-1.57-.592-.59L11.662 4.5h-.785zm-5 0v-.582a2.082 2.082 0 1 1 4.164 0V4.5H5.878z'/></svg>");
-
-  QIcon devToolsIcon = createSvgIcon(
-      bugSvg.arg(normalColor),
+  QIcon devToolsIcon = IconUtilities::createSvgIcon(
+      IconUtilities::Icons::bugSvg(normalColor),
       "",
-      bugSvg.arg(selectedColor));
+      IconUtilities::Icons::bugSvg(selectedColor));
 
-  QString splitSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path d='M14 1H3L2 2v11l1 1h11l1-1V2l-1-1zM8 13H3V2h5v11zm6 0H9V2h5v11z'/></svg>");
-  QIcon sideBySideIcon = createSvgIcon(
-      splitSvg.arg(normalColor),
+  QIcon sideBySideIcon = IconUtilities::createSvgIcon(
+      IconUtilities::Icons::splitSvg(normalColor),
       "",
-      splitSvg.arg(selectedColor));
+      IconUtilities::Icons::splitSvg(selectedColor));
 
-  QString restartSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path d='M12.75 8a4.5 4.5 0 0 1-8.61 1.834l-1.391.565A6.001 6.001 0 0 0 14.25 8 6 6 0 0 0 3.5 4.334V2.5H2v4l.75.75h3.5v-1.5H4.352A4.5 4.5 0 0 1 12.75 8z'/></svg>");
-  QIcon restartIcon = createSvgIcon(
-      restartSvg.arg(normalColor),
-      restartSvg.arg(hoverColor),
+  QIcon restartIcon = IconUtilities::createSvgIcon(
+      IconUtilities::Icons::restartSvg(normalColor),
+      IconUtilities::Icons::restartSvg(hoverColor),
       "");
 
   m_restartButton = new QPushButton(m_headerWidget);
@@ -259,33 +191,7 @@ void DebugPane::setupViewControls()
   m_devToolsButton->setToolTip("DevTools Only");
   m_sideBySideButton->setToolTip("Side by Side View");
 
-  QString buttonStyle = QString(
-      "QPushButton { "
-      "  background: transparent; "
-      "  border: none; "
-      "  padding: 2px; "
-      "  margin: 0 2px; "
-      "  min-width: 24px; "
-      "  max-width: 24px; "
-      "  min-height: 16px; "
-      "  max-height: 16px; "
-      "} "
-      "QPushButton:hover { "
-      "  background: %1; "
-      "} "
-      "QPushButton:pressed { "
-      "  background: %2; "
-      "} "
-      "QPushButton:checked { "
-      "  background: %3; "
-      "  border-radius: 3px; "
-      "} "
-      "QPushButton:focus { "
-      "  outline: none; "
-      "}")
-      .arg(StyleManager::Colors::primaryOrangeAlpha(25))   // hover
-      .arg(StyleManager::Colors::primaryOrangeAlpha(51))   // pressed
-      .arg(StyleManager::Colors::errorBlueAlpha(51));      // checked
+  QString buttonStyle = ButtonUtilities::getHeaderButtonStyle();
 
   m_restartButton->setStyleSheet(buttonStyle);
   m_beamLogButton->setStyleSheet(buttonStyle);
@@ -322,42 +228,32 @@ void DebugPane::setupConsole()
   consoleMainLayout->setContentsMargins(0, 0, 0, 0);
   consoleMainLayout->setSpacing(0);
   
-  QWidget *consoleToolbar = createTabToolbar(m_consoleContainer);
+  QWidget *consoleToolbar = ButtonUtilities::createTabToolbar(m_consoleContainer);
   
   QHBoxLayout *toolbarLayout = new QHBoxLayout(consoleToolbar);
   toolbarLayout->setContentsMargins(5, 2, 10, 2);
   toolbarLayout->setSpacing(2);
   
-  m_beamLogTabButton = createTabButton("BEAM Log", consoleToolbar);
+  m_beamLogTabButton = ButtonUtilities::createTabButton("BEAM Log", consoleToolbar);
   m_beamLogTabButton->setChecked(true);
   
-  m_guiLogTabButton = createTabButton("GUI Log", consoleToolbar);
+  m_guiLogTabButton = ButtonUtilities::createTabButton("GUI Log", consoleToolbar);
   
-  m_iexShellTabButton = createTabButton("Elixir", consoleToolbar);
+  m_elixirConsoleTabButton = ButtonUtilities::createTabButton("Elixir", consoleToolbar);
   
   toolbarLayout->addWidget(m_beamLogTabButton);
   toolbarLayout->addWidget(m_guiLogTabButton);
-  toolbarLayout->addWidget(m_iexShellTabButton);
+  toolbarLayout->addWidget(m_elixirConsoleTabButton);
   toolbarLayout->addStretch();
   
   QString normalColor = StyleManager::Colors::PRIMARY_ORANGE;
   QString hoverColor = StyleManager::Colors::WHITE;
   QString activeColor = StyleManager::Colors::PRIMARY_ORANGE;
-  QString autoScrollOffSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'>"
-      "<path d='M8 3v7M5 7l3 3 3-3' stroke='%1' stroke-width='1.5' fill='none'/>"
-      "<rect x='4' y='12' width='8' height='2' fill='%1' opacity='0.3'/>"
-      "</svg>");
-  
-  QString autoScrollOnSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'>"
-      "<path d='M8 3v7M5 7l3 3 3-3' stroke='%1' stroke-width='1.5' fill='none'/>"
-      "<rect x='4' y='12' width='8' height='2' fill='%1'/>"
-      "</svg>");
-  
   QIcon autoScrollIcon;
-  autoScrollIcon.addPixmap(createSvgPixmap(autoScrollOffSvg.arg(normalColor), 20, 20), QIcon::Normal, QIcon::Off);
-  autoScrollIcon.addPixmap(createSvgPixmap(autoScrollOffSvg.arg(hoverColor), 20, 20), QIcon::Active, QIcon::Off);
-  autoScrollIcon.addPixmap(createSvgPixmap(autoScrollOnSvg.arg(normalColor), 20, 20), QIcon::Normal, QIcon::On);
-  autoScrollIcon.addPixmap(createSvgPixmap(autoScrollOnSvg.arg(hoverColor), 20, 20), QIcon::Active, QIcon::On);
+  autoScrollIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::autoScrollOffSvg(normalColor), 20, 20), QIcon::Normal, QIcon::Off);
+  autoScrollIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::autoScrollOffSvg(hoverColor), 20, 20), QIcon::Active, QIcon::Off);
+  autoScrollIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::autoScrollOnSvg(normalColor), 20, 20), QIcon::Normal, QIcon::On);
+  autoScrollIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::autoScrollOnSvg(hoverColor), 20, 20), QIcon::Active, QIcon::On);
   
   m_beamLogContainer = new QWidget();
   m_beamLogLayout = new QVBoxLayout(m_beamLogContainer);
@@ -391,10 +287,9 @@ void DebugPane::setupConsole()
   m_autoScrollButton->setFocusPolicy(Qt::NoFocus);
   m_autoScrollButton->setVisible(true);
   
-  QString searchSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path d='M15.7 13.3l-3.81-3.83A5.93 5.93 0 0 0 13 6c0-3.31-2.69-6-6-6S1 2.69 1 6s2.69 6 6 6c1.3 0 2.48-.41 3.47-1.11l3.83 3.81c.19.2.45.3.7.3.25 0 .52-.09.7-.3a.996.996 0 0 0 0-1.41v.01zM7 10.7c-2.59 0-4.7-2.11-4.7-4.7 0-2.59 2.11-4.7 4.7-4.7 2.59 0 4.7 2.11 4.7 4.7 0 2.59-2.11 4.7-4.7 4.7z'/></svg>");
   QIcon searchIcon;
-  searchIcon.addPixmap(createSvgPixmap(searchSvg.arg(normalColor), 13, 13), QIcon::Normal);
-  searchIcon.addPixmap(createSvgPixmap(searchSvg.arg(hoverColor), 13, 13), QIcon::Active);
+  searchIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::searchSvg(normalColor), 13, 13), QIcon::Normal);
+  searchIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::searchSvg(hoverColor), 13, 13), QIcon::Active);
   
   m_beamLogSearchButton = new QPushButton(consoleToolbar);
   m_beamLogSearchButton->setIcon(searchIcon);
@@ -422,18 +317,16 @@ void DebugPane::setupConsole()
   m_beamLogSearchButton->setFocusPolicy(Qt::NoFocus);
   m_beamLogSearchButton->setVisible(true);
   
-  QString zoomOutSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'><path d='M3 8h10v1H3z'/></svg>");
   QIcon zoomOutIcon;
-  zoomOutIcon.addPixmap(createSvgPixmap(zoomOutSvg.arg(normalColor), 16, 16), QIcon::Normal);
-  zoomOutIcon.addPixmap(createSvgPixmap(zoomOutSvg.arg(hoverColor), 16, 16), QIcon::Active);
+  zoomOutIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::zoomOutSvg(normalColor), 16, 16), QIcon::Normal);
+  zoomOutIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::zoomOutSvg(hoverColor), 16, 16), QIcon::Active);
   
-  QString zoomInSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'><path d='M8 3v5H3v1h5v5h1V9h5V8H9V3H8z'/></svg>");
   QIcon zoomInIcon;
-  zoomInIcon.addPixmap(createSvgPixmap(zoomInSvg.arg(normalColor), 16, 16), QIcon::Normal);
-  zoomInIcon.addPixmap(createSvgPixmap(zoomInSvg.arg(hoverColor), 16, 16), QIcon::Active);
+  zoomInIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::zoomInSvg(normalColor), 16, 16), QIcon::Normal);
+  zoomInIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::zoomInSvg(hoverColor), 16, 16), QIcon::Active);
   
-  m_consoleZoomOutButton = createZoomButton(zoomOutIcon, "Zoom Out", consoleToolbar);
-  m_consoleZoomInButton = createZoomButton(zoomInIcon, "Zoom In", consoleToolbar);
+  m_consoleZoomOutButton = ButtonUtilities::createZoomButton(zoomOutIcon, "Zoom Out", consoleToolbar);
+  m_consoleZoomInButton = ButtonUtilities::createZoomButton(zoomInIcon, "Zoom In", consoleToolbar);
   m_consoleZoomOutButton->setVisible(true);
   m_consoleZoomInButton->setVisible(true);
   
@@ -490,17 +383,17 @@ void DebugPane::setupConsole()
   m_guiLogSearchButton->setFocusPolicy(Qt::NoFocus);
   m_guiLogSearchButton->setVisible(false);
   
-  m_guiLogZoomOutButton = createZoomButton(zoomOutIcon, "Zoom Out", consoleToolbar);
+  m_guiLogZoomOutButton = ButtonUtilities::createZoomButton(zoomOutIcon, "Zoom Out", consoleToolbar);
   m_guiLogZoomOutButton->setVisible(false);
   
-  m_guiLogZoomInButton = createZoomButton(zoomInIcon, "Zoom In", consoleToolbar);
+  m_guiLogZoomInButton = ButtonUtilities::createZoomButton(zoomInIcon, "Zoom In", consoleToolbar);
   m_guiLogZoomInButton->setVisible(false);
   
-  m_iexShellZoomOutButton = createZoomButton(zoomOutIcon, "Zoom Out", consoleToolbar);
-  m_iexShellZoomOutButton->setVisible(false);
+  m_elixirConsoleZoomOutButton = ButtonUtilities::createZoomButton(zoomOutIcon, "Zoom Out", consoleToolbar);
+  m_elixirConsoleZoomOutButton->setVisible(false);
   
-  m_iexShellZoomInButton = createZoomButton(zoomInIcon, "Zoom In", consoleToolbar);
-  m_iexShellZoomInButton->setVisible(false);
+  m_elixirConsoleZoomInButton = ButtonUtilities::createZoomButton(zoomInIcon, "Zoom In", consoleToolbar);
+  m_elixirConsoleZoomInButton->setVisible(false);
   
   toolbarLayout->addWidget(m_beamLogSearchButton);
   toolbarLayout->addWidget(m_guiLogSearchButton);
@@ -511,8 +404,8 @@ void DebugPane::setupConsole()
   toolbarLayout->addWidget(m_consoleZoomInButton);
   toolbarLayout->addWidget(m_guiLogZoomOutButton);
   toolbarLayout->addWidget(m_guiLogZoomInButton);
-  toolbarLayout->addWidget(m_iexShellZoomOutButton);
-  toolbarLayout->addWidget(m_iexShellZoomInButton);
+  toolbarLayout->addWidget(m_elixirConsoleZoomOutButton);
+  toolbarLayout->addWidget(m_elixirConsoleZoomInButton);
   
   m_consoleStack = new QStackedWidget(m_consoleContainer);
   
@@ -521,15 +414,12 @@ void DebugPane::setupConsole()
   m_outputDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_outputDisplay->setStyleSheet(StyleManager::consoleOutput());
   
-  QFont consoleFont("Cascadia Code PL", 10);
-  consoleFont.setStyleHint(QFont::Monospace);
-  consoleFont.setPixelSize(m_currentFontSize);
-  m_outputDisplay->setFont(consoleFont);
-  m_outputDisplay->document()->setDefaultFont(consoleFont);
+  // Apply initial font using the zoom control method to ensure consistency
+  DebugPaneZoomControl::applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
   
   m_beamLogLayout->addWidget(m_outputDisplay);
   
-  m_beamLogSearchWidget = createSearchWidget(m_beamLogContainer, m_beamLogSearchInput, m_beamLogSearchCloseButton);
+  m_beamLogSearchWidget = SearchFunctionality::createSearchWidget(m_beamLogContainer, m_beamLogSearchInput, m_beamLogSearchCloseButton);
   connect(m_beamLogSearchInput, &QLineEdit::textChanged, this, &DebugPane::performSearch);
   connect(m_beamLogSearchInput, &QLineEdit::returnPressed, this, &DebugPane::findNext);
   connect(m_beamLogSearchCloseButton, &QPushButton::clicked, this, &DebugPane::toggleSearchBar);
@@ -544,31 +434,28 @@ void DebugPane::setupConsole()
   m_guiLogDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_guiLogDisplay->setStyleSheet(StyleManager::consoleOutput());
   
-  QFont guiLogFont("Cascadia Code PL", 10);
-  guiLogFont.setStyleHint(QFont::Monospace);
-  guiLogFont.setPixelSize(m_guiLogFontSize);
-  m_guiLogDisplay->setFont(guiLogFont);
-  m_guiLogDisplay->document()->setDefaultFont(guiLogFont);
+  // Apply initial font using the zoom control method to ensure consistency
+  DebugPaneZoomControl::applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
   
   m_guiLogLayout->addWidget(m_guiLogDisplay);
   
-  m_guiLogSearchWidget = createSearchWidget(m_guiLogContainer, m_guiLogSearchInput, m_guiLogSearchCloseButton);
+  m_guiLogSearchWidget = SearchFunctionality::createSearchWidget(m_guiLogContainer, m_guiLogSearchInput, m_guiLogSearchCloseButton);
   connect(m_guiLogSearchInput, &QLineEdit::textChanged, this, &DebugPane::performSearch);
   connect(m_guiLogSearchInput, &QLineEdit::returnPressed, this, &DebugPane::findNext);
   connect(m_guiLogSearchCloseButton, &QPushButton::clicked, this, &DebugPane::toggleSearchBar);
   
-  m_iexShellContainer = new QWidget();
-  QVBoxLayout *iexShellLayout = new QVBoxLayout(m_iexShellContainer);
-  iexShellLayout->setContentsMargins(0, 0, 0, 0);
-  iexShellLayout->setSpacing(0);
+  m_elixirConsoleContainer = new QWidget();
+  QVBoxLayout *elixirConsoleLayout = new QVBoxLayout(m_elixirConsoleContainer);
+  elixirConsoleLayout->setContentsMargins(0, 0, 0, 0);
+  elixirConsoleLayout->setSpacing(0);
   
-  m_iexShellView = new SandboxedWebView(m_iexShellContainer);
-  m_iexShellView->page()->setBackgroundColor(QColor(StyleManager::Colors::CONSOLE_BACKGROUND));
-  iexShellLayout->addWidget(m_iexShellView);
+  m_elixirConsoleView = new SandboxedWebView(m_elixirConsoleContainer);
+  m_elixirConsoleView->page()->setBackgroundColor(QColor(StyleManager::Colors::CONSOLE_BACKGROUND));
+  elixirConsoleLayout->addWidget(m_elixirConsoleView);
   
   m_consoleStack->addWidget(m_beamLogContainer);
   m_consoleStack->addWidget(m_guiLogContainer);
-  m_consoleStack->addWidget(m_iexShellContainer);
+  m_consoleStack->addWidget(m_elixirConsoleContainer);
   m_consoleStack->setCurrentIndex(0);
   
   consoleMainLayout->addWidget(consoleToolbar);
@@ -576,7 +463,7 @@ void DebugPane::setupConsole()
   
   connect(m_beamLogTabButton, &QPushButton::clicked, this, &DebugPane::showBeamLog);
   connect(m_guiLogTabButton, &QPushButton::clicked, this, &DebugPane::showGuiLog);
-  connect(m_iexShellTabButton, &QPushButton::clicked, this, &DebugPane::showIexShell);
+  connect(m_elixirConsoleTabButton, &QPushButton::clicked, this, &DebugPane::showElixirConsole);
   
   connect(m_autoScrollButton, &QPushButton::toggled, this, &DebugPane::handleAutoScrollToggled);
   connect(m_beamLogSearchButton, &QPushButton::clicked, this, &DebugPane::toggleSearchBar);
@@ -594,8 +481,8 @@ void DebugPane::setupConsole()
   connect(m_guiLogZoomInButton, &QPushButton::clicked, this, &DebugPane::handleGuiLogZoomIn);
   connect(m_guiLogZoomOutButton, &QPushButton::clicked, this, &DebugPane::handleGuiLogZoomOut);
   
-  connect(m_iexShellZoomInButton, &QPushButton::clicked, this, &DebugPane::handleIexShellZoomIn);
-  connect(m_iexShellZoomOutButton, &QPushButton::clicked, this, &DebugPane::handleIexShellZoomOut);
+  connect(m_elixirConsoleZoomInButton, &QPushButton::clicked, this, &DebugPane::handleElixirConsoleZoomIn);
+  connect(m_elixirConsoleZoomOutButton, &QPushButton::clicked, this, &DebugPane::handleElixirConsoleZoomOut);
   
 }
 
@@ -606,16 +493,16 @@ void DebugPane::setupDevTools()
   devToolsMainLayout->setContentsMargins(0, 0, 0, 0);
   devToolsMainLayout->setSpacing(0);
   
-  QWidget *devToolsToolbar = createTabToolbar(m_devToolsMainContainer);
+  QWidget *devToolsToolbar = ButtonUtilities::createTabToolbar(m_devToolsMainContainer);
   
   QHBoxLayout *toolbarLayout = new QHBoxLayout(devToolsToolbar);
   toolbarLayout->setContentsMargins(5, 2, 10, 2);
   toolbarLayout->setSpacing(2);
   
-  m_devToolsTabButton = createTabButton("Dev Tools", devToolsToolbar);
+  m_devToolsTabButton = ButtonUtilities::createTabButton("Dev Tools", devToolsToolbar);
   m_devToolsTabButton->setChecked(true);
   
-  m_liveDashboardTabButton = createTabButton("Live Dashboard", devToolsToolbar);
+  m_liveDashboardTabButton = ButtonUtilities::createTabButton("Live Dashboard", devToolsToolbar);
   
   toolbarLayout->addWidget(m_devToolsTabButton);
   toolbarLayout->addWidget(m_liveDashboardTabButton);
@@ -625,24 +512,24 @@ void DebugPane::setupDevTools()
   QString devHoverColor = StyleManager::Colors::WHITE;
   QString devZoomOutSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'><path d='M3 8h10v1H3z'/></svg>");
   QIcon devZoomOutIcon;
-  devZoomOutIcon.addPixmap(createSvgPixmap(devZoomOutSvg.arg(devNormalColor), 16, 16), QIcon::Normal);
-  devZoomOutIcon.addPixmap(createSvgPixmap(devZoomOutSvg.arg(devHoverColor), 16, 16), QIcon::Active);
+  devZoomOutIcon.addPixmap(IconUtilities::createSvgPixmap(devZoomOutSvg.arg(devNormalColor), 16, 16), QIcon::Normal);
+  devZoomOutIcon.addPixmap(IconUtilities::createSvgPixmap(devZoomOutSvg.arg(devHoverColor), 16, 16), QIcon::Active);
   
   QString devZoomInSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'><path d='M8 3v5H3v1h5v5h1V9h5V8H9V3H8z'/></svg>");
   QIcon devZoomInIcon;
-  devZoomInIcon.addPixmap(createSvgPixmap(devZoomInSvg.arg(devNormalColor), 16, 16), QIcon::Normal);
-  devZoomInIcon.addPixmap(createSvgPixmap(devZoomInSvg.arg(devHoverColor), 16, 16), QIcon::Active);
+  devZoomInIcon.addPixmap(IconUtilities::createSvgPixmap(devZoomInSvg.arg(devNormalColor), 16, 16), QIcon::Normal);
+  devZoomInIcon.addPixmap(IconUtilities::createSvgPixmap(devZoomInSvg.arg(devHoverColor), 16, 16), QIcon::Active);
   
-  m_zoomOutButton = createZoomButton(devZoomOutIcon, "Zoom Out", devToolsToolbar);
+  m_zoomOutButton = ButtonUtilities::createZoomButton(devZoomOutIcon, "Zoom Out", devToolsToolbar);
   m_zoomOutButton->setVisible(true);
   
-  m_zoomInButton = createZoomButton(devZoomInIcon, "Zoom In", devToolsToolbar);
+  m_zoomInButton = ButtonUtilities::createZoomButton(devZoomInIcon, "Zoom In", devToolsToolbar);
   m_zoomInButton->setVisible(true);
   
-  m_liveDashboardZoomOutButton = createZoomButton(devZoomOutIcon, "Zoom Out", devToolsToolbar);
+  m_liveDashboardZoomOutButton = ButtonUtilities::createZoomButton(devZoomOutIcon, "Zoom Out", devToolsToolbar);
   m_liveDashboardZoomOutButton->setVisible(false);
   
-  m_liveDashboardZoomInButton = createZoomButton(devZoomInIcon, "Zoom In", devToolsToolbar);
+  m_liveDashboardZoomInButton = ButtonUtilities::createZoomButton(devZoomInIcon, "Zoom In", devToolsToolbar);
   m_liveDashboardZoomInButton->setVisible(false);
   
   toolbarLayout->addWidget(m_zoomOutButton);
@@ -658,14 +545,14 @@ void DebugPane::setupDevTools()
   devToolsLayout->setSpacing(0);
   
   m_devToolsView = new SandboxedWebView(m_devToolsContainer);
-  m_devToolsView->setFallbackUrl(QUrl());  // No fallback for DevTools
+  m_devToolsView->setFallbackUrl(QUrl());
   m_devToolsView->page()->setBackgroundColor(QColor(StyleManager::Colors::DARK_BACKGROUND));
   
   QWebEngineSettings* devToolsSettings = m_devToolsView->settings();
   devToolsSettings->setFontFamily(QWebEngineSettings::FixedFont, "Cascadia Code");
   devToolsSettings->setFontSize(QWebEngineSettings::DefaultFixedFontSize, 14);
   
-  injectDevToolsFontScript();
+  DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
   
   devToolsLayout->addWidget(m_devToolsView);
   
@@ -692,11 +579,11 @@ void DebugPane::setupDevTools()
   connect(m_zoomOutButton, &QPushButton::clicked, this, &DebugPane::handleZoomOut);
   
   connect(m_liveDashboardZoomInButton, &QPushButton::clicked, [this]() {
-    zoomWebView(m_liveDashboardView, true);
+    DebugPaneZoomControl::zoomWebView(m_liveDashboardView, true);
   });
   
   connect(m_liveDashboardZoomOutButton, &QPushButton::clicked, [this]() {
-    zoomWebView(m_liveDashboardView, false);
+    DebugPaneZoomControl::zoomWebView(m_liveDashboardView, false);
   });
   
 }
@@ -712,12 +599,16 @@ void DebugPane::setWebView(PhxWebView *webView)
     {
       targetPage->setDevToolsPage(m_devToolsView->page());
       
-      injectDevToolsFontScript();
+      
+      DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
       
       connect(m_devToolsView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
         if (ok) {
-          applyDevToolsDarkTheme();
-          injectDevToolsFontScript();
+          DebugPaneThemeStyles::applyDevToolsDarkTheme(m_devToolsView);
+          DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
+          
+          // Let DevTools settle with its own theme
+          
           emit webDevToolsLoaded();
         }
       });
@@ -737,7 +628,6 @@ void DebugPane::updateViewMode()
   m_devToolsButton->setChecked(m_currentMode == DevToolsOnly);
   m_sideBySideButton->setChecked(m_currentMode == SideBySide);
 
-  // Account for the spacing at index 0, header at index 1, so fullViewContainer is at index 2
   if (m_mainLayout->count() < 3) return;
   QWidget *fullViewContainer = qobject_cast<QWidget*>(m_mainLayout->itemAt(2)->widget());
   if (!fullViewContainer) return;
@@ -768,6 +658,8 @@ void DebugPane::updateViewMode()
     fullViewLayout->addWidget(m_consoleContainer);
     m_consoleContainer->show();
     m_splitter->hide();
+    DebugPaneZoomControl::applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
+    DebugPaneZoomControl::applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
     break;
     
   case DevToolsOnly:
@@ -784,6 +676,8 @@ void DebugPane::updateViewMode()
     fullViewLayout->addWidget(m_splitter);
     m_devToolsMainContainer->show();
     m_splitter->show();
+    DebugPaneZoomControl::applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
+    DebugPaneZoomControl::applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
     break;
   }
 }
@@ -871,16 +765,9 @@ void DebugPane::slide(bool show)
     move(0, parentHeight);
     QWidget::show();
     raise();
-    m_slideAnimation->setStartValue(parentHeight);
-    m_slideAnimation->setEndValue(parentHeight - paneHeight);
-  }
-  else
-  {
-    m_slideAnimation->setStartValue(parentHeight - height());
-    m_slideAnimation->setEndValue(parentHeight);
   }
 
-  m_slideAnimation->start();
+  AnimationControl::performSlide(m_slideAnimation.get(), show, parentHeight, paneHeight, height());
   m_isVisible = show;
 }
 
@@ -889,60 +776,25 @@ void DebugPane::handleAutoScrollToggled(bool checked)
   m_autoScroll = checked;
 }
 
-void DebugPane::zoomWebView(QWebEngineView *view, bool zoomIn)
-{
-  if (!view) return;
-  
-  qreal currentZoom = view->zoomFactor();
-  if (zoomIn) {
-    view->setZoomFactor(currentZoom * 1.1);
-  } else {
-    view->setZoomFactor(currentZoom / 1.1);
-  }
-}
-
-void DebugPane::zoomTextEdit(QTextEdit *textEdit, int &fontSize, bool zoomIn)
-{
-  if (!textEdit) return;
-  
-  if (zoomIn && fontSize < 24) {
-    fontSize += 2;
-  } else if (!zoomIn && fontSize > 8) {
-    fontSize -= 2;
-  } else {
-    return;
-  }
-  
-  applyFontToTextEdit(textEdit, fontSize);
-}
-
-void DebugPane::applyFontToTextEdit(QTextEdit *textEdit, int fontSize)
-{
-  QFont font("Cascadia Code PL", 10);
-  font.setStyleHint(QFont::Monospace);
-  font.setPixelSize(fontSize);
-  textEdit->setFont(font);
-  textEdit->document()->setDefaultFont(font);
-}
 
 void DebugPane::handleZoomIn()
 {
-  zoomWebView(m_devToolsView, true);
+  DebugPaneZoomControl::zoomWebView(m_devToolsView, true);
 }
 
 void DebugPane::handleZoomOut()
 {
-  zoomWebView(m_devToolsView, false);
+  DebugPaneZoomControl::zoomWebView(m_devToolsView, false);
 }
 
 void DebugPane::handleConsoleZoomIn()
 {
-  zoomTextEdit(m_outputDisplay, m_currentFontSize, true);
+  DebugPaneZoomControl::zoomTextEdit(m_outputDisplay, m_currentFontSize, true);
 }
 
 void DebugPane::handleConsoleZoomOut()
 {
-  zoomTextEdit(m_outputDisplay, m_currentFontSize, false);
+  DebugPaneZoomControl::zoomTextEdit(m_outputDisplay, m_currentFontSize, false);
 }
 
 
@@ -1112,564 +964,7 @@ void DebugPane::paintEvent(QPaintEvent *event)
   QWidget::paintEvent(event);
 }
 
-void DebugPane::applyDevToolsDarkTheme()
-{
-  QString darkModeCSS = R"(
-    (function() {
-      const style = document.createElement('style');
-      style.textContent = `
-        :root {
-          filter: invert(1) hue-rotate(180deg);
-          background: #1e1e1e !important;
-          /* Try setting font via CSS variable */
-          --monospace-font: 'Cascadia Code PL', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace !important;
-        }
-        
-        img, svg, video, canvas, embed, object,
-        .cm-color-swatch, .color-swatch {
-          filter: invert(1) hue-rotate(180deg);
-        }
-        
-        .cm-s-default .cm-keyword { filter: invert(1) hue-rotate(180deg); }
-        .cm-s-default .cm-string { filter: invert(1) hue-rotate(180deg); }
-        .cm-s-default .cm-number { filter: invert(1) hue-rotate(180deg); }
-        
-        /* Set Cascadia Code font ONLY for code and console elements */
-        /* Note: Chrome DevTools often ignores font-family changes for security reasons */
-        .console-message-text,
-        .console-user-command,
-        .console-user-command-result,
-        .monospace,
-        .source-code,
-        .cm-s-default,
-        .CodeMirror,
-        .CodeMirror pre,
-        .object-value-string,
-        .object-value-number,
-        .object-value-boolean,
-        .object-value-null,
-        .object-value-undefined,
-        .object-value-function,
-        .object-value-regexp,
-        .console-formatted-string,
-        .console-formatted-object,
-        .console-formatted-node,
-        .console-formatted-array,
-        span.monospace,
-        .webkit-css-property,
-        .devtools-link[data-url],
-        .console-message-wrapper .source-code {
-          font-family: var(--monospace-font, 'SF Mono', 'Monaco', 'Menlo', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace) !important;
-        }
-      `;
-      document.head.appendChild(style);
-    })();
-  )";
-  
-  m_devToolsView->page()->runJavaScript(darkModeCSS);
-  
-  QTimer::singleShot(500, this, [this]() {
-    if (m_devToolsView && m_devToolsView->page()) {
-      QString devToolsScrollbarCSS = R"(
-        (function() {
-          const style = document.createElement('style');
-          style.setAttribute('id', 'tau5-devtools-scrollbar');
-          style.textContent = `
-            *::-webkit-scrollbar,
-            body ::-webkit-scrollbar,
-            .vbox ::-webkit-scrollbar,
-            .widget ::-webkit-scrollbar,
-            .console-view ::-webkit-scrollbar,
-            .elements-tree-outline ::-webkit-scrollbar,
-            .monospace ::-webkit-scrollbar,
-            .source-code ::-webkit-scrollbar,
-            .viewport ::-webkit-scrollbar,
-            .scroller ::-webkit-scrollbar,
-            ::-webkit-scrollbar {
-              width: 8px !important;
-              height: 8px !important;
-              background: transparent !important;
-              background-color: transparent !important;
-            }
-            
-            *::-webkit-scrollbar-track,
-            body ::-webkit-scrollbar-track,
-            .vbox ::-webkit-scrollbar-track,
-            .widget ::-webkit-scrollbar-track,
-            .viewport ::-webkit-scrollbar-track,
-            .scroller ::-webkit-scrollbar-track,
-            ::-webkit-scrollbar-track {
-              background: transparent !important;
-              background-color: transparent !important;
-              border: none !important;
-              box-shadow: none !important;
-            }
-            
-            *::-webkit-scrollbar-thumb,
-            body ::-webkit-scrollbar-thumb,
-            .vbox ::-webkit-scrollbar-thumb,
-            .widget ::-webkit-scrollbar-thumb,
-            .viewport ::-webkit-scrollbar-thumb,
-            .scroller ::-webkit-scrollbar-thumb,
-            ::-webkit-scrollbar-thumb {
-              background: rgba(255, 165, 0, 0.941) !important;
-              background-color: rgba(255, 165, 0, 0.941) !important;
-              border-radius: 0px !important;
-              min-height: 30px !important;
-              border: none !important;
-              margin: 0px !important;
-              box-shadow: none !important;
-            }
-            
-            *::-webkit-scrollbar-thumb:hover,
-            body ::-webkit-scrollbar-thumb:hover,
-            .vbox ::-webkit-scrollbar-thumb:hover,
-            .widget ::-webkit-scrollbar-thumb:hover,
-            ::-webkit-scrollbar-thumb:hover {
-              background: rgba(255, 165, 0, 1.0) !important;
-              background-color: rgba(255, 165, 0, 1.0) !important;
-            }
-            
-            *::-webkit-scrollbar-corner,
-            body ::-webkit-scrollbar-corner,
-            ::-webkit-scrollbar-corner {
-              background: transparent !important;
-              background-color: transparent !important;
-            }
-            
-            *::-webkit-scrollbar-button,
-            body ::-webkit-scrollbar-button,
-            ::-webkit-scrollbar-button {
-              display: none !important;
-              width: 0 !important;
-              height: 0 !important;
-            }
-          `;
-          
-          const existing = document.getElementById('tau5-devtools-scrollbar');
-          if (existing) {
-            existing.remove();
-          }
-          document.head.appendChild(style);
-          
-          document.querySelectorAll('*').forEach(el => {
-            if (el.shadowRoot) {
-              const shadowStyle = style.cloneNode(true);
-              el.shadowRoot.appendChild(shadowStyle);
-            }
-          });
-        })();
-      )";
-      
-      m_devToolsView->page()->runJavaScript(devToolsScrollbarCSS);
-    }
-  });
-  
-}
 
-void DebugPane::applyLiveDashboardTau5Theme()
-{
-  // First inject the embedded font
-  QString cascadiaCodeCss = FontLoader::getCascadiaCodeCss();
-  if (!cascadiaCodeCss.isEmpty()) {
-    // Escape the CSS for JavaScript
-    cascadiaCodeCss.replace("\\", "\\\\");
-    cascadiaCodeCss.replace("`", "\\`");
-    cascadiaCodeCss.replace("$", "\\$");
-    
-    QString fontInjectScript = QString(R"(
-      (function() {
-        const fontStyle = document.createElement('style');
-        fontStyle.id = 'tau5-cascadia-font-dashboard';
-        fontStyle.textContent = `%1`;
-        document.head.appendChild(fontStyle);
-      })();
-    )").arg(cascadiaCodeCss);
-    
-    if (m_liveDashboardView && m_liveDashboardView->page()) {
-      m_liveDashboardView->page()->runJavaScript(fontInjectScript);
-    }
-  }
-  
-  // Load CSS from resource file
-  QFile cssFile(":/styles/tau5-dashboard-theme.css");
-  QString cssContent;
-  
-  if (cssFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    QTextStream stream(&cssFile);
-    cssContent = stream.readAll();
-    cssFile.close();
-  } else {
-    qDebug() << "Failed to load tau5-dashboard-theme.css";
-    return;
-  }
-  
-  // Escape the CSS content for JavaScript
-  cssContent.replace("\\", "\\\\");
-  cssContent.replace("`", "\\`");
-  cssContent.replace("$", "\\$");
-  
-  QString tau5CSS = QString(R"TAU5(
-    (function() {
-      const style = document.createElement('style');
-      style.textContent = `%1`;
-      document.head.appendChild(style);
-    })();
-  )TAU5").arg(cssContent);
-  
-  if (m_liveDashboardView && m_liveDashboardView->page()) {
-    m_liveDashboardView->page()->runJavaScript(tau5CSS);
-    
-    // Apply shared scrollbar styling
-    m_liveDashboardView->page()->runJavaScript(getDarkScrollbarCSS());
-  }
-}
-
-void DebugPane::applyConsoleDarkTheme()
-{
-  if (m_iexShellView && m_iexShellView->page()) {
-    m_iexShellView->page()->runJavaScript(getDarkScrollbarCSS());
-    
-    // Get the CSS with embedded base64 font
-    QString cascadiaCodeCss = FontLoader::getCascadiaCodeCss();
-    if (!cascadiaCodeCss.isEmpty()) {
-      // Escape the CSS for JavaScript
-      cascadiaCodeCss.replace("\\", "\\\\");
-      cascadiaCodeCss.replace("`", "\\`");
-      cascadiaCodeCss.replace("$", "\\$");
-      
-      // Inject the font CSS first
-      QString fontInjectScript = QString(R"(
-        (function() {
-          const fontStyle = document.createElement('style');
-          fontStyle.id = 'tau5-cascadia-font-console';
-          fontStyle.textContent = `%1`;
-          document.head.appendChild(fontStyle);
-        })();
-      )").arg(cascadiaCodeCss);
-      
-      m_iexShellView->page()->runJavaScript(fontInjectScript);
-    }
-    
-    QString consoleCSS = R"(
-      (function() {
-        const style = document.createElement('style');
-        style.textContent = `
-          .tau5-terminal {
-            display: flex;
-            flex-direction: column;
-            background-color: #000000;
-            color: #ffffff;
-            font-family: 'Cascadia Code PL', 'SF Mono', 'Monaco', 'Menlo', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace;
-            font-size: 0.875rem;
-            line-height: 1.25rem;
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            width: 100%;
-            height: 100%;
-            user-select: text;
-          }
-          
-          .tau5-terminal-output {
-            flex: 1 1 0%;
-            overflow-y: auto;
-            padding: 1rem;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            user-select: text;
-            -webkit-user-select: text;
-            -moz-user-select: text;
-            -ms-user-select: text;
-          }
-          
-          .tau5-terminal-output pre {
-            user-select: text;
-            -webkit-user-select: text;
-            -moz-user-select: text;
-            -ms-user-select: text;
-          }
-          
-          .tau5-input-line {
-            display: flex;
-            align-items: center;
-            padding: 1rem;
-            border-top: 1px solid #1f2937;
-          }
-          
-          .tau5-prompt {
-            color: #f97316;
-            font-weight: 700;
-            margin-right: 0.5rem;
-            white-space: nowrap;
-          }
-          
-          .tau5-terminal-input {
-            background-color: transparent;
-            border: none;
-            outline: none;
-            flex: 1 1 0%;
-            color: #ffffff;
-            font-family: inherit;
-          }
-          
-          .tau5-atom { color: #FFA500; }
-          .tau5-string { color: #00FF00; }
-          .tau5-number { color: #4169E1; }
-          .tau5-keyword { color: #FF00FF; }
-          .tau5-module { color: #00FFFF; }
-          .tau5-regex { color: #FF1493; }
-          .tau5-output-error { color: #FF1493; }
-          
-          .tau5-access-denied {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          
-          .tau5-error-container {
-            text-align: center;
-            padding: 2rem;
-          }
-          
-          .tau5-error-title {
-            font-size: 1.875rem;
-            line-height: 2.25rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            color: #FF1493;
-          }
-          
-          .tau5-error-message {
-            color: #9ca3af;
-            margin-bottom: 1.5rem;
-            white-space: pre-line;
-          }
-          
-          .tau5-error-icon {
-            font-size: 3.75rem;
-            line-height: 1;
-          }
-          
-          body:has(.tau5-terminal) main {
-            padding: 0 !important;
-            max-width: none !important;
-            height: 100vh !important;
-          }
-          
-          body:has(.tau5-terminal) main > div {
-            max-width: none !important;
-            height: 100% !important;
-            position: relative;
-          }
-          
-          .tau5-terminal-output::-webkit-scrollbar {
-            width: 8px !important;
-            height: 8px !important;
-            background: transparent !important;
-          }
-          
-          .tau5-terminal-output::-webkit-scrollbar-track {
-            background: transparent !important;
-            border: none !important;
-          }
-          
-          .tau5-terminal-output::-webkit-scrollbar-thumb {
-            background: rgba(255, 165, 0, 0.941) !important;
-            border-radius: 0px !important;
-            min-height: 30px !important;
-            border: none !important;
-            margin: 0px !important;
-          }
-          
-          .tau5-terminal-output::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 165, 0, 1.0) !important;
-          }
-        `;
-        document.head.appendChild(style);
-      })();
-    )";
-    
-    m_iexShellView->page()->runJavaScript(consoleCSS);
-  }
-}
-
-void DebugPane::injectDevToolsFontScript()
-{
-  if (!m_devToolsView || !m_devToolsView->page()) {
-    return;
-  }
-  
-  Logger::log(Logger::Debug, "Injecting Cascadia Code font into DevTools");
-  
-  // Get the CSS with embedded base64 font
-  QString cascadiaCodeCss = FontLoader::getCascadiaCodeCss();
-  if (cascadiaCodeCss.isEmpty()) {
-    Logger::log(Logger::Warning, "Failed to load Cascadia Code font for DevTools");
-    return;
-  }
-  
-  Logger::log(Logger::Debug, QString("Cascadia Code CSS size: %1 characters").arg(cascadiaCodeCss.length()));
-  
-  // Escape the CSS for JavaScript
-  cascadiaCodeCss.replace("\\", "\\\\");
-  cascadiaCodeCss.replace("`", "\\`");
-  cascadiaCodeCss.replace("$", "\\$");
-  
-  QWebEngineScript fontScript;
-  fontScript.setName("CascadiaCodeFont");
-  fontScript.setWorldId(QWebEngineScript::ApplicationWorld);
-  fontScript.setInjectionPoint(QWebEngineScript::DocumentCreation);
-  fontScript.setRunsOnSubFrames(true);
-  
-  QString scriptSource = QString(R"SCRIPT(
-    (function() {
-      const observer = new MutationObserver(function(mutations) {
-        const style = document.getElementById('tau5-cascadia-font') || document.createElement('style');
-        style.id = 'tau5-cascadia-font';
-        style.textContent = `%1`;
-        
-        if (!document.getElementById('tau5-cascadia-font')) {
-          document.head.appendChild(style);
-        }
-        
-        // Also inject into any shadow roots
-        document.querySelectorAll('*').forEach(el => {
-          if (el.shadowRoot && !el.shadowRoot.getElementById('tau5-cascadia-font-shadow')) {
-            const shadowStyle = style.cloneNode(true);
-            shadowStyle.id = 'tau5-cascadia-font-shadow';
-            el.shadowRoot.appendChild(shadowStyle);
-          }
-        });
-      });
-      
-      // Start observing
-      observer.observe(document, {
-        childList: true,
-        subtree: true
-      });
-      
-      // Also run immediately
-      observer.callback = observer._callback;
-      observer.callback([]);
-    })();
-  )SCRIPT").arg(cascadiaCodeCss);
-  
-  fontScript.setSourceCode(scriptSource);
-  
-  // Remove any existing font script and add the new one
-  QWebEngineScriptCollection &scripts = m_devToolsView->page()->scripts();
-  QList<QWebEngineScript> existingScripts = scripts.find("CascadiaCodeFont");
-  for (const QWebEngineScript &script : existingScripts) {
-    scripts.remove(script);
-  }
-  scripts.insert(fontScript);
-}
-
-QString DebugPane::getDarkScrollbarCSS() const
-{
-  return R"(
-    (function() {
-      const style = document.createElement('style');
-      style.textContent = `
-        *::-webkit-scrollbar,
-        ::-webkit-scrollbar {
-          width: 8px !important;
-          height: 8px !important;
-          background: transparent !important;
-        }
-        
-        *::-webkit-scrollbar-track,
-        ::-webkit-scrollbar-track {
-          background: transparent !important;
-          border: none !important;
-        }
-        
-        *::-webkit-scrollbar-thumb,
-        ::-webkit-scrollbar-thumb {
-          background: rgba(255, 165, 0, 0.941) !important;
-          border-radius: 0px !important;
-          min-height: 30px !important;
-          border: none !important;
-          margin: 0px !important;
-        }
-        
-        *::-webkit-scrollbar-thumb:hover,
-        ::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 165, 0, 1.0) !important;
-        }
-        
-        *::-webkit-scrollbar-thumb:active,
-        ::-webkit-scrollbar-thumb:active {
-          background: rgba(255, 165, 0, 1.0) !important;
-        }
-        
-        ::-webkit-scrollbar-corner {
-          background: rgba(0, 0, 0, 0);
-        }
-        
-        /* Hide scrollbar buttons */
-        ::-webkit-scrollbar-button {
-          height: 0px;
-          background: rgba(0, 0, 0, 0);
-          display: none;
-        }
-      `;
-      document.head.appendChild(style);
-    })();
-  )";
-}
-
-QIcon DebugPane::createSvgIcon(const QString &normalSvg, const QString &hoverSvg, const QString &selectedSvg)
-{
-  QIcon icon;
-
-  QByteArray normalBytes = normalSvg.toUtf8();
-  QPixmap normalPixmap(32, 32);
-  normalPixmap.fill(Qt::transparent);
-  QSvgRenderer normalRenderer(normalBytes);
-  if (normalRenderer.isValid())
-  {
-    QPainter painter(&normalPixmap);
-    painter.setRenderHint(QPainter::Antialiasing);
-    normalRenderer.render(&painter);
-  }
-  icon.addPixmap(normalPixmap, QIcon::Normal, QIcon::Off);
-
-  if (!selectedSvg.isEmpty())
-  {
-    QByteArray selectedBytes = selectedSvg.toUtf8();
-    QPixmap selectedPixmap(32, 32);
-    selectedPixmap.fill(Qt::transparent);
-    QSvgRenderer selectedRenderer(selectedBytes);
-    if (selectedRenderer.isValid())
-    {
-      QPainter painter(&selectedPixmap);
-      painter.setRenderHint(QPainter::Antialiasing);
-      selectedRenderer.render(&painter);
-    }
-    icon.addPixmap(selectedPixmap, QIcon::Normal, QIcon::On);
-  }
-  
-  return icon;
-}
-
-QPixmap DebugPane::createSvgPixmap(const QString &svg, int width, int height)
-{
-  QByteArray svgBytes = svg.toUtf8();
-  QPixmap pixmap(width, height);
-  pixmap.fill(Qt::transparent);
-  QSvgRenderer renderer(svgBytes);
-  if (renderer.isValid())
-  {
-    QPainter painter(&pixmap);
-    painter.setRenderHint(QPainter::Antialiasing);
-    renderer.render(&painter);
-  }
-  return pixmap;
-}
 
 void DebugPane::appendGuiLog(const QString &text, bool isError)
 {
@@ -1722,102 +1017,77 @@ void DebugPane::setLiveDashboardUrl(const QString &url)
     
     connect(m_liveDashboardView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
       if (ok) {
-        applyLiveDashboardTau5Theme();
+        DebugPaneThemeStyles::applyLiveDashboardTau5Theme(m_liveDashboardView);
         emit liveDashboardLoaded();
       }
     });
   }
 }
 
-void DebugPane::setIexShellUrl(const QString &url)
+void DebugPane::setElixirConsoleUrl(const QString &url)
 {
-  if (m_iexShellView && !url.isEmpty())
+  if (m_elixirConsoleView && !url.isEmpty())
   {
-    QUrl iexUrl(url);
-    Logger::log(Logger::Debug, QString("DebugPane::setIexShellUrl - Setting URL: %1").arg(url));
-    m_iexShellView->setFallbackUrl(iexUrl);
-    m_iexShellView->load(iexUrl);
+    QUrl elixirConsoleUrl(url);
+    Logger::log(Logger::Debug, QString("DebugPane::setElixirConsoleUrl - Setting URL: %1").arg(url));
+    m_elixirConsoleView->setFallbackUrl(elixirConsoleUrl);
+    m_elixirConsoleView->load(elixirConsoleUrl);
     
-    connect(m_iexShellView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
+    connect(m_elixirConsoleView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
       if (ok) {
-        applyConsoleDarkTheme();
+        DebugPaneThemeStyles::applyConsoleDarkTheme(m_elixirConsoleView);
         emit elixirConsoleLoaded();
       }
     });
   } else {
-    Logger::log(Logger::Warning, "DebugPane::setIexShellUrl - m_iexShellView is null or url is empty");
+    Logger::log(Logger::Warning, "DebugPane::setElixirConsoleUrl - m_elixirConsoleView is null or url is empty");
   }
 }
 
 void DebugPane::handleGuiLogZoomIn()
 {
-  zoomTextEdit(m_guiLogDisplay, m_guiLogFontSize, true);
+  DebugPaneZoomControl::zoomTextEdit(m_guiLogDisplay, m_guiLogFontSize, true);
 }
 
 void DebugPane::handleGuiLogZoomOut()
 {
-  zoomTextEdit(m_guiLogDisplay, m_guiLogFontSize, false);
+  DebugPaneZoomControl::zoomTextEdit(m_guiLogDisplay, m_guiLogFontSize, false);
 }
 
-void DebugPane::handleIexShellZoomIn()
+void DebugPane::handleElixirConsoleZoomIn()
 {
-  zoomWebView(m_iexShellView, true);
+  DebugPaneZoomControl::zoomWebView(m_elixirConsoleView, true);
 }
 
-void DebugPane::handleIexShellZoomOut()
+void DebugPane::handleElixirConsoleZoomOut()
 {
-  zoomWebView(m_iexShellView, false);
+  DebugPaneZoomControl::zoomWebView(m_elixirConsoleView, false);
 }
 
 void DebugPane::showBeamLog()
 {
-  switchConsoleTab(0, {m_beamLogTabButton, m_guiLogTabButton, m_iexShellTabButton});
+  switchConsoleTab(0, {m_beamLogTabButton, m_guiLogTabButton, m_elixirConsoleTabButton});
 }
 
 void DebugPane::showGuiLog()
 {
-  switchConsoleTab(1, {m_beamLogTabButton, m_guiLogTabButton, m_iexShellTabButton});
+  switchConsoleTab(1, {m_beamLogTabButton, m_guiLogTabButton, m_elixirConsoleTabButton});
 }
 
-void DebugPane::showIexShell()
+void DebugPane::showElixirConsole()
 {
-  switchConsoleTab(2, {m_beamLogTabButton, m_guiLogTabButton, m_iexShellTabButton});
+  switchConsoleTab(2, {m_beamLogTabButton, m_guiLogTabButton, m_elixirConsoleTabButton});
 }
 
 void DebugPane::switchConsoleTab(int index, const QList<QPushButton*> &tabButtons)
 {
-  for (int i = 0; i < tabButtons.size(); ++i) {
-    tabButtons[i]->setChecked(i == index);
-  }
-  m_consoleStack->setCurrentIndex(index);
-  
   QList<QPushButton*> allButtons = {
     m_autoScrollButton, m_beamLogSearchButton, m_consoleZoomOutButton, m_consoleZoomInButton,
     m_guiLogAutoScrollButton, m_guiLogSearchButton, m_guiLogZoomOutButton, m_guiLogZoomInButton,
-    m_iexShellZoomOutButton, m_iexShellZoomInButton
+    m_elixirConsoleZoomOutButton, m_elixirConsoleZoomInButton
   };
-  for (auto btn : allButtons) {
-    btn->setVisible(false);
-  }
   
-  switch (index) {
-    case 0:
-      m_autoScrollButton->setVisible(true);
-      m_beamLogSearchButton->setVisible(true);
-      m_consoleZoomOutButton->setVisible(true);
-      m_consoleZoomInButton->setVisible(true);
-      break;
-    case 1:
-      m_guiLogAutoScrollButton->setVisible(true);
-      m_guiLogSearchButton->setVisible(true);
-      m_guiLogZoomOutButton->setVisible(true);
-      m_guiLogZoomInButton->setVisible(true);
-      break;
-    case 2:
-      m_iexShellZoomOutButton->setVisible(true);
-      m_iexShellZoomInButton->setVisible(true);
-      break;
-  }
+  TabSwitcher::switchConsoleTab(index, tabButtons, m_consoleStack, allButtons);
 }
 
 void DebugPane::showDevToolsTab()
@@ -1829,169 +1099,21 @@ void DebugPane::showLiveDashboardTab()
 {
   switchDevToolsTab(1);
   if (m_liveDashboardView && m_liveDashboardView->page()) {
-    applyLiveDashboardTau5Theme();
+    DebugPaneThemeStyles::applyLiveDashboardTau5Theme(m_liveDashboardView);
   }
 }
 
 void DebugPane::switchDevToolsTab(int index)
 {
-  m_devToolsTabButton->setChecked(index == 0);
-  m_liveDashboardTabButton->setChecked(index == 1);
-  m_devToolsStack->setCurrentIndex(index);
+  QList<QPushButton*> zoomButtons = {
+    m_zoomOutButton, m_zoomInButton,
+    m_liveDashboardZoomOutButton, m_liveDashboardZoomInButton
+  };
   
-  m_zoomOutButton->setVisible(index == 0);
-  m_zoomInButton->setVisible(index == 0);
-  m_liveDashboardZoomOutButton->setVisible(index == 1);
-  m_liveDashboardZoomInButton->setVisible(index == 1);
+  TabSwitcher::switchDevToolsTab(index, m_devToolsTabButton, m_liveDashboardTabButton, 
+                                m_devToolsStack, zoomButtons);
 }
 
-QWidget* DebugPane::createTabToolbar(QWidget *parent)
-{
-  QWidget *toolbar = new QWidget(parent);
-  toolbar->setFixedHeight(26);
-  toolbar->setStyleSheet(QString(
-      "QWidget { "
-      "  background-color: %1; "
-      "  border-bottom: 1px solid %2; "
-      "}")
-      .arg(StyleManager::Colors::blackAlpha(230))
-      .arg(StyleManager::Colors::primaryOrangeAlpha(50)));
-  
-  return toolbar;
-}
-
-QString DebugPane::getTabButtonStyle()
-{
-  return QString(
-      "QPushButton { "
-      "  background: transparent; "
-      "  color: %1; "
-      "  border: none; "
-      "  padding: 2px 8px; "
-      "  font-family: %2; "
-      "  font-size: %3; "
-      "  font-weight: %4; "
-      "} "
-      "QPushButton:hover { "
-      "  background: %5; "
-      "} "
-      "QPushButton:checked { "
-      "  background: %6; "
-      "  color: %7; "
-      "}")
-      .arg(StyleManager::Colors::primaryOrangeAlpha(180))
-      .arg(StyleManager::Typography::MONOSPACE_FONT_FAMILY)
-      .arg(StyleManager::Typography::FONT_SIZE_SMALL)
-      .arg(StyleManager::Typography::FONT_WEIGHT_BOLD)
-      .arg(StyleManager::Colors::primaryOrangeAlpha(25))  // 0.1 * 255 ≈ 25
-      .arg(StyleManager::Colors::primaryOrangeAlpha(51))  // 0.2 * 255 ≈ 51
-      .arg(StyleManager::Colors::PRIMARY_ORANGE);
-}
-
-QString DebugPane::getZoomButtonStyle()
-{
-  return QString(
-      "QPushButton { "
-      "  background: transparent; "
-      "  border: none; "
-      "  padding: 2px; "
-      "  min-width: 16px; "
-      "  max-width: 16px; "
-      "  min-height: 16px; "
-      "  max-height: 16px; "
-      "} "
-      "QPushButton:hover { "
-      "  background: %1; "
-      "} "
-      "QPushButton:pressed { "
-      "  background: %2; "
-      "}")
-      .arg(StyleManager::Colors::primaryOrangeAlpha(25))  // 0.1 * 255 ≈ 25
-      .arg(StyleManager::Colors::primaryOrangeAlpha(38)); // 0.15 * 255 ≈ 38
-}
-
-QPushButton* DebugPane::createTabButton(const QString &text, QWidget *parent)
-{
-  QPushButton *button = new QPushButton(text, parent);
-  button->setCheckable(true);
-  button->setStyleSheet(getTabButtonStyle());
-  button->setFocusPolicy(Qt::NoFocus);
-  return button;
-}
-
-QPushButton* DebugPane::createZoomButton(const QIcon &icon, const QString &tooltip, QWidget *parent)
-{
-  QPushButton *button = new QPushButton(parent);
-  button->setIcon(icon);
-  button->setStyleSheet(getZoomButtonStyle());
-  button->setToolTip(tooltip);
-  button->setFocusPolicy(Qt::NoFocus);
-  return button;
-}
-
-QWidget* DebugPane::createSearchWidget(QWidget *parent, QLineEdit *&searchInput, QPushButton *&closeButton)
-{
-  QString normalColor = StyleManager::Colors::PRIMARY_ORANGE;
-  QString hoverColor = StyleManager::Colors::WHITE;
-  
-  QWidget *searchWidget = new QWidget(parent);
-  searchWidget->setStyleSheet(QString(
-      "QWidget { "
-      "  background-color: %1; "
-      "  border: 1px solid %2; "
-      "  border-radius: 3px; "
-      "}")
-      .arg(StyleManager::Colors::blackAlpha(230))
-      .arg(StyleManager::Colors::primaryOrangeAlpha(100)));
-  searchWidget->setFixedSize(200, 30);
-  searchWidget->hide();
-  
-  QHBoxLayout *searchLayout = new QHBoxLayout(searchWidget);
-  searchLayout->setContentsMargins(5, 2, 5, 2);
-  searchLayout->setSpacing(5);
-  
-  searchInput = new QLineEdit(searchWidget);
-  searchInput->setPlaceholderText("Search...");
-  searchInput->setStyleSheet(QString(
-      "QLineEdit { "
-      "  background-color: transparent; "
-      "  border: none; "
-      "  color: %1; "
-      "  font-family: %2; "
-      "  font-size: %3; "
-      "  padding: 2px; "
-      "}")
-      .arg(StyleManager::Colors::WHITE)
-      .arg(StyleManager::Typography::MONOSPACE_FONT_FAMILY)
-      .arg(StyleManager::Typography::FONT_SIZE_SMALL));
-  
-  QString closeSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path d='M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.647 3.646.708.707L8 8.707z'/></svg>");
-  QIcon closeIcon = createSvgIcon(closeSvg.arg(normalColor), closeSvg.arg(hoverColor), "");
-  
-  closeButton = new QPushButton(searchWidget);
-  closeButton->setIcon(closeIcon);
-  closeButton->setStyleSheet(QString(
-      "QPushButton { "
-      "  background: transparent; "
-      "  border: none; "
-      "  padding: 2px; "
-      "  min-width: 16px; "
-      "  max-width: 16px; "
-      "  min-height: 16px; "
-      "  max-height: 16px; "
-      "} "
-      "QPushButton:hover { "
-      "  background: %1; "
-      "}")
-      .arg(StyleManager::Colors::primaryOrangeAlpha(25)));
-  closeButton->setToolTip("Close search");
-  closeButton->setFocusPolicy(Qt::NoFocus);
-  
-  searchLayout->addWidget(searchInput, 1);
-  searchLayout->addWidget(closeButton);
-  
-  return searchWidget;
-}
 
 void DebugPane::saveSettings()
 {
@@ -2041,12 +1163,12 @@ void DebugPane::restoreSettings()
   
   if (settings.contains("beamLogFontSize")) {
     m_currentFontSize = settings.value("beamLogFontSize", 12).toInt();
-    applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
+    DebugPaneZoomControl::applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
   }
   
   if (settings.contains("guiLogFontSize")) {
     m_guiLogFontSize = settings.value("guiLogFontSize", 12).toInt();
-    applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
+    DebugPaneZoomControl::applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
   }
   
   m_autoScroll = settings.value("beamLogAutoScroll", true).toBool();
@@ -2062,7 +1184,7 @@ void DebugPane::restoreSettings()
     } else if (consoleIndex == 1) {
       showGuiLog();
     } else if (consoleIndex == 2) {
-      showIexShell();
+      showElixirConsole();
     }
   }
   
@@ -2097,9 +1219,12 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
   {
     if (m_restartAnimationTimer)
     {
-      m_restartAnimationTimer->stop();
-      m_restartAnimationTimer->deleteLater();
-      m_restartAnimationTimer = nullptr;
+      QString restartSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path d='M12.75 8a4.5 4.5 0 0 1-8.61 1.834l-1.391.565A6.001 6.001 0 0 0 14.25 8 6 6 0 0 0 3.5 4.334V2.5H2v4l.75.75h3.5v-1.5H4.352A4.5 4.5 0 0 1 12.75 8z'/></svg>");
+      QIcon restartIcon = IconUtilities::createSvgIcon(
+          restartSvg.arg(normalColor),
+          restartSvg.arg(activeColor),
+          "");
+      AnimationControl::stopRestartAnimation(m_restartAnimationTimer, m_restartButton, restartIcon);
     }
     
     QString buttonStyle = QString(
@@ -2127,7 +1252,7 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
     m_restartButton->setStyleSheet(buttonStyle);
     
     QString restartSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path d='M12.75 8a4.5 4.5 0 0 1-8.61 1.834l-1.391.565A6.001 6.001 0 0 0 14.25 8 6 6 0 0 0 3.5 4.334V2.5H2v4l.75.75h3.5v-1.5H4.352A4.5 4.5 0 0 1 12.75 8z'/></svg>");
-    QIcon restartIcon = createSvgIcon(
+    QIcon restartIcon = IconUtilities::createSvgIcon(
         restartSvg.arg(normalColor),
         restartSvg.arg(activeColor),
         "");
@@ -2141,7 +1266,7 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
     QString progressSvg = QString("<svg viewBox='0 0 16 16' fill='%1'>"
         "<path d='M8 1.5a6.5 6.5 0 1 0 6.5 6.5h1.5a8 8 0 1 1-8-8v1.5z'/>"
         "</svg>");
-    QIcon progressIcon = createSvgIcon(progressSvg.arg(normalColor), "", "");
+    QIcon progressIcon = IconUtilities::createSvgIcon(progressSvg.arg(normalColor), "", "");
     m_restartButton->setIcon(progressIcon);
     
     QString buttonStyle = QString(
@@ -2162,24 +1287,12 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
     
     if (!m_restartAnimationTimer)
     {
-      m_restartAnimationTimer = new QTimer(this);
-      m_restartAnimationTimer->setInterval(50); // Update every 50ms for smooth rotation
-      m_restartAnimationFrame = 0;
-      
       QString progressSvg = QString("<svg viewBox='0 0 16 16' fill='%1'>"
           "<path d='M8 1.5a6.5 6.5 0 1 0 6.5 6.5h1.5a8 8 0 1 1-8-8v1.5z'/>"
           "</svg>");
-      QPixmap basePixmap = createSvgPixmap(progressSvg.arg(normalColor), 16, 16);
+      QIcon progressIcon = IconUtilities::createSvgIcon(progressSvg.arg(normalColor), "", "");
       
-      connect(m_restartAnimationTimer, &QTimer::timeout, [this, basePixmap]() {
-        m_restartAnimationFrame = (m_restartAnimationFrame + 1) % 36;
-        QTransform transform;
-        transform.rotate(-m_restartAnimationFrame * 10);
-        QPixmap rotated = basePixmap.transformed(transform, Qt::SmoothTransformation);
-        m_restartButton->setIcon(QIcon(rotated));
-      });
-      
-      m_restartAnimationTimer->start();
+      m_restartAnimationTimer = AnimationControl::createRestartAnimation(this, m_restartButton, progressIcon);
     }
   }
 }
@@ -2245,33 +1358,7 @@ void DebugPane::getCurrentSearchContext(QWidget *&searchWidget, QLineEdit *&sear
 
 void DebugPane::highlightAllMatches(QTextEdit *textEdit, const QString &searchText, const QTextCursor &currentMatch)
 {
-  QList<QTextEdit::ExtraSelection> extraSelections;
-  QTextDocument *document = textEdit->document();
-  QTextCursor highlightCursor(document);
-  
-  // Setup the format for other occurrences (orange background)
-  QTextEdit::ExtraSelection extraSelection;
-  QTextCharFormat format;
-  format.setBackground(QColor(StyleManager::Colors::PRIMARY_ORANGE));
-  format.setForeground(QColor(StyleManager::Colors::BLACK));
-  
-  // Find all occurrences and highlight them (except the current one)
-  while (!highlightCursor.isNull() && !highlightCursor.atEnd()) {
-    highlightCursor = document->find(searchText, highlightCursor);
-    if (!highlightCursor.isNull()) {
-      // Only add if it's not the current selection
-      if (!currentMatch.isNull() && 
-          (highlightCursor.position() != currentMatch.position() || 
-           highlightCursor.anchor() != currentMatch.anchor())) {
-        extraSelection.cursor = highlightCursor;
-        extraSelection.format = format;
-        extraSelections.append(extraSelection);
-      }
-    }
-  }
-  
-  // Apply all selections
-  textEdit->setExtraSelections(extraSelections);
+  SearchFunctionality::highlightAllMatches(textEdit, searchText, currentMatch);
 }
 
 void DebugPane::toggleSearchBar()
@@ -2287,27 +1374,17 @@ void DebugPane::toggleSearchBar()
   
   int currentTab = m_consoleStack->currentIndex();
   QPushButton *searchButton = (currentTab == 0) ? m_beamLogSearchButton : m_guiLogSearchButton;
+  QWidget *container = (currentTab == 0) ? m_beamLogContainer : m_guiLogContainer;
   
-  if (searchWidget->isVisible()) {
-    searchWidget->hide();
-    searchInput->clear();
-    QTextCursor cursor = textEdit->textCursor();
-    cursor.clearSelection();
-    textEdit->setTextCursor(cursor);
-    textEdit->setExtraSelections(QList<QTextEdit::ExtraSelection>());
-    textEdit->setFocus();
-    searchButton->setChecked(false);
-  } else {
-    QWidget *container = (currentTab == 0) ? m_beamLogContainer : m_guiLogContainer;
-    int x = container->width() - searchWidget->width() - 20;
-    int y = container->height() - searchWidget->height() - 20;
-    searchWidget->move(x, y);
-    searchWidget->show();
-    searchWidget->raise();
-    searchInput->setFocus();
-    searchInput->selectAll();
-    searchButton->setChecked(true);
-  }
+  SearchFunctionality::SearchContext context = {
+    searchWidget,
+    searchInput,
+    textEdit,
+    lastSearchText,
+    searchButton
+  };
+  
+  m_searchFunctionality->toggleSearchBar(context, container);
 }
 
 void DebugPane::performSearch()
@@ -2315,7 +1392,6 @@ void DebugPane::performSearch()
   QLineEdit *searchInput = qobject_cast<QLineEdit*>(sender());
   if (!searchInput) return;
   
-  QString searchText = searchInput->text();
   QTextEdit *currentTextEdit = nullptr;
   QString *lastSearchText = nullptr;
   
@@ -2329,34 +1405,7 @@ void DebugPane::performSearch()
   
   if (!currentTextEdit || !lastSearchText) return;
   
-  if (searchText.isEmpty()) {
-    QTextCursor cursor = currentTextEdit->textCursor();
-    cursor.clearSelection();
-    currentTextEdit->setTextCursor(cursor);
-    currentTextEdit->setExtraSelections(QList<QTextEdit::ExtraSelection>());
-    return;
-  }
-  
-  if (searchText != *lastSearchText) {
-    QTextCursor cursor = currentTextEdit->textCursor();
-    cursor.movePosition(QTextCursor::Start);
-    currentTextEdit->setTextCursor(cursor);
-    *lastSearchText = searchText;
-  }
-  
-  bool found = currentTextEdit->find(searchText);
-  
-  if (!found) {
-    QTextCursor cursor = currentTextEdit->textCursor();
-    cursor.movePosition(QTextCursor::Start);
-    currentTextEdit->setTextCursor(cursor);
-    found = currentTextEdit->find(searchText);
-  }
-  
-  if (found) {
-    QTextCursor currentMatchCursor = currentTextEdit->textCursor();
-    highlightAllMatches(currentTextEdit, searchText, currentMatchCursor);
-  }
+  m_searchFunctionality->performSearch(searchInput, currentTextEdit, *lastSearchText);
 }
 
 void DebugPane::findNext()
@@ -2368,25 +1417,17 @@ void DebugPane::findNext()
   
   getCurrentSearchContext(searchWidget, searchInput, currentTextEdit, lastSearchText);
   
-  if (!searchWidget || !searchInput || !currentTextEdit || 
-      !searchWidget->isVisible() || searchInput->text().isEmpty()) {
-    return;
-  }
+  if (!searchWidget || !searchInput || !currentTextEdit || !lastSearchText) return;
   
-  QString searchText = searchInput->text();
-  bool found = currentTextEdit->find(searchText);
+  SearchFunctionality::SearchContext context = {
+    searchWidget,
+    searchInput,
+    currentTextEdit,
+    lastSearchText,
+    nullptr
+  };
   
-  if (!found) {
-    QTextCursor cursor = currentTextEdit->textCursor();
-    cursor.movePosition(QTextCursor::Start);
-    currentTextEdit->setTextCursor(cursor);
-    found = currentTextEdit->find(searchText);
-  }
-  
-  if (found) {
-    QTextCursor currentMatchCursor = currentTextEdit->textCursor();
-    highlightAllMatches(currentTextEdit, searchText, currentMatchCursor);
-  }
+  m_searchFunctionality->findNext(context);
 }
 
 void DebugPane::findPrevious()
@@ -2398,25 +1439,17 @@ void DebugPane::findPrevious()
   
   getCurrentSearchContext(searchWidget, searchInput, currentTextEdit, lastSearchText);
   
-  if (!searchWidget || !searchInput || !currentTextEdit || 
-      !searchWidget->isVisible() || searchInput->text().isEmpty()) {
-    return;
-  }
+  if (!searchWidget || !searchInput || !currentTextEdit || !lastSearchText) return;
   
-  QString searchText = searchInput->text();
-  bool found = currentTextEdit->find(searchText, QTextDocument::FindBackward);
+  SearchFunctionality::SearchContext context = {
+    searchWidget,
+    searchInput,
+    currentTextEdit,
+    lastSearchText,
+    nullptr
+  };
   
-  if (!found) {
-    QTextCursor cursor = currentTextEdit->textCursor();
-    cursor.movePosition(QTextCursor::End);
-    currentTextEdit->setTextCursor(cursor);
-    found = currentTextEdit->find(searchText, QTextDocument::FindBackward);
-  }
-  
-  if (found) {
-    QTextCursor currentMatchCursor = currentTextEdit->textCursor();
-    highlightAllMatches(currentTextEdit, searchText, currentMatchCursor);
-  }
+  m_searchFunctionality->findPrevious(context);
 }
 
 #include "moc_debugpane.cpp"
