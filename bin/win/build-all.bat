@@ -20,5 +20,13 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
+:: Call build-mcp.bat
+call build-mcp.bat
+if %errorlevel% neq 0 (
+    echo build-mcp.bat failed with exit code %errorlevel%
+    cd %BUILD_WORKING_DIR%
+    exit /b %errorlevel%
+)
+
 @echo "Completed Building Tau5"
 cd %BUILD_WORKING_DIR%

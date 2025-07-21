@@ -167,5 +167,8 @@ if(WIN32)
     COMMAND ${CMAKE_PREFIX_PATH}/bin/windeployqt $<TARGET_FILE:${APP_NAME}>)
 endif() # Win32
 
-# Build DevTools MCP server as a separate executable
-add_subdirectory(gui-dev-mcp)
+# Build DevTools MCP server as a separate executable (optional)
+option(BUILD_MCP_SERVER "Build the MCP DevTools server" OFF)
+if(BUILD_MCP_SERVER)
+  add_subdirectory(gui-dev-mcp)
+endif()
