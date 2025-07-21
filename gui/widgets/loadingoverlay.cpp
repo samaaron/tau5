@@ -6,6 +6,8 @@
 #include <QFontMetrics>
 #include <QMutexLocker>
 #include <QTransform>
+#include <QScreen>
+#include <QWindow>
 #include "../logger.h"
 
 LoadingOverlay::LoadingOverlay(QWidget *parent)
@@ -71,8 +73,6 @@ void LoadingOverlay::fadeOut()
     if (updateTimer) {
       updateTimer->stop();
     }
-    
-    // Clear log buffer
     {
       QMutexLocker locker(&logMutex);
       logLines.clear();
@@ -119,7 +119,7 @@ void LoadingOverlay::createTerminalTexture()
     delete terminalTexture;
   }
   
-  QImage terminalImage(1024, 512, QImage::Format_ARGB32);
+  QImage terminalImage(2048, 1789, QImage::Format_ARGB32);
   terminalImage.fill(Qt::black);
   
   terminalTexture = new QOpenGLTexture(terminalImage);
@@ -148,7 +148,7 @@ void LoadingOverlay::updateTerminalTexture()
     }
   }
   
-  QImage terminalImage(1024, 512, QImage::Format_ARGB32);
+  QImage terminalImage(2048, 1789, QImage::Format_ARGB32);
   terminalImage.fill(Qt::black);
   
   QPainter painter(&terminalImage);
@@ -157,7 +157,7 @@ void LoadingOverlay::updateTerminalTexture()
   
   QFont font("Cascadia Code", 16);
   font.setPixelSize(22);
-  font.setItalic(true);
+  font.setItalic(false);
   font.setStyleHint(QFont::Monospace);
   font.setHintingPreference(QFont::PreferFullHinting);
   font.setLetterSpacing(QFont::AbsoluteSpacing, 2.0);
@@ -171,8 +171,8 @@ void LoadingOverlay::updateTerminalTexture()
   for (int i = 0; i < logLines.size() && y < terminalImage.height() - 15; ++i) {
     QString line = logLines[i];
     
-    if (line.length() > 60) {
-      line = line.left(57) + "...";
+    if (line.length() > 120) {
+      line = line.left(117) + "...";
     }
     
     painter.setPen(QColor(255, 20, 147));  // Deep pink FF1493
@@ -218,16 +218,25 @@ void LoadingOverlay::initializeGL()
   Logger::log(Logger::Info, QString("[LoadingOverlay] OpenGL version: %1").arg(reinterpret_cast<const char*>(glGetString(GL_VERSION))));
   Logger::log(Logger::Info, QString("[LoadingOverlay] GLSL version: %1").arg(reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION))));
   
+  if (windowHandle() && windowHandle()->screen()) {
+    QScreen *screen = windowHandle()->screen();
+    Logger::log(Logger::Info, QString("[LoadingOverlay] Screen: %1, DPR: %2, Physical DPI: %3x%4, Logical DPI: %5x%6")
+                .arg(screen->name())
+                .arg(screen->devicePixelRatio())
+                .arg(screen->physicalDotsPerInchX())
+                .arg(screen->physicalDotsPerInchY())
+                .arg(screen->logicalDotsPerInchX())
+                .arg(screen->logicalDotsPerInchY()));
+  }
+  
   timer.start();
   
-  // Create simple test shader first
-  bool useSimpleShader = false; // Use full shader
+  bool useSimpleShader = false;
   
   const char *vertexShaderSource;
   const char *fragmentShaderSource;
   
   if (useSimpleShader) {
-    // Simplified shader that works on all platforms
     vertexShaderSource = R"(
       #version 120
       attribute vec2 aPos;
@@ -247,26 +256,19 @@ void LoadingOverlay::initializeGL()
         vec2 uv = gl_FragCoord.xy / resolution.xy;
         vec2 p = (gl_FragCoord.xy - 0.5 * resolution.xy) / min(resolution.x, resolution.y);
         
-        // Simple animated background
-        vec3 col = vec3(0.0);
+          vec3 col = vec3(0.0);
         float t = time * 0.5;
         col += vec3(0.1, 0.0, 0.1) * (0.5 + 0.5 * sin(t + p.x * 3.0));
         col += vec3(0.1, 0.0, 0.2) * (0.5 + 0.5 * cos(t * 0.7 + p.y * 2.0));
-        
-        // Simple swirl effect
         float r = length(p);
         float a = atan(p.y, p.x);
         col += vec3(1.0, 0.5, 0.0) * 0.3 * sin(r * 10.0 - a * 3.0 - t) * exp(-r * 2.0);
-        
-        // Logo
         vec2 logoUV = (uv - 0.5) * 0.8 + 0.5;
         if(logoUV.x >= 0.0 && logoUV.x <= 1.0 && logoUV.y >= 0.0 && logoUV.y <= 1.0) {
           vec4 logoColor = texture2D(logoTexture, logoUV);
           float logoMask = (logoColor.a > 0.5 && length(logoColor.rgb) < 0.5) ? 1.0 : 0.0;
           col = mix(col, vec3(1.0) - col, logoMask);
         }
-        
-        // Terminal
         vec2 terminalUV = uv;
         terminalUV = vec2(terminalUV.y, terminalUV.x);
         terminalUV = (terminalUV - vec2(0.5, 0.25)) * 1.25 + vec2(0.1, -0.3);
@@ -287,7 +289,6 @@ void LoadingOverlay::initializeGL()
       }
     )";
   } else {
-    // Platform-specific vertex shader
 #ifdef Q_OS_MAC
     vertexShaderSource = R"(
       #version 120
@@ -297,7 +298,6 @@ void LoadingOverlay::initializeGL()
       }
     )";
 #else
-    // Windows and Linux
     vertexShaderSource = R"(
       #version 120
       attribute vec2 aPos;
@@ -307,7 +307,6 @@ void LoadingOverlay::initializeGL()
     )";
 #endif
     
-    // Use same fragment shader for all platforms now
     fragmentShaderSource = R"(
       #version 120
     uniform float time;
@@ -416,10 +415,9 @@ void LoadingOverlay::initializeGL()
         v.xy *= rot(angles.z);
         
         float scale = 2.0 / (4.0 + v.z);
-        proj[i] = v.xy * scale * 0.5;
+        proj[i] = v.xy * scale * 0.3;
       }
       
-      // Edge indices - avoiding array constructor
       int edge0 = 0; int edge1 = 1;
       int edge2 = 1; int edge3 = 2;
       int edge4 = 2; int edge5 = 3;
@@ -434,67 +432,41 @@ void LoadingOverlay::initializeGL()
       int edge22 = 3; int edge23 = 7;
       
       float minDist = 1e10;
-      
-      // Manually check each edge - avoiding dynamic array access
       vec2 pa, ba;
       float h, d;
-      
-      // Edge 0-1
       pa = p - proj[0]; ba = proj[1] - proj[0];
       h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       minDist = min(minDist, length(pa - ba * h));
-      
-      // Edge 1-2
       pa = p - proj[1]; ba = proj[2] - proj[1];
       h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       minDist = min(minDist, length(pa - ba * h));
-      
-      // Edge 2-3
       pa = p - proj[2]; ba = proj[3] - proj[2];
       h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       minDist = min(minDist, length(pa - ba * h));
-      
-      // Edge 3-0
       pa = p - proj[3]; ba = proj[0] - proj[3];
       h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       minDist = min(minDist, length(pa - ba * h));
-      
-      // Edge 4-5
       pa = p - proj[4]; ba = proj[5] - proj[4];
       h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       minDist = min(minDist, length(pa - ba * h));
-      
-      // Edge 5-6
       pa = p - proj[5]; ba = proj[6] - proj[5];
       h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       minDist = min(minDist, length(pa - ba * h));
-      
-      // Edge 6-7
       pa = p - proj[6]; ba = proj[7] - proj[6];
       h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       minDist = min(minDist, length(pa - ba * h));
-      
-      // Edge 7-4
       pa = p - proj[7]; ba = proj[4] - proj[7];
       h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       minDist = min(minDist, length(pa - ba * h));
-      
-      // Edge 0-4
       pa = p - proj[0]; ba = proj[4] - proj[0];
       h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       minDist = min(minDist, length(pa - ba * h));
-      
-      // Edge 1-5
       pa = p - proj[1]; ba = proj[5] - proj[1];
       h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       minDist = min(minDist, length(pa - ba * h));
-      
-      // Edge 2-6
       pa = p - proj[2]; ba = proj[6] - proj[2];
       h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       minDist = min(minDist, length(pa - ba * h));
-      
-      // Edge 3-7
       pa = p - proj[3]; ba = proj[7] - proj[3];
       h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
       minDist = min(minDist, length(pa - ba * h));
@@ -539,11 +511,8 @@ void LoadingOverlay::initializeGL()
       float vignette = 1.0 - length(p) * 0.6;
       col *= vignette;
       
-      // Logo with fixed aspect ratio using p coordinate system
-      float logoSize = 0.8; // Size in aspect-corrected space
-      vec2 logoP = p / logoSize; // Scale the coordinate system
-      
-      // Convert from aspect-corrected space back to UV space for texture sampling
+      float logoSize = 0.8;
+      vec2 logoP = p / logoSize;
       vec2 logoUV = logoP * 0.5 + 0.5;
       
       if(logoUV.x >= 0.0 && logoUV.x <= 1.0 && logoUV.y >= 0.0 && logoUV.y <= 1.0) {
@@ -552,38 +521,29 @@ void LoadingOverlay::initializeGL()
         float logoMask = (logoColor.a > 0.5 && luminance < 0.5) ? 1.0 : 0.0;
         col = mix(col, 1.0 - col, logoMask);
       }
-      
-      // Calculate aspect-corrected terminal UV coordinates
       float aspect = resolution.x / resolution.y;
       vec2 terminalUV = uv;
-      
-      // Apply aspect correction before transformations
       terminalUV.x = terminalUV.x * aspect;
-      
-      // Swap coordinates for rotation
       terminalUV = vec2(terminalUV.y, terminalUV.x);
-      
-      // Position and scale
-      terminalUV = (terminalUV - vec2(0.5, 0.5 * aspect)) * 1.25 + vec2(0.1, -0.3);
-      
-      // Rotate 90 degrees clockwise
+      terminalUV = (terminalUV - vec2(0.5, 0.5 * aspect)) * vec2(0.69, 1.04) + vec2(0.4, 0.5);
       terminalUV -= vec2(0.5, 0.5);
       vec2 rotated = vec2(terminalUV.y, -terminalUV.x);
       terminalUV = rotated + vec2(0.5, 0.5);
       
       if(terminalUV.x >= 0.0 && terminalUV.x <= 1.0 && terminalUV.y >= 0.0 && terminalUV.y <= 1.0) {
-        vec4 terminalColor = texture2D(terminalTexture, terminalUV);
+        vec2 scrolledUV = terminalUV + vec2(0.0, terminalOffset);
+        vec4 terminalColor = texture2D(terminalTexture, scrolledUV);
         
         float brightness = max(terminalColor.r, terminalColor.g);
         vec3 orange = vec3(1.0, 0.5, 0.0);
         vec3 phosphor = orange * brightness * 1.5;
         
-        vec2 texelSize = 1.0 / vec2(1024.0, 512.0);
+        vec2 texelSize = 1.0 / vec2(2048.0, 1789.0);
         float bloom = 0.0;
         for(int i = -2; i <= 2; i++) {
           for(int j = -2; j <= 2; j++) {
             vec2 offset = vec2(float(i), float(j)) * texelSize * 2.0;
-            vec4 sample = texture2D(terminalTexture, terminalUV + offset);
+            vec4 sample = texture2D(terminalTexture, scrolledUV + offset);
             float dist = length(vec2(float(i), float(j))) / 2.0;
             bloom += max(sample.r, sample.g) * exp(-dist * dist);
           }
@@ -604,7 +564,7 @@ void LoadingOverlay::initializeGL()
       gl_FragColor = vec4(col, 1.0);
     }
   )";
-  } // End of else block for useSimpleShader
+  }
   
   shaderProgram = new QOpenGLShaderProgram(this);
   if (!shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource)) {
@@ -637,7 +597,13 @@ void LoadingOverlay::initializeGL()
 
 void LoadingOverlay::resizeGL(int w, int h)
 {
-  glViewport(0, 0, w, h);
+  qreal dpr = devicePixelRatio();
+  int actualWidth = static_cast<int>(w * dpr);
+  int actualHeight = static_cast<int>(h * dpr);
+  glViewport(0, 0, actualWidth, actualHeight);
+  
+  Logger::log(Logger::Debug, QString("[LoadingOverlay] Resize: %1x%2 (DPR: %3, Actual: %4x%5)")
+              .arg(w).arg(h).arg(dpr).arg(actualWidth).arg(actualHeight));
 }
 
 void LoadingOverlay::paintGL()
@@ -646,7 +612,6 @@ void LoadingOverlay::paintGL()
   glClear(GL_COLOR_BUFFER_BIT);
   
   if (!shaderProgram || !logoTexture) {
-    // Fallback: draw a simple colored background if shader fails
     glClearColor(0.1f, 0.0f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     Logger::log(Logger::Warning, "[LoadingOverlay] Shader or texture not ready");
@@ -667,8 +632,13 @@ void LoadingOverlay::paintGL()
     return;
   }
   
+  qreal dpr = devicePixelRatio();
+  int actualWidth = static_cast<int>(width() * dpr);
+  int actualHeight = static_cast<int>(height() * dpr);
+  QSize fbSize = size() * dpr;
+  
   shaderProgram->setUniformValue(timeUniform, timer.elapsed() / 1000.0f);
-  shaderProgram->setUniformValue(resolutionUniform, QVector2D(width(), height()));
+  shaderProgram->setUniformValue(resolutionUniform, QVector2D(fbSize.width(), fbSize.height()));
   shaderProgram->setUniformValue(logoTextureUniform, 0);
   shaderProgram->setUniformValue(terminalTextureUniform, 1);
   shaderProgram->setUniformValue(terminalOffsetUniform, terminalScrollOffset);
@@ -696,4 +666,19 @@ void LoadingOverlay::paintGL()
   shaderProgram->disableAttributeArray(vertexLocation);
   
   shaderProgram->release();
+}
+
+bool LoadingOverlay::event(QEvent *event)
+{
+  if (event->type() == QEvent::ScreenChangeInternal) {
+    Logger::log(Logger::Info, "[LoadingOverlay] Screen change detected, updating resolution");
+    
+    QSize currentSize = size();
+    resizeGL(currentSize.width(), currentSize.height());
+    update();
+    
+    return true;
+  }
+  
+  return QOpenGLWidget::event(event);
 }

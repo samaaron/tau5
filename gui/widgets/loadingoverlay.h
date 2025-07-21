@@ -29,6 +29,7 @@ protected:
   void initializeGL() override;
   void resizeGL(int w, int h) override;
   void paintGL() override;
+  bool event(QEvent *event) override;
 
 private:
   void createLogoTexture();
@@ -55,7 +56,7 @@ private:
   QMutex logMutex;
   QStringList logLines;
   QStringList pendingLogLines;
-  static const int MAX_LOG_LINES = 30;
+  static const int MAX_LOG_LINES = 62;
   float terminalScrollOffset;
   float targetScrollOffset;
   QTimer *updateTimer;
