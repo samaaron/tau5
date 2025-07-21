@@ -9,6 +9,7 @@
 #include <QWebEnginePage>
 #include <QTabWidget>
 #include <QStackedWidget>
+#include <QLineEdit>
 #include <memory>
 
 class QPushButton;
@@ -75,9 +76,14 @@ private slots:
     void showIexShell();
     void showDevToolsTab();
     void showLiveDashboardTab();
+    void findNext();
+    void findPrevious();
+    void toggleSearchBar();
+    void performSearch();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
@@ -105,7 +111,15 @@ private:
     QString getZoomButtonStyle();
     QPushButton* createTabButton(const QString &text, QWidget *parent);
     QPushButton* createZoomButton(const QIcon &icon, const QString &tooltip, QWidget *parent);
+    QWidget* createSearchWidget(QWidget *parent, QLineEdit *&searchInput, QPushButton *&closeButton);
     int constrainHeight(int requestedHeight) const;
+    void getCurrentSearchContext(QWidget *&searchWidget, QLineEdit *&searchInput, QTextEdit *&textEdit, QString *&lastSearchText);
+    void highlightAllMatches(QTextEdit *textEdit, const QString &searchText, const QTextCursor &currentMatch);
+    void zoomWebView(QWebEngineView *view, bool zoomIn);
+    void zoomTextEdit(QTextEdit *textEdit, int &fontSize, bool zoomIn);
+    void applyFontToTextEdit(QTextEdit *textEdit, int fontSize);
+    void switchConsoleTab(int index, const QList<QPushButton*> &tabButtons);
+    void switchDevToolsTab(int index);
 
 private:
     QVBoxLayout *m_mainLayout;
@@ -122,6 +136,7 @@ private:
     QVBoxLayout *m_beamLogLayout;
     QTextEdit *m_outputDisplay;
     QPushButton *m_autoScrollButton;
+    QPushButton *m_beamLogSearchButton;
     QPushButton *m_consoleZoomInButton;
     QPushButton *m_consoleZoomOutButton;
     QPushButton *m_devToolsZoomInButton;
@@ -130,6 +145,7 @@ private:
     QVBoxLayout *m_guiLogLayout;
     QTextEdit *m_guiLogDisplay;
     QPushButton *m_guiLogAutoScrollButton;
+    QPushButton *m_guiLogSearchButton;
     QPushButton *m_guiLogZoomInButton;
     QPushButton *m_guiLogZoomOutButton;
     QWidget *m_iexShellContainer;
@@ -174,6 +190,17 @@ private:
     bool m_isHoveringHandle;
     
     QWidget *m_dragHandleWidget;
+    
+    // Search functionality
+    QWidget *m_beamLogSearchWidget;
+    QLineEdit *m_beamLogSearchInput;
+    QPushButton *m_beamLogSearchCloseButton;
+    QString m_beamLogLastSearchText;
+    
+    QWidget *m_guiLogSearchWidget;
+    QLineEdit *m_guiLogSearchInput;
+    QPushButton *m_guiLogSearchCloseButton;
+    QString m_guiLogLastSearchText;
     
 public:
     static constexpr int RESIZE_HANDLE_HEIGHT = 10;  // Interaction area

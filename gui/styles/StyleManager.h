@@ -16,11 +16,20 @@ public:
     static const QString TIMESTAMP_GRAY;
     static const QString BLACK;
     static const QString WHITE;
+    static const QString DEEP_PINK;
+    static const QString DARK_BACKGROUND;
+    static const QString CONSOLE_BACKGROUND;
 
     // Alpha variants for transparency
     static QString primaryOrangeAlpha(int alpha);
     static QString blackAlpha(int alpha);
     static QString whiteAlpha(int alpha);
+    static QString errorBlueAlpha(int alpha);
+    
+    // Alpha conversion helpers
+    static QString primaryOrangeAlpha(double alpha);  // Takes 0.0-1.0
+    static QString blackAlpha(double alpha);
+    static QString errorBlueAlpha(double alpha);
   };
 
   // Typography

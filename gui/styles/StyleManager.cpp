@@ -7,6 +7,9 @@ const QString StyleManager::Colors::ERROR_BLUE = "#4169e1";
 const QString StyleManager::Colors::TIMESTAMP_GRAY = "#888888";
 const QString StyleManager::Colors::BLACK = "#000000";
 const QString StyleManager::Colors::WHITE = "#ffffff";
+const QString StyleManager::Colors::DEEP_PINK = "rgb(255, 20, 147)";
+const QString StyleManager::Colors::DARK_BACKGROUND = "#1e1e1e";
+const QString StyleManager::Colors::CONSOLE_BACKGROUND = "#000000";
 
 QString StyleManager::Colors::primaryOrangeAlpha(int alpha)
 {
@@ -21,6 +24,27 @@ QString StyleManager::Colors::blackAlpha(int alpha)
 QString StyleManager::Colors::whiteAlpha(int alpha)
 {
   return QString("rgba(255, 255, 255, %1)").arg(alpha);
+}
+
+QString StyleManager::Colors::errorBlueAlpha(int alpha)
+{
+  return QString("rgba(65, 105, 225, %1)").arg(alpha);
+}
+
+// Alpha conversion helpers - takes decimal 0.0-1.0
+QString StyleManager::Colors::primaryOrangeAlpha(double alpha)
+{
+  return QString("rgba(255, 165, 0, %1)").arg(alpha);
+}
+
+QString StyleManager::Colors::blackAlpha(double alpha)
+{
+  return QString("rgba(0, 0, 0, %1)").arg(alpha);
+}
+
+QString StyleManager::Colors::errorBlueAlpha(double alpha)
+{
+  return QString("rgba(65, 105, 225, %1)").arg(alpha);
 }
 
 // Typography Definitions
@@ -158,8 +182,8 @@ QString StyleManager::textEdit()
       .arg(Typography::MONOSPACE_FONT_FAMILY)
       .arg(Typography::FONT_SIZE_MEDIUM)
       .arg(Spacing::LARGE)
-      .arg(Colors::primaryOrangeAlpha(100))
-      .arg(Colors::WHITE);
+      .arg(Colors::DEEP_PINK)
+      .arg(Colors::BLACK);
 }
 
 QString StyleManager::checkbox()
