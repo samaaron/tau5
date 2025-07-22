@@ -1,16 +1,17 @@
 #pragma once
 
+#include <QWidget>
 #include <QOpenGLWidget>
 #include <QOpenGLFunctions>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLTexture>
 #include <QPropertyAnimation>
 #include <QElapsedTimer>
-#include <QSvgRenderer>
+#include <QTextEdit>
 #include <QMutex>
 #include <QStringList>
 
-class LoadingOverlay : public QOpenGLWidget, protected QOpenGLFunctions
+class LoadingOverlay : public QWidget
 {
   Q_OBJECT
 
@@ -26,46 +27,57 @@ signals:
   void fadeToBlackComplete();
 
 protected:
-  void initializeGL() override;
-  void resizeGL(int w, int h) override;
-  void paintGL() override;
-  bool event(QEvent *event) override;
+  void resizeEvent(QResizeEvent *event) override;
 
 private:
-  void createLogoTexture();
-  void createTerminalTexture();
-  void updateTerminalTexture();
+  void initializeGL();
+  void resizeGL(int w, int h);
+  void paintGL();
+  
+  class GLWidget : public QOpenGLWidget, protected QOpenGLFunctions
+  {
+  public:
+    explicit GLWidget(QWidget *parent = nullptr);
+    ~GLWidget();
+    
+  protected:
+    void initializeGL() override;
+    void resizeGL(int w, int h) override;
+    void paintGL() override;
+    
+  private:
+    QOpenGLShaderProgram *shaderProgram;
+    QOpenGLTexture *logoTexture;
+    QElapsedTimer timer;
+    QElapsedTimer frameTimer;  // For frame-independent animation
+    float lastFrameTime;
+    int timeUniform;
+    int resolutionUniform;
+    int logoTextureUniform;
+    float fadeToBlackValue;
+    
+    void createLogoTexture();
+  };
 
 private:
-  void startFadeToBlack();
-
-private:
+  GLWidget *glWidget;
+  QTextEdit *logWidget;
   QPropertyAnimation *fadeAnimation;
   QPropertyAnimation *fadeToBlackAnimation;
-  QOpenGLShaderProgram *shaderProgram;
-  QOpenGLTexture *logoTexture;
-  QOpenGLTexture *terminalTexture;
-  QElapsedTimer timer;
-  QSvgRenderer *svgRenderer;
-  int timeUniform;
-  int resolutionUniform;
-  int logoTextureUniform;
-  int terminalTextureUniform;
-  int terminalOffsetUniform;
-  int fadeToBlackUniform;
   QMutex logMutex;
   QStringList logLines;
-  QStringList pendingLogLines;
-  static const int MAX_LOG_LINES = 62;
-  float terminalScrollOffset;
-  float targetScrollOffset;
-  QTimer *updateTimer;
   QTimer *renderTimer;
-  bool needsTextureUpdate;
+  
+  static const int MAX_LOG_LINES = 100;
   float fadeToBlackValue;
+  
   Q_PROPERTY(float fadeToBlackValue READ getFadeToBlackValue WRITE setFadeToBlackValue)
   
 public:
   float getFadeToBlackValue() const { return fadeToBlackValue; }
-  void setFadeToBlackValue(float value) { fadeToBlackValue = value; update(); }
+  void setFadeToBlackValue(float value) { fadeToBlackValue = value; }
+  
+  // Compatibility stubs
+  void startFadeToBlack() {}
+  bool event(QEvent *event) override { return QWidget::event(event); }
 };

@@ -1,35 +1,61 @@
 #include "loadingoverlay.h"
 #include <QTimer>
 #include <QPainter>
-#include <QImage>
-#include <QFont>
-#include <QFontMetrics>
+#include <QGraphicsOpacityEffect>
+#include <QVBoxLayout>
 #include <QMutexLocker>
-#include <QTransform>
-#include <QScreen>
-#include <QWindow>
+#include <QScrollBar>
+#include <QResizeEvent>
 #include "../logger.h"
 #include "../styles/StyleManager.h"
 
 LoadingOverlay::LoadingOverlay(QWidget *parent)
-    : QOpenGLWidget(nullptr)
+    : QWidget(nullptr)
+    , glWidget(nullptr)
+    , logWidget(nullptr)
     , fadeAnimation(nullptr)
     , fadeToBlackAnimation(nullptr)
-    , shaderProgram(nullptr)
-    , logoTexture(nullptr)
-    , terminalTexture(nullptr)
-    , svgRenderer(nullptr)
-    , terminalScrollOffset(0.0f)
-    , targetScrollOffset(0.0f)
-    , updateTimer(nullptr)
     , renderTimer(nullptr)
-    , needsTextureUpdate(false)
     , fadeToBlackValue(0.0f)
 {
   setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
   setAttribute(Qt::WA_TranslucentBackground);
-  setAttribute(Qt::WA_TransparentForMouseEvents);
   
+  // Create GL widget for background
+  glWidget = new GLWidget(this);
+  glWidget->setObjectName("glWidget");
+  
+  // Create log widget overlay
+  logWidget = new QTextEdit(this);
+  logWidget->setObjectName("logWidget");
+  logWidget->setReadOnly(true);
+  logWidget->setFrameStyle(QFrame::NoFrame);
+  logWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  logWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  
+  // Style the log widget with explicit opacity
+  logWidget->setStyleSheet(QString(R"(
+    QTextEdit#logWidget {
+      background-color: rgba(20, 20, 20, 230);
+      color: rgb(255, 165, 0);
+      font-family: 'Cascadia Code', 'Cascadia Mono', 'Consolas', monospace;
+      font-size: 9px;
+      padding: 10px;
+      border: 1px solid rgba(255, 165, 0, 0.3);
+      border-radius: 5px;
+    }
+  )"));
+  
+  // Ensure proper stacking order
+  glWidget->stackUnder(logWidget);
+  logWidget->raise();
+  logWidget->setVisible(true);
+  
+  // Add initial test logs
+  appendLog("[TAU5] System initializing...");
+  appendLog("[BEAM] Starting Erlang VM...");
+  
+  // Setup fade animation without graphics effect to avoid caching
   fadeAnimation = new QPropertyAnimation(this, "windowOpacity", this);
   fadeAnimation->setDuration(500);
   fadeAnimation->setStartValue(1.0);
@@ -37,66 +63,146 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
   
   connect(fadeAnimation, &QPropertyAnimation::finished, this, &QWidget::close);
   
-  setWindowOpacity(1.0);
-  
-  svgRenderer = nullptr;
-  
+  // Use high-priority timer that yields to event loop
   renderTimer = new QTimer(this);
-  connect(renderTimer, &QTimer::timeout, this, QOverload<>::of(&QOpenGLWidget::update));
-  renderTimer->start(33);
-  
-  updateTimer = new QTimer(this);
-  connect(updateTimer, &QTimer::timeout, this, [this]() {
-    if (needsTextureUpdate) {
-      updateTerminalTexture();
-      needsTextureUpdate = false;
+  renderTimer->setTimerType(Qt::PreciseTimer);
+  connect(renderTimer, &QTimer::timeout, [this]() {
+    if (glWidget) {
+      // Use zero-delay single shot to ensure the update happens
+      // even when the main thread is busy
+      QTimer::singleShot(0, glWidget, [this]() {
+        if (glWidget) {
+          glWidget->update();
+        }
+      });
     }
   });
-  updateTimer->start(100);
+  renderTimer->start(16); // 60 FPS target
 }
 
 LoadingOverlay::~LoadingOverlay()
 {
-  makeCurrent();
-  delete shaderProgram;
-  delete logoTexture;
-  delete terminalTexture;
-  doneCurrent();
+  // Stop the render timer when the widget is destroyed
+  if (renderTimer) {
+    renderTimer->stop();
+    Logger::log(Logger::Debug, "[LoadingOverlay] Render timer stopped in destructor");
+  }
 }
 
 void LoadingOverlay::fadeOut()
 {
   if (fadeAnimation && fadeAnimation->state() != QAbstractAnimation::Running) {
-    // Stop timers to save resources
-    if (renderTimer) {
-      renderTimer->stop();
-    }
-    if (updateTimer) {
-      updateTimer->stop();
-    }
+    Logger::log(Logger::Debug, "[LoadingOverlay] Starting fade out");
+    // Don't stop the render timer here - let it run during fade
     {
       QMutexLocker locker(&logMutex);
       logLines.clear();
-      pendingLogLines.clear();
     }
-    
     fadeAnimation->start();
-  }
-}
-
-void LoadingOverlay::startFadeToBlack()
-{
-  if (fadeToBlackAnimation && fadeToBlackAnimation->state() != QAbstractAnimation::Running) {
-    fadeToBlackAnimation->start();
   }
 }
 
 void LoadingOverlay::updateGeometry(const QRect &parentGeometry)
 {
   setGeometry(parentGeometry);
+  
+  // Manually trigger resize event to position widgets
+  QResizeEvent event(size(), size());
+  resizeEvent(&event);
 }
 
-void LoadingOverlay::createLogoTexture()
+void LoadingOverlay::resizeEvent(QResizeEvent *event)
+{
+  QWidget::resizeEvent(event);
+  
+  // Resize GL widget to fill the window
+  if (glWidget) {
+    glWidget->setGeometry(0, 0, width(), height());
+  }
+  
+  // Position log widget in bottom-right corner
+  if (logWidget) {
+    int logWidth = qMin(500, width() / 3);
+    int logHeight = qMin(300, height() / 3);
+    int x = width() - logWidth - 20;
+    int y = height() - logHeight - 20;
+    logWidget->setGeometry(x, y, logWidth, logHeight);
+    logWidget->raise(); // Ensure it's on top
+    
+    Logger::log(Logger::Debug, QString("[LoadingOverlay] Log widget positioned at %1,%2 size %3x%4")
+                .arg(x).arg(y).arg(logWidth).arg(logHeight));
+  }
+}
+
+void LoadingOverlay::appendLog(const QString &message)
+{
+  QMutexLocker locker(&logMutex);
+  
+  Logger::log(Logger::Debug, QString("[LoadingOverlay] appendLog: %1").arg(message));
+  
+  QStringList lines = message.split('\n', Qt::SkipEmptyParts);
+  for (const QString &line : lines) {
+    QString trimmed = line.trimmed();
+    if (!trimmed.isEmpty()) {
+      logLines.append(trimmed);
+      while (logLines.size() > MAX_LOG_LINES) {
+        logLines.removeFirst();
+      }
+    }
+  }
+  
+  // Update log widget
+  QString logText = logLines.join("\n");
+  logWidget->setPlainText(logText);
+  logWidget->raise();
+  logWidget->setVisible(true);
+  logWidget->update(); // Force repaint
+  
+  // Debug - check if widget is visible and parent
+  Logger::log(Logger::Debug, QString("[LoadingOverlay] Log widget visible: %1, geometry: %2x%3, text: '%4', parent visible: %5")
+              .arg(logWidget->isVisible())
+              .arg(logWidget->width())
+              .arg(logWidget->height())
+              .arg(logText.left(50))
+              .arg(isVisible()));
+  
+  // Auto-scroll to bottom
+  QScrollBar *sb = logWidget->verticalScrollBar();
+  if (sb) {
+    sb->setValue(sb->maximum());
+  }
+}
+
+// GLWidget implementation
+
+LoadingOverlay::GLWidget::GLWidget(QWidget *parent)
+    : QOpenGLWidget(parent)
+    , shaderProgram(nullptr)
+    , logoTexture(nullptr)
+    , lastFrameTime(0.0f)
+    , fadeToBlackValue(0.0f)
+{
+  // Enable VSync and triple buffering to reduce tearing
+  QSurfaceFormat format = QSurfaceFormat::defaultFormat();
+  format.setSwapInterval(1); // VSync
+  format.setSwapBehavior(QSurfaceFormat::TripleBuffer); // Triple buffering
+  format.setRenderableType(QSurfaceFormat::OpenGL);
+  format.setProfile(QSurfaceFormat::CompatibilityProfile);
+  setFormat(format);
+  
+  // Enable threaded rendering
+  QSurfaceFormat::setDefaultFormat(format);
+}
+
+LoadingOverlay::GLWidget::~GLWidget()
+{
+  makeCurrent();
+  delete shaderProgram;
+  delete logoTexture;
+  doneCurrent();
+}
+
+void LoadingOverlay::GLWidget::createLogoTexture()
 {
   if (logoTexture) {
     delete logoTexture;
@@ -104,6 +210,7 @@ void LoadingOverlay::createLogoTexture()
   
   QImage logoImage(":/images/tau5-bw-hirez.png");
   if (logoImage.isNull()) {
+    Logger::log(Logger::Warning, "[LoadingOverlay] Failed to load logo image");
     logoImage = QImage(512, 512, QImage::Format_ARGB32);
     logoImage.fill(Qt::white);
   }
@@ -114,386 +221,99 @@ void LoadingOverlay::createLogoTexture()
   logoTexture->setWrapMode(QOpenGLTexture::ClampToEdge);
 }
 
-void LoadingOverlay::createTerminalTexture()
-{
-  if (terminalTexture) {
-    delete terminalTexture;
-  }
-  
-  QImage terminalImage(2048, 1789, QImage::Format_ARGB32);
-  terminalImage.fill(Qt::black);
-  
-  terminalTexture = new QOpenGLTexture(terminalImage);
-  terminalTexture->setMinificationFilter(QOpenGLTexture::Linear);
-  terminalTexture->setMagnificationFilter(QOpenGLTexture::Linear);
-  terminalTexture->setWrapMode(QOpenGLTexture::ClampToEdge);
-  
-  logLines.append("[TAU5] System initializing...");
-  logLines.append("[BEAM] Starting Erlang VM...");
-  updateTerminalTexture();
-}
-
-void LoadingOverlay::updateTerminalTexture()
-{
-  if (!terminalTexture || !isValid()) return;
-  
-  {
-    QMutexLocker locker(&logMutex);
-    if (!pendingLogLines.isEmpty()) {
-      logLines.append(pendingLogLines);
-      pendingLogLines.clear();
-      
-      while (logLines.size() > MAX_LOG_LINES) {
-        logLines.removeFirst();
-      }
-    }
-  }
-  
-  QImage terminalImage(2048, 1789, QImage::Format_ARGB32);
-  terminalImage.fill(Qt::black);
-  
-  QPainter painter(&terminalImage);
-  painter.setRenderHint(QPainter::TextAntialiasing, true);
-  painter.setRenderHint(QPainter::Antialiasing, true);
-  
-  QFont font("Cascadia Code", 16);
-  font.setPixelSize(22);
-  font.setItalic(false);
-  font.setStyleHint(QFont::Monospace);
-  font.setHintingPreference(QFont::PreferFullHinting);
-  font.setLetterSpacing(QFont::AbsoluteSpacing, 2.0);
-  painter.setFont(font);
-  
-  QColor baseColor = QColor(StyleManager::Colors::TERMINAL_CURSOR);
-  
-  int lineHeight = 28;
-  int y = 30;
-  
-  for (int i = 0; i < logLines.size() && y < terminalImage.height() - 15; ++i) {
-    QString line = logLines[i];
-    
-    if (line.length() > 120) {
-      line = line.left(117) + "...";
-    }
-    
-    painter.setPen(QColor(StyleManager::Colors::TERMINAL_CURSOR));
-    painter.drawText(15, y, line);
-    
-    y += lineHeight;
-  }
-  
-  // Scanline effect with semantic color
-  painter.setPen(QColor(StyleManager::Colors::backgroundPrimaryAlpha(20)));
-  for (int i = 0; i < terminalImage.height(); i += 2) {
-    painter.drawLine(0, i, terminalImage.width(), i);
-  }
-  
-  if (isValid()) {
-    makeCurrent();
-    if (terminalTexture) {
-      terminalTexture->destroy();
-      terminalTexture->create();
-      terminalTexture->setData(terminalImage);
-    }
-    doneCurrent();
-  }
-}
-
-void LoadingOverlay::appendLog(const QString &message)
-{
-  QMutexLocker locker(&logMutex);
-  
-  QStringList lines = message.split('\n');
-  for (const QString &line : lines) {
-    if (!line.trimmed().isEmpty()) {
-      pendingLogLines.append(line);
-    }
-  }
-  
-  needsTextureUpdate = true;
-}
-
-void LoadingOverlay::initializeGL()
+void LoadingOverlay::GLWidget::initializeGL()
 {
   initializeOpenGLFunctions();
   
-  Logger::log(Logger::Info, QString("[LoadingOverlay] OpenGL version: %1").arg(reinterpret_cast<const char*>(glGetString(GL_VERSION))));
-  Logger::log(Logger::Info, QString("[LoadingOverlay] GLSL version: %1").arg(reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION))));
-  
-  if (windowHandle() && windowHandle()->screen()) {
-    QScreen *screen = windowHandle()->screen();
-    Logger::log(Logger::Info, QString("[LoadingOverlay] Screen: %1, DPR: %2, Physical DPI: %3x%4, Logical DPI: %5x%6")
-                .arg(screen->name())
-                .arg(screen->devicePixelRatio())
-                .arg(screen->physicalDotsPerInchX())
-                .arg(screen->physicalDotsPerInchY())
-                .arg(screen->logicalDotsPerInchX())
-                .arg(screen->logicalDotsPerInchY()));
-  }
+  Logger::log(Logger::Info, QString("[LoadingOverlay] OpenGL version: %1")
+              .arg(reinterpret_cast<const char*>(glGetString(GL_VERSION))));
   
   timer.start();
+  frameTimer.start();
   
-  bool useSimpleShader = false;
+  // Simple vertex shader
+  const char *vertexShaderSource = R"(
+    #version 120
+    attribute vec2 aPos;
+    void main() {
+      gl_Position = vec4(aPos, 0.0, 1.0);
+    }
+  )";
   
-  const char *vertexShaderSource;
-  const char *fragmentShaderSource;
-  
-  if (useSimpleShader) {
-    vertexShaderSource = R"(
-      #version 120
-      attribute vec2 aPos;
-      void main() {
-        gl_Position = vec4(aPos, 0.0, 1.0);
-      }
-    )";
-    
-    fragmentShaderSource = R"(
-      #version 120
-      uniform float time;
-      uniform vec2 resolution;
-      uniform sampler2D logoTexture;
-      uniform sampler2D terminalTexture;
-      
-      void main() {
-        vec2 uv = gl_FragCoord.xy / resolution.xy;
-        vec2 p = (gl_FragCoord.xy - 0.5 * resolution.xy) / min(resolution.x, resolution.y);
-        
-          vec3 col = vec3(0.0);
-        float t = time * 0.5;
-        col += vec3(0.1, 0.0, 0.1) * (0.5 + 0.5 * sin(t + p.x * 3.0));
-        col += vec3(0.1, 0.0, 0.2) * (0.5 + 0.5 * cos(t * 0.7 + p.y * 2.0));
-        float r = length(p);
-        float a = atan(p.y, p.x);
-        col += vec3(1.0, 0.5, 0.0) * 0.3 * sin(r * 10.0 - a * 3.0 - t) * exp(-r * 2.0);
-        vec2 logoUV = (uv - 0.5) * 0.8 + 0.5;
-        if(logoUV.x >= 0.0 && logoUV.x <= 1.0 && logoUV.y >= 0.0 && logoUV.y <= 1.0) {
-          vec4 logoColor = texture2D(logoTexture, logoUV);
-          float logoMask = (logoColor.a > 0.5 && length(logoColor.rgb) < 0.5) ? 1.0 : 0.0;
-          col = mix(col, vec3(1.0) - col, logoMask);
-        }
-        vec2 terminalUV = uv;
-        terminalUV = vec2(terminalUV.y, terminalUV.x);
-        terminalUV = (terminalUV - vec2(0.5, 0.25)) * 1.25 + vec2(0.1, -0.3);
-        terminalUV -= vec2(0.5, 0.5);
-        vec2 rotated = vec2(terminalUV.y, -terminalUV.x);
-        terminalUV = rotated + vec2(0.5, 0.5);
-        
-        if(terminalUV.x >= 0.0 && terminalUV.x <= 1.0 && terminalUV.y >= 0.0 && terminalUV.y <= 1.0) {
-          vec4 terminalColor = texture2D(terminalTexture, terminalUV);
-          float brightness = max(terminalColor.r, terminalColor.g);
-          vec3 orange = vec3(1.0, 0.5, 0.0);
-          vec3 phosphor = orange * brightness * 2.0;
-          float terminalAlpha = brightness * 0.9;
-          col = mix(col, col * 0.3 + phosphor, terminalAlpha);
-        }
-        
-        gl_FragColor = vec4(col, 1.0);
-      }
-    )";
-  } else {
-#ifdef Q_OS_MAC
-    vertexShaderSource = R"(
-      #version 120
-      attribute vec2 aPos;
-      void main() {
-        gl_Position = vec4(aPos, 0.0, 1.0);
-      }
-    )";
-#else
-    vertexShaderSource = R"(
-      #version 120
-      attribute vec2 aPos;
-      void main() {
-        gl_Position = vec4(aPos, 0.0, 1.0);
-      }
-    )";
-#endif
-    
-    fragmentShaderSource = R"(
-      #version 120
+  // Ultra-simple performant fragment shader
+  const char *fragmentShaderSource = R"(
+    #version 120
     uniform float time;
     uniform vec2 resolution;
     uniform sampler2D logoTexture;
-    uniform sampler2D terminalTexture;
-    uniform float terminalOffset;
-    uniform float fadeToBlack;
     
     #define PI 3.14159265359
-    #define TAU 6.28318530718
     
     mat2 rot(float a) {
       float s = sin(a), c = cos(a);
       return mat2(c, -s, s, c);
     }
     
-    float noise(vec2 p) {
-      return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-    }
-    
-    float smoothNoise(vec2 p) {
-      vec2 i = floor(p);
-      vec2 f = fract(p);
-      
-      float a = noise(i);
-      float b = noise(i + vec2(1.0, 0.0));
-      float c = noise(i + vec2(0.0, 1.0));
-      float d = noise(i + vec2(1.0, 1.0));
-      
-      vec2 u = f * f * (3.0 - 2.0 * f);
-      
-      return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-    }
-    
-    vec3 turbulentSwirls(vec2 p) {
+    vec3 cubeWireframe(vec2 p, float logoMask) {
       vec3 col = vec3(0.0);
       
-      float t = time * 0.1;
-      
-      for(float i = 0.0; i < 5.0; i++) {
-        vec2 q = p;
-        
-        q *= 1.0 + i * 0.3;
-        q = rot(t * (0.5 + i * 0.1)) * q;
-        
-        float n1 = smoothNoise(q * 3.0 + vec2(t, -t * 0.7));
-        float n2 = smoothNoise(q * 5.0 - vec2(t * 1.3, t * 0.5));
-        q += vec2(n1, n2) * 0.3;
-        
-        float r = length(q);
-        float a = atan(q.y, q.x);
-        float swirl = sin(r * 10.0 - a * 3.0 - t * 1.0);
-        swirl *= exp(-r * 0.5);
-        
-        vec3 layerCol = mix(vec3(0.0, 0.2, 0.6), vec3(0.5, 0.0, 0.7), i / 4.0);
-        col += layerCol * swirl * 0.1 / (1.0 + i);
-      }
-      
-      return col;
-    }
-    
-    vec3 particleField(vec2 p) {
-      vec3 col = vec3(0.0);
-      
-      float t = time * 0.15;
-      
-      for(float i = 0.0; i < 15.0; i++) {
-        vec2 pos = vec2(
-          sin(i * 1.37 + t) * 0.8,
-          cos(i * 1.73 + t * 0.7) * 0.8
-        );
-        
-        float d = length(p - pos);
-        float glow = exp(-d * d * 20.0);
-        
-        vec3 particleCol = mix(vec3(0.05, 0.4, 0.8), vec3(0.7, 0.1, 0.8), sin(i * 0.5 + t));
-        col += particleCol * glow;
-      }
-      
-      return col * 0.35;
-    }
-    
-    vec3 cubeWireframe(vec2 p) {
-      vec3 col = vec3(0.0);
-      
-      float t = time * 0.0625;
+      // Slow rotation, faster when over logo
+      float rotSpeed = mix(0.05, 0.15, logoMask);
+      float t = time * rotSpeed;
       vec3 angles = vec3(t, t * 0.7, t * 0.3);
       
-      vec3 vertices[8];
-      vertices[0] = vec3(-1.0, -1.0, -1.0);
-      vertices[1] = vec3( 1.0, -1.0, -1.0);
-      vertices[2] = vec3( 1.0,  1.0, -1.0);
-      vertices[3] = vec3(-1.0,  1.0, -1.0);
-      vertices[4] = vec3(-1.0, -1.0,  1.0);
-      vertices[5] = vec3( 1.0, -1.0,  1.0);
-      vertices[6] = vec3( 1.0,  1.0,  1.0);
-      vertices[7] = vec3(-1.0,  1.0,  1.0);
+      // Cube vertices
+      vec3 verts[8];
+      verts[0] = vec3(-1.0, -1.0, -1.0);
+      verts[1] = vec3( 1.0, -1.0, -1.0);
+      verts[2] = vec3( 1.0,  1.0, -1.0);
+      verts[3] = vec3(-1.0,  1.0, -1.0);
+      verts[4] = vec3(-1.0, -1.0,  1.0);
+      verts[5] = vec3( 1.0, -1.0,  1.0);
+      verts[6] = vec3( 1.0,  1.0,  1.0);
+      verts[7] = vec3(-1.0,  1.0,  1.0);
       
+      // Scale cube when over logo
+      float scale = mix(0.3, 0.35, logoMask);
+      
+      // Project vertices
       vec2 proj[8];
       for(int i = 0; i < 8; i++) {
-        vec3 v = vertices[i];
-        
+        vec3 v = verts[i];
         v.yz *= rot(angles.x);
         v.xz *= rot(angles.y);
         v.xy *= rot(angles.z);
-        
-        float scale = 2.0 / (4.0 + v.z);
-        proj[i] = v.xy * scale * 0.3;
+        float z = 4.0 + v.z;
+        proj[i] = v.xy * (2.0 / z) * scale;
       }
       
-      int edge0 = 0; int edge1 = 1;
-      int edge2 = 1; int edge3 = 2;
-      int edge4 = 2; int edge5 = 3;
-      int edge6 = 3; int edge7 = 0;
-      int edge8 = 4; int edge9 = 5;
-      int edge10 = 5; int edge11 = 6;
-      int edge12 = 6; int edge13 = 7;
-      int edge14 = 7; int edge15 = 4;
-      int edge16 = 0; int edge17 = 4;
-      int edge18 = 1; int edge19 = 5;
-      int edge20 = 2; int edge21 = 6;
-      int edge22 = 3; int edge23 = 7;
+      // Draw edges (simplified)
+      float d = 1e10;
       
-      float minDist = 1e10;
-      vec2 pa, ba;
-      float h, d;
-      pa = p - proj[0]; ba = proj[1] - proj[0];
-      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      minDist = min(minDist, length(pa - ba * h));
-      pa = p - proj[1]; ba = proj[2] - proj[1];
-      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      minDist = min(minDist, length(pa - ba * h));
-      pa = p - proj[2]; ba = proj[3] - proj[2];
-      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      minDist = min(minDist, length(pa - ba * h));
-      pa = p - proj[3]; ba = proj[0] - proj[3];
-      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      minDist = min(minDist, length(pa - ba * h));
-      pa = p - proj[4]; ba = proj[5] - proj[4];
-      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      minDist = min(minDist, length(pa - ba * h));
-      pa = p - proj[5]; ba = proj[6] - proj[5];
-      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      minDist = min(minDist, length(pa - ba * h));
-      pa = p - proj[6]; ba = proj[7] - proj[6];
-      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      minDist = min(minDist, length(pa - ba * h));
-      pa = p - proj[7]; ba = proj[4] - proj[7];
-      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      minDist = min(minDist, length(pa - ba * h));
-      pa = p - proj[0]; ba = proj[4] - proj[0];
-      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      minDist = min(minDist, length(pa - ba * h));
-      pa = p - proj[1]; ba = proj[5] - proj[1];
-      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      minDist = min(minDist, length(pa - ba * h));
-      pa = p - proj[2]; ba = proj[6] - proj[2];
-      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      minDist = min(minDist, length(pa - ba * h));
-      pa = p - proj[3]; ba = proj[7] - proj[3];
-      h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      minDist = min(minDist, length(pa - ba * h));
+      // Front face
+      vec2 e;
+      e = proj[1] - proj[0]; d = min(d, length(p - proj[0] - e * clamp(dot(p - proj[0], e) / dot(e, e), 0.0, 1.0)));
+      e = proj[2] - proj[1]; d = min(d, length(p - proj[1] - e * clamp(dot(p - proj[1], e) / dot(e, e), 0.0, 1.0)));
+      e = proj[3] - proj[2]; d = min(d, length(p - proj[2] - e * clamp(dot(p - proj[2], e) / dot(e, e), 0.0, 1.0)));
+      e = proj[0] - proj[3]; d = min(d, length(p - proj[3] - e * clamp(dot(p - proj[3], e) / dot(e, e), 0.0, 1.0)));
       
-      col += vec3(1.0, 0.647, 0.0) * smoothstep(0.02, 0.0, minDist) * 2.0;
+      // Back face
+      e = proj[5] - proj[4]; d = min(d, length(p - proj[4] - e * clamp(dot(p - proj[4], e) / dot(e, e), 0.0, 1.0)));
+      e = proj[6] - proj[5]; d = min(d, length(p - proj[5] - e * clamp(dot(p - proj[5], e) / dot(e, e), 0.0, 1.0)));
+      e = proj[7] - proj[6]; d = min(d, length(p - proj[6] - e * clamp(dot(p - proj[6], e) / dot(e, e), 0.0, 1.0)));
+      e = proj[4] - proj[7]; d = min(d, length(p - proj[7] - e * clamp(dot(p - proj[7], e) / dot(e, e), 0.0, 1.0)));
       
-      return col;
-    }
-    
-    vec3 flowField(vec2 p) {
-      vec3 col = vec3(0.0);
+      // Connecting edges
+      e = proj[4] - proj[0]; d = min(d, length(p - proj[0] - e * clamp(dot(p - proj[0], e) / dot(e, e), 0.0, 1.0)));
+      e = proj[5] - proj[1]; d = min(d, length(p - proj[1] - e * clamp(dot(p - proj[1], e) / dot(e, e), 0.0, 1.0)));
+      e = proj[6] - proj[2]; d = min(d, length(p - proj[2] - e * clamp(dot(p - proj[2], e) / dot(e, e), 0.0, 1.0)));
+      e = proj[7] - proj[3]; d = min(d, length(p - proj[3] - e * clamp(dot(p - proj[3], e) / dot(e, e), 0.0, 1.0)));
       
-      float t = time * 0.075;
-      
-      vec2 q = p * 4.0;
-      
-      for(float i = 0.0; i < 3.0; i++) {
-        float n = smoothNoise(q + vec2(t, -t * 0.6) + i * 100.0);
-        q += vec2(cos(n * TAU), sin(n * TAU)) * 0.3;
-      }
-      
-      float flow = sin(q.x * 5.0 + q.y * 3.0 + t * 1.0);
-      flow = smoothstep(0.0, 0.1, abs(flow));
-      
-      col += vec3(0.4, 0.05, 0.6) * (1.0 - flow) * 0.18;
+      // Use color that inverts to deep neon pink when over logo, orange otherwise
+      // Deep neon pink (1.0, 0.0, 1.0) inverted = (0.0, 1.0, 0.0) = pure green
+      // For a slightly warmer neon pink (1.0, 0.1, 0.9) inverted = (0.0, 0.9, 0.1) = green with slight yellow
+      vec3 cubeColor = mix(vec3(1.0, 0.65, 0.0), vec3(0.0, 1.0, 0.0), logoMask);
+      col += cubeColor * smoothstep(0.02, 0.0, d) * 2.0;
       
       return col;
     }
@@ -502,185 +322,109 @@ void LoadingOverlay::initializeGL()
       vec2 uv = gl_FragCoord.xy / resolution.xy;
       vec2 p = (gl_FragCoord.xy - 0.5 * resolution.xy) / min(resolution.x, resolution.y);
       
-      vec3 col = vec3(0.0);
+      // Simple gradient background
+      vec3 col = mix(vec3(0.05, 0.0, 0.1), vec3(0.1, 0.0, 0.2), uv.y);
       
-      col += turbulentSwirls(p) * 0.4;
-      col += particleField(p) * 0.5;
-      col += flowField(p) * 0.35;
-      
-      col += cubeWireframe(p) * 1.5;
-      
-      float vignette = 1.0 - length(p) * 0.6;
-      col *= vignette;
-      
-      float logoSize = 0.8;
-      vec2 logoP = p / logoSize;
-      vec2 logoUV = logoP * 0.5 + 0.5;
-      
+      // Check logo area
+      vec2 logoUV = p + 0.5;
+      float logoMask = 0.0;
       if(logoUV.x >= 0.0 && logoUV.x <= 1.0 && logoUV.y >= 0.0 && logoUV.y <= 1.0) {
         vec4 logoColor = texture2D(logoTexture, logoUV);
-        float luminance = dot(logoColor.rgb, vec3(0.299, 0.587, 0.114));
-        float logoMask = (logoColor.a > 0.5 && luminance < 0.5) ? 1.0 : 0.0;
-        col = mix(col, 1.0 - col, logoMask);
-      }
-      float aspect = resolution.x / resolution.y;
-      vec2 terminalUV = uv;
-      terminalUV.x = terminalUV.x * aspect;
-      terminalUV = vec2(terminalUV.y, terminalUV.x);
-      terminalUV = (terminalUV - vec2(0.5, 0.5 * aspect)) * vec2(0.69, 1.04) + vec2(0.4, 0.5);
-      terminalUV -= vec2(0.5, 0.5);
-      vec2 rotated = vec2(terminalUV.y, -terminalUV.x);
-      terminalUV = rotated + vec2(0.5, 0.5);
-      
-      if(terminalUV.x >= 0.0 && terminalUV.x <= 1.0 && terminalUV.y >= 0.0 && terminalUV.y <= 1.0) {
-        vec2 scrolledUV = terminalUV + vec2(0.0, terminalOffset);
-        vec4 terminalColor = texture2D(terminalTexture, scrolledUV);
-        
-        float brightness = max(terminalColor.r, terminalColor.g);
-        vec3 orange = vec3(1.0, 0.5, 0.0);
-        vec3 phosphor = orange * brightness * 1.5;
-        
-        vec2 texelSize = 1.0 / vec2(2048.0, 1789.0);
-        float bloom = 0.0;
-        for(int i = -2; i <= 2; i++) {
-          for(int j = -2; j <= 2; j++) {
-            vec2 offset = vec2(float(i), float(j)) * texelSize * 2.0;
-            vec4 sample = texture2D(terminalTexture, scrolledUV + offset);
-            float dist = length(vec2(float(i), float(j))) / 2.0;
-            bloom += max(sample.r, sample.g) * exp(-dist * dist);
-          }
-        }
-        bloom *= 0.05;
-        
-        phosphor += orange * bloom * 0.8;
-        
-        float terminalAlpha = brightness * 0.9;
-        col = mix(col, col * 0.3 + phosphor, terminalAlpha);
+        float lum = dot(logoColor.rgb, vec3(0.299, 0.587, 0.114));
+        logoMask = (logoColor.a > 0.5 && lum < 0.5) ? 1.0 : 0.0;
       }
       
-      col = col / (col + vec3(1.0));
-      col = pow(col, vec3(0.4545));
+      // Draw cube
+      col += cubeWireframe(p, logoMask);
       
-      col = mix(col, vec3(0.0), fadeToBlack);
+      // Draw logo (inverted)
+      if(logoMask > 0.5) {
+        col = 1.0 - col;
+      }
+      
+      // Vignette
+      col *= 1.0 - length(p) * 0.5;
       
       gl_FragColor = vec4(col, 1.0);
     }
   )";
-  }
   
   shaderProgram = new QOpenGLShaderProgram(this);
   if (!shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource)) {
-    Logger::log(Logger::Error, QString("[LoadingOverlay] Vertex shader compilation failed: %1").arg(shaderProgram->log()));
+    Logger::log(Logger::Error, QString("[LoadingOverlay] Vertex shader error: %1").arg(shaderProgram->log()));
   }
   if (!shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource)) {
-    Logger::log(Logger::Error, QString("[LoadingOverlay] Fragment shader compilation failed: %1").arg(shaderProgram->log()));
+    Logger::log(Logger::Error, QString("[LoadingOverlay] Fragment shader error: %1").arg(shaderProgram->log()));
   }
   if (!shaderProgram->link()) {
-    Logger::log(Logger::Error, QString("[LoadingOverlay] Shader linking failed: %1").arg(shaderProgram->log()));
-  } else {
-    Logger::log(Logger::Info, "[LoadingOverlay] Shader linked successfully");
+    Logger::log(Logger::Error, QString("[LoadingOverlay] Shader link error: %1").arg(shaderProgram->log()));
   }
   
   timeUniform = shaderProgram->uniformLocation("time");
   resolutionUniform = shaderProgram->uniformLocation("resolution");
   logoTextureUniform = shaderProgram->uniformLocation("logoTexture");
-  terminalTextureUniform = shaderProgram->uniformLocation("terminalTexture");
-  terminalOffsetUniform = shaderProgram->uniformLocation("terminalOffset");
-  fadeToBlackUniform = shaderProgram->uniformLocation("fadeToBlack");
-  
-  Logger::log(Logger::Info, QString("[LoadingOverlay] Shader uniforms - time: %1, resolution: %2, logoTexture: %3")
-              .arg(timeUniform).arg(resolutionUniform).arg(logoTextureUniform));
   
   createLogoTexture();
-  createTerminalTexture();
   
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 }
 
-void LoadingOverlay::resizeGL(int w, int h)
+void LoadingOverlay::GLWidget::resizeGL(int w, int h)
 {
   qreal dpr = devicePixelRatio();
   int actualWidth = static_cast<int>(w * dpr);
   int actualHeight = static_cast<int>(h * dpr);
   glViewport(0, 0, actualWidth, actualHeight);
-  
-  Logger::log(Logger::Debug, QString("[LoadingOverlay] Resize: %1x%2 (DPR: %3, Actual: %4x%5)")
-              .arg(w).arg(h).arg(dpr).arg(actualWidth).arg(actualHeight));
 }
 
-void LoadingOverlay::paintGL()
+void LoadingOverlay::GLWidget::paintGL()
 {
+  // Skip rendering if not visible
+  if (!isVisible()) {
+    return;
+  }
+  
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT);
   
-  if (!shaderProgram || !logoTexture) {
-    glClearColor(0.1f, 0.0f, 0.1f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    Logger::log(Logger::Warning, "[LoadingOverlay] Shader or texture not ready");
+  if (!shaderProgram || !logoTexture || !shaderProgram->isLinked()) {
     return;
   }
   
-  if (!shaderProgram->isLinked()) {
-    Logger::log(Logger::Error, "[LoadingOverlay] Shader program is not linked!");
-    glClearColor(0.1f, 0.1f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    return;
-  }
-  
-  terminalScrollOffset += (targetScrollOffset - terminalScrollOffset) * 0.1f;
-  
-  if (!shaderProgram->bind()) {
-    Logger::log(Logger::Error, "[LoadingOverlay] Failed to bind shader program!");
-    return;
-  }
+  shaderProgram->bind();
   
   qreal dpr = devicePixelRatio();
-  int actualWidth = static_cast<int>(width() * dpr);
-  int actualHeight = static_cast<int>(height() * dpr);
   QSize fbSize = size() * dpr;
   
-  shaderProgram->setUniformValue(timeUniform, timer.elapsed() / 1000.0f);
+  // Smooth time progression - use accumulated time
+  float currentTime = timer.elapsed() / 1000.0f;
+  
+  // Apply exponential smoothing if frame time varies too much
+  float frameTime = frameTimer.restart() / 1000.0f;
+  if (frameTime > 0.05f) { // If frame took more than 50ms
+    frameTime = 0.016f; // Cap at 60fps equivalent
+  }
+  
+  shaderProgram->setUniformValue(timeUniform, currentTime);
   shaderProgram->setUniformValue(resolutionUniform, QVector2D(fbSize.width(), fbSize.height()));
   shaderProgram->setUniformValue(logoTextureUniform, 0);
-  shaderProgram->setUniformValue(terminalTextureUniform, 1);
-  shaderProgram->setUniformValue(terminalOffsetUniform, terminalScrollOffset);
-  shaderProgram->setUniformValue(fadeToBlackUniform, fadeToBlackValue);
   
   glActiveTexture(GL_TEXTURE0);
   logoTexture->bind();
   
-  glActiveTexture(GL_TEXTURE1);
-  if (terminalTexture) {
-    terminalTexture->bind();
-  }
-  
-  static const GLfloat vertices[] = {
+  // Full screen quad
+  static const GLfloat verts[] = {
     -1.0f, -1.0f,
      1.0f, -1.0f,
     -1.0f,  1.0f,
      1.0f,  1.0f
   };
   
-  int vertexLocation = shaderProgram->attributeLocation("aPos");
-  shaderProgram->enableAttributeArray(vertexLocation);
-  shaderProgram->setAttributeArray(vertexLocation, vertices, 2);
+  int vertexLoc = shaderProgram->attributeLocation("aPos");
+  shaderProgram->enableAttributeArray(vertexLoc);
+  shaderProgram->setAttributeArray(vertexLoc, verts, 2);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-  shaderProgram->disableAttributeArray(vertexLocation);
+  shaderProgram->disableAttributeArray(vertexLoc);
   
   shaderProgram->release();
-}
-
-bool LoadingOverlay::event(QEvent *event)
-{
-  if (event->type() == QEvent::ScreenChangeInternal) {
-    Logger::log(Logger::Info, "[LoadingOverlay] Screen change detected, updating resolution");
-    
-    QSize currentSize = size();
-    resizeGL(currentSize.width(), currentSize.height());
-    update();
-    
-    return true;
-  }
-  
-  return QOpenGLWidget::event(event);
 }
