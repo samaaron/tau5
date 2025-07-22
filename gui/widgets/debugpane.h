@@ -168,6 +168,7 @@ private:
   QPushButton *m_devToolsButton;
   QPushButton *m_sideBySideButton;
   QPushButton *m_restartButton;
+  QPushButton *m_closeButton;
   QTimer *m_restartAnimationTimer;
 
   std::unique_ptr<QPropertyAnimation> m_slideAnimation;

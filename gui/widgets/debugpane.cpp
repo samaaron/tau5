@@ -65,16 +65,16 @@
 #include <cmath>
 
 // Helper function to create buttons with codicon font
-static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, const QString &tooltip, 
+static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, const QString &tooltip,
                                         bool checkable = false, bool checked = false)
 {
   QPushButton *button = new QPushButton(icon, parent);
   button->setToolTip(tooltip);
-  
+
   // Use different font for + and - buttons
   QString fontFamily = (icon == '+' || icon == '-') ? "Segoe UI, Arial" : "codicon";
   QString fontSize = (icon == '+' || icon == '-') ? "16px" : "14px";
-  
+
   button->setStyleSheet(QString(
     "QPushButton {"
     "  font-family: '%1';"
@@ -102,12 +102,12 @@ static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, cons
    .arg(StyleManager::Colors::ACCENT_PRIMARY)
    .arg(StyleManager::Colors::TEXT_PRIMARY)
    .arg(StyleManager::Colors::STATUS_ERROR));
-  
+
   if (checkable) {
     button->setCheckable(true);
     button->setChecked(checked);
   }
-  
+
   button->setFixedSize(24, 24);
   return button;
 }
@@ -120,7 +120,7 @@ DebugPane::DebugPane(QWidget *parent)
       m_elixirConsoleView(nullptr), m_elixirConsoleTabButton(nullptr),
       m_currentFontSize(12), m_guiLogFontSize(12), m_devToolsMainContainer(nullptr),
       m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
-      m_dragHandleWidget(nullptr), m_restartButton(nullptr), m_restartAnimationTimer(nullptr),
+      m_dragHandleWidget(nullptr), m_restartButton(nullptr), m_closeButton(nullptr), m_restartAnimationTimer(nullptr),
       m_beamLogSearchWidget(nullptr), m_beamLogSearchInput(nullptr),
       m_beamLogSearchCloseButton(nullptr), m_guiLogSearchWidget(nullptr), m_guiLogSearchInput(nullptr),
       m_guiLogSearchCloseButton(nullptr), m_beamLogSearchButton(nullptr), m_guiLogSearchButton(nullptr),
@@ -135,7 +135,7 @@ DebugPane::DebugPane(QWidget *parent)
       codiconLoaded = true;
     }
   }
-  
+
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowFlags(Qt::FramelessWindowHint);
   setMouseTracking(true);
@@ -221,23 +221,31 @@ void DebugPane::setupViewControls()
   m_devToolsButton = createCodiconButton(m_headerWidget, QChar(0xEAAF), "DevTools Only", true); // bug icon
   m_sideBySideButton = createCodiconButton(m_headerWidget, QChar(0xEB56), "Side by Side View", true); // split-horizontal icon
 
+  m_closeButton = createCodiconButton(m_headerWidget, QChar(0xEA76), "Close Debug Pane"); // close icon
+
   m_restartButton->setFocusPolicy(Qt::NoFocus);
   m_beamLogButton->setFocusPolicy(Qt::NoFocus);
   m_devToolsButton->setFocusPolicy(Qt::NoFocus);
   m_sideBySideButton->setFocusPolicy(Qt::NoFocus);
+  m_closeButton->setFocusPolicy(Qt::NoFocus);
 
   m_headerLayout->addWidget(m_restartButton);
   m_headerLayout->addSpacing(20);
   m_headerLayout->addStretch();
 
   m_headerLayout->addWidget(m_beamLogButton);
+  m_headerLayout->addSpacing(4);
   m_headerLayout->addWidget(m_devToolsButton);
+  m_headerLayout->addSpacing(4);
   m_headerLayout->addWidget(m_sideBySideButton);
+  m_headerLayout->addSpacing(4);
+  m_headerLayout->addWidget(m_closeButton);
 
   connect(m_restartButton, &QPushButton::clicked, this, &DebugPane::restartBeamRequested);
   connect(m_beamLogButton, &QPushButton::clicked, this, &DebugPane::showBeamLogOnly);
   connect(m_devToolsButton, &QPushButton::clicked, this, &DebugPane::showDevToolsOnly);
   connect(m_sideBySideButton, &QPushButton::clicked, this, &DebugPane::showSideBySide);
+  connect(m_closeButton, &QPushButton::clicked, this, &DebugPane::toggle);
 }
 
 void DebugPane::setupConsole()
@@ -1145,7 +1153,7 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
   else
   {
     m_restartButton->setToolTip("BEAM restart in progress...");
-    
+
     // Use sync icon for progress (this will be animated)
     m_restartButton->setText(QChar(0xEA6A)); // sync icon
 
