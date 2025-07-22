@@ -123,6 +123,7 @@ public:
   static QString consoleScrollbar();
   static QString guiButton();
   static QString mainWindow();
+  static QString contextMenu();
 
 private:
   StyleManager() = default; // Static class, no instantiation

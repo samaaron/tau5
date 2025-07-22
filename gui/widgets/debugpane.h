@@ -85,6 +85,7 @@ private slots:
   void toggleSearchBar();
   void performSearch();
   void handleSearchShortcut();
+  void handleInspectElementRequested();
 
 protected:
   bool eventFilter(QObject *obj, QEvent *event) override;

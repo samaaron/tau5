@@ -290,3 +290,37 @@ QString StyleManager::mainWindow()
 {
   return QString("background-color: %1;").arg(Colors::BLACK);
 }
+
+QString StyleManager::contextMenu()
+{
+  return QString(
+    "QMenu {"
+    "  background-color: %1;"
+    "  border: 1px solid %2;"
+    "  padding: %3;"
+    "}"
+    "QMenu::item {"
+    "  padding: %4 %5;"
+    "  background-color: transparent;"
+    "  color: %6;"
+    "}"
+    "QMenu::item:selected {"
+    "  background-color: %7;"
+    "  color: %8;"
+    "}"
+    "QMenu::separator {"
+    "  height: 1px;"
+    "  background: %9;"
+    "  margin: %10 0;"
+    "}")
+    .arg(Colors::BACKGROUND_SECONDARY)       // Menu background
+    .arg(Colors::BORDER_DEFAULT)             // Border color
+    .arg(Spacing::SMALL)                     // Menu padding
+    .arg(Spacing::SMALL)                     // Item vertical padding
+    .arg(Spacing::LARGE)                     // Item horizontal padding
+    .arg(Colors::TEXT_PRIMARY)               // Text color
+    .arg(Colors::ACCENT_PRIMARY)             // Selected background
+    .arg(Colors::BACKGROUND_PRIMARY)         // Selected text color
+    .arg(Colors::BORDER_DEFAULT)             // Separator color
+    .arg(Spacing::SMALL);                    // Separator margin
+}
