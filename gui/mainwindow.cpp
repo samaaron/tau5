@@ -161,6 +161,13 @@ void MainWindow::initializePhxWidget(quint16 port)
   phxWidget->connectToTauPhx(phxUrl);
   setCentralWidget(phxWidget.get());
 
+  // Set DevTools availability for the web view
+  bool devToolsAvailable = false;
+#ifdef BUILD_WITH_DEBUG_PANE
+  devToolsAvailable = m_enableDebugPane;
+#endif
+  phxWidget->getWebView()->setDevToolsAvailable(devToolsAvailable);
+
 #ifdef BUILD_WITH_DEBUG_PANE
   if (debugPane) {
     debugPane->setWebView(phxWidget->getWebView());

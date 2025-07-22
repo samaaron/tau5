@@ -13,6 +13,8 @@ class PhxWebView : public SandboxedWebView
 
 public:
   explicit PhxWebView(QWidget *parent = nullptr);
+  
+  void setDevToolsAvailable(bool available) { m_devToolsAvailable = available; }
 
 signals:
   void inspectElementRequested();
@@ -25,6 +27,7 @@ private:
   void showContextMenu(const QPoint &globalPos);
   
   QPoint m_lastContextMenuPos;
+  bool m_devToolsAvailable = false;
 };
 
 #endif // PHXWEBVIEW_H

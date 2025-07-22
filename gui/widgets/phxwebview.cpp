@@ -36,14 +36,19 @@ void PhxWebView::showContextMenu(const QPoint &globalPos)
   QMenu contextMenu(this);
   contextMenu.setStyleSheet(StyleManager::contextMenu());
   
-  QAction *inspectAction = contextMenu.addAction(tr("Inspect Element"));
-  inspectAction->setIcon(QIcon::fromTheme("document-properties"));
+  if (m_devToolsAvailable) {
+    QAction *inspectAction = contextMenu.addAction(tr("Inspect Element"));
+    inspectAction->setIcon(QIcon::fromTheme("document-properties"));
+    
+    connect(inspectAction, &QAction::triggered, this, [this]() {
+      // Qt WebEngine provides direct support for inspecting at a position
+      page()->triggerAction(QWebEnginePage::InspectElement);
+      emit inspectElementRequested();
+    });
+  }
   
-  connect(inspectAction, &QAction::triggered, this, [this]() {
-    // Qt WebEngine provides direct support for inspecting at a position
-    page()->triggerAction(QWebEnginePage::InspectElement);
-    emit inspectElementRequested();
-  });
-  
-  contextMenu.exec(globalPos);
+  // Only show menu if we have items
+  if (!contextMenu.isEmpty()) {
+    contextMenu.exec(globalPos);
+  }
 }
