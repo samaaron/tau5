@@ -78,24 +78,29 @@ Beam::~Beam()
     heartbeatTimer->stop();
   }
 
-  if (process)
-  {
-    if (process->state() == QProcess::Running)
-    {
-      Logger::log(Logger::Info, "Attempting to terminate BEAM process...");
-      process->terminate();
-      if (!process->waitForFinished(5000))
-      {
-        Logger::log(Logger::Warning, "Process did not terminate gracefully, killing it...");
-        process->kill();
-        process->waitForFinished();
-      }
-    }
-  }
-  
+  // Only kill the BEAM process by PID
   if (beamPid > 0)
   {
     killBeamProcess();
+  }
+  
+  // Clean up the QProcess to avoid "destroyed while still running" warning
+  if (process)
+  {
+    // Disconnect all signals to prevent any callbacks during cleanup
+    process->disconnect();
+    
+    // If the launcher script is still running, terminate it
+    if (process->state() != QProcess::NotRunning)
+    {
+      process->terminate();
+      // Give it a short time to finish
+      if (!process->waitForFinished(1000))
+      {
+        process->kill();
+        process->waitForFinished(1000);
+      }
+    }
   }
 }
 
@@ -405,50 +410,23 @@ void Beam::restart()
   serverReady = false;
   otpTreeReady = false;
   
-  // Terminate the current process
-  if (process && process->state() == QProcess::Running)
+  // Kill the BEAM process by PID if we have it
+  if (beamPid > 0)
   {
-    Logger::log(Logger::Info, "Terminating current BEAM process...");
-    
-    // Disconnect existing process signals
+    Logger::log(Logger::Info, "Terminating BEAM process by PID...");
+    killBeamProcess();
+    beamPid = 0;
+  }
+  
+  // Disconnect existing process signals
+  if (process)
+  {
     disconnect(process, &QProcess::readyReadStandardOutput, this, &Beam::handleStandardOutput);
     disconnect(process, &QProcess::readyReadStandardError, this, &Beam::handleStandardError);
-    
-    // Connect to finished signal - using a direct connection
-    connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, &Beam::continueRestart);
-    
-    process->terminate();
-    
-    // Set up a timer to force kill if it doesn't terminate gracefully
-    // Capture the process pointer to ensure we're working with the right one
-    QProcess* processToKill = process;
-    QTimer::singleShot(5000, this, [this, processToKill]() {
-      // Only proceed if we're still restarting and it's the same process
-      if (isRestarting && process == processToKill && process->state() == QProcess::Running)
-      {
-        Logger::log(Logger::Warning, "Process did not terminate gracefully, killing it...");
-        process->kill();
-        
-        // Wait a bit more, then force continue
-        QTimer::singleShot(2000, this, [this, processToKill]() {
-          if (isRestarting && process == processToKill && process->state() == QProcess::Running)
-          {
-            Logger::log(Logger::Error, "Failed to kill process, forcing restart");
-          }
-          if (isRestarting)
-          {
-            continueRestart();
-          }
-        });
-      }
-    });
   }
-  else
-  {
-    // Process not running, continue immediately
-    continueRestart();
-  }
+  
+  // Continue with restart after a short delay to ensure process cleanup
+  QTimer::singleShot(1000, this, &Beam::continueRestart);
 }
 
 void Beam::continueRestart()
@@ -461,20 +439,6 @@ void Beam::continueRestart()
   }
   
   Logger::log(Logger::Info, "Continuing BEAM restart...");
-  
-  // Disconnect the finished signal to prevent multiple calls
-  if (process)
-  {
-    disconnect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-               this, &Beam::continueRestart);
-  }
-  
-  // Kill the BEAM process by PID if it's still running
-  if (beamPid > 0)
-  {
-    killBeamProcess();
-    beamPid = 0;
-  }
   
   // Delete the old process
   if (process)
