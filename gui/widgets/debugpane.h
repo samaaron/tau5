@@ -21,6 +21,7 @@ class QTextEdit;
 class ConsoleWidget;
 class PhxWebView;
 class SandboxedWebView;
+class QShortcut;
 
 class DebugPane : public QWidget
 {
@@ -201,7 +202,5 @@ public:
   static constexpr int RESIZE_HANDLE_HEIGHT = 10;       // Interaction area
   static constexpr int RESIZE_HANDLE_VISUAL_HEIGHT = 4; // Visual line height
 };
-
-class QShortcut;
 
 #endif // DEBUGPANE_H
