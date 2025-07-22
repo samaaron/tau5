@@ -124,7 +124,7 @@ bool initializeApplication(QApplication &app, bool devMode)
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS);
   }
 
-  QCoreApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
+  QCoreApplication::setAttribute(Qt::AA_DontShowIconsInMenus, false);
 
   Q_INIT_RESOURCE(Tau5);
   app.setApplicationName(Config::APP_NAME);

@@ -301,6 +301,7 @@ QString StyleManager::contextMenu()
     "}"
     "QMenu::item {"
     "  padding: %4 %5;"
+    "  padding-left: %11;"  // Extra padding for icon space
     "  background-color: transparent;"
     "  color: %6;"
     "}"
@@ -312,6 +313,9 @@ QString StyleManager::contextMenu()
     "  height: 1px;"
     "  background: %9;"
     "  margin: %10 0;"
+    "}"
+    "QMenu::icon {"  // Ensure icons are visible
+    "  padding-left: %4;"
     "}")
     .arg(Colors::BACKGROUND_SECONDARY)       // Menu background
     .arg(Colors::BORDER_DEFAULT)             // Border color
@@ -322,5 +326,6 @@ QString StyleManager::contextMenu()
     .arg(Colors::ACCENT_PRIMARY)             // Selected background
     .arg(Colors::BACKGROUND_PRIMARY)         // Selected text color
     .arg(Colors::BORDER_DEFAULT)             // Separator color
-    .arg(Spacing::SMALL);                    // Separator margin
+    .arg(Spacing::SMALL)                     // Separator margin
+    .arg("28px");                            // Left padding for icon space
 }

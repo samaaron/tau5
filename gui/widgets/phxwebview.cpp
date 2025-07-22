@@ -1,9 +1,12 @@
 #include "phxwebview.h"
 #include "../styles/StyleManager.h"
+#include "debugpane/iconutilities.h"
 #include <QWebEngineSettings>
 #include <QContextMenuEvent>
 #include <QMenu>
 #include <QAction>
+#include <QSvgRenderer>
+#include <QPainter>
 
 PhxWebView::PhxWebView(QWidget *parent)
     : SandboxedWebView(parent)
@@ -38,7 +41,17 @@ void PhxWebView::showContextMenu(const QPoint &globalPos)
   
   if (m_devToolsAvailable) {
     QAction *inspectAction = contextMenu.addAction(tr("Inspect Element"));
-    inspectAction->setIcon(QIcon::fromTheme("document-properties"));
+    
+    // Create bug icon using IconUtilities
+    QString normalColor = StyleManager::Colors::TEXT_PRIMARY;
+    QString selectedColor = StyleManager::Colors::ACCENT_PRIMARY;
+    
+    QIcon bugIcon = IconUtilities::createSvgIcon(
+        IconUtilities::Icons::bugSvg(normalColor),
+        "",  // No hover state needed for menu
+        IconUtilities::Icons::bugSvg(selectedColor));
+    
+    inspectAction->setIcon(bugIcon);
     
     connect(inspectAction, &QAction::triggered, this, [this]() {
       // Qt WebEngine provides direct support for inspecting at a position
