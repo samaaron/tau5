@@ -21,14 +21,32 @@ import "phoenix_html";
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
 import topbar from "../vendor/topbar";
+import { Tau5Shader } from "./lib/tau5_shader.js";
+
+let Hooks = {
+  Tau5ShaderCanvas: {
+    mounted() {
+      this.shader = new Tau5Shader(this.el);
+      this.shader.init().then((success) => {
+        if (success) {
+          this.shader.start();
+        }
+      });
+    },
+    destroyed() {
+      if (this.shader) {
+        this.shader.destroy();
+      }
+    }
+  }
+};
 
 let csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute("content");
 
 let liveSocket = new LiveSocket("/live", Socket, {
-  hooks: {
-  },
+  hooks: Hooks,
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
 });

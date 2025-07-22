@@ -23,8 +23,13 @@ defmodule Tau5Web.MainLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div>
-      <h1 class="text-red-500">love</h1>
+    <div class="fixed inset-0 bg-black">
+      <canvas
+        id="tau5-shader-small"
+        phx-hook="Tau5ShaderCanvas"
+        class="fixed w-48 h-48 top-4 right-4"
+        style="z-index: 10;"
+      />
     </div>
     """
   end
