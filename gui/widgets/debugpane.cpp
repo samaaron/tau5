@@ -87,21 +87,24 @@ static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, cons
     "}"
     "QPushButton:hover {"
     "  color: %4;"
-    "  background-color: rgba(255, 255, 255, 0.1);"
+    "  background-color: %6;"
     "  border-radius: 3px;"
     "}"
     "QPushButton:pressed {"
-    "  background-color: rgba(255, 255, 255, 0.2);"
+    "  background-color: %7;"
     "}"
     "QPushButton:checked {"
     "  color: %5;"
-    "  background-color: rgba(30, 144, 255, 0.2);"
+    "  background-color: %8;"
     "}"
   ).arg(fontFamily)
    .arg(fontSize)
    .arg(StyleManager::Colors::ACCENT_PRIMARY)
    .arg(StyleManager::Colors::TEXT_PRIMARY)
-   .arg(StyleManager::Colors::STATUS_ERROR));
+   .arg(StyleManager::Colors::STATUS_ERROR)
+   .arg(StyleManager::Colors::textPrimaryAlpha(0.1))
+   .arg(StyleManager::Colors::textPrimaryAlpha(0.2))
+   .arg(StyleManager::Colors::accentPrimaryAlpha(0.2)));
 
   if (checkable) {
     button->setCheckable(true);
