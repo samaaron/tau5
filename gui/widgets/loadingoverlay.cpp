@@ -44,8 +44,8 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
       border: 1px solid %2;
       border-radius: 5px;
     }
-  )").arg(StyleManager::Colors::backgroundPrimaryAlpha(180))
-     .arg(StyleManager::Colors::accentPrimaryAlpha(0.6)));
+  )").arg(StyleManager::Colors::backgroundPrimaryAlpha(100))
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.3)));
   
   logWidget = new QTextEdit(logContainer);
   logWidget->setObjectName("logWidget");
@@ -71,9 +71,9 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
       background-color: %3;
       color: %4;
     }
-  )").arg(StyleManager::Colors::accentPrimaryAlpha(0.95))
-     .arg(StyleManager::Colors::backgroundPrimaryAlpha(0.8)) 
-     .arg(StyleManager::Colors::accentPrimaryAlpha(0.3))
+  )").arg(StyleManager::Colors::accentPrimaryAlpha(0.6))
+     .arg(StyleManager::Colors::backgroundPrimaryAlpha(0.5)) 
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.2))
      .arg(StyleManager::Colors::TEXT_PRIMARY));
   
   QVBoxLayout *containerLayout = new QVBoxLayout(logContainer);
