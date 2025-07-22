@@ -269,7 +269,8 @@ int main(int argc, char *argv[])
   mainWindow.setWindowIcon(QIcon(":/images/app.ico"));
 #endif
 
-  mainWindow.show();
+  // Don't show main window immediately - loading overlay will handle it
+  // mainWindow.show();
 
   return app.exec();
 }

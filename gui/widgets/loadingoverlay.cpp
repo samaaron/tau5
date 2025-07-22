@@ -6,6 +6,8 @@
 #include <QMutexLocker>
 #include <QScrollBar>
 #include <QResizeEvent>
+#include <QApplication>
+#include <QFontDatabase>
 #include "../logger.h"
 #include "../styles/StyleManager.h"
 
@@ -13,11 +15,20 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
     : QWidget(nullptr)
     , glWidget(nullptr)
     , logWidget(nullptr)
+    , closeButton(nullptr)
     , fadeAnimation(nullptr)
     , fadeToBlackAnimation(nullptr)
     , renderTimer(nullptr)
     , fadeToBlackValue(0.0f)
 {
+  // Load codicon font
+  int codiconFontId = QFontDatabase::addApplicationFont(":/fonts/codicon.ttf");
+  if (codiconFontId != -1) {
+    QStringList codiconFamilies = QFontDatabase::applicationFontFamilies(codiconFontId);
+    if (!codiconFamilies.isEmpty()) {
+      Logger::log(Logger::Debug, QString("[LoadingOverlay] Loaded codicon font: %1").arg(codiconFamilies.first()));
+    }
+  }
   setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
   setAttribute(Qt::WA_TranslucentBackground);
   
@@ -46,10 +57,56 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
     }
   )"));
   
+  // Create close button with codicon close icon (U+EA76)
+  closeButton = new QPushButton(QChar(0xEA76), this);
+  closeButton->setObjectName("closeButton");
+  closeButton->setFixedSize(36, 36);
+  closeButton->setCursor(Qt::PointingHandCursor);
+  closeButton->setStyleSheet(QString(R"(
+    QPushButton#closeButton {
+      background-color: rgba(20, 20, 20, 0.9);
+      color: %1;
+      border: 1px solid %2;
+      border-radius: 4px;
+      font-family: 'codicon';
+      font-size: 16px;
+      font-weight: normal;
+      padding: 0px;
+      text-align: center;
+    }
+    QPushButton#closeButton:hover {
+      background-color: %3;
+      color: %4;
+      border: 1px solid %5;
+    }
+    QPushButton#closeButton:pressed {
+      background-color: %6;
+      color: %7;
+      border: 1px solid %8;
+    }
+  )")
+    .arg(StyleManager::Colors::ACCENT_PRIMARY)                // Orange icon
+    .arg(StyleManager::Colors::ACCENT_PRIMARY)                // Orange border
+    .arg(StyleManager::Colors::ACCENT_PRIMARY)                // Orange background on hover
+    .arg(StyleManager::Colors::BACKGROUND_PRIMARY)            // Black icon on hover
+    .arg(StyleManager::Colors::ACCENT_PRIMARY)                // Orange border on hover
+    .arg(StyleManager::Colors::accentPrimaryAlpha(0.8))       // Darker orange on press
+    .arg(StyleManager::Colors::BACKGROUND_PRIMARY)            // Black icon on press
+    .arg(StyleManager::Colors::accentPrimaryAlpha(0.8))       // Darker orange border on press
+  );
+  
+  // Hide close button initially - will show after 10 seconds
+  closeButton->setVisible(false);
+  
+  connect(closeButton, &QPushButton::clicked, [this]() {
+    QApplication::quit();
+  });
+  
   // Ensure proper stacking order
   glWidget->stackUnder(logWidget);
   logWidget->raise();
   logWidget->setVisible(true);
+  closeButton->raise();
   
   // Add initial test logs
   appendLog("[TAU5] System initializing...");
@@ -78,6 +135,15 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
     }
   });
   renderTimer->start(16); // 60 FPS target
+  
+  // Show close button after 10 seconds as an escape hatch
+  QTimer::singleShot(10000, [this]() {
+    if (closeButton && fadeAnimation && fadeAnimation->state() != QAbstractAnimation::Running) {
+      closeButton->setVisible(true);
+      closeButton->raise();
+      Logger::log(Logger::Debug, "[LoadingOverlay] Close button shown after 10 seconds");
+    }
+  });
 }
 
 LoadingOverlay::~LoadingOverlay()
@@ -87,12 +153,22 @@ LoadingOverlay::~LoadingOverlay()
     renderTimer->stop();
     Logger::log(Logger::Debug, "[LoadingOverlay] Render timer stopped in destructor");
   }
+  
+  // Note: closeButton, glWidget, and logWidget are automatically deleted
+  // by Qt's parent-child ownership system since they were created with 'this' as parent
+  Logger::log(Logger::Debug, "[LoadingOverlay] Destructor completed - child widgets cleaned up");
 }
 
 void LoadingOverlay::fadeOut()
 {
   if (fadeAnimation && fadeAnimation->state() != QAbstractAnimation::Running) {
     Logger::log(Logger::Debug, "[LoadingOverlay] Starting fade out");
+    
+    // Hide the close button when fade starts
+    if (closeButton) {
+      closeButton->setVisible(false);
+    }
+    
     // Don't stop the render timer here - let it run during fade
     {
       QMutexLocker locker(&logMutex);
@@ -127,10 +203,14 @@ void LoadingOverlay::resizeEvent(QResizeEvent *event)
     int x = width() - logWidth - 20;
     int y = height() - logHeight - 20;
     logWidget->setGeometry(x, y, logWidth, logHeight);
-    logWidget->raise(); // Ensure it's on top
     
     Logger::log(Logger::Debug, QString("[LoadingOverlay] Log widget positioned at %1,%2 size %3x%4")
                 .arg(x).arg(y).arg(logWidth).arg(logHeight));
+  }
+  
+  // Position close button in top-right corner
+  if (closeButton) {
+    closeButton->move(width() - closeButton->width() - 10, 10);
   }
 }
 

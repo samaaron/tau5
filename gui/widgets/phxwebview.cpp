@@ -1,12 +1,12 @@
 #include "phxwebview.h"
 #include "../styles/StyleManager.h"
-#include "debugpane/iconutilities.h"
 #include <QWebEngineSettings>
 #include <QContextMenuEvent>
 #include <QMenu>
 #include <QAction>
-#include <QSvgRenderer>
+#include <QFontDatabase>
 #include <QPainter>
+#include <QPixmap>
 
 PhxWebView::PhxWebView(QWidget *parent)
     : SandboxedWebView(parent)
@@ -42,16 +42,22 @@ void PhxWebView::showContextMenu(const QPoint &globalPos)
   if (m_devToolsAvailable) {
     QAction *inspectAction = contextMenu.addAction(tr("Inspect Element"));
     
-    // Create bug icon using IconUtilities
-    QString normalColor = StyleManager::Colors::TEXT_PRIMARY;
-    QString selectedColor = StyleManager::Colors::ACCENT_PRIMARY;
+    // Create bug icon from codicon font
+    QFont codiconFont("codicon");
+    codiconFont.setPixelSize(16);
     
-    QIcon bugIcon = IconUtilities::createSvgIcon(
-        IconUtilities::Icons::bugSvg(normalColor),
-        "",  // No hover state needed for menu
-        IconUtilities::Icons::bugSvg(selectedColor));
+    // Create pixmap with codicon bug character
+    QPixmap pixmap(16, 16);
+    pixmap.fill(Qt::transparent);
     
-    inspectAction->setIcon(bugIcon);
+    QPainter painter(&pixmap);
+    painter.setFont(codiconFont);
+    painter.setPen(QColor(StyleManager::Colors::TEXT_PRIMARY));
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.drawText(QRect(0, 0, 16, 16), Qt::AlignCenter, QChar(0xEAAF)); // bug icon
+    painter.end();
+    
+    inspectAction->setIcon(QIcon(pixmap));
     
     connect(inspectAction, &QAction::triggered, this, [this]() {
       // Qt WebEngine provides direct support for inspecting at a position

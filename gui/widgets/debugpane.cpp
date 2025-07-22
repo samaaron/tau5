@@ -4,13 +4,13 @@
 #include "debugpane.h"
 #include "debugpane/customsplitter.h"
 #include "debugpane/searchfunctionality.h"
-#include "debugpane/iconutilities.h"
 #include "debugpane/buttonutilities.h"
 #include "debugpane/themestyles.h"
 #include "debugpane/zoomcontrol.h"
 #include "debugpane/tabswitcher.h"
 #include "debugpane/animationcontrol.h"
 #include "../styles/StyleManager.h"
+#include <QFontDatabase>
 #include "phxwebview.h"
 #include "sandboxedwebview.h"
 #include "../logger.h"
@@ -64,6 +64,54 @@
 #include <QTextEdit>
 #include <cmath>
 
+// Helper function to create buttons with codicon font
+static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, const QString &tooltip, 
+                                        bool checkable = false, bool checked = false)
+{
+  QPushButton *button = new QPushButton(icon, parent);
+  button->setToolTip(tooltip);
+  
+  // Use different font for + and - buttons
+  QString fontFamily = (icon == '+' || icon == '-') ? "Segoe UI, Arial" : "codicon";
+  QString fontSize = (icon == '+' || icon == '-') ? "16px" : "14px";
+  
+  button->setStyleSheet(QString(
+    "QPushButton {"
+    "  font-family: '%1';"
+    "  font-size: %2;"
+    "  font-weight: bold;"
+    "  color: %3;"
+    "  background: transparent;"
+    "  border: none;"
+    "  padding: 2px;"
+    "}"
+    "QPushButton:hover {"
+    "  color: %4;"
+    "  background-color: rgba(255, 255, 255, 0.1);"
+    "  border-radius: 3px;"
+    "}"
+    "QPushButton:pressed {"
+    "  background-color: rgba(255, 255, 255, 0.2);"
+    "}"
+    "QPushButton:checked {"
+    "  color: %5;"
+    "  background-color: rgba(30, 144, 255, 0.2);"
+    "}"
+  ).arg(fontFamily)
+   .arg(fontSize)
+   .arg(StyleManager::Colors::ACCENT_PRIMARY)
+   .arg(StyleManager::Colors::TEXT_PRIMARY)
+   .arg(StyleManager::Colors::STATUS_ERROR));
+  
+  if (checkable) {
+    button->setCheckable(true);
+    button->setChecked(checked);
+  }
+  
+  button->setFixedSize(24, 24);
+  return button;
+}
+
 DebugPane::DebugPane(QWidget *parent)
     : QWidget(parent), m_isVisible(false), m_autoScroll(true), m_guiLogAutoScroll(true),
       m_maxLines(5000), m_currentMode(BeamLogOnly), m_isResizing(false),
@@ -78,6 +126,16 @@ DebugPane::DebugPane(QWidget *parent)
       m_guiLogSearchCloseButton(nullptr), m_beamLogSearchButton(nullptr), m_guiLogSearchButton(nullptr),
       m_searchFunctionality(new SearchFunctionality(this))
 {
+  // Load codicon font if not already loaded
+  static bool codiconLoaded = false;
+  if (!codiconLoaded) {
+    int fontId = QFontDatabase::addApplicationFont(":/fonts/codicon.ttf");
+    if (fontId != -1) {
+      Logger::log(Logger::Debug, "[DebugPane] Loaded codicon font");
+      codiconLoaded = true;
+    }
+  }
+  
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowFlags(Qt::FramelessWindowHint);
   setMouseTracking(true);
@@ -157,55 +215,11 @@ void DebugPane::setupViewControls()
   m_headerLayout = new QHBoxLayout(m_headerWidget);
   m_headerLayout->setContentsMargins(10, 2, 10, 2);
 
-  QString normalColor = StyleManager::Colors::PRIMARY_ORANGE;
-  QString hoverColor = StyleManager::Colors::WHITE;
-  QString selectedColor = StyleManager::Colors::ERROR_BLUE;
-
-  QIcon logIcon = IconUtilities::createSvgIcon(
-      IconUtilities::Icons::terminalSvg(normalColor),
-      "",
-      IconUtilities::Icons::terminalSvg(selectedColor));
-
-  QIcon devToolsIcon = IconUtilities::createSvgIcon(
-      IconUtilities::Icons::bugSvg(normalColor),
-      "",
-      IconUtilities::Icons::bugSvg(selectedColor));
-
-  QIcon sideBySideIcon = IconUtilities::createSvgIcon(
-      IconUtilities::Icons::splitSvg(normalColor),
-      "",
-      IconUtilities::Icons::splitSvg(selectedColor));
-
-  QIcon restartIcon = IconUtilities::createSvgIcon(
-      IconUtilities::Icons::restartSvg(normalColor),
-      IconUtilities::Icons::restartSvg(hoverColor),
-      "");
-
-  m_restartButton = new QPushButton(m_headerWidget);
-  m_beamLogButton = new QPushButton(m_headerWidget);
-  m_devToolsButton = new QPushButton(m_headerWidget);
-  m_sideBySideButton = new QPushButton(m_headerWidget);
-
-  m_restartButton->setIcon(restartIcon);
-  m_beamLogButton->setIcon(logIcon);
-  m_devToolsButton->setIcon(devToolsIcon);
-  m_sideBySideButton->setIcon(sideBySideIcon);
-
-  m_restartButton->setToolTip("Restart BEAM");
-  m_beamLogButton->setToolTip("BEAM Log Only");
-  m_devToolsButton->setToolTip("DevTools Only");
-  m_sideBySideButton->setToolTip("Side by Side View");
-
-  QString buttonStyle = ButtonUtilities::getHeaderButtonStyle();
-
-  m_restartButton->setStyleSheet(buttonStyle);
-  m_beamLogButton->setStyleSheet(buttonStyle);
-  m_devToolsButton->setStyleSheet(buttonStyle);
-  m_sideBySideButton->setStyleSheet(buttonStyle);
-
-  m_beamLogButton->setCheckable(true);
-  m_devToolsButton->setCheckable(true);
-  m_sideBySideButton->setCheckable(true);
+  // Create buttons with codicon font icons
+  m_restartButton = createCodiconButton(m_headerWidget, QChar(0xEB37), "Restart BEAM"); // refresh icon
+  m_beamLogButton = createCodiconButton(m_headerWidget, QChar(0xEA85), "BEAM Log Only", true); // terminal icon
+  m_devToolsButton = createCodiconButton(m_headerWidget, QChar(0xEAAF), "DevTools Only", true); // bug icon
+  m_sideBySideButton = createCodiconButton(m_headerWidget, QChar(0xEB56), "Side by Side View", true); // split-horizontal icon
 
   m_restartButton->setFocusPolicy(Qt::NoFocus);
   m_beamLogButton->setFocusPolicy(Qt::NoFocus);
@@ -251,153 +265,48 @@ void DebugPane::setupConsole()
   toolbarLayout->addWidget(m_elixirConsoleTabButton);
   toolbarLayout->addStretch();
 
-  QString normalColor = StyleManager::Colors::PRIMARY_ORANGE;
-  QString hoverColor = StyleManager::Colors::WHITE;
-  QString activeColor = StyleManager::Colors::PRIMARY_ORANGE;
-  QIcon autoScrollIcon;
-  autoScrollIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::autoScrollOffSvg(normalColor), 20, 20), QIcon::Normal, QIcon::Off);
-  autoScrollIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::autoScrollOffSvg(hoverColor), 20, 20), QIcon::Active, QIcon::Off);
-  autoScrollIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::autoScrollOnSvg(normalColor), 20, 20), QIcon::Normal, QIcon::On);
-  autoScrollIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::autoScrollOnSvg(hoverColor), 20, 20), QIcon::Active, QIcon::On);
+  // Create all console toolbar buttons with codicon icons
 
   m_beamLogContainer = new QWidget();
   m_beamLogLayout = new QVBoxLayout(m_beamLogContainer);
   m_beamLogLayout->setContentsMargins(0, 0, 0, 0);
   m_beamLogLayout->setSpacing(0);
 
-  m_autoScrollButton = new QPushButton(consoleToolbar);
-  m_autoScrollButton->setIcon(autoScrollIcon);
-  m_autoScrollButton->setCheckable(true);
-  m_autoScrollButton->setChecked(true);
-  m_autoScrollButton->setStyleSheet(QString(
-                                        "QPushButton { "
-                                        "  background: transparent; "
-                                        "  border: none; "
-                                        "  padding: 2px; "
-                                        "  min-width: 16px; "
-                                        "  max-width: 16px; "
-                                        "  min-height: 16px; "
-                                        "  max-height: 16px; "
-                                        "} "
-                                        "QPushButton:hover { "
-                                        "  background: %1; "
-                                        "}"
-                                        "QPushButton:checked { "
-                                        "  background: %2; "
-                                        "  border-radius: 2px; "
-                                        "}")
-                                        .arg(StyleManager::Colors::primaryOrangeAlpha(25))
-                                        .arg(StyleManager::Colors::primaryOrangeAlpha(64)));
-  m_autoScrollButton->setToolTip("Auto-scroll");
-  m_autoScrollButton->setFocusPolicy(Qt::NoFocus);
-  m_autoScrollButton->setVisible(true);
+  m_autoScrollButton = createCodiconButton(consoleToolbar, QChar(0xEA9A), "Auto-scroll", true, true); // arrow-down icon
+  m_autoScrollButton->setFixedSize(20, 20);
 
-  QIcon searchIcon;
-  searchIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::searchSvg(normalColor), 13, 13), QIcon::Normal);
-  searchIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::searchSvg(hoverColor), 13, 13), QIcon::Active);
+  m_beamLogSearchButton = createCodiconButton(consoleToolbar, QChar(0xEA6D), "Search (Ctrl+S)", true); // search icon
+  m_beamLogSearchButton->setFixedSize(20, 20);
 
-  m_beamLogSearchButton = new QPushButton(consoleToolbar);
-  m_beamLogSearchButton->setIcon(searchIcon);
-  m_beamLogSearchButton->setCheckable(true);
-  m_beamLogSearchButton->setStyleSheet(QString(
-                                           "QPushButton { "
-                                           "  background: transparent; "
-                                           "  border: none; "
-                                           "  padding: 2px; "
-                                           "  min-width: 16px; "
-                                           "  max-width: 16px; "
-                                           "  min-height: 16px; "
-                                           "  max-height: 16px; "
-                                           "} "
-                                           "QPushButton:hover { "
-                                           "  background: %1; "
-                                           "}"
-                                           "QPushButton:checked { "
-                                           "  background: %2; "
-                                           "  border-radius: 2px; "
-                                           "}")
-                                           .arg(StyleManager::Colors::primaryOrangeAlpha(25))
-                                           .arg(StyleManager::Colors::primaryOrangeAlpha(64)));
-  m_beamLogSearchButton->setToolTip("Search (Ctrl+S)");
-  m_beamLogSearchButton->setFocusPolicy(Qt::NoFocus);
-  m_beamLogSearchButton->setVisible(true);
-
-  QIcon zoomOutIcon;
-  zoomOutIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::zoomOutSvg(normalColor), 16, 16), QIcon::Normal);
-  zoomOutIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::zoomOutSvg(hoverColor), 16, 16), QIcon::Active);
-
-  QIcon zoomInIcon;
-  zoomInIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::zoomInSvg(normalColor), 16, 16), QIcon::Normal);
-  zoomInIcon.addPixmap(IconUtilities::createSvgPixmap(IconUtilities::Icons::zoomInSvg(hoverColor), 16, 16), QIcon::Active);
-
-  m_consoleZoomOutButton = ButtonUtilities::createZoomButton(zoomOutIcon, "Zoom Out", consoleToolbar);
-  m_consoleZoomInButton = ButtonUtilities::createZoomButton(zoomInIcon, "Zoom In", consoleToolbar);
+  m_consoleZoomOutButton = createCodiconButton(consoleToolbar, QChar('-'), "Zoom Out"); // minus character
+  m_consoleZoomInButton = createCodiconButton(consoleToolbar, QChar('+'), "Zoom In"); // plus character
+  m_consoleZoomOutButton->setFixedSize(20, 20);
+  m_consoleZoomInButton->setFixedSize(20, 20);
   m_consoleZoomOutButton->setVisible(true);
   m_consoleZoomInButton->setVisible(true);
 
-  m_guiLogAutoScrollButton = new QPushButton(consoleToolbar);
-  m_guiLogAutoScrollButton->setIcon(autoScrollIcon);
-  m_guiLogAutoScrollButton->setCheckable(true);
-  m_guiLogAutoScrollButton->setChecked(true);
-  m_guiLogAutoScrollButton->setStyleSheet(QString(
-                                              "QPushButton { "
-                                              "  background: transparent; "
-                                              "  border: none; "
-                                              "  padding: 2px; "
-                                              "  min-width: 16px; "
-                                              "  max-width: 16px; "
-                                              "  min-height: 16px; "
-                                              "  max-height: 16px; "
-                                              "} "
-                                              "QPushButton:hover { "
-                                              "  background: %1; "
-                                              "}"
-                                              "QPushButton:checked { "
-                                              "  background: %2; "
-                                              "  border-radius: 2px; "
-                                              "}")
-                                              .arg(StyleManager::Colors::primaryOrangeAlpha(25))
-                                              .arg(StyleManager::Colors::primaryOrangeAlpha(64)));
-  m_guiLogAutoScrollButton->setToolTip("Auto-scroll");
-  m_guiLogAutoScrollButton->setFocusPolicy(Qt::NoFocus);
+  m_guiLogAutoScrollButton = createCodiconButton(consoleToolbar, QChar(0xEA9A), "Auto-scroll", true, true); // arrow-down icon
+  m_guiLogAutoScrollButton->setFixedSize(20, 20);
   m_guiLogAutoScrollButton->setVisible(false);
 
-  m_guiLogSearchButton = new QPushButton(consoleToolbar);
-  m_guiLogSearchButton->setIcon(searchIcon);
-  m_guiLogSearchButton->setCheckable(true);
-  m_guiLogSearchButton->setStyleSheet(QString(
-                                          "QPushButton { "
-                                          "  background: transparent; "
-                                          "  border: none; "
-                                          "  padding: 2px; "
-                                          "  min-width: 16px; "
-                                          "  max-width: 16px; "
-                                          "  min-height: 16px; "
-                                          "  max-height: 16px; "
-                                          "} "
-                                          "QPushButton:hover { "
-                                          "  background: %1; "
-                                          "}"
-                                          "QPushButton:checked { "
-                                          "  background: %2; "
-                                          "  border-radius: 2px; "
-                                          "}")
-                                          .arg(StyleManager::Colors::primaryOrangeAlpha(25))
-                                          .arg(StyleManager::Colors::primaryOrangeAlpha(64)));
-  m_guiLogSearchButton->setToolTip("Search (Ctrl+S)");
-  m_guiLogSearchButton->setFocusPolicy(Qt::NoFocus);
+  m_guiLogSearchButton = createCodiconButton(consoleToolbar, QChar(0xEA6D), "Search (Ctrl+S)", true); // search icon
+  m_guiLogSearchButton->setFixedSize(20, 20);
   m_guiLogSearchButton->setVisible(false);
 
-  m_guiLogZoomOutButton = ButtonUtilities::createZoomButton(zoomOutIcon, "Zoom Out", consoleToolbar);
+  m_guiLogZoomOutButton = createCodiconButton(consoleToolbar, QChar('-'), "Zoom Out"); // minus character
+  m_guiLogZoomOutButton->setFixedSize(20, 20);
   m_guiLogZoomOutButton->setVisible(false);
 
-  m_guiLogZoomInButton = ButtonUtilities::createZoomButton(zoomInIcon, "Zoom In", consoleToolbar);
+  m_guiLogZoomInButton = createCodiconButton(consoleToolbar, QChar('+'), "Zoom In"); // plus character
+  m_guiLogZoomInButton->setFixedSize(20, 20);
   m_guiLogZoomInButton->setVisible(false);
 
-  m_elixirConsoleZoomOutButton = ButtonUtilities::createZoomButton(zoomOutIcon, "Zoom Out", consoleToolbar);
+  m_elixirConsoleZoomOutButton = createCodiconButton(consoleToolbar, QChar('-'), "Zoom Out"); // minus character
+  m_elixirConsoleZoomOutButton->setFixedSize(20, 20);
   m_elixirConsoleZoomOutButton->setVisible(false);
 
-  m_elixirConsoleZoomInButton = ButtonUtilities::createZoomButton(zoomInIcon, "Zoom In", consoleToolbar);
+  m_elixirConsoleZoomInButton = createCodiconButton(consoleToolbar, QChar('+'), "Zoom In"); // plus character
+  m_elixirConsoleZoomInButton->setFixedSize(20, 20);
   m_elixirConsoleZoomInButton->setVisible(false);
 
   toolbarLayout->addWidget(m_beamLogSearchButton);
@@ -510,28 +419,21 @@ void DebugPane::setupDevTools()
   toolbarLayout->addWidget(m_liveDashboardTabButton);
   toolbarLayout->addStretch();
 
-  QString devNormalColor = StyleManager::Colors::PRIMARY_ORANGE;
-  QString devHoverColor = StyleManager::Colors::WHITE;
-  QString devZoomOutSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'><path d='M3 8h10v1H3z'/></svg>");
-  QIcon devZoomOutIcon;
-  devZoomOutIcon.addPixmap(IconUtilities::createSvgPixmap(devZoomOutSvg.arg(devNormalColor), 16, 16), QIcon::Normal);
-  devZoomOutIcon.addPixmap(IconUtilities::createSvgPixmap(devZoomOutSvg.arg(devHoverColor), 16, 16), QIcon::Active);
-
-  QString devZoomInSvg = QString("<svg viewBox='0 0 16 16' fill='%1' xmlns='http://www.w3.org/2000/svg'><path d='M8 3v5H3v1h5v5h1V9h5V8H9V3H8z'/></svg>");
-  QIcon devZoomInIcon;
-  devZoomInIcon.addPixmap(IconUtilities::createSvgPixmap(devZoomInSvg.arg(devNormalColor), 16, 16), QIcon::Normal);
-  devZoomInIcon.addPixmap(IconUtilities::createSvgPixmap(devZoomInSvg.arg(devHoverColor), 16, 16), QIcon::Active);
-
-  m_zoomOutButton = ButtonUtilities::createZoomButton(devZoomOutIcon, "Zoom Out", devToolsToolbar);
+  // Create DevTools zoom buttons with codicon icons
+  m_zoomOutButton = createCodiconButton(devToolsToolbar, QChar('-'), "Zoom Out"); // minus character
+  m_zoomOutButton->setFixedSize(20, 20);
   m_zoomOutButton->setVisible(true);
 
-  m_zoomInButton = ButtonUtilities::createZoomButton(devZoomInIcon, "Zoom In", devToolsToolbar);
+  m_zoomInButton = createCodiconButton(devToolsToolbar, QChar('+'), "Zoom In"); // plus character
+  m_zoomInButton->setFixedSize(20, 20);
   m_zoomInButton->setVisible(true);
 
-  m_liveDashboardZoomOutButton = ButtonUtilities::createZoomButton(devZoomOutIcon, "Zoom Out", devToolsToolbar);
+  m_liveDashboardZoomOutButton = createCodiconButton(devToolsToolbar, QChar('-'), "Zoom Out"); // minus character
+  m_liveDashboardZoomOutButton->setFixedSize(20, 20);
   m_liveDashboardZoomOutButton->setVisible(false);
 
-  m_liveDashboardZoomInButton = ButtonUtilities::createZoomButton(devZoomInIcon, "Zoom In", devToolsToolbar);
+  m_liveDashboardZoomInButton = createCodiconButton(devToolsToolbar, QChar('+'), "Zoom In"); // plus character
+  m_liveDashboardZoomInButton->setFixedSize(20, 20);
   m_liveDashboardZoomInButton->setVisible(false);
 
   toolbarLayout->addWidget(m_zoomOutButton);
@@ -1229,87 +1131,27 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
 
   m_restartButton->setEnabled(enabled);
 
-  QString normalColor = StyleManager::Colors::PRIMARY_ORANGE;
-  QString activeColor = StyleManager::Colors::WHITE;
-
   if (enabled)
   {
     if (m_restartAnimationTimer)
     {
-      QString restartSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path d='M12.75 8a4.5 4.5 0 0 1-8.61 1.834l-1.391.565A6.001 6.001 0 0 0 14.25 8 6 6 0 0 0 3.5 4.334V2.5H2v4l.75.75h3.5v-1.5H4.352A4.5 4.5 0 0 1 12.75 8z'/></svg>");
-      QIcon restartIcon = IconUtilities::createSvgIcon(
-          restartSvg.arg(normalColor),
-          restartSvg.arg(activeColor),
-          "");
-      AnimationControl::stopRestartAnimation(m_restartAnimationTimer, m_restartButton, restartIcon);
+      AnimationControl::stopRestartAnimation(m_restartAnimationTimer, m_restartButton, QIcon());
     }
 
-    QString buttonStyle = QString(
-                              "QPushButton { "
-                              "  background: transparent; "
-                              "  border: none; "
-                              "  padding: 2px; "
-                              "  margin: 0 2px; "
-                              "  min-width: 24px; "
-                              "  max-width: 24px; "
-                              "  min-height: 16px; "
-                              "  max-height: 16px; "
-                              "} "
-                              "QPushButton:hover { "
-                              "  background: %1; "
-                              "} "
-                              "QPushButton:pressed { "
-                              "  background: %2; "
-                              "} "
-                              "QPushButton:focus { "
-                              "  outline: none; "
-                              "}")
-                              .arg(StyleManager::Colors::primaryOrangeAlpha(25))
-                              .arg(StyleManager::Colors::primaryOrangeAlpha(51));
-    m_restartButton->setStyleSheet(buttonStyle);
-
-    QString restartSvg = QString("<svg viewBox='0 0 16 16' fill='%1'><path d='M12.75 8a4.5 4.5 0 0 1-8.61 1.834l-1.391.565A6.001 6.001 0 0 0 14.25 8 6 6 0 0 0 3.5 4.334V2.5H2v4l.75.75h3.5v-1.5H4.352A4.5 4.5 0 0 1 12.75 8z'/></svg>");
-    QIcon restartIcon = IconUtilities::createSvgIcon(
-        restartSvg.arg(normalColor),
-        restartSvg.arg(activeColor),
-        "");
-    m_restartButton->setIcon(restartIcon);
+    // Set text back to normal refresh icon
+    m_restartButton->setText(QChar(0xEB37)); // refresh icon
     m_restartButton->setToolTip("Restart BEAM");
   }
   else
   {
     m_restartButton->setToolTip("BEAM restart in progress...");
-
-    QString progressSvg = QString("<svg viewBox='0 0 16 16' fill='%1'>"
-                                  "<path d='M8 1.5a6.5 6.5 0 1 0 6.5 6.5h1.5a8 8 0 1 1-8-8v1.5z'/>"
-                                  "</svg>");
-    QIcon progressIcon = IconUtilities::createSvgIcon(progressSvg.arg(normalColor), "", "");
-    m_restartButton->setIcon(progressIcon);
-
-    QString buttonStyle = QString(
-        "QPushButton { "
-        "  background: transparent; "
-        "  border: none; "
-        "  padding: 2px; "
-        "  margin: 0 2px; "
-        "  min-width: 24px; "
-        "  max-width: 24px; "
-        "  min-height: 16px; "
-        "  max-height: 16px; "
-        "} "
-        "QPushButton:disabled { "
-        "  background: transparent; "
-        "}");
-    m_restartButton->setStyleSheet(buttonStyle);
+    
+    // Use sync icon for progress (this will be animated)
+    m_restartButton->setText(QChar(0xEA6A)); // sync icon
 
     if (!m_restartAnimationTimer)
     {
-      QString progressSvg = QString("<svg viewBox='0 0 16 16' fill='%1'>"
-                                    "<path d='M8 1.5a6.5 6.5 0 1 0 6.5 6.5h1.5a8 8 0 1 1-8-8v1.5z'/>"
-                                    "</svg>");
-      QIcon progressIcon = IconUtilities::createSvgIcon(progressSvg.arg(normalColor), "", "");
-
-      m_restartAnimationTimer = AnimationControl::createRestartAnimation(this, m_restartButton, progressIcon);
+      m_restartAnimationTimer = AnimationControl::createRestartAnimation(this, m_restartButton, QIcon());
     }
   }
 }

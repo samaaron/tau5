@@ -4,8 +4,6 @@ set(DEBUGPANE_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/customsplitter.cpp
     ${CMAKE_CURRENT_LIST_DIR}/searchfunctionality.h
     ${CMAKE_CURRENT_LIST_DIR}/searchfunctionality.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/iconutilities.h
-    ${CMAKE_CURRENT_LIST_DIR}/iconutilities.cpp
     ${CMAKE_CURRENT_LIST_DIR}/buttonutilities.h
     ${CMAKE_CURRENT_LIST_DIR}/buttonutilities.cpp
     ${CMAKE_CURRENT_LIST_DIR}/themestyles.h

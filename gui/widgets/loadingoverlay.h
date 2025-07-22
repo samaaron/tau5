@@ -10,6 +10,7 @@
 #include <QTextEdit>
 #include <QMutex>
 #include <QStringList>
+#include <QPushButton>
 
 class LoadingOverlay : public QWidget
 {
@@ -62,6 +63,7 @@ private:
 private:
   GLWidget *glWidget;
   QTextEdit *logWidget;
+  QPushButton *closeButton;
   QPropertyAnimation *fadeAnimation;
   QPropertyAnimation *fadeToBlackAnimation;
   QMutex logMutex;

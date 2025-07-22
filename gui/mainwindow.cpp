@@ -65,11 +65,28 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, QWidget *parent)
   // Create loading overlay immediately to ensure it's ready for BEAM output
   loadingOverlay = std::make_unique<LoadingOverlay>();
   loadingOverlayStartTime = QDateTime::currentDateTime();
+  
+  // Show the loading overlay immediately and ensure it appears above the main window
+  // Since main window is not shown yet, we need to use screen geometry
   QTimer::singleShot(0, this, [this]() {
-    QRect globalGeometry = geometry();
-    globalGeometry.moveTopLeft(mapToGlobal(QPoint(0, 0)));
-    loadingOverlay->updateGeometry(globalGeometry);
+    // Use the main window's intended geometry
+    QRect targetGeometry = frameGeometry();
+    if (!targetGeometry.isValid() || targetGeometry.isEmpty()) {
+      // Fallback to screen center if geometry isn't set yet
+      QScreen *screen = QApplication::primaryScreen();
+      if (screen) {
+        QRect screenGeometry = screen->geometry();
+        targetGeometry = QRect(
+          (screenGeometry.width() - 1024) / 2,
+          (screenGeometry.height() - 768) / 2,
+          1024, 768
+        );
+      }
+    }
+    loadingOverlay->updateGeometry(targetGeometry);
     loadingOverlay->show();
+    loadingOverlay->raise();
+    loadingOverlay->activateWindow();
   });
 
   connect(this, &MainWindow::allComponentsLoaded, [this]() {
@@ -94,12 +111,13 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, QWidget *parent)
             disconnect(beamInstance, &Beam::standardError,
                       loadingOverlay.get(), &LoadingOverlay::appendLog);
           }
+          // Show the main window BEFORE starting the fade
+          this->show();
+          this->raise();
+          this->activateWindow();
+          
+          // Then start the fade out
           loadingOverlay->fadeOut();
-          QTimer::singleShot(600, [this]() {
-            this->show();
-            this->raise();
-            this->activateWindow();
-          });
         }
       });
     }

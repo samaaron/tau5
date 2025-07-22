@@ -6,5 +6,6 @@
     <file>images/tau5-bw-hirez.png</file>
     <file>styles/tau5-dashboard-theme.css</file>
     <file>fonts/CascadiaCodePL.ttf</file>
+    <file>fonts/codicon.ttf</file>
   </qresource>
 </RCC>
