@@ -19,6 +19,7 @@
 #include "lib/beam.h"
 #include "logger.h"
 #include "styles/StyleManager.h"
+
 MainWindow::MainWindow(bool devMode, bool enableDebugPane, QWidget *parent)
     : QMainWindow(parent)
     , beamInstance(nullptr)

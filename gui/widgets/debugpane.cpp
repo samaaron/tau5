@@ -10,11 +10,13 @@
 #include "debugpane/zoomcontrol.h"
 #include "debugpane/tabswitcher.h"
 #include "debugpane/animationcontrol.h"
-#include "StyleManager.h"
+#include "../styles/StyleManager.h"
 #include "phxwebview.h"
 #include "sandboxedwebview.h"
 #include "../logger.h"
 #include "../lib/fontloader.h"
+#include "../shortcuts/ShortcutManager.h"
+#include <QShortcut>
 #include <QTextEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -81,6 +83,7 @@ DebugPane::DebugPane(QWidget *parent)
   setMouseTracking(true);
   setMinimumHeight(100);
   setupUi();
+  setupShortcuts();
   hide();
 }
 
@@ -88,6 +91,9 @@ DebugPane::~DebugPane() = default;
 
 void DebugPane::setupUi()
 {
+  // Enable focus for keyboard shortcuts
+  setFocusPolicy(Qt::StrongFocus);
+  
   m_mainLayout = new QVBoxLayout(this);
   m_mainLayout->setContentsMargins(0, 0, 0, 0);
   m_mainLayout->setSpacing(0);
@@ -1299,41 +1305,46 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
 
 void DebugPane::keyPressEvent(QKeyEvent *event)
 {
-  if (!m_isVisible) {
-    QWidget::keyPressEvent(event);
-    return;
-  }
-  
-  if (event->modifiers() == Qt::ControlModifier) {
-    QWidget *searchWidget = (m_consoleStack->currentIndex() == 0) ? m_beamLogSearchWidget : m_guiLogSearchWidget;
-    bool searchVisible = searchWidget && searchWidget->isVisible();
-    
-    switch (event->key()) {
-      case Qt::Key_S:
-        if (searchVisible) {
-          findNext();
-        } else {
-          toggleSearchBar();
-        }
-        event->accept();
-        return;
-        
-      case Qt::Key_R:
-        findPrevious();
-        event->accept();
-        return;
-        
-      case Qt::Key_G:
-        if (searchVisible) {
-          toggleSearchBar();
-          event->accept();
-          return;
-        }
-        break;
-    }
-  }
-  
+  // Let shortcuts handle key events
   QWidget::keyPressEvent(event);
+}
+
+void DebugPane::focusInEvent(QFocusEvent *event)
+{
+  QWidget::focusInEvent(event);
+}
+
+void DebugPane::focusOutEvent(QFocusEvent *event)
+{
+  QWidget::focusOutEvent(event);
+}
+
+void DebugPane::setupShortcuts()
+{
+  ShortcutManager& mgr = ShortcutManager::instance();
+  
+  // Search/Find Next shortcut (Ctrl+S)
+  QShortcut* searchShortcut = new QShortcut(mgr.getKeySequence(ShortcutManager::DebugPaneSearch), this);
+  searchShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+  connect(searchShortcut, &QShortcut::activated, this, &DebugPane::handleSearchShortcut);
+  m_shortcuts.append(searchShortcut);
+  
+  // Find Previous shortcut (Ctrl+R)
+  QShortcut* findPrevShortcut = new QShortcut(mgr.getKeySequence(ShortcutManager::DebugPaneFindPrevious), this);
+  findPrevShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+  connect(findPrevShortcut, &QShortcut::activated, this, &DebugPane::findPrevious);
+  m_shortcuts.append(findPrevShortcut);
+  
+  // Close Search shortcut (Ctrl+G)
+  QShortcut* closeSearchShortcut = new QShortcut(mgr.getKeySequence(ShortcutManager::DebugPaneCloseSearch), this);
+  closeSearchShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+  connect(closeSearchShortcut, &QShortcut::activated, this, &DebugPane::toggleSearchBar);
+  m_shortcuts.append(closeSearchShortcut);
+}
+
+void DebugPane::cleanupShortcuts()
+{
+  // Shortcuts are automatically cleaned up when the widget is destroyed
 }
 
 void DebugPane::getCurrentSearchContext(QWidget *&searchWidget, QLineEdit *&searchInput, QTextEdit *&textEdit, QString *&lastSearchText)
@@ -1406,6 +1417,20 @@ void DebugPane::performSearch()
   if (!currentTextEdit || !lastSearchText) return;
   
   m_searchFunctionality->performSearch(searchInput, currentTextEdit, *lastSearchText);
+}
+
+void DebugPane::handleSearchShortcut()
+{
+  if (!m_isVisible) return;
+  
+  QWidget *searchWidget = (m_consoleStack->currentIndex() == 0) ? 
+                          m_beamLogSearchWidget : m_guiLogSearchWidget;
+  
+  if (searchWidget && searchWidget->isVisible()) {
+    findNext();
+  } else {
+    toggleSearchBar();
+  }
 }
 
 void DebugPane::findNext()

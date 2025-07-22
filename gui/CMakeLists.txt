@@ -69,6 +69,8 @@ set(SOURCES
   ${QTAPP_ROOT}/lib/fontloader.cpp
   ${QTAPP_ROOT}/styles/StyleManager.h
   ${QTAPP_ROOT}/styles/StyleManager.cpp
+  ${QTAPP_ROOT}/shortcuts/ShortcutManager.h
+  ${QTAPP_ROOT}/shortcuts/ShortcutManager.cpp
 )
 
 # Conditionally add debug pane sources
