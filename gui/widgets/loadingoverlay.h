@@ -62,6 +62,7 @@ private:
 
 private:
   GLWidget *glWidget;
+  QWidget *logContainer;
   QTextEdit *logWidget;
   QPushButton *closeButton;
   QPropertyAnimation *fadeAnimation;

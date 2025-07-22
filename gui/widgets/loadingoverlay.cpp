@@ -2,6 +2,7 @@
 #include <QTimer>
 #include <QPainter>
 #include <QGraphicsOpacityEffect>
+#include <QGraphicsBlurEffect>
 #include <QVBoxLayout>
 #include <QMutexLocker>
 #include <QScrollBar>
@@ -21,7 +22,6 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
     , renderTimer(nullptr)
     , fadeToBlackValue(0.0f)
 {
-  // Load codicon font
   int codiconFontId = QFontDatabase::addApplicationFont(":/fonts/codicon.ttf");
   if (codiconFontId != -1) {
     QStringList codiconFamilies = QFontDatabase::applicationFontFamilies(codiconFontId);
@@ -32,41 +32,63 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
   setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
   setAttribute(Qt::WA_TranslucentBackground);
   
-  // Create GL widget for background
   glWidget = new GLWidget(this);
   glWidget->setObjectName("glWidget");
   
-  // Create log widget overlay
-  logWidget = new QTextEdit(this);
+  logContainer = new QWidget(this);
+  logContainer->setObjectName("logContainer");
+  
+  logContainer->setStyleSheet(QString(R"(
+    QWidget#logContainer {
+      background-color: %1;
+      border: 1px solid %2;
+      border-radius: 5px;
+    }
+  )").arg(StyleManager::Colors::backgroundPrimaryAlpha(180))
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.6)));
+  
+  logWidget = new QTextEdit(logContainer);
   logWidget->setObjectName("logWidget");
   logWidget->setReadOnly(true);
   logWidget->setFrameStyle(QFrame::NoFrame);
   logWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   logWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   
-  // Style the log widget with explicit opacity
+  logWidget->setAttribute(Qt::WA_TranslucentBackground);
+  
   logWidget->setStyleSheet(QString(R"(
     QTextEdit#logWidget {
-      background-color: rgba(20, 20, 20, 230);
-      color: rgb(255, 165, 0);
+      background-color: transparent;
+      color: %1;
       font-family: 'Cascadia Code', 'Cascadia Mono', 'Consolas', monospace;
       font-size: 9px;
-      padding: 10px;
-      border: 1px solid rgba(255, 165, 0, 0.3);
-      border-radius: 5px;
+      font-weight: 500;
+      padding: 12px;
+      border: none;
+      text-shadow: 0 0 2px %2;
     }
-  )"));
+    QTextEdit#logWidget::selection {
+      background-color: %3;
+      color: %4;
+    }
+  )").arg(StyleManager::Colors::accentPrimaryAlpha(0.95))
+     .arg(StyleManager::Colors::backgroundPrimaryAlpha(0.8)) 
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.3))
+     .arg(StyleManager::Colors::TEXT_PRIMARY));
   
-  // Create close button with codicon close icon (U+EA76)
+  QVBoxLayout *containerLayout = new QVBoxLayout(logContainer);
+  containerLayout->setContentsMargins(0, 0, 0, 0);
+  containerLayout->addWidget(logWidget);
+  
   closeButton = new QPushButton(QChar(0xEA76), this);
   closeButton->setObjectName("closeButton");
   closeButton->setFixedSize(36, 36);
   closeButton->setCursor(Qt::PointingHandCursor);
   closeButton->setStyleSheet(QString(R"(
     QPushButton#closeButton {
-      background-color: rgba(20, 20, 20, 0.9);
-      color: %1;
-      border: 1px solid %2;
+      background-color: %1;
+      color: %2;
+      border: 1px solid %3;
       border-radius: 4px;
       font-family: 'codicon';
       font-size: 16px;
@@ -75,44 +97,41 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
       text-align: center;
     }
     QPushButton#closeButton:hover {
-      background-color: %3;
-      color: %4;
-      border: 1px solid %5;
+      background-color: %4;
+      color: %5;
+      border: 1px solid %6;
     }
     QPushButton#closeButton:pressed {
-      background-color: %6;
-      color: %7;
-      border: 1px solid %8;
+      background-color: %7;
+      color: %8;
+      border: 1px solid %9;
     }
   )")
-    .arg(StyleManager::Colors::ACCENT_PRIMARY)                // Orange icon
-    .arg(StyleManager::Colors::ACCENT_PRIMARY)                // Orange border
-    .arg(StyleManager::Colors::ACCENT_PRIMARY)                // Orange background on hover
-    .arg(StyleManager::Colors::BACKGROUND_PRIMARY)            // Black icon on hover
-    .arg(StyleManager::Colors::ACCENT_PRIMARY)                // Orange border on hover
-    .arg(StyleManager::Colors::accentPrimaryAlpha(0.8))       // Darker orange on press
-    .arg(StyleManager::Colors::BACKGROUND_PRIMARY)            // Black icon on press
-    .arg(StyleManager::Colors::accentPrimaryAlpha(0.8))       // Darker orange border on press
+    .arg(StyleManager::Colors::backgroundPrimaryAlpha(0.9))
+    .arg(StyleManager::Colors::ACCENT_PRIMARY)
+    .arg(StyleManager::Colors::ACCENT_PRIMARY)
+    .arg(StyleManager::Colors::ACCENT_PRIMARY)
+    .arg(StyleManager::Colors::BACKGROUND_PRIMARY)
+    .arg(StyleManager::Colors::ACCENT_PRIMARY)
+    .arg(StyleManager::Colors::accentPrimaryAlpha(0.8))
+    .arg(StyleManager::Colors::BACKGROUND_PRIMARY)
+    .arg(StyleManager::Colors::accentPrimaryAlpha(0.8))
   );
   
-  // Hide close button initially - will show after 10 seconds
   closeButton->setVisible(false);
   
   connect(closeButton, &QPushButton::clicked, [this]() {
     QApplication::quit();
   });
   
-  // Ensure proper stacking order
-  glWidget->stackUnder(logWidget);
-  logWidget->raise();
-  logWidget->setVisible(true);
+  glWidget->stackUnder(logContainer);
+  logContainer->raise();
+  logContainer->setVisible(true);
   closeButton->raise();
   
-  // Add initial test logs
   appendLog("[TAU5] System initializing...");
   appendLog("[BEAM] Starting Erlang VM...");
   
-  // Setup fade animation without graphics effect to avoid caching
   fadeAnimation = new QPropertyAnimation(this, "windowOpacity", this);
   fadeAnimation->setDuration(500);
   fadeAnimation->setStartValue(1.0);
@@ -120,13 +139,10 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
   
   connect(fadeAnimation, &QPropertyAnimation::finished, this, &QWidget::close);
   
-  // Use high-priority timer that yields to event loop
   renderTimer = new QTimer(this);
   renderTimer->setTimerType(Qt::PreciseTimer);
   connect(renderTimer, &QTimer::timeout, [this]() {
     if (glWidget) {
-      // Use zero-delay single shot to ensure the update happens
-      // even when the main thread is busy
       QTimer::singleShot(0, glWidget, [this]() {
         if (glWidget) {
           glWidget->update();
@@ -134,9 +150,8 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
       });
     }
   });
-  renderTimer->start(16); // 60 FPS target
+  renderTimer->start(16);
   
-  // Show close button after 10 seconds as an escape hatch
   QTimer::singleShot(10000, [this]() {
     if (closeButton && fadeAnimation && fadeAnimation->state() != QAbstractAnimation::Running) {
       closeButton->setVisible(true);
@@ -148,14 +163,11 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
 
 LoadingOverlay::~LoadingOverlay()
 {
-  // Stop the render timer when the widget is destroyed
   if (renderTimer) {
     renderTimer->stop();
     Logger::log(Logger::Debug, "[LoadingOverlay] Render timer stopped in destructor");
   }
   
-  // Note: closeButton, glWidget, and logWidget are automatically deleted
-  // by Qt's parent-child ownership system since they were created with 'this' as parent
   Logger::log(Logger::Debug, "[LoadingOverlay] Destructor completed - child widgets cleaned up");
 }
 
@@ -164,16 +176,15 @@ void LoadingOverlay::fadeOut()
   if (fadeAnimation && fadeAnimation->state() != QAbstractAnimation::Running) {
     Logger::log(Logger::Debug, "[LoadingOverlay] Starting fade out");
     
-    // Hide the close button when fade starts
     if (closeButton) {
       closeButton->setVisible(false);
     }
     
-    // Don't stop the render timer here - let it run during fade
     {
       QMutexLocker locker(&logMutex);
       logLines.clear();
     }
+    
     fadeAnimation->start();
   }
 }
@@ -182,7 +193,6 @@ void LoadingOverlay::updateGeometry(const QRect &parentGeometry)
 {
   setGeometry(parentGeometry);
   
-  // Manually trigger resize event to position widgets
   QResizeEvent event(size(), size());
   resizeEvent(&event);
 }
@@ -191,24 +201,21 @@ void LoadingOverlay::resizeEvent(QResizeEvent *event)
 {
   QWidget::resizeEvent(event);
   
-  // Resize GL widget to fill the window
   if (glWidget) {
     glWidget->setGeometry(0, 0, width(), height());
   }
   
-  // Position log widget in bottom-right corner
-  if (logWidget) {
+  if (logContainer) {
     int logWidth = qMin(500, width() / 3);
     int logHeight = qMin(300, height() / 3);
     int x = width() - logWidth - 20;
     int y = height() - logHeight - 20;
-    logWidget->setGeometry(x, y, logWidth, logHeight);
+    logContainer->setGeometry(x, y, logWidth, logHeight);
     
-    Logger::log(Logger::Debug, QString("[LoadingOverlay] Log widget positioned at %1,%2 size %3x%4")
+    Logger::log(Logger::Debug, QString("[LoadingOverlay] Log container positioned at %1,%2 size %3x%4")
                 .arg(x).arg(y).arg(logWidth).arg(logHeight));
   }
   
-  // Position close button in top-right corner
   if (closeButton) {
     closeButton->move(width() - closeButton->width() - 10, 10);
   }
@@ -231,14 +238,12 @@ void LoadingOverlay::appendLog(const QString &message)
     }
   }
   
-  // Update log widget
   QString logText = logLines.join("\n");
   logWidget->setPlainText(logText);
   logWidget->raise();
   logWidget->setVisible(true);
   logWidget->update(); // Force repaint
   
-  // Debug - check if widget is visible and parent
   Logger::log(Logger::Debug, QString("[LoadingOverlay] Log widget visible: %1, geometry: %2x%3, text: '%4', parent visible: %5")
               .arg(logWidget->isVisible())
               .arg(logWidget->width())
@@ -246,7 +251,6 @@ void LoadingOverlay::appendLog(const QString &message)
               .arg(logText.left(50))
               .arg(isVisible()));
   
-  // Auto-scroll to bottom
   QScrollBar *sb = logWidget->verticalScrollBar();
   if (sb) {
     sb->setValue(sb->maximum());
@@ -262,15 +266,13 @@ LoadingOverlay::GLWidget::GLWidget(QWidget *parent)
     , lastFrameTime(0.0f)
     , fadeToBlackValue(0.0f)
 {
-  // Enable VSync and triple buffering to reduce tearing
   QSurfaceFormat format = QSurfaceFormat::defaultFormat();
-  format.setSwapInterval(1); // VSync
-  format.setSwapBehavior(QSurfaceFormat::TripleBuffer); // Triple buffering
+  format.setSwapInterval(1);
+  format.setSwapBehavior(QSurfaceFormat::TripleBuffer);
   format.setRenderableType(QSurfaceFormat::OpenGL);
   format.setProfile(QSurfaceFormat::CompatibilityProfile);
   setFormat(format);
   
-  // Enable threaded rendering
   QSurfaceFormat::setDefaultFormat(format);
 }
 
@@ -311,7 +313,6 @@ void LoadingOverlay::GLWidget::initializeGL()
   timer.start();
   frameTimer.start();
   
-  // Simple vertex shader
   const char *vertexShaderSource = R"(
     #version 120
     attribute vec2 aPos;
@@ -320,7 +321,6 @@ void LoadingOverlay::GLWidget::initializeGL()
     }
   )";
   
-  // Ultra-simple performant fragment shader
   const char *fragmentShaderSource = R"(
     #version 120
     uniform float time;
@@ -337,12 +337,10 @@ void LoadingOverlay::GLWidget::initializeGL()
     vec3 cubeWireframe(vec2 p, float logoMask) {
       vec3 col = vec3(0.0);
       
-      // Slow rotation, faster when over logo
       float rotSpeed = mix(0.05, 0.15, logoMask);
       float t = time * rotSpeed;
       vec3 angles = vec3(t, t * 0.7, t * 0.3);
       
-      // Cube vertices
       vec3 verts[8];
       verts[0] = vec3(-1.0, -1.0, -1.0);
       verts[1] = vec3( 1.0, -1.0, -1.0);
@@ -353,10 +351,8 @@ void LoadingOverlay::GLWidget::initializeGL()
       verts[6] = vec3( 1.0,  1.0,  1.0);
       verts[7] = vec3(-1.0,  1.0,  1.0);
       
-      // Scale cube when over logo
       float scale = mix(0.3, 0.35, logoMask);
       
-      // Project vertices
       vec2 proj[8];
       for(int i = 0; i < 8; i++) {
         vec3 v = verts[i];
@@ -367,31 +363,24 @@ void LoadingOverlay::GLWidget::initializeGL()
         proj[i] = v.xy * (2.0 / z) * scale;
       }
       
-      // Draw edges (simplified)
       float d = 1e10;
       
-      // Front face
       vec2 e;
       e = proj[1] - proj[0]; d = min(d, length(p - proj[0] - e * clamp(dot(p - proj[0], e) / dot(e, e), 0.0, 1.0)));
       e = proj[2] - proj[1]; d = min(d, length(p - proj[1] - e * clamp(dot(p - proj[1], e) / dot(e, e), 0.0, 1.0)));
       e = proj[3] - proj[2]; d = min(d, length(p - proj[2] - e * clamp(dot(p - proj[2], e) / dot(e, e), 0.0, 1.0)));
       e = proj[0] - proj[3]; d = min(d, length(p - proj[3] - e * clamp(dot(p - proj[3], e) / dot(e, e), 0.0, 1.0)));
       
-      // Back face
       e = proj[5] - proj[4]; d = min(d, length(p - proj[4] - e * clamp(dot(p - proj[4], e) / dot(e, e), 0.0, 1.0)));
       e = proj[6] - proj[5]; d = min(d, length(p - proj[5] - e * clamp(dot(p - proj[5], e) / dot(e, e), 0.0, 1.0)));
       e = proj[7] - proj[6]; d = min(d, length(p - proj[6] - e * clamp(dot(p - proj[6], e) / dot(e, e), 0.0, 1.0)));
       e = proj[4] - proj[7]; d = min(d, length(p - proj[7] - e * clamp(dot(p - proj[7], e) / dot(e, e), 0.0, 1.0)));
       
-      // Connecting edges
       e = proj[4] - proj[0]; d = min(d, length(p - proj[0] - e * clamp(dot(p - proj[0], e) / dot(e, e), 0.0, 1.0)));
       e = proj[5] - proj[1]; d = min(d, length(p - proj[1] - e * clamp(dot(p - proj[1], e) / dot(e, e), 0.0, 1.0)));
       e = proj[6] - proj[2]; d = min(d, length(p - proj[2] - e * clamp(dot(p - proj[2], e) / dot(e, e), 0.0, 1.0)));
       e = proj[7] - proj[3]; d = min(d, length(p - proj[3] - e * clamp(dot(p - proj[3], e) / dot(e, e), 0.0, 1.0)));
       
-      // Use color that inverts to deep neon pink when over logo, orange otherwise
-      // Deep neon pink (1.0, 0.0, 1.0) inverted = (0.0, 1.0, 0.0) = pure green
-      // For a slightly warmer neon pink (1.0, 0.1, 0.9) inverted = (0.0, 0.9, 0.1) = green with slight yellow
       vec3 cubeColor = mix(vec3(1.0, 0.65, 0.0), vec3(0.0, 1.0, 0.0), logoMask);
       col += cubeColor * smoothstep(0.02, 0.0, d) * 2.0;
       
@@ -402,10 +391,8 @@ void LoadingOverlay::GLWidget::initializeGL()
       vec2 uv = gl_FragCoord.xy / resolution.xy;
       vec2 p = (gl_FragCoord.xy - 0.5 * resolution.xy) / min(resolution.x, resolution.y);
       
-      // Simple gradient background
       vec3 col = mix(vec3(0.05, 0.0, 0.1), vec3(0.1, 0.0, 0.2), uv.y);
       
-      // Check logo area
       vec2 logoUV = p + 0.5;
       float logoMask = 0.0;
       if(logoUV.x >= 0.0 && logoUV.x <= 1.0 && logoUV.y >= 0.0 && logoUV.y <= 1.0) {
@@ -414,15 +401,12 @@ void LoadingOverlay::GLWidget::initializeGL()
         logoMask = (logoColor.a > 0.5 && lum < 0.5) ? 1.0 : 0.0;
       }
       
-      // Draw cube
       col += cubeWireframe(p, logoMask);
       
-      // Draw logo (inverted)
       if(logoMask > 0.5) {
         col = 1.0 - col;
       }
       
-      // Vignette
       col *= 1.0 - length(p) * 0.5;
       
       gl_FragColor = vec4(col, 1.0);
@@ -459,7 +443,6 @@ void LoadingOverlay::GLWidget::resizeGL(int w, int h)
 
 void LoadingOverlay::GLWidget::paintGL()
 {
-  // Skip rendering if not visible
   if (!isVisible()) {
     return;
   }
@@ -476,13 +459,11 @@ void LoadingOverlay::GLWidget::paintGL()
   qreal dpr = devicePixelRatio();
   QSize fbSize = size() * dpr;
   
-  // Smooth time progression - use accumulated time
   float currentTime = timer.elapsed() / 1000.0f;
   
-  // Apply exponential smoothing if frame time varies too much
   float frameTime = frameTimer.restart() / 1000.0f;
-  if (frameTime > 0.05f) { // If frame took more than 50ms
-    frameTime = 0.016f; // Cap at 60fps equivalent
+  if (frameTime > 0.05f) {
+    frameTime = 0.016f;
   }
   
   shaderProgram->setUniformValue(timeUniform, currentTime);
@@ -492,7 +473,6 @@ void LoadingOverlay::GLWidget::paintGL()
   glActiveTexture(GL_TEXTURE0);
   logoTexture->bind();
   
-  // Full screen quad
   static const GLfloat verts[] = {
     -1.0f, -1.0f,
      1.0f, -1.0f,
