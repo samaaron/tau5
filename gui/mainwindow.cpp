@@ -111,7 +111,6 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, QWidget *parent)
             disconnect(beamInstance, &Beam::standardError,
                       loadingOverlay.get(), &LoadingOverlay::appendLog);
           }
-          // Show the main window BEFORE starting the fade
           this->show();
           this->raise();
           this->activateWindow();

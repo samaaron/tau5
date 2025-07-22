@@ -19,7 +19,7 @@
 namespace Config
 {
   constexpr quint16 DEFAULT_PORT = 5555;
-  constexpr quint16 DEVTOOLS_PORT = 9223; // Chrome DevTools Protocol port
+  constexpr quint16 DEVTOOLS_PORT = 9223;
   constexpr const char *APP_NAME = "Tau5";
   constexpr const char *APP_VERSION = "0.1.0";
   constexpr const char *CHROMIUM_FLAGS =
@@ -34,7 +34,7 @@ namespace Config
       "--disable-backgrounding-occluded-windows "
       "--disable-features=AudioServiceOutOfProcess "
       "--autoplay-policy=no-user-gesture-required "
-      "--remote-debugging-port=9223"; // Enable Chrome DevTools Protocol
+      "--remote-debugging-port=9223";
 }
 
 QString getTau5Logo()
@@ -84,7 +84,6 @@ quint16 getFreePort()
 bool setupConsoleOutput()
 {
 #if defined(Q_OS_WIN)
-  // First try to attach to parent console (if started from cmd.exe)
   if (AttachConsole(ATTACH_PARENT_PROCESS))
   {
     FILE *stream;
@@ -92,12 +91,9 @@ bool setupConsoleOutput()
     freopen_s(&stream, "CONOUT$", "w", stderr);
     freopen_s(&stream, "CONIN$", "r", stdin);
     
-    // Make cout, wcout, cin, wcin, wcerr, cerr, wclog and clog
-    // point to console as well
     std::ios::sync_with_stdio();
     return true;
   }
-  // If that fails, try to attach to any console
   else if (AttachConsole(-1))
   {
     FILE *stream;
@@ -108,7 +104,6 @@ bool setupConsoleOutput()
     std::ios::sync_with_stdio();
     return true;
   }
-  // As a last resort, allocate a new console (only in dev mode)
   return false;
 #else
   return true;
@@ -135,7 +130,6 @@ bool initializeApplication(QApplication &app, bool devMode)
     QStringList fontFamilies = QFontDatabase::applicationFontFamilies(fontId);
     Logger::log(Logger::Info, QString("Loaded font families: %1").arg(fontFamilies.join(", ")));
     
-    // Also log available font families for debugging on macOS
 #ifdef Q_OS_MACOS
     Logger::log(Logger::Debug, "Available monospace fonts on macOS:");
     QStringList families = QFontDatabase::families();
@@ -157,11 +151,9 @@ bool initializeApplication(QApplication &app, bool devMode)
 
 int main(int argc, char *argv[])
 {
-  // Check for dev mode early
   bool devMode = false;
   bool enableDebugPane = true;
   
-  // Parse command line arguments
   for (int i = 1; i < argc; ++i) {
     if (std::strcmp(argv[i], "dev") == 0) {
       devMode = true;
@@ -170,7 +162,6 @@ int main(int argc, char *argv[])
     }
   }
 
-  // Set up console output early if in dev mode
   if (devMode)
   {
     setupConsoleOutput();
@@ -269,8 +260,6 @@ int main(int argc, char *argv[])
   mainWindow.setWindowIcon(QIcon(":/images/app.ico"));
 #endif
 
-  // Don't show main window immediately - loading overlay will handle it
-  // mainWindow.show();
 
   return app.exec();
 }

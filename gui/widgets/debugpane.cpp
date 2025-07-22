@@ -215,13 +215,11 @@ void DebugPane::setupViewControls()
   m_headerLayout = new QHBoxLayout(m_headerWidget);
   m_headerLayout->setContentsMargins(10, 2, 10, 2);
 
-  // Create buttons with codicon font icons
-  m_restartButton = createCodiconButton(m_headerWidget, QChar(0xEB37), "Restart BEAM"); // refresh icon
-  m_beamLogButton = createCodiconButton(m_headerWidget, QChar(0xEA85), "BEAM Log Only", true); // terminal icon
-  m_devToolsButton = createCodiconButton(m_headerWidget, QChar(0xEAAF), "DevTools Only", true); // bug icon
-  m_sideBySideButton = createCodiconButton(m_headerWidget, QChar(0xEB56), "Side by Side View", true); // split-horizontal icon
-
-  m_closeButton = createCodiconButton(m_headerWidget, QChar(0xEA76), "Close Debug Pane"); // close icon
+  m_restartButton = createCodiconButton(m_headerWidget, QChar(0xEB37), "Restart BEAM");
+  m_beamLogButton = createCodiconButton(m_headerWidget, QChar(0xEA85), "BEAM Log Only", true);
+  m_devToolsButton = createCodiconButton(m_headerWidget, QChar(0xEAAF), "DevTools Only", true);
+  m_sideBySideButton = createCodiconButton(m_headerWidget, QChar(0xEB56), "Side by Side View", true);
+  m_closeButton = createCodiconButton(m_headerWidget, QChar(0xEA76), "Close Debug Pane");
 
   m_restartButton->setFocusPolicy(Qt::NoFocus);
   m_beamLogButton->setFocusPolicy(Qt::NoFocus);
@@ -273,47 +271,45 @@ void DebugPane::setupConsole()
   toolbarLayout->addWidget(m_elixirConsoleTabButton);
   toolbarLayout->addStretch();
 
-  // Create all console toolbar buttons with codicon icons
-
   m_beamLogContainer = new QWidget();
   m_beamLogLayout = new QVBoxLayout(m_beamLogContainer);
   m_beamLogLayout->setContentsMargins(0, 0, 0, 0);
   m_beamLogLayout->setSpacing(0);
 
-  m_autoScrollButton = createCodiconButton(consoleToolbar, QChar(0xEA9A), "Auto-scroll", true, true); // arrow-down icon
+  m_autoScrollButton = createCodiconButton(consoleToolbar, QChar(0xEA9A), "Auto-scroll", true, true);
   m_autoScrollButton->setFixedSize(20, 20);
 
-  m_beamLogSearchButton = createCodiconButton(consoleToolbar, QChar(0xEA6D), "Search (Ctrl+S)", true); // search icon
+  m_beamLogSearchButton = createCodiconButton(consoleToolbar, QChar(0xEA6D), "Search (Ctrl+S)", true);
   m_beamLogSearchButton->setFixedSize(20, 20);
 
-  m_consoleZoomOutButton = createCodiconButton(consoleToolbar, QChar('-'), "Zoom Out"); // minus character
-  m_consoleZoomInButton = createCodiconButton(consoleToolbar, QChar('+'), "Zoom In"); // plus character
+  m_consoleZoomOutButton = createCodiconButton(consoleToolbar, QChar('-'), "Zoom Out");
+  m_consoleZoomInButton = createCodiconButton(consoleToolbar, QChar('+'), "Zoom In");
   m_consoleZoomOutButton->setFixedSize(20, 20);
   m_consoleZoomInButton->setFixedSize(20, 20);
   m_consoleZoomOutButton->setVisible(true);
   m_consoleZoomInButton->setVisible(true);
 
-  m_guiLogAutoScrollButton = createCodiconButton(consoleToolbar, QChar(0xEA9A), "Auto-scroll", true, true); // arrow-down icon
+  m_guiLogAutoScrollButton = createCodiconButton(consoleToolbar, QChar(0xEA9A), "Auto-scroll", true, true);
   m_guiLogAutoScrollButton->setFixedSize(20, 20);
   m_guiLogAutoScrollButton->setVisible(false);
 
-  m_guiLogSearchButton = createCodiconButton(consoleToolbar, QChar(0xEA6D), "Search (Ctrl+S)", true); // search icon
+  m_guiLogSearchButton = createCodiconButton(consoleToolbar, QChar(0xEA6D), "Search (Ctrl+S)", true);
   m_guiLogSearchButton->setFixedSize(20, 20);
   m_guiLogSearchButton->setVisible(false);
 
-  m_guiLogZoomOutButton = createCodiconButton(consoleToolbar, QChar('-'), "Zoom Out"); // minus character
+  m_guiLogZoomOutButton = createCodiconButton(consoleToolbar, QChar('-'), "Zoom Out");
   m_guiLogZoomOutButton->setFixedSize(20, 20);
   m_guiLogZoomOutButton->setVisible(false);
 
-  m_guiLogZoomInButton = createCodiconButton(consoleToolbar, QChar('+'), "Zoom In"); // plus character
+  m_guiLogZoomInButton = createCodiconButton(consoleToolbar, QChar('+'), "Zoom In");
   m_guiLogZoomInButton->setFixedSize(20, 20);
   m_guiLogZoomInButton->setVisible(false);
 
-  m_elixirConsoleZoomOutButton = createCodiconButton(consoleToolbar, QChar('-'), "Zoom Out"); // minus character
+  m_elixirConsoleZoomOutButton = createCodiconButton(consoleToolbar, QChar('-'), "Zoom Out");
   m_elixirConsoleZoomOutButton->setFixedSize(20, 20);
   m_elixirConsoleZoomOutButton->setVisible(false);
 
-  m_elixirConsoleZoomInButton = createCodiconButton(consoleToolbar, QChar('+'), "Zoom In"); // plus character
+  m_elixirConsoleZoomInButton = createCodiconButton(consoleToolbar, QChar('+'), "Zoom In");
   m_elixirConsoleZoomInButton->setFixedSize(20, 20);
   m_elixirConsoleZoomInButton->setVisible(false);
 
@@ -427,20 +423,19 @@ void DebugPane::setupDevTools()
   toolbarLayout->addWidget(m_liveDashboardTabButton);
   toolbarLayout->addStretch();
 
-  // Create DevTools zoom buttons with codicon icons
-  m_zoomOutButton = createCodiconButton(devToolsToolbar, QChar('-'), "Zoom Out"); // minus character
+  m_zoomOutButton = createCodiconButton(devToolsToolbar, QChar('-'), "Zoom Out");
   m_zoomOutButton->setFixedSize(20, 20);
   m_zoomOutButton->setVisible(true);
 
-  m_zoomInButton = createCodiconButton(devToolsToolbar, QChar('+'), "Zoom In"); // plus character
+  m_zoomInButton = createCodiconButton(devToolsToolbar, QChar('+'), "Zoom In");
   m_zoomInButton->setFixedSize(20, 20);
   m_zoomInButton->setVisible(true);
 
-  m_liveDashboardZoomOutButton = createCodiconButton(devToolsToolbar, QChar('-'), "Zoom Out"); // minus character
+  m_liveDashboardZoomOutButton = createCodiconButton(devToolsToolbar, QChar('-'), "Zoom Out");
   m_liveDashboardZoomOutButton->setFixedSize(20, 20);
   m_liveDashboardZoomOutButton->setVisible(false);
 
-  m_liveDashboardZoomInButton = createCodiconButton(devToolsToolbar, QChar('+'), "Zoom In"); // plus character
+  m_liveDashboardZoomInButton = createCodiconButton(devToolsToolbar, QChar('+'), "Zoom In");
   m_liveDashboardZoomInButton->setFixedSize(20, 20);
   m_liveDashboardZoomInButton->setVisible(false);
 
@@ -1146,8 +1141,7 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
       AnimationControl::stopRestartAnimation(m_restartAnimationTimer, m_restartButton, QIcon());
     }
 
-    // Set text back to normal refresh icon
-    m_restartButton->setText(QChar(0xEB37)); // refresh icon
+    m_restartButton->setText(QChar(0xEB37));
     m_restartButton->setToolTip("Restart BEAM");
   }
   else

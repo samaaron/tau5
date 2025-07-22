@@ -18,7 +18,6 @@ PhxWebView::PhxWebView(QWidget *parent)
                      StyleManager::Colors::BACKGROUND_PRIMARY, 
                      StyleManager::Colors::ACCENT_HIGHLIGHT);
   
-  // Enable context menu (parent class disables it)
   setContextMenuPolicy(Qt::DefaultContextMenu);
 }
 
@@ -42,11 +41,9 @@ void PhxWebView::showContextMenu(const QPoint &globalPos)
   if (m_devToolsAvailable) {
     QAction *inspectAction = contextMenu.addAction(tr("Inspect Element"));
     
-    // Create bug icon from codicon font
     QFont codiconFont("codicon");
     codiconFont.setPixelSize(16);
     
-    // Create pixmap with codicon bug character
     QPixmap pixmap(16, 16);
     pixmap.fill(Qt::transparent);
     

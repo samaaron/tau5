@@ -40,18 +40,15 @@ QTimer* AnimationControl::createRestartAnimation(QWidget *parent, QPushButton *b
     if (!button) return nullptr;
     
     QTimer *timer = new QTimer(parent);
-    timer->setInterval(200); // Update every 200ms for animation
-    
-    // Store frame count as timer property
+    timer->setInterval(200);
     timer->setProperty("frame", 0);
     
-    // Store original text
     QString originalText = button->text();
     timer->setProperty("originalText", originalText);
     
     QObject::connect(timer, &QTimer::timeout, [timer, button]() {
         int frame = timer->property("frame").toInt();
-        frame = (frame + 1) % 8; // Cycle through 8 animation states
+        frame = (frame + 1) % 8;
         timer->setProperty("frame", frame);
         
         // Simple text-based spinner animation using different Unicode characters
@@ -77,7 +74,6 @@ QTimer* AnimationControl::createRestartAnimation(QWidget *parent, QPushButton *b
 void AnimationControl::stopRestartAnimation(QTimer *&timer, QPushButton *button, const QIcon &originalIcon)
 {
     if (timer) {
-        // Restore original text if stored
         if (button) {
             QString originalText = timer->property("originalText").toString();
             if (!originalText.isEmpty()) {
