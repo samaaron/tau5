@@ -6,6 +6,18 @@ export class Tau5Shader {
     this.startTime = Date.now();
     this.uniforms = {};
     this.animationFrame = null;
+    
+    // Mouse interaction state
+    this.isDragging = false;
+    this.lastMouseX = 0;
+    this.lastMouseY = 0;
+    this.velocityX = 0;
+    this.velocityY = 0;
+    this.rotationX = 0;
+    this.rotationY = 0;
+    this.rotationZ = 0;
+    this.baseSpeed = 0.0002; // Base rotation speed when not interacting (slower)
+    this.damping = 0.98; // Inertia damping factor (higher = longer spin)
   }
 
   async init() {
@@ -38,10 +50,14 @@ export class Tau5Shader {
     // Get uniform locations
     this.uniforms.time = this.gl.getUniformLocation(this.program, 'time');
     this.uniforms.resolution = this.gl.getUniformLocation(this.program, 'resolution');
+    this.uniforms.rotation = this.gl.getUniformLocation(this.program, 'rotation');
 
     // Enable alpha blending
     this.gl.enable(this.gl.BLEND);
     this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+    
+    // Set up mouse event listeners
+    this.setupMouseEvents();
 
     // Create vertex buffer
     const vertices = new Float32Array([
@@ -92,6 +108,7 @@ export class Tau5Shader {
       precision mediump float;
       uniform float time;
       uniform vec2 resolution;
+      uniform vec3 rotation;
       
       #define PI 3.14159265359
       
@@ -103,9 +120,7 @@ export class Tau5Shader {
       vec3 cubeWireframe(vec2 p) {
         vec3 col = vec3(0.0);
         
-        float rotSpeed = 0.1;
-        float t = time * rotSpeed;
-        vec3 angles = vec3(t, t * 0.7, t * 0.3);
+        vec3 angles = rotation;
         
         // Define cube vertices
         vec3 verts[8];
@@ -180,6 +195,46 @@ export class Tau5Shader {
     `;
   }
 
+  setupMouseEvents() {
+    // Mouse down - start dragging
+    this.canvas.addEventListener('mousedown', (e) => {
+      this.isDragging = true;
+      this.lastMouseX = e.clientX;
+      this.lastMouseY = e.clientY;
+      this.velocityX = 0;
+      this.velocityY = 0;
+      this.canvas.style.cursor = 'grabbing';
+    });
+    
+    // Mouse move - update rotation
+    window.addEventListener('mousemove', (e) => {
+      if (!this.isDragging) return;
+      
+      const deltaX = e.clientX - this.lastMouseX;
+      const deltaY = e.clientY - this.lastMouseY;
+      
+      // Update velocity for inertia
+      this.velocityY = deltaX * 0.01;  // X mouse movement -> Y rotation
+      this.velocityX = -deltaY * 0.01; // Y mouse movement -> X rotation (inverted)
+      
+      // Update rotation based on mouse movement
+      this.rotationY += deltaX * 0.01;  // Horizontal drag rotates around Y
+      this.rotationX -= deltaY * 0.01;  // Vertical drag rotates around X (inverted)
+      
+      this.lastMouseX = e.clientX;
+      this.lastMouseY = e.clientY;
+    });
+    
+    // Mouse up - stop dragging
+    window.addEventListener('mouseup', () => {
+      this.isDragging = false;
+      this.canvas.style.cursor = 'grab';
+    });
+    
+    // Add hover cursor
+    this.canvas.style.cursor = 'grab';
+  }
+
   resize() {
     const dpr = window.devicePixelRatio || 1;
     const width = this.canvas.clientWidth * dpr;
@@ -202,11 +257,49 @@ export class Tau5Shader {
 
     this.gl.useProgram(this.program);
 
+    // Update physics when not dragging
+    if (!this.isDragging) {
+      // Apply inertia
+      this.rotationY += this.velocityY;  // Y velocity affects Y rotation
+      this.rotationX += this.velocityX;  // X velocity affects X rotation
+      
+      // Apply damping to velocity
+      this.velocityX *= this.damping;
+      this.velocityY *= this.damping;
+      
+      // Smoothly blend in base rotation as velocity decreases
+      const totalVelocity = Math.sqrt(this.velocityX * this.velocityX + this.velocityY * this.velocityY);
+      const blendFactor = Math.max(0, 1 - totalVelocity / 0.001); // Smooth transition
+      
+      // Always apply some base rotation, scaled by how still the cube is
+      const time = (Date.now() - this.startTime) / 1000.0;
+      this.rotationZ += this.baseSpeed * 30 * blendFactor;
+      
+      // If nearly stopped, maintain minimum rotation in the last direction
+      if (totalVelocity < 0.001) {
+        // Smoothly add base rotation without jerking
+        const baseX = this.baseSpeed * 0.7 * blendFactor;
+        const baseY = this.baseSpeed * blendFactor;
+        
+        // If we have some velocity direction, follow it
+        if (totalVelocity > 0.0001) {
+          const dirX = this.velocityX / totalVelocity;
+          const dirY = this.velocityY / totalVelocity;
+          this.velocityX = Math.max(Math.abs(this.velocityX), baseX) * dirX;
+          this.velocityY = Math.max(Math.abs(this.velocityY), baseY) * dirY;
+        } else {
+          // Otherwise, gently start base rotation
+          this.velocityX += baseX * 0.1;
+          this.velocityY += baseY * 0.1;
+        }
+      }
+    }
+
     // Set uniforms
     const time = (Date.now() - this.startTime) / 1000.0;
     this.gl.uniform1f(this.uniforms.time, time);
     this.gl.uniform2f(this.uniforms.resolution, this.canvas.width, this.canvas.height);
-
+    this.gl.uniform3f(this.uniforms.rotation, this.rotationX, this.rotationY, this.rotationZ);
 
     // Draw
     this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
@@ -232,5 +325,7 @@ export class Tau5Shader {
     if (this.gl && this.program) {
       this.gl.deleteProgram(this.program);
     }
+    // Remove cursor style
+    this.canvas.style.cursor = '';
   }
 }
