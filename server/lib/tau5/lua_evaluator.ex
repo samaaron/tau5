@@ -1,113 +1,165 @@
 defmodule Tau5.LuaEvaluator do
   @moduledoc """
-  Handles Lua code evaluation in a sandboxed environment with security restrictions.
+  Handles Lua code evaluation in a sandboxed environment with memory and security restrictions.
   """
 
   require Logger
   import Kernel, except: [spawn_opt: 2]
   import :erlang, only: [spawn_opt: 2]
 
-  @timeout_ms 5000
-  @max_heap_size 1_000_000
-  @max_output_size 1_000_000
+  @config %{
+    timeout_ms: 5_000,
+    max_heap_size: 1_000_000,
+    max_output_size: 1_000_000
+  }
+
+  @lua_denylist [
+    [:io], [:file], [:os], [:package], [:require], [:dofile],
+    [:load], [:loadfile], [:loadstring], [:debug],
+    [:getmetatable], [:setmetatable], [:rawget], [:rawset]
+  ]
+
+  @internal_markers [
+    "{:luerl,", "{:tstruct,", "{:tref,", "#Reference<", "#Function<",
+    "{:erl_mfa,", "{:erl_func,", "{:array,", "{:table,", "{:lua_func,", "%{max:"
+  ]
+
+  @inspect_opts [limit: 10_000, printable_limit: 4096]
 
   @doc """
   Evaluates Lua code in a sandboxed environment.
 
-  Returns {:ok, result} or {:error, reason}
+  Returns `{:ok, result}` or `{:error, reason}`.
   """
-  def evaluate(code, _opts \\ []) do
+  def evaluate(code, opts \\ []) do
     parent = self()
+    {pid, ref} = spawn_lua_task(parent, code, opts)
+    await_lua_result(pid, ref)
+  end
 
-    task =
-      spawn_opt(
-        fn ->
-          Process.flag(:trap_exit, true)
+  defp spawn_lua_task(parent, code, opts) do
+    pid =
+      spawn_opt(fn -> run_lua_eval(parent, code, opts) end, [
+        {:message_queue_data, :off_heap},
+        {:max_heap_size,
+         %{
+           size: @config.max_heap_size,
+           kill: true,
+           include_shared_binaries: true,
+           error_logger: false
+         }}
+      ])
 
-          result =
-            try do
-              lua_state =
-                Lua.new(
-                  sandboxed: [
-                    [:io],
-                    [:file],
-                    [:os],
-                    [:package],
-                    [:require],
-                    [:dofile],
-                    [:load],
-                    [:loadfile],
-                    [:loadstring],
-                    [:debug],
-                    [:getmetatable],
-                    [:setmetatable],
-                    [:rawget],
-                    [:rawset]
-                  ]
-                )
+    {pid, Process.monitor(pid)}
+  end
 
-              lua_state = setup_memory_functions(lua_state)
-
-              parent_pid = self()
-              memory_checker = spawn(fn -> memory_check_loop(parent_pid, @max_heap_size) end)
-
-              try do
-                case Lua.eval!(lua_state, code) do
-                  {values, _new_state} ->
-                    formatted = format_result(values)
-
-                    if byte_size(formatted) > @max_output_size do
-                      {:error, "Output too large (max #{@max_output_size} bytes)"}
-                    else
-                      {:ok, formatted}
-                    end
-                end
-              after
-                Process.exit(memory_checker, :normal)
-              end
-            rescue
-              e in Lua.CompilerException ->
-                {:error, "Syntax error: #{sanitize_error(e.errors)}"}
-
-              e in Lua.RuntimeException ->
-                {:error, "Runtime error: #{sanitize_error(e.message)}"}
-
-              e ->
-                Logger.debug("Lua evaluation error: #{inspect(e)}")
-                {:error, "Runtime error: execution failed"}
-            end
-
-          send(parent, {:lua_result, result})
-        end,
-        [
-          {:message_queue_data, :off_heap},
-          {:max_heap_size,
-           %{
-             size: @max_heap_size,
-             kill: true,
-             include_shared_binaries: true,
-             error_logger: false
-           }}
-        ]
-      )
-
-    ref = Process.monitor(task)
-
+  defp await_lua_result(pid, ref) do
     receive do
       {:lua_result, result} ->
         Process.demonitor(ref, [:flush])
         result
 
-      {:DOWN, ^ref, :process, ^task, :killed} ->
-        {:error, "Memory limit exceeded (max #{@max_heap_size} bytes)"}
+      {:DOWN, ^ref, :process, ^pid, :killed} ->
+        {:error, "Memory limit exceeded (max #{@config.max_heap_size} bytes)"}
 
-      {:DOWN, ^ref, :process, ^task, reason} ->
+      {:DOWN, ^ref, :process, ^pid, reason} ->
         {:error, "Process crashed: #{inspect(reason)}"}
     after
-      @timeout_ms ->
-        Process.exit(task, :kill)
+      @config.timeout_ms ->
+        Process.exit(pid, :kill)
         Process.demonitor(ref, [:flush])
-        {:error, "Execution timeout (#{@timeout_ms / 1000} seconds)"}
+        {:error, "Execution timed out after #{@config.timeout_ms / 1000}s"}
+    end
+  end
+
+  defp run_lua_eval(parent, code, opts) do
+    Process.flag(:trap_exit, true)
+
+    result =
+      try do
+        lua = setup_sandbox() 
+              |> setup_memory_functions()
+              |> setup_print_function(opts[:print_callback])
+              
+        memory_checker = spawn(fn -> memory_check_loop(self(), @config.max_heap_size) end)
+
+        try do
+          eval_code(lua, code)
+        after
+          Process.exit(memory_checker, :normal)
+        end
+      rescue
+        e in Lua.CompilerException -> {:error, "Syntax error: #{sanitize_error(e.errors)}"}
+        e in Lua.RuntimeException -> {:error, "Runtime error: #{sanitize_error(e.message)}"}
+        e ->
+          Logger.debug("Lua evaluation error: #{inspect(e)}")
+          {:error, "Runtime error: execution failed"}
+      end
+
+    send(parent, {:lua_result, result})
+  end
+
+  defp setup_sandbox do
+    Lua.new(sandboxed: @lua_denylist)
+  end
+
+  defp setup_print_function(lua, nil) do
+    # Even without a callback, replace print and eprint to prevent stdout output
+    lua
+    |> Lua.set!(["print"], fn _args ->
+      # Silently ignore prints when no callback is provided
+      []
+    end)
+    |> Lua.set!(["eprint"], fn _args ->
+      # Silently ignore eprints when no callback is provided
+      []
+    end)
+  end
+  
+  defp setup_print_function(lua, print_callback) do
+    # Helper function to format arguments
+    format_args = fn args ->
+      args 
+      |> Enum.map(fn arg ->
+        case arg do
+          nil -> "nil"
+          true -> "true"
+          false -> "false"
+          arg when is_binary(arg) -> arg
+          arg when is_number(arg) -> to_string(arg)
+          arg when is_list(arg) -> inspect(arg)
+          arg when is_tuple(arg) -> inspect(arg)
+          arg when is_map(arg) -> inspect(arg)
+          _ -> inspect(arg)
+        end
+      end)
+      |> Enum.join("\t")
+    end
+    
+    lua
+    |> Lua.set!(["print"], fn args ->
+      message = format_args.(args)
+      print_callback.(message)
+      []
+    end)
+    |> Lua.set!(["eprint"], fn args ->
+      message = format_args.(args)
+      # Prefix error prints to distinguish them
+      print_callback.("[ERROR] " <> message)
+      []
+    end)
+  end
+
+  defp eval_code(lua, code) do
+    case Lua.eval!(lua, code) do
+      {values, _} ->
+        formatted = format_result(values)
+
+        if byte_size(formatted) > @config.max_output_size do
+          {:error, "Output too large (max #{@config.max_output_size} bytes)"}
+        else
+          {:ok, formatted}
+        end
     end
   end
 
