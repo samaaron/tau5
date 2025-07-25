@@ -6,15 +6,10 @@
 
 void PhxUrlInterceptor::interceptRequest(QWebEngineUrlRequestInfo &info)
 {
-  if (info.resourceType() != QWebEngineUrlRequestInfo::ResourceTypeMainFrame &&
-      info.resourceType() != QWebEngineUrlRequestInfo::ResourceTypeSubFrame)
-  {
-    return;
-  }
-
   QString scheme = info.requestUrl().scheme();
   QString host = info.requestUrl().host();
   
+  // Allow localhost and devtools
   if (host == "localhost" || host == "127.0.0.1" || host.isEmpty())
   {
     return;
@@ -25,14 +20,21 @@ void PhxUrlInterceptor::interceptRequest(QWebEngineUrlRequestInfo &info)
     return;
   }
   
-  if (scheme == "http" || scheme == "https")
+  // For navigation requests, open in external browser
+  if (info.resourceType() == QWebEngineUrlRequestInfo::ResourceTypeMainFrame ||
+      info.resourceType() == QWebEngineUrlRequestInfo::ResourceTypeSubFrame)
   {
-    qDebug() << "Opening external URL in browser:" << info.requestUrl().toString();
-    QDesktopServices::openUrl(info.requestUrl());
-    info.block(true);
-    return;
+    if (scheme == "http" || scheme == "https")
+    {
+      qDebug() << "Opening external URL in browser:" << info.requestUrl().toString();
+      QDesktopServices::openUrl(info.requestUrl());
+      info.block(true);
+      return;
+    }
   }
   
-  qDebug() << "Blocking navigation to:" << info.requestUrl().toString();
+  // Block ALL external requests (images, scripts, stylesheets, etc.)
+  qDebug() << "Blocking external request:" << info.requestUrl().toString() 
+           << "Type:" << info.resourceType();
   info.block(true);
 }
