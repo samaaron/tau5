@@ -11,11 +11,14 @@ class PhxUrlInterceptor : public QWebEngineUrlRequestInterceptor
 {
   Q_OBJECT
 public:
-  PhxUrlInterceptor(QObject *parent = nullptr) : QWebEngineUrlRequestInterceptor(parent)
+  PhxUrlInterceptor(bool devMode = false, QObject *parent = nullptr) : QWebEngineUrlRequestInterceptor(parent), m_devMode(devMode)
   {
   }
 
   void interceptRequest(QWebEngineUrlRequestInfo &info);
+
+private:
+  bool m_devMode;
 };
 
 #endif // PHXURLINTERCEPTOR_H

@@ -8,8 +8,8 @@
 #include <QPainter>
 #include <QPixmap>
 
-PhxWebView::PhxWebView(QWidget *parent)
-    : SandboxedWebView(parent)
+PhxWebView::PhxWebView(bool devMode, QWidget *parent)
+    : SandboxedWebView(devMode, parent)
 {
   setZoomFactor(1.0);
   setAttribute(Qt::WA_TranslucentBackground);

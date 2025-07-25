@@ -7,10 +7,10 @@
 #include <QFileDialog>
 #include <QFileInfo>
 
-SandboxedWebView::SandboxedWebView(QWidget *parent)
+SandboxedWebView::SandboxedWebView(bool devMode, QWidget *parent)
     : QWebEngineView(parent), m_fallbackUrl("http://localhost:5555")
 {
-    m_interceptor = new PhxUrlInterceptor;
+    m_interceptor = new PhxUrlInterceptor(devMode);
     
     m_profile = new QWebEngineProfile();
     m_profile->setUrlRequestInterceptor(m_interceptor);
@@ -27,6 +27,12 @@ SandboxedWebView::SandboxedWebView(QWidget *parent)
     settings->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
     settings->setAttribute(QWebEngineSettings::LocalContentCanAccessRemoteUrls, false);
     
+    // Enable developer tools in dev mode
+    if (devMode) {
+        settings->setAttribute(QWebEngineSettings::JavascriptCanAccessClipboard, true);
+        settings->setAttribute(QWebEngineSettings::JavascriptCanPaste, true);
+    }
+    
     applyCustomSettings(settings);
     
     // Apply default Tau5 theme scrollbar colors
@@ -38,11 +44,7 @@ SandboxedWebView::SandboxedWebView(QWidget *parent)
     connect(m_profile, &QWebEngineProfile::downloadRequested, 
             this, &SandboxedWebView::handleDownloadRequested);
     
-    connect(m_page, &QWebEnginePage::loadFinished, this, [this](bool ok) {
-        if (!ok && !m_fallbackUrl.isEmpty() && m_fallbackUrl.isValid()) {
-            this->setUrl(m_fallbackUrl);
-        }
-    });
+    // Removed automatic fallback retry - this is now handled by PhxWidget with exponential backoff
 }
 
 void SandboxedWebView::applyCustomSettings(QWebEngineSettings *settings)

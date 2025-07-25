@@ -173,7 +173,7 @@ void MainWindow::initializePhxWidget(quint16 port)
   phxUrl.setHost("localhost");
   phxUrl.setPort(port);
 
-  phxWidget = std::make_unique<PhxWidget>(this);
+  phxWidget = std::make_unique<PhxWidget>(m_devMode, this);
   connect(phxWidget.get(), &PhxWidget::pageLoaded, this, &MainWindow::handleMainWindowLoaded);
   phxWidget->connectToTauPhx(phxUrl);
   setCentralWidget(phxWidget.get());
