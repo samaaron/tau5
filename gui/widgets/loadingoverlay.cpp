@@ -297,7 +297,7 @@ void LoadingOverlay::GLWidget::createLogoTexture()
     logoImage.fill(Qt::white);
   }
   
-  logoTexture = new QOpenGLTexture(logoImage.flipped(Qt::Vertical));
+  logoTexture = new QOpenGLTexture(logoImage.mirrored(false, true));
   logoTexture->setMinificationFilter(QOpenGLTexture::Linear);
   logoTexture->setMagnificationFilter(QOpenGLTexture::Linear);
   logoTexture->setWrapMode(QOpenGLTexture::ClampToEdge);
