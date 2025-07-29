@@ -366,6 +366,18 @@ void CDPClient::evaluateJavaScript(const QString& expression, ResponseCallback c
     sendCommand("Runtime.evaluate", params, callback);
 }
 
+void CDPClient::evaluateJavaScriptWithObjectReferences(const QString& expression, ResponseCallback callback)
+{
+    QJsonObject params{
+        {"expression", expression},
+        {"returnByValue", false},
+        {"awaitPromise", true},
+        {"generatePreview", true}
+    };
+    
+    sendCommand("Runtime.evaluate", params, callback);
+}
+
 void CDPClient::getConsoleMessages(ResponseCallback callback)
 {
     callback(QJsonObject{{"messages", QJsonArray()}}, QString());
@@ -406,6 +418,40 @@ void CDPClient::setOuterHTML(int nodeId, const QString& html, ResponseCallback c
     };
     
     sendCommand("DOM.setOuterHTML", params, callback);
+}
+
+void CDPClient::getProperties(const QString& objectId, ResponseCallback callback)
+{
+    QJsonObject params{
+        {"objectId", objectId},
+        {"ownProperties", true},
+        {"accessorPropertiesOnly", false},
+        {"generatePreview", true}
+    };
+    
+    sendCommand("Runtime.getProperties", params, callback);
+}
+
+void CDPClient::callFunctionOn(const QString& objectId, const QString& functionDeclaration, ResponseCallback callback)
+{
+    QJsonObject params{
+        {"objectId", objectId},
+        {"functionDeclaration", functionDeclaration},
+        {"returnByValue", false},
+        {"awaitPromise", true},
+        {"generatePreview", true}
+    };
+    
+    sendCommand("Runtime.callFunctionOn", params, callback);
+}
+
+void CDPClient::releaseObject(const QString& objectId, ResponseCallback callback)
+{
+    QJsonObject params{
+        {"objectId", objectId}
+    };
+    
+    sendCommand("Runtime.releaseObject", params, callback);
 }
 
 void CDPClient::discoverTargets()

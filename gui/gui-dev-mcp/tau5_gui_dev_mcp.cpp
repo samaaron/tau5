@@ -357,8 +357,9 @@ int main(int argc, char *argv[])
         [&bridge](const QJsonObject& params) -> QJsonObject {
             QString expression = params["expression"].toString();
             
+            // First try with object references to avoid serialization issues
             QJsonObject result = bridge.executeCommand([expression](CDPClient* client, CDPClient::ResponseCallback cb) {
-                client->evaluateJavaScript(expression, cb);
+                client->evaluateJavaScriptWithObjectReferences(expression, cb);
             });
             
             if (result.contains("type") && result["type"].toString() == "text") {
@@ -375,6 +376,32 @@ int main(int argc, char *argv[])
             }
             
             QJsonObject resultObj = result["result"].toObject();
+            
+            // Check if we got an object reference instead of a value
+            if (resultObj.contains("objectId") && !resultObj.contains("value")) {
+                QString objectId = resultObj["objectId"].toString();
+                QString className = resultObj["className"].toString();
+                QString subtype = resultObj["subtype"].toString();
+                QString type = resultObj["type"].toString();
+                QString description = resultObj["description"].toString();
+                
+                QJsonObject objRef;
+                objRef["type"] = "object_reference";
+                objRef["objectId"] = objectId;
+                objRef["className"] = className;
+                objRef["objectType"] = type;
+                objRef["subtype"] = subtype;
+                objRef["description"] = description;
+                
+                // Return as JSON for complex objects
+                QJsonDocument doc(objRef);
+                QJsonObject responseObj;
+                responseObj["type"] = "text";
+                responseObj["text"] = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
+                return responseObj;
+            }
+            
+            // Handle regular values (primitives)
             QJsonValue value = resultObj["value"];
             
             QString resultText;
@@ -385,8 +412,10 @@ int main(int argc, char *argv[])
             } else if (value.isBool()) {
                 resultText = value.toBool() ? "true" : "false";
             } else if (value.isObject() || value.isArray()) {
-                QJsonDocument doc(value.toObject());
+                QJsonDocument doc(value.isArray() ? QJsonDocument(value.toArray()) : QJsonDocument(value.toObject()));
                 resultText = doc.toJson(QJsonDocument::Indented);
+            } else if (value.isNull()) {
+                resultText = "null";
             } else {
                 resultText = "undefined";
             }
@@ -559,6 +588,177 @@ int main(int argc, char *argv[])
             styleResult["type"] = "text";
             styleResult["text"] = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
             return styleResult;
+        }
+    });
+    
+    server.registerTool({
+        "chromium_devtools_getProperties",
+        "Get properties of a remote object",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"objectId", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Remote object ID"}
+                }}
+            }},
+            {"required", QJsonArray{"objectId"}}
+        },
+        [&bridge](const QJsonObject& params) -> QJsonObject {
+            QString objectId = params["objectId"].toString();
+            
+            QJsonObject result = bridge.executeCommand([objectId](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getProperties(objectId, cb);
+            });
+            
+            if (result.contains("type") && result["type"].toString() == "text") {
+                return result;
+            }
+            
+            if (result.contains("exceptionDetails")) {
+                QJsonObject exception = result["exceptionDetails"].toObject();
+                QString errorText = exception["text"].toString();
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("Error: %1").arg(errorText)}
+                };
+            }
+            
+            // Format the properties for display
+            QJsonArray properties = result["result"].toArray();
+            QJsonObject formattedProps;
+            
+            for (const auto& prop : properties) {
+                QJsonObject propObj = prop.toObject();
+                QString name = propObj["name"].toString();
+                QJsonObject value = propObj["value"].toObject();
+                
+                QJsonObject propInfo;
+                propInfo["type"] = value["type"].toString();
+                propInfo["value"] = value.contains("value") ? value["value"] : QJsonValue();
+                propInfo["description"] = value["description"].toString();
+                propInfo["className"] = value["className"].toString();
+                formattedProps[name] = propInfo;
+            }
+            
+            QJsonDocument doc(formattedProps);
+            QJsonObject responseObj;
+            responseObj["type"] = "text";
+            responseObj["text"] = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
+            return responseObj;
+        }
+    });
+    
+    server.registerTool({
+        "chromium_devtools_callMethod",
+        "Call a method on a remote object",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"objectId", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Remote object ID"}
+                }},
+                {"functionDeclaration", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Function to call on the object (e.g., 'function() { return this.textContent; }')"}
+                }}
+            }},
+            {"required", QJsonArray{"objectId", "functionDeclaration"}}
+        },
+        [&bridge](const QJsonObject& params) -> QJsonObject {
+            QString objectId = params["objectId"].toString();
+            QString functionDecl = params["functionDeclaration"].toString();
+            
+            QJsonObject result = bridge.executeCommand([objectId, functionDecl](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->callFunctionOn(objectId, functionDecl, cb);
+            });
+            
+            if (result.contains("type") && result["type"].toString() == "text") {
+                return result;
+            }
+            
+            if (result.contains("exceptionDetails")) {
+                QJsonObject exception = result["exceptionDetails"].toObject();
+                QString errorText = exception["text"].toString();
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("Error: %1").arg(errorText)}
+                };
+            }
+            
+            // Handle the result
+            QJsonObject resultObj = result["result"].toObject();
+            
+            // Check if we got another object reference
+            if (resultObj.contains("objectId") && !resultObj.contains("value")) {
+                QJsonObject objRef;
+                objRef["type"] = "object_reference";
+                objRef["objectId"] = resultObj["objectId"].toString();
+                objRef["className"] = resultObj["className"].toString();
+                objRef["description"] = resultObj["description"].toString();
+                
+                QJsonDocument doc(objRef);
+                QJsonObject responseObj;
+                responseObj["type"] = "text";
+                responseObj["text"] = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
+                return responseObj;
+            }
+            
+            // Handle regular values
+            QJsonValue value = resultObj["value"];
+            QString resultText;
+            
+            if (value.isString()) {
+                resultText = value.toString();
+            } else if (value.isDouble()) {
+                resultText = QString::number(value.toDouble());
+            } else if (value.isBool()) {
+                resultText = value.toBool() ? "true" : "false";
+            } else if (value.isObject() || value.isArray()) {
+                QJsonDocument doc(value.isArray() ? QJsonDocument(value.toArray()) : QJsonDocument(value.toObject()));
+                resultText = doc.toJson(QJsonDocument::Indented);
+            } else if (value.isNull()) {
+                resultText = "null";
+            } else {
+                resultText = "undefined";
+            }
+            
+            return QJsonObject{
+                {"type", "text"},
+                {"text", resultText}
+            };
+        }
+    });
+    
+    server.registerTool({
+        "chromium_devtools_releaseObject",
+        "Release a remote object reference",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"objectId", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Remote object ID to release"}
+                }}
+            }},
+            {"required", QJsonArray{"objectId"}}
+        },
+        [&bridge](const QJsonObject& params) -> QJsonObject {
+            QString objectId = params["objectId"].toString();
+            
+            QJsonObject result = bridge.executeCommand([objectId](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->releaseObject(objectId, cb);
+            });
+            
+            if (result.contains("type") && result["type"].toString() == "text") {
+                return result;
+            }
+            
+            return QJsonObject{
+                {"type", "text"},
+                {"text", QString("Released object: %1").arg(objectId)}
+            };
         }
     });
     

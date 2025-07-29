@@ -39,12 +39,18 @@ public:
     void querySelector(const QString& selector, ResponseCallback callback);
     void getOuterHTML(int nodeId, ResponseCallback callback);
     void evaluateJavaScript(const QString& expression, ResponseCallback callback);
+    void evaluateJavaScriptWithObjectReferences(const QString& expression, ResponseCallback callback);
     void getConsoleMessages(ResponseCallback callback);
     void navigateTo(const QString& url, ResponseCallback callback);
     
     void setAttributeValue(int nodeId, const QString& name, const QString& value, ResponseCallback callback);
     void removeAttribute(int nodeId, const QString& name, ResponseCallback callback);
     void setOuterHTML(int nodeId, const QString& html, ResponseCallback callback);
+    
+    // Object reference methods
+    void getProperties(const QString& objectId, ResponseCallback callback);
+    void callFunctionOn(const QString& objectId, const QString& functionDeclaration, ResponseCallback callback);
+    void releaseObject(const QString& objectId, ResponseCallback callback);
 
 signals:
     void connected();
