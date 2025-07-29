@@ -174,6 +174,41 @@ public:
         return createErrorResult("Failed after all retries");
     }
     
+    QJsonObject formatResponse(const QJsonValue& data, bool returnRawJson = false)
+    {
+        if (returnRawJson) {
+            // Return the raw JSON data directly
+            if (data.isObject()) {
+                return data.toObject();
+            } else if (data.isArray()) {
+                return QJsonObject{{"data", data}};
+            } else {
+                // For primitive values, wrap in an object
+                return QJsonObject{{"value", data}};
+            }
+        } else {
+            // Return as formatted text (existing behavior)
+            QString text;
+            if (data.isString()) {
+                text = data.toString();
+            } else if (data.isDouble()) {
+                text = QString::number(data.toDouble());
+            } else if (data.isBool()) {
+                text = data.toBool() ? "true" : "false";
+            } else if (data.isNull()) {
+                text = "null";
+            } else {
+                // For objects and arrays, return pretty-printed JSON
+                QJsonDocument doc(data.isArray() ? QJsonDocument(data.toArray()) : QJsonDocument(data.toObject()));
+                text = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
+            }
+            return QJsonObject{
+                {"type", "text"},
+                {"text", text}
+            };
+        }
+    }
+    
 private:
     QJsonObject createErrorResult(const QString& error)
     {
@@ -544,12 +579,32 @@ int main(int argc, char *argv[])
                 {"selector", QJsonObject{
                     {"type", "string"},
                     {"description", "CSS selector for the element"}
+                }},
+                {"properties", QJsonObject{
+                    {"type", "array"},
+                    {"description", "Optional array of specific CSS properties to retrieve (e.g., ['color', 'font-size']). If not specified, returns all properties."},
+                    {"items", QJsonObject{{"type", "string"}}}
+                }},
+                {"rawJson", QJsonObject{
+                    {"type", "boolean"},
+                    {"description", "Return raw JSON instead of formatted text (default: false)"}
                 }}
             }},
             {"required", QJsonArray{"selector"}}
         },
-        [&bridge, &cdpClient](const QJsonObject& params) -> QJsonObject {
+        [&bridge](const QJsonObject& params) -> QJsonObject {
             QString selector = params["selector"].toString();
+            QJsonArray requestedProps = params.contains("properties") ? params["properties"].toArray() : QJsonArray();
+            bool rawJson = params.contains("rawJson") ? params["rawJson"].toBool() : false;
+            
+            QString propsArrayStr = "null";
+            if (!requestedProps.isEmpty()) {
+                QStringList propsList;
+                for (const auto& prop : requestedProps) {
+                    propsList.append(QString("'%1'").arg(prop.toString().replace("'", "\\'")));
+                }
+                propsArrayStr = QString("[%1]").arg(propsList.join(","));
+            }
             
             QString jsExpression = QString(R"(
                 (function() {
@@ -557,13 +612,23 @@ int main(int argc, char *argv[])
                     if (!element) return { error: 'Element not found' };
                     const styles = window.getComputedStyle(element);
                     const result = {};
-                    for (let i = 0; i < styles.length; i++) {
-                        const prop = styles[i];
-                        result[prop] = styles.getPropertyValue(prop);
+                    const requestedProps = %2;
+                    
+                    if (requestedProps && requestedProps.length > 0) {
+                        // Return only requested properties
+                        for (const prop of requestedProps) {
+                            result[prop] = styles.getPropertyValue(prop);
+                        }
+                    } else {
+                        // Return all properties
+                        for (let i = 0; i < styles.length; i++) {
+                            const prop = styles[i];
+                            result[prop] = styles.getPropertyValue(prop);
+                        }
                     }
                     return result;
                 })()
-            )").arg(selector.replace("'", "\\'"));
+            )").arg(selector.replace("'", "\\'"), propsArrayStr);
             
             QJsonObject result = bridge.executeCommand([jsExpression](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->evaluateJavaScript(jsExpression, cb);
@@ -577,17 +642,16 @@ int main(int argc, char *argv[])
             QJsonValue value = resultObj["value"];
             
             if (value.isObject() && value.toObject().contains("error")) {
+                if (rawJson) {
+                    return QJsonObject{{"error", value.toObject()["error"].toString()}};
+                }
                 return QJsonObject{
                     {"type", "text"},
                     {"text", value.toObject()["error"].toString()}
                 };
             }
             
-            QJsonDocument doc(value.toObject());
-            QJsonObject styleResult;
-            styleResult["type"] = "text";
-            styleResult["text"] = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
-            return styleResult;
+            return bridge.formatResponse(value, rawJson);
         }
     });
     
@@ -758,6 +822,399 @@ int main(int argc, char *argv[])
             return QJsonObject{
                 {"type", "text"},
                 {"text", QString("Released object: %1").arg(objectId)}
+            };
+        }
+    });
+    
+    server.registerTool({
+        "chromium_devtools_getSelectionInfo",
+        "Get detailed information about the current text selection in the page, including DOM nodes, offsets, and context",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"includeContext", QJsonObject{
+                    {"type", "boolean"},
+                    {"description", "Include surrounding text context (default: true)"}
+                }},
+                {"contextLength", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Number of characters of context before/after selection (default: 50)"}
+                }},
+                {"includeStyles", QJsonObject{
+                    {"type", "boolean"},
+                    {"description", "Include computed styles for selected elements (default: false)"}
+                }},
+                {"includeHtml", QJsonObject{
+                    {"type", "boolean"},
+                    {"description", "Include outer HTML of affected elements (default: false)"}
+                }},
+                {"rawJson", QJsonObject{
+                    {"type", "boolean"},
+                    {"description", "Return raw JSON instead of formatted text (default: false)"}
+                }}
+            }},
+            {"required", QJsonArray{}}
+        },
+        [&bridge](const QJsonObject& params) -> QJsonObject {
+            bool includeContext = params.contains("includeContext") ? params["includeContext"].toBool() : true;
+            int contextLength = params.contains("contextLength") ? params["contextLength"].toInt() : 50;
+            bool includeStyles = params.contains("includeStyles") ? params["includeStyles"].toBool() : false;
+            bool includeHtml = params.contains("includeHtml") ? params["includeHtml"].toBool() : false;
+            bool rawJson = params.contains("rawJson") ? params["rawJson"].toBool() : false;
+            
+            QString jsExpression = QString(R"(
+                (function() {
+                    const selection = window.getSelection();
+                    if (!selection || selection.rangeCount === 0) {
+                        return { hasSelection: false };
+                    }
+
+                    const range = selection.getRangeAt(0);
+                    const commonAncestor = range.commonAncestorContainer;
+                    
+                    // Helper to escape CSS identifiers
+                    function escapeCSS(str) {
+                        if (!str) return '';
+                        // Based on CSS.escape polyfill
+                        return str.replace(/([!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~])/g, '\\\\$1');
+                    }
+                    
+                    // Helper to build a unique selector for an element
+                    function buildUniqueSelector(element) {
+                        if (!element || element === document.documentElement) return 'html';
+                        if (element === document.body) return 'body';
+                        
+                        // If element has an ID, use it (escaped)
+                        if (element.id) {
+                            return '#' + escapeCSS(element.id);
+                        }
+                        
+                        // Build a path from the element to a parent with ID or body
+                        const path = [];
+                        let current = element;
+                        
+                        while (current && current !== document.body && current !== document.documentElement) {
+                            let selector = current.tagName.toLowerCase();
+                            
+                            // Add classes if present
+                            if (current.className && typeof current.className === 'string') {
+                                const classes = current.className.trim().split(/\\s+/);
+                                const escapedClasses = classes.map(cls => '.' + escapeCSS(cls)).join('');
+                                selector += escapedClasses;
+                            }
+                            
+                            // If we have an ID, we can stop here
+                            if (current.id) {
+                                selector = '#' + escapeCSS(current.id);
+                                path.unshift(selector);
+                                break;
+                            }
+                            
+                            // Add nth-child if needed for uniqueness
+                            if (current.parentElement) {
+                                const siblings = Array.from(current.parentElement.children);
+                                const sameTagSiblings = siblings.filter(s => s.tagName === current.tagName);
+                                if (sameTagSiblings.length > 1) {
+                                    const index = sameTagSiblings.indexOf(current) + 1;
+                                    selector += ':nth-of-type(' + index + ')';
+                                }
+                            }
+                            
+                            path.unshift(selector);
+                            current = current.parentElement;
+                        }
+                        
+                        return path.join(' > ');
+                    }
+                    
+                    // Helper to get node info
+                    function getNodeInfo(node) {
+                        const info = {
+                            nodeType: node.nodeType,
+                            nodeName: node.nodeName,
+                            nodeValue: node.nodeValue,
+                            isText: node.nodeType === Node.TEXT_NODE,
+                            isElement: node.nodeType === Node.ELEMENT_NODE,
+                            tagName: node.tagName ? node.tagName.toLowerCase() : null,
+                            className: node.className || null,
+                            id: node.id || null
+                        };
+                        
+                        // Add path to node
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            info.path = buildUniqueSelector(node);
+                        } else if (node.parentElement) {
+                            info.path = buildUniqueSelector(node.parentElement) + ' > #text';
+                        } else {
+                            info.path = '#text';
+                        }
+                        
+                        return info;
+                    }
+
+                    // Get all nodes in the selection
+                    const affectedNodes = [];
+                    const treeWalker = document.createTreeWalker(
+                        commonAncestor,
+                        NodeFilter.SHOW_ALL,
+                        {
+                            acceptNode: function(node) {
+                                if (selection.containsNode(node, true)) {
+                                    return NodeFilter.FILTER_ACCEPT;
+                                }
+                                return NodeFilter.FILTER_SKIP;
+                            }
+                        }
+                    );
+
+                    let node;
+                    while (node = treeWalker.nextNode()) {
+                        const nodeInfo = getNodeInfo(node);
+                        
+                        // Check if this node is partially selected
+                        if (node === range.startContainer || node === range.endContainer) {
+                            nodeInfo.partial = true;
+                            if (node === range.startContainer) {
+                                nodeInfo.startOffset = range.startOffset;
+                            }
+                            if (node === range.endContainer) {
+                                nodeInfo.endOffset = range.endOffset;
+                            }
+                        } else {
+                            nodeInfo.partial = false;
+                        }
+                        
+                        affectedNodes.push(nodeInfo);
+                    }
+
+                    // Get context if requested
+                    let contextBefore = '';
+                    let contextAfter = '';
+                    if (%1) {
+                        // Get text before selection
+                        try {
+                            const beforeRange = document.createRange();
+                            beforeRange.setStart(commonAncestor, 0);
+                            beforeRange.setEnd(range.startContainer, range.startOffset);
+                            contextBefore = beforeRange.toString().slice(-%2);
+                        } catch (e) {
+                            // If commonAncestor is a text node, try its parent
+                            try {
+                                const parent = commonAncestor.parentNode;
+                                const beforeRange = document.createRange();
+                                beforeRange.setStart(parent, 0);
+                                beforeRange.setEnd(range.startContainer, range.startOffset);
+                                contextBefore = beforeRange.toString().slice(-%2);
+                            } catch (e2) {
+                                contextBefore = '';
+                            }
+                        }
+                        
+                        // Get text after selection
+                        try {
+                            const afterRange = document.createRange();
+                            afterRange.setStart(range.endContainer, range.endOffset);
+                            if (commonAncestor.nodeType === Node.TEXT_NODE) {
+                                afterRange.setEnd(commonAncestor, commonAncestor.textContent.length);
+                            } else {
+                                afterRange.setEndAfter(commonAncestor.lastChild || commonAncestor);
+                            }
+                            contextAfter = afterRange.toString().slice(0, %2);
+                        } catch (e) {
+                            contextAfter = '';
+                        }
+                    }
+
+                    // Get selection bounds
+                    const rects = range.getClientRects();
+                    const boundingRect = range.getBoundingClientRect();
+                    
+                    // Get element details if requested
+                    let elementDetails = null;
+                    if (%3 || %4) {
+                        elementDetails = [];
+                        const elements = new Set();
+                        
+                        // Collect unique element nodes
+                        affectedNodes.forEach(nodeInfo => {
+                            if (nodeInfo.isElement) {
+                                // We'll need to query this separately since we can't pass DOM nodes
+                                elementDetails.push({
+                                    path: nodeInfo.path,
+                                    tagName: nodeInfo.tagName,
+                                    id: nodeInfo.id,
+                                    className: nodeInfo.className
+                                });
+                            }
+                        });
+                        
+                        // Also include parent elements of text nodes
+                        if (range.startContainer.nodeType === Node.TEXT_NODE && range.startContainer.parentElement) {
+                            const parent = getNodeInfo(range.startContainer.parentElement);
+                            elementDetails.push({
+                                path: parent.path,
+                                tagName: parent.tagName,
+                                id: parent.id,
+                                className: parent.className,
+                                isParentOfSelection: true
+                            });
+                        }
+                    }
+
+                    return {
+                        hasSelection: true,
+                        selectionText: selection.toString(),
+                        isCollapsed: range.collapsed,
+                        rangeCount: selection.rangeCount,
+                        startContainer: getNodeInfo(range.startContainer),
+                        startOffset: range.startOffset,
+                        endContainer: getNodeInfo(range.endContainer),
+                        endOffset: range.endOffset,
+                        commonAncestor: getNodeInfo(commonAncestor),
+                        affectedNodes: affectedNodes,
+                        containsMultipleNodes: affectedNodes.length > 1,
+                        contextBefore: contextBefore,
+                        contextAfter: contextAfter,
+                        bounds: {
+                            top: boundingRect.top,
+                            left: boundingRect.left,
+                            bottom: boundingRect.bottom,
+                            right: boundingRect.right,
+                            width: boundingRect.width,
+                            height: boundingRect.height
+                        },
+                        rectCount: rects.length,
+                        elementDetails: elementDetails
+                    };
+                })()
+            )").arg(includeContext ? "true" : "false")
+               .arg(contextLength)
+               .arg(includeStyles ? "true" : "false")
+               .arg(includeHtml ? "true" : "false");
+            
+            QJsonObject result = bridge.executeCommand([jsExpression](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->evaluateJavaScript(jsExpression, cb);
+            });
+            
+            if (result.contains("type") && result["type"].toString() == "text") {
+                return result;
+            }
+            
+            if (result.contains("exceptionDetails")) {
+                QJsonObject exception = result["exceptionDetails"].toObject();
+                QString errorText = exception["text"].toString();
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("JavaScript exception: %1").arg(errorText)}
+                };
+            }
+            
+            QJsonObject resultObj = result["result"].toObject();
+            QJsonValue value = resultObj["value"];
+            
+            if (value.isObject()) {
+                QJsonObject selectionInfo = value.toObject();
+                
+                if (!selectionInfo["hasSelection"].toBool()) {
+                    return QJsonObject{
+                        {"type", "text"},
+                        {"text", "No text is currently selected"}
+                    };
+                }
+                
+                // If styles or HTML were requested, batch fetch them in a single request
+                if ((includeStyles || includeHtml) && selectionInfo.contains("elementDetails")) {
+                    QJsonArray elementDetails = selectionInfo["elementDetails"].toArray();
+                    
+                    // Build paths array for batch processing
+                    QStringList pathsList;
+                    for (const auto& elem : elementDetails) {
+                        QJsonObject elemObj = elem.toObject();
+                        QString path = elemObj["path"].toString();
+                        if (!path.isEmpty() && !path.endsWith(" > #text")) {
+                            pathsList.append(QString("'%1'").arg(path.replace("'", "\\'").replace("\\", "\\\\")));
+                        } else {
+                            pathsList.append("null");
+                        }
+                    }
+                    
+                    QString batchExpr = QString(R"(
+                        (function() {
+                            const paths = [%1];
+                            const results = [];
+                            
+                            for (let i = 0; i < paths.length; i++) {
+                                const path = paths[i];
+                                const result = {};
+                                
+                                if (path) {
+                                    const elem = document.querySelector(path);
+                                    if (elem) {
+                                        %2
+                                        %3
+                                    }
+                                }
+                                
+                                results.push(result);
+                            }
+                            
+                            return results;
+                        })()
+                    )").arg(pathsList.join(","))
+                       .arg(includeStyles ? R"(
+                                        const styles = window.getComputedStyle(elem);
+                                        result.styles = {
+                                            display: styles.display,
+                                            position: styles.position,
+                                            color: styles.color,
+                                            backgroundColor: styles.backgroundColor,
+                                            fontSize: styles.fontSize,
+                                            fontWeight: styles.fontWeight,
+                                            fontFamily: styles.fontFamily,
+                                            lineHeight: styles.lineHeight,
+                                            textAlign: styles.textAlign,
+                                            padding: styles.padding,
+                                            margin: styles.margin,
+                                            border: styles.border
+                                        };)" : "")
+                       .arg(includeHtml ? "result.outerHtml = elem.outerHTML;" : "");
+                    
+                    QJsonObject batchResult = bridge.executeCommand([batchExpr](CDPClient* client, CDPClient::ResponseCallback cb) {
+                        client->evaluateJavaScript(batchExpr, cb);
+                    });
+                    
+                    if (!batchResult.contains("type") || batchResult["type"].toString() != "text") {
+                        QJsonObject resultObj = batchResult["result"].toObject();
+                        if (resultObj.contains("value") && resultObj["value"].isArray()) {
+                            QJsonArray batchResults = resultObj["value"].toArray();
+                            
+                            // Merge batch results back into element details
+                            for (int i = 0; i < elementDetails.size() && i < batchResults.size(); i++) {
+                                QJsonObject elemObj = elementDetails[i].toObject();
+                                QJsonObject batchItem = batchResults[i].toObject();
+                                
+                                if (batchItem.contains("styles")) {
+                                    elemObj["styles"] = batchItem["styles"];
+                                }
+                                if (batchItem.contains("outerHtml")) {
+                                    elemObj["outerHtml"] = batchItem["outerHtml"];
+                                }
+                                
+                                elementDetails[i] = elemObj;
+                            }
+                            
+                            selectionInfo["elementDetails"] = elementDetails;
+                        }
+                    }
+                }
+                
+                // Return the selection info
+                return bridge.formatResponse(selectionInfo, rawJson);
+            }
+            
+            return QJsonObject{
+                {"type", "text"},
+                {"text", "Unexpected result format"}
             };
         }
     });
