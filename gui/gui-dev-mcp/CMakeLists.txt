@@ -31,7 +31,7 @@ target_link_libraries(tau5-gui-dev-mcp
 
 # Set output directory to be alongside the main executable
 set_target_properties(tau5-gui-dev-mcp PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
 if(WIN32)

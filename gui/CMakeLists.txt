@@ -97,9 +97,9 @@ else()
   add_executable(${APP_NAME} WIN32 ${SOURCES} ${RESOURCES}) # Win32 ignored on non-windows
 endif()
 
-# Set output directory to use configuration subdirectories
+# Set output directory to build root
 set_target_properties(${APP_NAME} PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
 if(APPLE)
@@ -123,25 +123,25 @@ if(APPLE)
   add_custom_command(
     TARGET ${APP_NAME}
     POST_BUILD
-    COMMAND macdeployqt "$<TARGET_FILE_DIR:${APP_NAME}>/../${MACOS_APP_NAME}.app"
+    COMMAND macdeployqt "${CMAKE_BINARY_DIR}/${MACOS_APP_NAME}.app"
   )
 
   add_custom_command(
     TARGET ${APP_NAME}
     POST_BUILD
-    COMMAND plutil -replace NSHighResolutionCapable -bool true "$<TARGET_FILE_DIR:${APP_NAME}>/../${MACOS_APP_NAME}.app/Contents/Info.plist"
+    COMMAND plutil -replace NSHighResolutionCapable -bool true "${CMAKE_BINARY_DIR}/${MACOS_APP_NAME}.app/Contents/Info.plist"
   )
 
   add_custom_command(
     TARGET ${APP_NAME}
     POST_BUILD
-    COMMAND plutil -replace NSRequiresAquaSystemAppearance -bool false "$<TARGET_FILE_DIR:${APP_NAME}>/../${MACOS_APP_NAME}.app/Contents/Info.plist"
+    COMMAND plutil -replace NSRequiresAquaSystemAppearance -bool false "${CMAKE_BINARY_DIR}/${MACOS_APP_NAME}.app/Contents/Info.plist"
   )
 
   add_custom_command(
     TARGET ${APP_NAME}
     POST_BUILD
-    COMMAND plutil -replace NSMicrophoneUsageDescription -string "Sonic Pi Tau5 needs microphone access for its live audio input features." "$<TARGET_FILE_DIR:${APP_NAME}>/../${MACOS_APP_NAME}.app/Contents/Info.plist"
+    COMMAND plutil -replace NSMicrophoneUsageDescription -string "Sonic Pi Tau5 needs microphone access for its live audio input features." "${CMAKE_BINARY_DIR}/${MACOS_APP_NAME}.app/Contents/Info.plist"
   )
 endif()
 
@@ -180,10 +180,8 @@ if(WIN32)
   # Visual Studio
   set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP true)
   include(InstallRequiredSystemLibraries)
-  # Copy runtime libs to each configuration directory
-  foreach(config ${CMAKE_CONFIGURATION_TYPES})
-    file(COPY ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/${config})
-  endforeach()
+  # Copy runtime libs to build directory
+  file(COPY ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
   # Run winddeployqt if it can be found, to ensure installed dependencies
   add_custom_command(TARGET ${APP_NAME} POST_BUILD
