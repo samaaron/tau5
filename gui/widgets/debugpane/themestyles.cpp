@@ -1,5 +1,6 @@
 #include "themestyles.h"
 #include "../../styles/StyleManager.h"
+#include "../../lib/fontloader.h"
 #include <QWebEngineView>
 #include <QWebEnginePage>
 #include <QTimer>
@@ -236,6 +237,20 @@ void DebugPaneThemeStyles::applyConsoleDarkTheme(QWebEngineView *view)
 void DebugPaneThemeStyles::injectDevToolsFontScript(QWebEngineView *view)
 {
     if (!view || !view->page()) return;
+    
+    // First inject the Cascadia Code font
+    QString fontCSS = FontLoader::getCascadiaCodeCss();
+    if (!fontCSS.isEmpty()) {
+        QString injectFontScript = QString(R"(
+        (function() {
+            const style = document.createElement('style');
+            style.textContent = `%1`;
+            document.head.appendChild(style);
+        })();
+        )").arg(fontCSS.replace("`", "\\`").replace("$", "\\$"));
+        
+        view->page()->runJavaScript(injectFontScript);
+    }
     
     QString fontScript = R"(
     (function() {
