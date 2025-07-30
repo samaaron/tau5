@@ -4,6 +4,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 WORKING_DIR="$(pwd)"
 ROOT_DIR="${SCRIPT_DIR}/../.."
 BUILD_DEBUG_PANE=ON
+CONFIG=Release
 
 # Parse arguments
 for arg in "$@"; do
@@ -11,6 +12,14 @@ for arg in "$@"; do
         --no-debug-pane)
             BUILD_DEBUG_PANE=OFF
             echo "Building without debug pane..."
+            ;;
+        Debug|debug)
+            CONFIG=Debug
+            echo "Building in Debug mode..."
+            ;;
+        Release|release)
+            CONFIG=Release
+            echo "Building in Release mode..."
             ;;
     esac
 done
@@ -27,13 +36,11 @@ BUILD_DIR="${GUI_DIR}/build"
 mkdir -p "${BUILD_DIR}"
 cd "${BUILD_DIR}"
 
-config="Debug"
-
 if [[ $(uname -m) == 'arm64' ]] || [ "$TAU5_BUILD_TARGET" == 'arm64' ]
 then
-  cmake -G "Unix Makefiles" -DCMAKE_OSC_ARCHITECTURES="ARM64" -DCMAKE_BUILD_TYPE="$config" -DBUILD_DEBUG_PANE=${BUILD_DEBUG_PANE} ..
+  cmake -G "Unix Makefiles" -DCMAKE_OSC_ARCHITECTURES="ARM64" -DCMAKE_BUILD_TYPE="$CONFIG" -DBUILD_DEBUG_PANE=${BUILD_DEBUG_PANE} ..
 else
-  cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="$config" -DBUILD_DEBUG_PANE=${BUILD_DEBUG_PANE} ..
+  cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="$CONFIG" -DBUILD_DEBUG_PANE=${BUILD_DEBUG_PANE} ..
 fi
 
 cmake --build .

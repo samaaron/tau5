@@ -1,6 +1,10 @@
 #!/bin/bash
 WORKING_DIR=$(pwd)
-CONFIG=${1:-Release}
+# Default to Release, but allow Debug as first argument
+CONFIG=Release
+if [ "$1" = "Debug" ] || [ "$1" = "debug" ]; then
+    CONFIG=Debug
+fi
 cd "$(dirname "$0")"
 
 echo "Building MCP DevTools server..."
