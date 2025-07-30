@@ -51,8 +51,6 @@ install_debian_packages() {
         libgl1-mesa-dev \
         libglu1-mesa-dev \
         libasound2-dev \
-        libevent-dev \
-        libminizip-dev \
         erlang \
         erlang-dev \
         elixir
@@ -76,8 +74,6 @@ install_rhel_packages() {
             mesa-libGL-devel \
             mesa-libGLU-devel \
             alsa-lib-devel \
-            libevent-devel \
-            minizip-devel \
             erlang \
             erlang-devel \
             elixir
@@ -95,8 +91,6 @@ install_rhel_packages() {
             mesa-libGL-devel \
             mesa-libGLU-devel \
             alsa-lib-devel \
-            libevent-devel \
-            minizip-devel \
             erlang \
             erlang-devel \
             elixir
@@ -123,8 +117,6 @@ install_arch_packages() {
         mesa \
         glu \
         alsa-lib \
-        libevent \
-        minizip \
         erlang \
         elixir
 }
@@ -147,8 +139,6 @@ install_opensuse_packages() {
         Mesa-libGL-devel \
         glu-devel \
         alsa-devel \
-        libevent-devel \
-        minizip-devel \
         erlang \
         elixir
 }
@@ -180,9 +170,8 @@ case "$DISTRO" in
         echo "- Qt6 (Core, Widgets, WebEngine, WebSockets, Svg)"
         echo "- CMake"
         echo "- C++ compiler (gcc or clang)"
+        echo "- OpenGL development libraries (GL and GLU)"
         echo "- ALSA development libraries"
-        echo "- libevent development libraries"
-        echo "- minizip development libraries"
         echo "- Erlang/OTP 27+"
         echo "- Elixir 1.18+"
         exit 1
