@@ -102,9 +102,9 @@ static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, cons
    .arg(StyleManager::Colors::ACCENT_PRIMARY)
    .arg(StyleManager::Colors::TEXT_PRIMARY)
    .arg(StyleManager::Colors::STATUS_ERROR)
-   .arg(StyleManager::Colors::textPrimaryAlpha(0.1))
-   .arg(StyleManager::Colors::textPrimaryAlpha(0.2))
-   .arg(StyleManager::Colors::accentPrimaryAlpha(0.2)));
+   .arg(StyleManager::Colors::textPrimaryAlpha(25))  // ~10% opacity (0.1 * 255)
+   .arg(StyleManager::Colors::textPrimaryAlpha(51))  // ~20% opacity (0.2 * 255)
+   .arg(StyleManager::Colors::accentPrimaryAlpha(51))  // ~20% opacity (0.2 * 255));
 
   if (checkable) {
     button->setCheckable(true);
