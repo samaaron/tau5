@@ -76,3 +76,7 @@ We will also add the ability to send and receive events directly to all particip
 ## Next Intelligence
 
 Tau5 will feature an MCP server directly connected to its core API - to enable LLM/AI agents to work directly with it. Jam with AI, use it to help craft your next drum loop or tweak your synth params.
+
+## Next Dev Tools
+
+Tau5 will feature built-in development tools. This will include the standard web inspector and dev tools, server and gui logs, Elixir Phoenix Dashboard and server REPL. Additionally there will be dev-focussed MCP tools for maniuplating and observing both the GUI and the server.
