@@ -12,10 +12,18 @@ void DebugPaneThemeStyles::applyDevToolsDarkTheme(QWebEngineView *view)
 {
     if (!view || !view->page()) return;
     
-    QString darkModeCSS = R"(
+    // Get the Cascadia font CSS
+    QString fontCSS = FontLoader::getCascadiaCodeCss();
+    QString escapedFontCSS;
+    if (!fontCSS.isEmpty()) {
+        escapedFontCSS = fontCSS.replace("`", "\\`").replace("$", "\\$");
+    }
+    
+    QString darkModeCSS = QString(R"(
     (function() {
       const style = document.createElement('style');
       style.textContent = `
+        %1
         /* Invert colors for dark mode */
         :root {
           filter: invert(1) hue-rotate(180deg);
@@ -79,7 +87,7 @@ void DebugPaneThemeStyles::applyDevToolsDarkTheme(QWebEngineView *view)
       `;
       document.head.appendChild(style);
     })();
-    )";
+    )").arg(escapedFontCSS);
     
     view->page()->runJavaScript(darkModeCSS);
     
@@ -238,18 +246,26 @@ void DebugPaneThemeStyles::injectDevToolsFontScript(QWebEngineView *view)
 {
     if (!view || !view->page()) return;
     
-    // First inject the Cascadia Code font
+    // Get the font CSS and inject it
     QString fontCSS = FontLoader::getCascadiaCodeCss();
     if (!fontCSS.isEmpty()) {
-        QString injectFontScript = QString(R"(
+        QString escapedFontCSS = fontCSS.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$");
+        
+        QString fontInjectScript = QString(R"(
         (function() {
+            // Check if font is already injected
+            if (document.getElementById('tau5-cascadia-font')) return;
+            
             const style = document.createElement('style');
+            style.id = 'tau5-cascadia-font';
             style.textContent = `%1`;
             document.head.appendChild(style);
+            
+            console.log('Tau5: Injected Cascadia Code font');
         })();
-        )").arg(fontCSS.replace("`", "\\`").replace("$", "\\$"));
+        )").arg(escapedFontCSS);
         
-        view->page()->runJavaScript(injectFontScript);
+        view->page()->runJavaScript(fontInjectScript);
     }
     
     QString fontScript = R"(
@@ -300,8 +316,15 @@ void DebugPaneThemeStyles::injectDevToolsFontScript(QWebEngineView *view)
         });
         
         const style = document.createElement('style');
+        style.id = 'tau5-font-overrides';
         style.textContent = selectors.map(s => s + ' { font-family: ' + fontFamily + ' !important; }').join('\n');
         document.head.appendChild(style);
+        
+        // Debug: Check if font is actually loaded
+        if (document.fonts && document.fonts.check) {
+            const fontLoaded = document.fonts.check('16px "Cascadia Code PL"');
+            console.log('Tau5: Cascadia Code PL font loaded:', fontLoaded);
+        }
         
         const observer = new MutationObserver((mutations) => {
           mutations.forEach((mutation) => {
