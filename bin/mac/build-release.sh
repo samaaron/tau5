@@ -111,3 +111,9 @@ cd "${RELEASE_APP_DIR}"/Contents/Resources/_build
 find . -type l | while IFS= read -r symlink; do
     replace_symlink "$symlink"
 done
+
+echo
+echo "========================================"
+echo "Release build completed successfully!"
+echo "========================================"
+echo "Release package created at: ${ROOT_DIR}/Release/Tau5.app"
