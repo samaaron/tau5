@@ -12,18 +12,10 @@ void DebugPaneThemeStyles::applyDevToolsDarkTheme(QWebEngineView *view)
 {
     if (!view || !view->page()) return;
     
-    // Get the Cascadia font CSS
-    QString fontCSS = FontLoader::getCascadiaCodeCss();
-    QString escapedFontCSS;
-    if (!fontCSS.isEmpty()) {
-        escapedFontCSS = fontCSS.replace("`", "\\`").replace("$", "\\$");
-    }
-    
-    QString darkModeCSS = QString(R"(
+    QString darkModeCSS = R"(
     (function() {
       const style = document.createElement('style');
       style.textContent = `
-        %1
         /* Invert colors for dark mode */
         :root {
           filter: invert(1) hue-rotate(180deg);
@@ -87,15 +79,12 @@ void DebugPaneThemeStyles::applyDevToolsDarkTheme(QWebEngineView *view)
       `;
       document.head.appendChild(style);
     })();
-    )").arg(escapedFontCSS);
+    )";
     
     view->page()->runJavaScript(darkModeCSS);
     
-    QTimer::singleShot(1000, [view]() {
-        if (view && view->page()) {
-            injectDevToolsFontScript(view);
-        }
-    });
+    // Inject font styles after dark theme
+    injectDevToolsFontScript(view);
 }
 
 void DebugPaneThemeStyles::applyLiveDashboardTau5Theme(QWebEngineView *view)
@@ -246,22 +235,39 @@ void DebugPaneThemeStyles::injectDevToolsFontScript(QWebEngineView *view)
 {
     if (!view || !view->page()) return;
     
-    // Get the font CSS and inject it
+    // Get the font CSS and inject it with proper escaping
     QString fontCSS = FontLoader::getCascadiaCodeCss();
     if (!fontCSS.isEmpty()) {
-        QString escapedFontCSS = fontCSS.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$");
+        // Escape for JavaScript string literal (not template literal to avoid issues)
+        QString escapedFontCSS = fontCSS
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r");
         
         QString fontInjectScript = QString(R"(
         (function() {
             // Check if font is already injected
-            if (document.getElementById('tau5-cascadia-font')) return;
+            if (document.getElementById('tau5-cascadia-font')) {
+                console.log('Tau5: Font already injected, skipping');
+                return;
+            }
             
             const style = document.createElement('style');
             style.id = 'tau5-cascadia-font';
-            style.textContent = `%1`;
+            style.textContent = "%1";
             document.head.appendChild(style);
             
             console.log('Tau5: Injected Cascadia Code font');
+            
+            // Force font loading
+            if (document.fonts && document.fonts.load) {
+                document.fonts.load('16px "Cascadia Code PL"').then(() => {
+                    console.log('Tau5: Cascadia Code PL font loaded successfully');
+                }).catch(err => {
+                    console.error('Tau5: Failed to load Cascadia Code PL font:', err);
+                });
+            }
         })();
         )").arg(escapedFontCSS);
         
@@ -270,6 +276,19 @@ void DebugPaneThemeStyles::injectDevToolsFontScript(QWebEngineView *view)
     
     QString fontScript = R"(
     (function() {
+      // Wait a bit for font to load
+      function waitForFontAndApply() {
+        if (document.fonts && document.fonts.check) {
+          document.fonts.ready.then(() => {
+            console.log('Tau5: All fonts loaded, applying to elements');
+            tryApplyFont();
+          });
+        } else {
+          // Fallback for browsers without font loading API
+          setTimeout(tryApplyFont, 100);
+        }
+      }
+      
       function tryApplyFont() {
         const selectors = [
           '.console-message-text',
@@ -354,8 +373,11 @@ void DebugPaneThemeStyles::injectDevToolsFontScript(QWebEngineView *view)
         });
       }
       
+      // Start the font application process
+      waitForFontAndApply();
+      // Also apply immediately in case fonts are already loaded
       tryApplyFont();
-      setTimeout(tryApplyFont, 100);
+      // And add some retries for safety
       setTimeout(tryApplyFont, 500);
       setTimeout(tryApplyFont, 1000);
       setTimeout(tryApplyFont, 2000);
