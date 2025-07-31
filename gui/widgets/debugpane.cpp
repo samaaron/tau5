@@ -462,6 +462,8 @@ void DebugPane::setupDevTools()
   devToolsSettings->setFontFamily(QWebEngineSettings::FixedFont, "Cascadia Code");
   devToolsSettings->setFontSize(QWebEngineSettings::DefaultFixedFontSize, 14);
 
+  DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
+
   devToolsLayout->addWidget(m_devToolsView);
 
   m_liveDashboardContainer = new QWidget();
@@ -504,10 +506,13 @@ void DebugPane::setWebView(PhxWebView *webView)
     {
       targetPage->setDevToolsPage(m_devToolsView->page());
 
+      DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
+
       connect(m_devToolsView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok)
               {
         if (ok) {
           DebugPaneThemeStyles::applyDevToolsDarkTheme(m_devToolsView);
+          DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
 
           emit webDevToolsLoaded();
         } });
