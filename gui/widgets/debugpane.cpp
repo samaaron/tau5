@@ -728,22 +728,28 @@ bool DebugPane::eventFilter(QObject *obj, QEvent *event)
 
 void DebugPane::mousePressEvent(QMouseEvent *event)
 {
-  if (event->button() == Qt::LeftButton &&
-      m_headerWidget && m_headerWidget->geometry().contains(event->position().toPoint()))
+  if (event->button() == Qt::LeftButton)
   {
-    m_isResizing = true;
-    m_resizeStartY = event->globalPosition().y();
-    m_resizeStartHeight = height();
-    if (m_dragHandleWidget)
+    QPoint pos = event->position().toPoint();
+    // Check if click is in the top resize area OR in the header widget
+    bool inResizeArea = pos.y() < RESIZE_HANDLE_HEIGHT;
+    bool inHeaderWidget = m_headerWidget && m_headerWidget->geometry().contains(pos);
+    
+    if (inResizeArea || inHeaderWidget)
     {
-      m_dragHandleWidget->show();
+      m_isResizing = true;
+      m_resizeStartY = event->globalPosition().y();
+      m_resizeStartHeight = height();
+      if (m_dragHandleWidget)
+      {
+        m_dragHandleWidget->show();
+      }
+      event->accept();
+      return;
     }
-    event->accept();
   }
-  else
-  {
-    QWidget::mousePressEvent(event);
-  }
+  
+  QWidget::mousePressEvent(event);
 }
 
 void DebugPane::mouseMoveEvent(QMouseEvent *event)
