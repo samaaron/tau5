@@ -41,13 +41,14 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
   logContainer->setStyleSheet(QString(R"(
     QWidget#logContainer {
       background-color: %1;
-      border: 1px solid %2;
+      border: 2px solid %2;
       border-radius: 5px;
-      box-shadow: 0 0 10px %3;
+      box-shadow: 0 0 20px %3, 0 0 40px %4;
     }
   )").arg(StyleManager::Colors::backgroundPrimaryAlpha(100))
-     .arg(StyleManager::Colors::accentPrimaryAlpha(0.5))   // 0.5 opacity border
-     .arg(StyleManager::Colors::accentPrimaryAlpha(0.3))); // Glow effect
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.8))   // Increased border opacity to 0.8
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.6))   // Stronger inner glow
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.3))); // Outer glow
   
   logWidget = new QTextEdit(logContainer);
   logWidget->setObjectName("logWidget");
@@ -64,18 +65,19 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
       color: %1;
       font-family: 'Cascadia Code', 'Cascadia Mono', 'Consolas', monospace;
       font-size: 9px;
-      font-weight: 500;
+      font-weight: 600;
       padding: 12px;
       border: none;
-      text-shadow: 0 0 2px %2;
+      text-shadow: 0 0 3px %2, 0 0 6px %3;
     }
     QTextEdit#logWidget::selection {
-      background-color: %3;
-      color: %4;
+      background-color: %4;
+      color: %5;
     }
-  )").arg(StyleManager::Colors::accentPrimaryAlpha(0.9))  // Increased text brightness to 0.9
-     .arg(StyleManager::Colors::backgroundPrimaryAlpha(0.7))  // Brighter text shadow
-     .arg(StyleManager::Colors::accentPrimaryAlpha(0.3))     // Brighter selection
+  )").arg(StyleManager::Colors::accentPrimaryAlpha(1.0))     // Full brightness text
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.8))     // Strong inner text glow
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.4))     // Outer text glow
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.4))     // Brighter selection
      .arg(StyleManager::Colors::TEXT_PRIMARY));
   
   QVBoxLayout *containerLayout = new QVBoxLayout(logContainer);
