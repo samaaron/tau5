@@ -43,9 +43,11 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
       background-color: %1;
       border: 1px solid %2;
       border-radius: 5px;
+      box-shadow: 0 0 10px %3;
     }
   )").arg(StyleManager::Colors::backgroundPrimaryAlpha(100))
-     .arg(StyleManager::Colors::accentPrimaryAlpha(0.3)));
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.5))   // 0.5 opacity border
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.3))); // Glow effect
   
   logWidget = new QTextEdit(logContainer);
   logWidget->setObjectName("logWidget");
@@ -71,9 +73,9 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
       background-color: %3;
       color: %4;
     }
-  )").arg(StyleManager::Colors::accentPrimaryAlpha(0.6))
-     .arg(StyleManager::Colors::backgroundPrimaryAlpha(0.5)) 
-     .arg(StyleManager::Colors::accentPrimaryAlpha(0.2))
+  )").arg(StyleManager::Colors::accentPrimaryAlpha(0.9))  // Increased text brightness to 0.9
+     .arg(StyleManager::Colors::backgroundPrimaryAlpha(0.7))  // Brighter text shadow
+     .arg(StyleManager::Colors::accentPrimaryAlpha(0.3))     // Brighter selection
      .arg(StyleManager::Colors::TEXT_PRIMARY));
   
   QVBoxLayout *containerLayout = new QVBoxLayout(logContainer);
@@ -334,9 +336,53 @@ void LoadingOverlay::GLWidget::initializeGL()
       return mat2(c, -s, s, c);
     }
     
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+    
+    vec3 toGamma(vec3 col) {
+      return pow(col, vec3(0.454545));
+    }
+    
+    vec3 warpEffect(vec2 p, float t) {
+      vec3 col = vec3(0.0);
+      float centerDist = length(p);
+      if(centerDist < 0.35) return col;
+      
+      vec3 ray = vec3(p * 2.0, 1.0);
+      float offset = t * 0.015;
+      float speed2 = (cos(offset) + 1.0) * 0.3;
+      float speed = speed2 + 0.1;
+      offset += sin(offset) * 0.1;
+      
+      vec3 stp = ray / max(abs(ray.x), abs(ray.y));
+      vec3 pos = 2.0 * stp + 0.5;
+      
+      vec3 deepPinkColor = vec3(0.9, 0.1, 0.5);
+      vec3 blueColor = vec3(0.1, 0.4, 1.0);
+      float centerFade = smoothstep(0.35, 0.5, centerDist);
+      
+      for(int i = 0; i < 15; i++) {
+        float z = hash(floor(pos.xy));
+        z = fract(z - offset);
+        float d = 30.0 * z - pos.z;
+        float w = pow(max(0.0, 1.0 - 15.0 * length(fract(pos.xy) - 0.5)), 3.0);
+        
+        vec3 c = max(vec3(0.0), 
+          mix(deepPinkColor * (1.0 - abs(d + speed2 * 0.02) / speed),
+              blueColor * (1.0 - abs(d - speed2 * 0.02) / speed),
+              0.5 + 0.5 * sin(z * PI))
+        );
+        
+        col += 0.8 * (1.0 - z) * c * w * centerFade;
+        pos += stp;
+      }
+      
+      return toGamma(col) * 0.6;
+    }
+    
     vec3 cubeWireframe(vec2 p, float logoMask) {
       vec3 col = vec3(0.0);
-      
       float rotSpeed = mix(0.05, 0.15, logoMask);
       float t = time * rotSpeed;
       vec3 angles = vec3(t, t * 0.7, t * 0.3);
@@ -352,38 +398,33 @@ void LoadingOverlay::GLWidget::initializeGL()
       verts[7] = vec3(-1.0,  1.0,  1.0);
       
       float scale = mix(0.3, 0.35, logoMask);
-      
       vec2 proj[8];
+      
       for(int i = 0; i < 8; i++) {
         vec3 v = verts[i];
         v.yz *= rot(angles.x);
         v.xz *= rot(angles.y);
         v.xy *= rot(angles.z);
-        float z = 4.0 + v.z;
-        proj[i] = v.xy * (2.0 / z) * scale;
+        proj[i] = v.xy * (2.0 / (4.0 + v.z)) * scale;
       }
       
       float d = 1e10;
-      
       vec2 e;
+      
       e = proj[1] - proj[0]; d = min(d, length(p - proj[0] - e * clamp(dot(p - proj[0], e) / dot(e, e), 0.0, 1.0)));
       e = proj[2] - proj[1]; d = min(d, length(p - proj[1] - e * clamp(dot(p - proj[1], e) / dot(e, e), 0.0, 1.0)));
       e = proj[3] - proj[2]; d = min(d, length(p - proj[2] - e * clamp(dot(p - proj[2], e) / dot(e, e), 0.0, 1.0)));
       e = proj[0] - proj[3]; d = min(d, length(p - proj[3] - e * clamp(dot(p - proj[3], e) / dot(e, e), 0.0, 1.0)));
-      
       e = proj[5] - proj[4]; d = min(d, length(p - proj[4] - e * clamp(dot(p - proj[4], e) / dot(e, e), 0.0, 1.0)));
       e = proj[6] - proj[5]; d = min(d, length(p - proj[5] - e * clamp(dot(p - proj[5], e) / dot(e, e), 0.0, 1.0)));
       e = proj[7] - proj[6]; d = min(d, length(p - proj[6] - e * clamp(dot(p - proj[6], e) / dot(e, e), 0.0, 1.0)));
       e = proj[4] - proj[7]; d = min(d, length(p - proj[7] - e * clamp(dot(p - proj[7], e) / dot(e, e), 0.0, 1.0)));
-      
       e = proj[4] - proj[0]; d = min(d, length(p - proj[0] - e * clamp(dot(p - proj[0], e) / dot(e, e), 0.0, 1.0)));
       e = proj[5] - proj[1]; d = min(d, length(p - proj[1] - e * clamp(dot(p - proj[1], e) / dot(e, e), 0.0, 1.0)));
       e = proj[6] - proj[2]; d = min(d, length(p - proj[2] - e * clamp(dot(p - proj[2], e) / dot(e, e), 0.0, 1.0)));
       e = proj[7] - proj[3]; d = min(d, length(p - proj[3] - e * clamp(dot(p - proj[3], e) / dot(e, e), 0.0, 1.0)));
       
-      vec3 cubeColor = mix(vec3(1.0, 0.65, 0.0), vec3(0.0, 1.0, 0.0), logoMask);
-      col += cubeColor * smoothstep(0.02, 0.0, d) * 2.0;
-      
+      col += mix(vec3(1.0, 0.65, 0.0), vec3(0.0, 1.0, 0.0), logoMask) * smoothstep(0.02, 0.0, d) * 2.0;
       return col;
     }
     
@@ -391,7 +432,9 @@ void LoadingOverlay::GLWidget::initializeGL()
       vec2 uv = gl_FragCoord.xy / resolution.xy;
       vec2 p = (gl_FragCoord.xy - 0.5 * resolution.xy) / min(resolution.x, resolution.y);
       
-      vec3 col = mix(vec3(0.05, 0.0, 0.1), vec3(0.1, 0.0, 0.2), uv.y);
+      vec3 col = mix(vec3(0.02, 0.0, 0.05), vec3(0.05, 0.0, 0.1), uv.y * 0.5);
+      col += warpEffect(p, time);
+      col += vec3(0.05, 0.02, 0.1) * (1.0 - smoothstep(0.0, 1.5, length(p))) * 0.3;
       
       vec2 logoUV = p + 0.5;
       float logoMask = 0.0;
@@ -402,12 +445,8 @@ void LoadingOverlay::GLWidget::initializeGL()
       }
       
       col += cubeWireframe(p, logoMask);
-      
-      if(logoMask > 0.5) {
-        col = 1.0 - col;
-      }
-      
-      col *= 1.0 - length(p) * 0.5;
+      if(logoMask > 0.5) col = 1.0 - col;
+      col *= 1.0 + length(p) * 0.7;
       
       gl_FragColor = vec4(col, 1.0);
     }
