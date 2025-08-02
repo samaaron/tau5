@@ -350,11 +350,13 @@ void LoadingOverlay::GLWidget::initializeGL()
       if(centerDist < 0.35) return col;
       
       vec3 ray = vec3(p * 2.0, 1.0);
-      float offset = t * 0.015;
       
       float warpActivation = smoothstep(0.0, 3.0, t * 0.2);
+      float speedMultiplier = 1.0 + warpActivation * 4.0;
+      float offset = t * 0.015 * speedMultiplier;
+      
       float speed2 = warpActivation * 0.6;
-      float speed = 0.1 + warpActivation * 0.3;
+      float speed = 0.1 + warpActivation * 0.5;
       offset += sin(offset) * 0.1;
       
       vec3 stp = ray / max(abs(ray.x), abs(ray.y));
