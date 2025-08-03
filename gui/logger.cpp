@@ -30,8 +30,6 @@ void Logger::log(Level level, const QString &message)
   }
   
   QString fullMessage = prefix + " " + message;
-  qDebug().noquote() << fullMessage;
-  
-  // Emit signal for GUI log
+  fprintf(stderr, "%s\n", fullMessage.toLocal8Bit().constData());
   emit instance().logMessage(fullMessage, isError);
 }

@@ -110,36 +110,14 @@ bool setupConsoleOutput()
 #endif
 }
 
+static QtMessageHandler originalMessageHandler = nullptr;
+
 void tau5MessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
-  // Forward to the original Qt handler for console output
-  static const QtMessageHandler originalHandler = nullptr;
-  if (originalHandler) {
-    originalHandler(type, context, msg);
-  } else {
-    // Fallback to manual console output if no original handler
-    QString txt;
-    switch (type) {
-    case QtDebugMsg:
-      txt = QString("[Qt Debug] %1").arg(msg);
-      break;
-    case QtInfoMsg:
-      txt = QString("[Qt Info] %1").arg(msg);
-      break;
-    case QtWarningMsg:
-      txt = QString("[Qt Warning] %1").arg(msg);
-      break;
-    case QtCriticalMsg:
-      txt = QString("[Qt Critical] %1").arg(msg);
-      break;
-    case QtFatalMsg:
-      txt = QString("[Qt Fatal] %1").arg(msg);
-      break;
-    }
-    fprintf(stderr, "%s\n", txt.toLocal8Bit().constData());
+  if (originalMessageHandler) {
+    originalMessageHandler(type, context, msg);
   }
   
-  // Forward to GUI logger
   switch (type) {
   case QtDebugMsg:
     Logger::log(Logger::Debug, QString("[Qt] %1").arg(msg));
@@ -159,8 +137,7 @@ void tau5MessageHandler(QtMsgType type, const QMessageLogContext &context, const
 
 bool initializeApplication(QApplication &app, bool devMode)
 {
-  // Install custom message handler to capture Qt platform warnings
-  qInstallMessageHandler(tau5MessageHandler);
+  originalMessageHandler = qInstallMessageHandler(tau5MessageHandler);
   
   if (devMode) {
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS_DEV);
