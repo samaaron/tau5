@@ -229,7 +229,7 @@ void LoadingOverlay::appendLog(const QString &message)
 {
   QMutexLocker locker(&logMutex);
   
-  Logger::log(Logger::Debug, QString("[LoadingOverlay] appendLog: %1").arg(message));
+  // Don't log the appended content to avoid duplicating server logs in GUI log
   
   QStringList lines = message.split('\n', Qt::SkipEmptyParts);
   for (const QString &line : lines) {
@@ -248,11 +248,10 @@ void LoadingOverlay::appendLog(const QString &message)
   logWidget->setVisible(true);
   logWidget->update(); // Force repaint
   
-  Logger::log(Logger::Debug, QString("[LoadingOverlay] Log widget visible: %1, geometry: %2x%3, text: '%4', parent visible: %5")
+  Logger::log(Logger::Debug, QString("[LoadingOverlay] Log widget visible: %1, geometry: %2x%3, parent visible: %4")
               .arg(logWidget->isVisible())
               .arg(logWidget->width())
               .arg(logWidget->height())
-              .arg(logText.left(50))
               .arg(isVisible()));
   
   QScrollBar *sb = logWidget->verticalScrollBar();
