@@ -30,7 +30,7 @@ void Logger::log(Level level, const QString &message)
   }
   
   QString fullMessage = prefix + " " + message;
-  qDebug() << fullMessage;
+  qDebug().noquote() << fullMessage;
   
   // Emit signal for GUI log
   emit instance().logMessage(fullMessage, isError);
