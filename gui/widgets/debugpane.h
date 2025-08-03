@@ -114,6 +114,8 @@ private:
   void highlightAllMatches(QTextEdit *textEdit, const QString &searchText, const QTextCursor &currentMatch);
   void setupShortcuts();
   void cleanupShortcuts();
+  void writeGuiLogToFile(const QString &logLine, bool isError);
+  void clearLogFileOnStartup();
 
 private:
   QVBoxLayout *m_mainLayout;

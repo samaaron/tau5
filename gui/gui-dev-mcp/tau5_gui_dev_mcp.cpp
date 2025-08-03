@@ -2,6 +2,10 @@
 #include <QTimer>
 #include <QEventLoop>
 #include <QThread>
+#include <QStandardPaths>
+#include <QDir>
+#include <QFile>
+#include <QTextStream>
 #include <iostream>
 #include <memory>
 #include "mcpserver_stdio.h"
@@ -1215,6 +1219,154 @@ int main(int argc, char *argv[])
             return QJsonObject{
                 {"type", "text"},
                 {"text", "Unexpected result format"}
+            };
+        }
+    });
+    
+    server.registerTool({
+        "chromium_devtools_getGuiLogs",
+        "Get GUI application logs from the debug pane",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"tail", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Number of recent log lines to return (default: 100, ignored if offset is provided)"}
+                }},
+                {"offset", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Starting line number (1-based, optional)"}
+                }},
+                {"limit", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Maximum number of lines to return when using offset (default: 100)"}
+                }},
+                {"level", QJsonObject{
+                    {"type", "string"},
+                    {"enum", QJsonArray{"all", "error", "warning", "info", "debug"}},
+                    {"description", "Filter by log level (default: all)"}
+                }},
+                {"search", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Search term to filter logs"}
+                }}
+            }},
+            {"required", QJsonArray{}}
+        },
+        [&bridge](const QJsonObject& params) -> QJsonObject {
+            bool hasOffset = params.contains("offset");
+            int offset = hasOffset ? params["offset"].toInt() : 0;
+            int limit = params.contains("limit") ? params["limit"].toInt() : 100;
+            int tail = params.contains("tail") ? params["tail"].toInt() : 100;
+            QString level = params.contains("level") ? params["level"].toString() : "all";
+            QString search = params.contains("search") ? params["search"].toString() : "";
+            
+            QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+            QString tau5DataPath = QDir(dataPath).absoluteFilePath("Tau5/Tau5");
+            QString logFilePath = QDir(tau5DataPath).absoluteFilePath("logs/gui.log");
+            
+            QFile logFile(logFilePath);
+            if (!logFile.exists()) {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("No GUI logs found. Looking at: %1").arg(logFilePath)}
+                };
+            }
+            
+            if (!logFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("Error: Could not open log file: %1").arg(logFile.errorString())}
+                };
+            }
+            
+            QTextStream stream(&logFile);
+            QStringList allLines;
+            while (!stream.atEnd()) {
+                allLines.append(stream.readLine());
+            }
+            logFile.close();
+            
+            QStringList filteredLines;
+            for (const QString& line : allLines) {
+                if (level != "all") {
+                    QString levelTag = QString("[%1]").arg(level.toUpper());
+                    if (level == "warning") levelTag = "[WARN]";
+                    if (!line.contains(levelTag)) continue;
+                }
+                
+                if (!search.isEmpty() && !line.contains(search, Qt::CaseInsensitive)) {
+                    continue;
+                }
+                
+                filteredLines.append(line);
+            }
+            
+            QStringList resultLines;
+            if (hasOffset) {
+                // Use offset/limit for line range
+                int startIdx = qMax(0, offset - 1); // Convert to 0-based
+                int endIdx = qMin(filteredLines.size(), startIdx + limit);
+                resultLines = filteredLines.mid(startIdx, endIdx - startIdx);
+            } else {
+                // Use tail for last N lines
+                int startIndex = qMax(0, filteredLines.size() - tail);
+                resultLines = filteredLines.mid(startIndex);
+            }
+            
+            QString resultText = resultLines.join("\n");
+            if (resultText.isEmpty()) {
+                resultText = "No logs match the specified criteria.";
+            }
+            
+            return QJsonObject{
+                {"type", "text"},
+                {"text", resultText}
+            };
+        }
+    });
+    
+    server.registerTool({
+        "chromium_devtools_getGuiLogLineCount",
+        "Get the total number of lines in the GUI log file",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}},
+            {"required", QJsonArray{}}
+        },
+        [&bridge](const QJsonObject& params) -> QJsonObject {
+            Q_UNUSED(params);
+            
+            QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+            QString tau5DataPath = QDir(dataPath).absoluteFilePath("Tau5/Tau5");
+            QString logFilePath = QDir(tau5DataPath).absoluteFilePath("logs/gui.log");
+            
+            QFile logFile(logFilePath);
+            if (!logFile.exists()) {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", "0 lines (log file does not exist)"}
+                };
+            }
+            
+            if (!logFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("Error: Could not open log file: %1").arg(logFile.errorString())}
+                };
+            }
+            
+            int lineCount = 0;
+            QTextStream stream(&logFile);
+            while (!stream.atEnd()) {
+                stream.readLine();
+                lineCount++;
+            }
+            logFile.close();
+            
+            return QJsonObject{
+                {"type", "text"},
+                {"text", QString("%1 lines").arg(lineCount)}
             };
         }
     });

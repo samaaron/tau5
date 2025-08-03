@@ -16,6 +16,11 @@
 #include "../logger.h"
 #include "../lib/fontloader.h"
 #include "../shortcuts/ShortcutManager.h"
+#include <QDir>
+#include <QStandardPaths>
+#include <QFile>
+#include <QTextStream>
+#include <QFileInfo>
 #include <QShortcut>
 #include <QTextEdit>
 #include <QPushButton>
@@ -139,6 +144,9 @@ DebugPane::DebugPane(QWidget *parent)
     }
   }
 
+  // Clear log file from previous session
+  clearLogFileOnStartup();
+  
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowFlags(Qt::FramelessWindowHint);
   setMouseTracking(true);
@@ -917,6 +925,49 @@ void DebugPane::appendGuiLog(const QString &text, bool isError)
   {
     QScrollBar *scrollBar = m_guiLogDisplay->verticalScrollBar();
     scrollBar->setValue(scrollBar->maximum());
+  }
+  
+  writeGuiLogToFile(timestamp + text, isError);
+}
+
+void DebugPane::writeGuiLogToFile(const QString &logLine, bool isError)
+{
+  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+  QDir logsDir(logsPath);
+  
+  // Ensure logs directory exists
+  if (!logsDir.exists("logs")) {
+    if (!logsDir.mkpath("logs")) {
+      return; // Unable to create logs directory
+    }
+  }
+  
+  QString logFilePath = logsDir.absoluteFilePath("logs/gui.log");
+  QFile logFile(logFilePath);
+  
+  // Write log entry
+  if (logFile.open(QIODevice::WriteOnly | QIODevice::Append)) {
+    QTextStream stream(&logFile);
+    QString level = isError ? "[ERROR]" : "[INFO]";
+    stream << level << " " << logLine << Qt::endl;
+    logFile.close();
+  }
+  
+  // Check file size and rotate if necessary (10MB limit)
+  QFileInfo fileInfo(logFilePath);
+  if (fileInfo.exists() && fileInfo.size() > 10 * 1024 * 1024) {
+    logFile.remove();
+  }
+}
+
+void DebugPane::clearLogFileOnStartup()
+{
+  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+  QString logFilePath = QDir(logsPath).absoluteFilePath("logs/gui.log");
+  
+  QFile logFile(logFilePath);
+  if (logFile.exists()) {
+    logFile.remove();
   }
 }
 
