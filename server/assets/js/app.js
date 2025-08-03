@@ -154,6 +154,19 @@ let Hooks = {
     destroyed() {
       // Clean up if needed
     }
+  },
+  
+  TerminalScroll: {
+    mounted() {
+      this.handleUpdated = () => {
+        this.el.scrollTop = this.el.scrollHeight;
+      };
+      this.handleUpdated();
+    },
+    
+    updated() {
+      this.handleUpdated();
+    }
   }
 };
 

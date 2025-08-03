@@ -142,7 +142,6 @@ defmodule Tau5Web.ConsoleLive do
             autofocus
             spellcheck="false"
             id="terminal-input"
-            phx-hook="TerminalInput"
           />
         </form>
       </div>
