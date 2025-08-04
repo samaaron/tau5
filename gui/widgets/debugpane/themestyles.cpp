@@ -256,7 +256,8 @@ void DebugPaneThemeStyles::injectDevToolsFontScript(QWebEngineView *view)
     
     QString scriptSource = QString(R"SCRIPT(
     (function() {
-      const observer = new MutationObserver(function(mutations) {
+      // Create a function to apply styles
+      const applyStyles = function() {
         const style = document.getElementById('tau5-cascadia-font') || document.createElement('style');
         style.id = 'tau5-cascadia-font';
         style.textContent = `%1`;
@@ -273,17 +274,20 @@ void DebugPaneThemeStyles::injectDevToolsFontScript(QWebEngineView *view)
             el.shadowRoot.appendChild(shadowStyle);
           }
         });
+      };
+      
+      const observer = new MutationObserver(function(mutations) {
+        applyStyles();
       });
+      
+      // Run immediately
+      applyStyles();
       
       // Start observing
       observer.observe(document, {
         childList: true,
         subtree: true
       });
-      
-      // Also run immediately
-      observer.callback = observer._callback;
-      observer.callback([]);
     })();
   )SCRIPT").arg(cascadiaCodeCss);
     
