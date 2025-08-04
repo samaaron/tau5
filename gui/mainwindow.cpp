@@ -50,10 +50,14 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, QWidget *parent)
 
   this->setStyleSheet(StyleManager::mainWindow());
 
+#ifdef Q_OS_MACOS
   QMenuBar *menuBar = this->menuBar();
   QMenu *helpMenu = menuBar->addMenu(tr("&Help"));
   QAction *aboutAction = helpMenu->addAction(tr("&About"));
   connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
+#else
+  this->menuBar()->hide();
+#endif
 
 #ifdef BUILD_WITH_DEBUG_PANE
   if (m_enableDebugPane) {
