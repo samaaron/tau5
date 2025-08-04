@@ -55,7 +55,7 @@ private:
     int timeUniform;
     int resolutionUniform;
     int logoTextureUniform;
-    float fadeToBlackValue;
+    int fadeUniform;
     
     void createLogoTexture();
   };
@@ -66,7 +66,6 @@ private:
   QTextEdit *logWidget;
   QPushButton *closeButton;
   QPropertyAnimation *fadeAnimation;
-  QPropertyAnimation *fadeToBlackAnimation;
   QMutex logMutex;
   QStringList logLines;
   QTimer *renderTimer;
@@ -79,8 +78,4 @@ private:
 public:
   float getFadeToBlackValue() const { return fadeToBlackValue; }
   void setFadeToBlackValue(float value) { fadeToBlackValue = value; }
-  
-  // Compatibility stubs
-  void startFadeToBlack() {}
-  bool event(QEvent *event) override { return QWidget::event(event); }
 };

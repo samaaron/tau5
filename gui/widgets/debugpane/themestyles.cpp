@@ -256,7 +256,6 @@ void DebugPaneThemeStyles::injectDevToolsFontScript(QWebEngineView *view)
     
     QString scriptSource = QString(R"SCRIPT(
     (function() {
-      // Create a function to apply styles
       const applyStyles = function() {
         const style = document.getElementById('tau5-cascadia-font') || document.createElement('style');
         style.id = 'tau5-cascadia-font';
@@ -280,10 +279,8 @@ void DebugPaneThemeStyles::injectDevToolsFontScript(QWebEngineView *view)
         applyStyles();
       });
       
-      // Run immediately
       applyStyles();
       
-      // Start observing
       observer.observe(document, {
         childList: true,
         subtree: true

@@ -108,18 +108,19 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, QWidget *parent)
       
       QTimer::singleShot(remainingMs + 500, [this]() {
         if (loadingOverlay) {
-          // Disconnect BEAM output from loading overlay before fading
           if (beamInstance) {
             disconnect(beamInstance, &Beam::standardOutput,
                       loadingOverlay.get(), &LoadingOverlay::appendLog);
             disconnect(beamInstance, &Beam::standardError,
                       loadingOverlay.get(), &LoadingOverlay::appendLog);
           }
-          this->show();
-          this->raise();
-          this->activateWindow();
           
-          // Then start the fade out
+          connect(loadingOverlay.get(), &LoadingOverlay::fadeToBlackComplete, this, [this]() {
+            this->show();
+            this->raise();
+            this->activateWindow();
+          });
+          
           loadingOverlay->fadeOut();
         }
       });

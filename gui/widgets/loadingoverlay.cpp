@@ -18,7 +18,6 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
     , logWidget(nullptr)
     , closeButton(nullptr)
     , fadeAnimation(nullptr)
-    , fadeToBlackAnimation(nullptr)
     , renderTimer(nullptr)
     , fadeToBlackValue(0.0f)
 {
@@ -136,17 +135,23 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
   appendLog("[TAU5] System initializing...");
   appendLog("[BEAM] Starting Erlang VM...");
   
-  // Use a custom opacity property instead of windowOpacity to avoid platform warnings
   fadeAnimation = new QPropertyAnimation(this, "fadeToBlackValue", this);
-  fadeAnimation->setDuration(500);
+  fadeAnimation->setDuration(1000);
   fadeAnimation->setStartValue(0.0);
   fadeAnimation->setEndValue(1.0);
+  fadeAnimation->setEasingCurve(QEasingCurve::InQuad);
   
   connect(fadeAnimation, &QPropertyAnimation::valueChanged, [this]() {
-    update(); // Force repaint to apply the fade effect
+    if (glWidget) {
+      glWidget->update();
+    }
+    update();
   });
   
-  connect(fadeAnimation, &QPropertyAnimation::finished, this, &QWidget::close);
+  connect(fadeAnimation, &QPropertyAnimation::finished, this, [this]() {
+    emit fadeToBlackComplete();
+    QTimer::singleShot(50, this, &QWidget::close);
+  });
   
   renderTimer = new QTimer(this);
   renderTimer->setTimerType(Qt::PreciseTimer);
@@ -184,6 +189,9 @@ void LoadingOverlay::fadeOut()
 {
   if (fadeAnimation && fadeAnimation->state() != QAbstractAnimation::Running) {
     Logger::log(Logger::Debug, "[LoadingOverlay] Starting fade out");
+    
+    raise();
+    activateWindow();
     
     if (closeButton) {
       closeButton->setVisible(false);
@@ -272,7 +280,6 @@ LoadingOverlay::GLWidget::GLWidget(QWidget *parent)
     , shaderProgram(nullptr)
     , logoTexture(nullptr)
     , lastFrameTime(0.0f)
-    , fadeToBlackValue(0.0f)
 {
   QSurfaceFormat format = QSurfaceFormat::defaultFormat();
   format.setSwapInterval(1);
@@ -334,6 +341,7 @@ void LoadingOverlay::GLWidget::initializeGL()
     uniform float time;
     uniform vec2 resolution;
     uniform sampler2D logoTexture;
+    uniform float fadeValue;
     
     #define PI 3.14159265359
     
@@ -461,6 +469,8 @@ void LoadingOverlay::GLWidget::initializeGL()
       if(logoMask > 0.5) col = 1.0 - col;
       col *= 1.0 + length(p) * 0.7;
       
+      col *= (1.0 - fadeValue);
+      
       gl_FragColor = vec4(col, 1.0);
     }
   )";
@@ -479,6 +489,7 @@ void LoadingOverlay::GLWidget::initializeGL()
   timeUniform = shaderProgram->uniformLocation("time");
   resolutionUniform = shaderProgram->uniformLocation("resolution");
   logoTextureUniform = shaderProgram->uniformLocation("logoTexture");
+  fadeUniform = shaderProgram->uniformLocation("fadeValue");
   
   createLogoTexture();
   
@@ -521,6 +532,10 @@ void LoadingOverlay::GLWidget::paintGL()
   shaderProgram->setUniformValue(timeUniform, currentTime);
   shaderProgram->setUniformValue(resolutionUniform, QVector2D(fbSize.width(), fbSize.height()));
   shaderProgram->setUniformValue(logoTextureUniform, 0);
+  
+  LoadingOverlay* parent = qobject_cast<LoadingOverlay*>(parentWidget());
+  float fadeValue = parent ? parent->getFadeToBlackValue() : 0.0f;
+  shaderProgram->setUniformValue(fadeUniform, fadeValue);
   
   glActiveTexture(GL_TEXTURE0);
   logoTexture->bind();
