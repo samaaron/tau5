@@ -123,6 +123,7 @@ defmodule Tau5Web.ConsoleLive do
   @impl true
   def render(assigns) do
     ~H"""
+    <link phx-track-static rel="stylesheet" href={~p"/assets/console.css"} />
     <div class="tau5-terminal">
       <div class="tau5-terminal-output" id="terminal-output" phx-hook="TerminalScroll">
         <pre class="whitespace-pre-wrap"><%= raw(@terminal_output) %></pre>
@@ -284,6 +285,7 @@ defmodule Tau5Web.ConsoleLive do
     |> IO.iodata_to_binary()
     |> ansi_to_html()
   end
+
 
   defp ansi_to_html(text) do
     text

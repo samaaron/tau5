@@ -91,10 +91,11 @@ defmodule Tau5.MixProject do
       clean: ["clean", "nifs.clean"],
       setup: ["deps.get", "assets.setup", "assets.build", "nifs.compile"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["tailwind default", "esbuild default", "esbuild monaco_worker"],
+      "assets.build": ["tailwind default", "tailwind console", "esbuild default", "esbuild monaco_worker"],
       "assets.deploy": [
         "assets.setup",
         "tailwind default --minify",
+        "tailwind console --minify",
         "esbuild default --minify",
         "esbuild monaco_worker --minify",
         "phx.digest"

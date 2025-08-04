@@ -1,3 +1,7 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
 .tau5-terminal {
   @apply bg-black text-white flex flex-col font-mono text-sm;
   font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace;
@@ -9,6 +13,9 @@
   width: 100%;
   height: 100%;
   user-select: text;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  font-variant-ligatures: none;
 }
 
 .tau5-terminal-output {
@@ -21,15 +28,9 @@
   -ms-user-select: text;
 }
 
-.tau5-terminal-output pre {
-  user-select: text;
-  -webkit-user-select: text;
-  -moz-user-select: text;
-  -ms-user-select: text;
-}
-
 .tau5-input-line {
-  @apply flex items-center p-4 border-t border-gray-800;
+  @apply flex items-center p-4;
+  background-color: #0a0a0a;
 }
 
 .tau5-prompt {
@@ -39,6 +40,30 @@
 .tau5-terminal-input {
   @apply bg-transparent border-none outline-none flex-1 text-white;
   font-family: inherit;
+  box-shadow: none !important;
+  border: none !important;
+  caret-color: #db2777;
+  caret-shape: block;
+}
+
+.tau5-terminal-input:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.tau5-terminal-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.tau5-terminal form input,
+.tau5-terminal input[type="text"] {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  ring: none !important;
 }
 
 .tau5-atom {
@@ -100,4 +125,32 @@ body:has(.tau5-terminal) main > div {
   max-width: none !important;
   height: 100% !important;
   position: relative;
+}
+
+.tau5-terminal-output::-webkit-scrollbar {
+  width: 10px;
+  background-color: #0a0a0a;
+}
+
+.tau5-terminal-output::-webkit-scrollbar-track {
+  background-color: #0a0a0a;
+}
+
+.tau5-terminal-output::-webkit-scrollbar-thumb {
+  background-color: #333;
+  border-radius: 5px;
+}
+
+.tau5-terminal-output::-webkit-scrollbar-thumb:hover {
+  background-color: #555;
+}
+
+.tau5-terminal ::selection {
+  background-color: #264f78;
+  color: #ffffff;
+}
+
+.tau5-terminal ::-moz-selection {
+  background-color: #264f78;
+  color: #ffffff;
 }
