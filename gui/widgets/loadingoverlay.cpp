@@ -136,10 +136,15 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
   appendLog("[TAU5] System initializing...");
   appendLog("[BEAM] Starting Erlang VM...");
   
-  fadeAnimation = new QPropertyAnimation(this, "windowOpacity", this);
+  // Use a custom opacity property instead of windowOpacity to avoid platform warnings
+  fadeAnimation = new QPropertyAnimation(this, "fadeToBlackValue", this);
   fadeAnimation->setDuration(500);
-  fadeAnimation->setStartValue(1.0);
-  fadeAnimation->setEndValue(0.0);
+  fadeAnimation->setStartValue(0.0);
+  fadeAnimation->setEndValue(1.0);
+  
+  connect(fadeAnimation, &QPropertyAnimation::valueChanged, [this]() {
+    update(); // Force repaint to apply the fade effect
+  });
   
   connect(fadeAnimation, &QPropertyAnimation::finished, this, &QWidget::close);
   
