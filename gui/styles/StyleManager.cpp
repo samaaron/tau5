@@ -218,6 +218,25 @@ QString StyleManager::textEdit()
              "  padding: %5; "
              "  selection-background-color: %6; "
              "  selection-color: %7; "
+             "}"
+             "QMenu { "
+             "  background-color: %8; "
+             "  color: %9; "
+             "  border: 1px solid %10; "
+             "  padding: 4px; "
+             "}"
+             "QMenu::item { "
+             "  padding: 4px 20px; "
+             "  background-color: transparent; "
+             "}"
+             "QMenu::item:selected { "
+             "  background-color: %11; "
+             "  color: %12; "
+             "}"
+             "QMenu::separator { "
+             "  height: 1px; "
+             "  background-color: %13; "
+             "  margin: 4px 10px; "
              "}")
       .arg(darkGradientBackground())
       .arg(Colors::PRIMARY_ORANGE)
@@ -225,7 +244,13 @@ QString StyleManager::textEdit()
       .arg(Typography::FONT_SIZE_MEDIUM)
       .arg(Spacing::LARGE)
       .arg(Colors::DEEP_PINK)
-      .arg(Colors::BLACK);
+      .arg(Colors::BLACK)
+      .arg(Colors::blackAlpha(240))
+      .arg(Colors::PRIMARY_ORANGE)
+      .arg(Colors::primaryOrangeAlpha(100))
+      .arg(Colors::primaryOrangeAlpha(40))
+      .arg(Colors::PRIMARY_ORANGE)
+      .arg(Colors::primaryOrangeAlpha(60));
 }
 
 QString StyleManager::checkbox()
