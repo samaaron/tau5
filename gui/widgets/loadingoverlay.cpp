@@ -365,9 +365,10 @@ void LoadingOverlay::GLWidget::initializeGL()
       
       vec3 ray = vec3(p * 2.0, 1.0);
       
-      float warpActivation = smoothstep(0.0, 3.0, t * 0.2);
-      float speedMultiplier = 1.0 + warpActivation * 4.0;
-      float offset = t * 0.015 * speedMultiplier;
+      float warpActivation = smoothstep(0.0, 2.0, t * 0.35);
+      float continuousAccel = t * 0.1;
+      float speedMultiplier = 0.5 + warpActivation * 6.5 + continuousAccel * continuousAccel * 2.5;
+      float offset = t * 0.02 * speedMultiplier;
       
       float speed2 = warpActivation * 0.6;
       float speed = 0.1 + warpActivation * 0.5;
@@ -380,12 +381,25 @@ void LoadingOverlay::GLWidget::initializeGL()
       vec3 blueColor = vec3(0.1, 0.4, 1.0);
       float centerFade = smoothstep(0.35, 0.5, centerDist);
       
-      for(int i = 0; i < 15; i++) {
+      int iterations = int(12.0 + min(8.0, continuousAccel * 20.0));
+      float brightnessBoost = 1.0 + min(1.5, continuousAccel);
+      
+      for(int i = 0; i < 20; i++) {
+        if(i >= iterations) break;
         float z = hash(floor(pos.xy));
         z = fract(z - offset);
         float d = 30.0 * z - pos.z;
+        
+        // Early exit if star is too far
+        if(d < -1.0 || d > 31.0) {
+          pos += stp;
+          continue;
+        }
+        
+        // Star shape calculation (circular, not boxy)
         float w = pow(max(0.0, 1.0 - 8.0 * length(fract(pos.xy) - 0.5)), 2.0);
         
+        // Color streaks with proper RGB separation for motion blur effect
         vec3 c = max(vec3(0.0), vec3(
           1.0 - abs(d + speed2 * 0.5) / speed,
           1.0 - abs(d) / speed,
@@ -395,7 +409,8 @@ void LoadingOverlay::GLWidget::initializeGL()
         vec3 starColor = mix(deepPinkColor, blueColor, 0.5 + 0.5 * sin(z * PI));
         c *= starColor;
         
-        col += 0.8 * (1.0 - z) * c * w * centerFade;
+        col += brightnessBoost * (1.0 - z) * c * w * centerFade;
+        
         pos += stp;
       }
       
