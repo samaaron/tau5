@@ -19,12 +19,8 @@ defmodule Tau5.LuaEvaluator do
     [:getmetatable], [:setmetatable], [:rawget], [:rawset]
   ]
 
-  @internal_markers [
-    "{:luerl,", "{:tstruct,", "{:tref,", "#Reference<", "#Function<",
-    "{:erl_mfa,", "{:erl_func,", "{:array,", "{:table,", "{:lua_func,", "%{max:"
-  ]
-
-  @inspect_opts [limit: 10_000, printable_limit: 4096]
+  @max_output_size 10_000
+  @max_heap_size 10 * 1024 * 1024  # 10MB
 
   @doc """
   Evaluates Lua code in a sandboxed environment.
