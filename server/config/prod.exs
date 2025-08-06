@@ -16,5 +16,9 @@ config :logger, :console,
 # Disable development routes in production
 config :tau5, dev_routes: false
 
+# Default deployment mode for production builds
+# Can be overridden with TAU5_MODE env var at compile time
+config :tau5, deployment_mode: :headless
+
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.
