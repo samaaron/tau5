@@ -32,11 +32,14 @@ defmodule Tau5Web.Router do
     plug :accepts, ["json", "event-stream"]
   end
 
-  scope "/tau5/mcp" do
-    pipe_through(:sse)
-    
-    # Use Streamable HTTP transport - handles GET, POST, DELETE at the same endpoint
-    forward("/", StreamableHTTP.Plug, server: Tau5MCP.Server)
+  # MCP server should only be available in desktop mode
+  if Application.get_env(:tau5, :deployment_mode) == :desktop do
+    scope "/tau5/mcp" do
+      pipe_through(:sse)
+      
+      # Use Streamable HTTP transport - handles GET, POST, DELETE at the same endpoint
+      forward("/", StreamableHTTP.Plug, server: Tau5MCP.Server)
+    end
   end
 
   if Application.compile_env(:tau5, :dev_routes) do
