@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tau5 Live</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      overflow: hidden;
+      background: #000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    
+    #canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    
+    #info {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      text-align: center;
+      z-index: 10;
+      text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+    
+    #logo-img {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <img id="logo-img" src="/images/tau5-bw-hirez.png" />
+  <div id="info">tau5.live</div>
+  
+  <script>
+    async function loadShader(url) {
+      const response = await fetch(url);
+      return await response.text();
+    }
+    
+    async function init() {
+      const canvas = document.getElementById('canvas');
+      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      
+      if (!gl) {
+        document.getElementById('info').textContent = 'WebGL not supported';
+        return;
+      }
+      
+      const vertexShaderSource = await loadShader('/shaders/tau5-loading.vert');
+      const fragmentShaderSource = await loadShader('/shaders/tau5-loading.frag');
+      
+      function compileShader(source, type) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
+          gl.deleteShader(shader);
+          return null;
+        }
+        return shader;
+      }
+      
+      const vertexShader = compileShader(vertexShaderSource, gl.VERTEX_SHADER);
+      const fragmentShader = compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER);
+      
+      // Create program
+      const program = gl.createProgram();
+      gl.attachShader(program, vertexShader);
+      gl.attachShader(program, fragmentShader);
+      gl.linkProgram(program);
+      
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error('Program linking error:', gl.getProgramInfoLog(program));
+      }
+      
+      gl.useProgram(program);
+      
+      // Set up geometry
+      const vertices = new Float32Array([
+        -1, -1,
+         1, -1,
+        -1,  1,
+         1,  1
+      ]);
+      
+      const buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+      
+      const aPos = gl.getAttribLocation(program, 'aPos');
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+      
+      const timeUniform = gl.getUniformLocation(program, 'time');
+      const resolutionUniform = gl.getUniformLocation(program, 'resolution');
+      const logoTextureUniform = gl.getUniformLocation(program, 'logoTexture');
+      const fadeUniform = gl.getUniformLocation(program, 'fadeValue');
+      
+      const logoImg = document.getElementById('logo-img');
+      const logoTexture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, logoTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      
+      logoImg.onload = function() {
+        gl.bindTexture(gl.TEXTURE_2D, logoTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, logoImg);
+      };
+      
+      if (logoImg.complete) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, logoImg);
+      }
+      
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+      }
+      resize();
+      window.addEventListener('resize', resize);
+      
+      const startTime = Date.now();
+      
+      function render() {
+        const time = (Date.now() - startTime) / 1000.0;
+        
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        
+        gl.uniform1f(timeUniform, time);
+        gl.uniform2f(resolutionUniform, canvas.width, canvas.height);
+        gl.uniform1i(logoTextureUniform, 0);
+        
+        if (fadeUniform !== -1) {
+          gl.uniform1f(fadeUniform, 0.0);
+        }
+        
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, logoTexture);
+        
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        
+        requestAnimationFrame(render);
+      }
+      
+      render();
+    }
+    
+    init().catch(err => {
+      console.error('Failed to initialize:', err);
+      document.getElementById('info').textContent = 'Failed to load shader';
+    });
+  </script>
+</body>
+</html>

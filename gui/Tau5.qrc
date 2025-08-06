@@ -7,5 +7,7 @@
     <file>styles/tau5-dashboard-theme.css</file>
     <file>fonts/CascadiaCodePL.ttf</file>
     <file>fonts/codicon.ttf</file>
+    <file>shaders/tau5-loading.vert</file>
+    <file>shaders/tau5-loading.frag</file>
   </qresource>
 </RCC>

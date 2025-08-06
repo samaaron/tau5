@@ -23,7 +23,9 @@ defmodule Tau5Web.Router do
   scope "/", Tau5Web do
     pipe_through(:browser)
 
-    live("/", MainLive)
+    # Both routes exist, controller will handle the mode check
+    get("/", CentralController, :index)
+    live("/app", MainLive)
   end
 
   pipeline :sse do
