@@ -151,6 +151,7 @@ void Beam::startElixirServerDev()
 {
   Logger::log(Logger::Info, "Starting Elixir server in Development mode");
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+  env.insert("TAU5_MODE", "desktop");
   env.insert("TAU5_ENV", "dev");
   env.insert("TAU5_SESSION_TOKEN", sessionToken);
   env.insert("TAU5_HEARTBEAT_ENABLED", "true");
@@ -180,6 +181,7 @@ void Beam::startElixirServerProd()
   Logger::log(Logger::Info, "Starting Elixir server in Production mode");
 
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+  env.insert("TAU5_MODE", "desktop");
   env.insert("TAU5_ENV", "prod");
   env.insert("TAU5_SESSION_TOKEN", sessionToken);
   env.insert("TAU5_HEARTBEAT_ENABLED", "true");
