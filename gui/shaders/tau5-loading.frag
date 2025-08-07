@@ -66,7 +66,7 @@ vec3 warpEffect(vec2 p, float t) {
   
   for(int i = 0; i < 20; i++) {
     // Control visibility with weight instead of breaking
-    float weight = float(i) < (iterationWeight * 20.0) ? 1.0 : 0.0;
+    float weight = 1.0 - step(iterationWeight * 20.0, float(i));
     float z = hash(floor(pos.xy));
     z = fract(z - offset);
     float d = 30.0 * z - pos.z;
@@ -78,7 +78,8 @@ vec3 warpEffect(vec2 p, float t) {
     }
     
     // Star shape calculation (circular, not boxy)
-    float w = pow(max(0.0, 1.0 - 8.0 * length(fract(pos.xy) - 0.5)), 2.0);
+    float starDist = max(0.0, 1.0 - 8.0 * length(fract(pos.xy) - 0.5));
+    float w = starDist * starDist;
     
     // Color streaks with proper RGB separation for motion blur effect
     vec3 c = max(vec3(0.0), vec3(
@@ -127,7 +128,7 @@ vec3 cubeWireframe(vec2 p, float logoMask) {
     proj[i] = v.xy * (2.0 / (4.0 + v.z)) * scale;
   }
   
-  float d = 1e10;
+  float d = 10000.0;
   vec2 e;
   
   e = proj[1] - proj[0]; d = min(d, length(p - proj[0] - e * clamp(dot(p - proj[0], e) / dot(e, e), 0.0, 1.0)));
