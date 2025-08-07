@@ -2,6 +2,7 @@
 
 #ifdef GL_ES
 precision mediump float;
+precision mediump int;
 #endif
 
 uniform float time;
@@ -13,7 +14,8 @@ uniform vec2 cameraRotation; // Camera rotation angles (pitch, yaw)
 #define PI 3.14159265359
 
 mat2 rot(float a) {
-  float s = sin(a), c = cos(a);
+  float s = sin(a);
+  float c = cos(a);
   return mat2(c, -s, s, c);
 }
 
@@ -58,11 +60,14 @@ vec3 warpEffect(vec2 p, float t) {
   vec3 blueColor = vec3(0.1, 0.4, 1.0);
   float centerFade = smoothstep(0.35, 0.5, centerDist);
   
-  int iterations = int(12.0 + min(8.0, continuousAccel * 20.0));
+  // Fixed iterations for mobile compatibility
+  // Use weight to control visibility instead of dynamic iteration count
+  float iterationWeight = (12.0 + min(8.0, continuousAccel * 20.0)) / 20.0;
   float brightnessBoost = 1.0 + min(1.5, continuousAccel);
   
   for(int i = 0; i < 20; i++) {
-    if(i >= iterations) break;
+    // Control visibility with weight instead of breaking
+    float weight = float(i) < (iterationWeight * 20.0) ? 1.0 : 0.0;
     float z = hash(floor(pos.xy));
     z = fract(z - offset);
     float d = 30.0 * z - pos.z;
@@ -86,7 +91,7 @@ vec3 warpEffect(vec2 p, float t) {
     vec3 starColor = mix(deepPinkColor, blueColor, 0.5 + 0.5 * sin(z * PI));
     c *= starColor;
     
-    col += brightnessBoost * (1.0 - z) * c * w * centerFade;
+    col += weight * brightnessBoost * (1.0 - z) * c * w * centerFade;
     
     pos += stp;
   }
@@ -97,16 +102,7 @@ vec3 warpEffect(vec2 p, float t) {
 vec3 cubeWireframe(vec2 p, float logoMask) {
   vec3 col = vec3(0.0);
   
-  vec3 verts[8];
-  verts[0] = vec3(-1.0, -1.0, -1.0);
-  verts[1] = vec3( 1.0, -1.0, -1.0);
-  verts[2] = vec3( 1.0,  1.0, -1.0);
-  verts[3] = vec3(-1.0,  1.0, -1.0);
-  verts[4] = vec3(-1.0, -1.0,  1.0);
-  verts[5] = vec3( 1.0, -1.0,  1.0);
-  verts[6] = vec3( 1.0,  1.0,  1.0);
-  verts[7] = vec3(-1.0,  1.0,  1.0);
-  
+  // Mobile-compatible vertex definition
   float scale = mix(0.3, 0.35, logoMask);
   vec2 proj[8];
   
@@ -115,8 +111,18 @@ vec3 cubeWireframe(vec2 p, float logoMask) {
   float t = time * rotSpeed;
   vec3 autoRotation = vec3(t, t * 0.7, t * 0.3);
   
+  // Define cube vertices inline for mobile compatibility
   for(int i = 0; i < 8; i++) {
-    vec3 v = verts[i];
+    vec3 v;
+    // Manually set each vertex based on index
+    if(i == 0) v = vec3(-1.0, -1.0, -1.0);
+    else if(i == 1) v = vec3( 1.0, -1.0, -1.0);
+    else if(i == 2) v = vec3( 1.0,  1.0, -1.0);
+    else if(i == 3) v = vec3(-1.0,  1.0, -1.0);
+    else if(i == 4) v = vec3(-1.0, -1.0,  1.0);
+    else if(i == 5) v = vec3( 1.0, -1.0,  1.0);
+    else if(i == 6) v = vec3( 1.0,  1.0,  1.0);
+    else v = vec3(-1.0,  1.0,  1.0); // i == 7
     
     // Apply auto-rotation to the cube
     v.yz *= rot(autoRotation.x);

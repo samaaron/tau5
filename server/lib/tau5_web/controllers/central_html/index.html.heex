@@ -200,11 +200,11 @@
         window.addEventListener('mousemove', moveDrag);
         window.addEventListener('mouseup', endDrag);
         
-        // Touch events
+        // Touch events with passive: false to prevent scrolling
         canvas.addEventListener('touchstart', startDrag, { passive: false });
-        window.addEventListener('touchmove', moveDrag, { passive: false });
-        window.addEventListener('touchend', endDrag);
-        window.addEventListener('touchcancel', endDrag);
+        canvas.addEventListener('touchmove', moveDrag, { passive: false });
+        canvas.addEventListener('touchend', endDrag, { passive: false });
+        canvas.addEventListener('touchcancel', endDrag, { passive: false });
         
         // Add hover cursor for desktop
         canvas.style.cursor = 'grab';
