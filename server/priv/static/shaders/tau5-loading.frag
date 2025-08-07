@@ -8,6 +8,7 @@ uniform float time;
 uniform vec2 resolution;
 uniform sampler2D logoTexture;
 uniform float fadeValue;
+uniform vec2 cameraRotation; // Camera rotation angles (pitch, yaw)
 
 #define PI 3.14159265359
 
@@ -95,9 +96,6 @@ vec3 warpEffect(vec2 p, float t) {
 
 vec3 cubeWireframe(vec2 p, float logoMask) {
   vec3 col = vec3(0.0);
-  float rotSpeed = mix(0.05, 0.15, logoMask);
-  float t = time * rotSpeed;
-  vec3 angles = vec3(t, t * 0.7, t * 0.3);
   
   vec3 verts[8];
   verts[0] = vec3(-1.0, -1.0, -1.0);
@@ -112,11 +110,24 @@ vec3 cubeWireframe(vec2 p, float logoMask) {
   float scale = mix(0.3, 0.35, logoMask);
   vec2 proj[8];
   
+  // Auto-rotation (object spins slowly)
+  float rotSpeed = mix(0.05, 0.15, logoMask);
+  float t = time * rotSpeed;
+  vec3 autoRotation = vec3(t, t * 0.7, t * 0.3);
+  
   for(int i = 0; i < 8; i++) {
     vec3 v = verts[i];
-    v.yz *= rot(angles.x);
-    v.xz *= rot(angles.y);
-    v.xy *= rot(angles.z);
+    
+    // Apply auto-rotation to the cube
+    v.yz *= rot(autoRotation.x);
+    v.xz *= rot(autoRotation.y);
+    v.xy *= rot(autoRotation.z);
+    
+    // Apply camera rotation (view transform)
+    // This gives us perfect screen-space control
+    v.xz *= rot(cameraRotation.y); // Yaw (horizontal mouse movement)
+    v.yz *= rot(cameraRotation.x); // Pitch (vertical mouse movement)
+    
     proj[i] = v.xy * (2.0 / (4.0 + v.z)) * scale;
   }
   

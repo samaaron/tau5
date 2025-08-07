@@ -113,6 +113,7 @@
       const resolutionUniform = gl.getUniformLocation(program, 'resolution');
       const logoTextureUniform = gl.getUniformLocation(program, 'logoTexture');
       const fadeUniform = gl.getUniformLocation(program, 'fadeValue');
+      const cameraRotationUniform = gl.getUniformLocation(program, 'cameraRotation');
       
       const logoImg = document.getElementById('logo-img');
       const logoTexture = gl.createTexture();
@@ -131,6 +132,86 @@
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, logoImg);
       }
       
+      // Mouse interaction state
+      let isDragging = false;
+      let lastMouseX = 0;
+      let lastMouseY = 0;
+      let cameraVelocityX = 0;  // Camera pitch velocity
+      let cameraVelocityY = 0;  // Camera yaw velocity
+      let cameraPitch = 0;      // Camera pitch (up/down)
+      let cameraYaw = 0;        // Camera yaw (left/right)
+      const damping = 0.985; // Inertia damping factor (higher = longer spin)
+      const minVelocity = 0.00001; // Minimum velocity threshold
+      
+      // Set up mouse and touch event listeners
+      function setupMouseEvents() {
+        // Helper to get position from mouse or touch event
+        function getEventPosition(e) {
+          if (e.touches && e.touches.length > 0) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          }
+          return { x: e.clientX, y: e.clientY };
+        }
+        
+        // Start dragging (mouse or touch)
+        function startDrag(e) {
+          e.preventDefault();
+          isDragging = true;
+          const pos = getEventPosition(e);
+          lastMouseX = pos.x;
+          lastMouseY = pos.y;
+          cameraVelocityX = 0;
+          cameraVelocityY = 0;
+          canvas.style.cursor = 'grabbing';
+        }
+        
+        // Move while dragging (mouse or touch)
+        function moveDrag(e) {
+          if (!isDragging) return;
+          e.preventDefault();
+          
+          const pos = getEventPosition(e);
+          const deltaX = pos.x - lastMouseX;
+          const deltaY = pos.y - lastMouseY;
+          
+          // Camera rotation - perfect screen-space control
+          const rotationSpeed = 0.01;
+          
+          // Update camera velocities (both axes inverted)
+          cameraVelocityX = -deltaY * rotationSpeed;  // Vertical drag -> pitch (inverted)
+          cameraVelocityY = deltaX * rotationSpeed;   // Horizontal drag -> yaw (inverted)
+          
+          // Apply camera rotations
+          cameraPitch += cameraVelocityX;
+          cameraYaw += cameraVelocityY;
+          
+          lastMouseX = pos.x;
+          lastMouseY = pos.y;
+        }
+        
+        // Stop dragging (mouse or touch)
+        function endDrag(e) {
+          isDragging = false;
+          canvas.style.cursor = 'grab';
+        }
+        
+        // Mouse events
+        canvas.addEventListener('mousedown', startDrag);
+        window.addEventListener('mousemove', moveDrag);
+        window.addEventListener('mouseup', endDrag);
+        
+        // Touch events
+        canvas.addEventListener('touchstart', startDrag, { passive: false });
+        window.addEventListener('touchmove', moveDrag, { passive: false });
+        window.addEventListener('touchend', endDrag);
+        window.addEventListener('touchcancel', endDrag);
+        
+        // Add hover cursor for desktop
+        canvas.style.cursor = 'grab';
+      }
+      
+      setupMouseEvents();
+      
       function resize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -144,6 +225,21 @@
       function render() {
         const time = (Date.now() - startTime) / 1000.0;
         
+        // Update physics when not dragging
+        if (!isDragging) {
+          // Apply inertia to camera rotation
+          cameraPitch += cameraVelocityX;
+          cameraYaw += cameraVelocityY;
+          
+          // Apply damping to camera velocity
+          cameraVelocityX *= damping;
+          cameraVelocityY *= damping;
+          
+          // Stop when velocity is very small
+          if (Math.abs(cameraVelocityX) < minVelocity) cameraVelocityX = 0;
+          if (Math.abs(cameraVelocityY) < minVelocity) cameraVelocityY = 0;
+        }
+        
         gl.clearColor(0, 0, 0, 1);
         gl.clear(gl.COLOR_BUFFER_BIT);
         
@@ -153,6 +249,11 @@
         
         if (fadeUniform !== -1) {
           gl.uniform1f(fadeUniform, 0.0);
+        }
+        
+        // Pass camera rotation to shader
+        if (cameraRotationUniform !== -1) {
+          gl.uniform2f(cameraRotationUniform, cameraPitch, cameraYaw);
         }
         
         gl.activeTexture(gl.TEXTURE0);
