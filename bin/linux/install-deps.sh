@@ -51,9 +51,31 @@ install_debian_packages() {
         libgl1-mesa-dev \
         libglu1-mesa-dev \
         libasound2-dev \
-        erlang \
-        erlang-dev \
-        elixir
+        autoconf \
+        m4 \
+        libncurses-dev \
+        libpng-dev \
+        libssl-dev \
+        libssh-dev \
+        unixodbc-dev \
+        xsltproc \
+        fop \
+        libxml2-utils \
+        libxml2-dev \
+        libxslt1-dev \
+        curl \
+        wget \
+        inotify-tools \
+        golang-go
+    
+    # Try to install wxWidgets (different package names on different Ubuntu versions)
+    if apt-cache show libwxgtk3.2-dev &>/dev/null; then
+        sudo apt-get install -y libwxgtk3.2-dev
+    elif apt-cache show libwxgtk3.0-gtk3-dev &>/dev/null; then
+        sudo apt-get install -y libwxgtk3.0-gtk3-dev
+    else
+        echo "WARNING: wxWidgets dev package not found. Erlang will be built without wx support."
+    fi
 }
 
 # Function to install packages on RHEL/Fedora/CentOS
@@ -76,7 +98,9 @@ install_rhel_packages() {
             alsa-lib-devel \
             erlang \
             erlang-devel \
-            elixir
+            elixir \
+            inotify-tools \
+            golang
     elif command_exists yum; then
         sudo yum install -y \
             gcc \
@@ -93,7 +117,9 @@ install_rhel_packages() {
             alsa-lib-devel \
             erlang \
             erlang-devel \
-            elixir
+            elixir \
+            inotify-tools \
+            golang
     else
         echo "ERROR: Neither dnf nor yum found. Cannot install packages."
         exit 1
@@ -118,7 +144,9 @@ install_arch_packages() {
         glu \
         alsa-lib \
         erlang \
-        elixir
+        elixir \
+        inotify-tools \
+        go
 }
 
 # Function to install packages on openSUSE
@@ -140,7 +168,9 @@ install_opensuse_packages() {
         glu-devel \
         alsa-devel \
         erlang \
-        elixir
+        elixir \
+        inotify-tools \
+        go
 }
 
 # Main installation
