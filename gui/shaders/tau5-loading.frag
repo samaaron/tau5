@@ -52,9 +52,14 @@ vec3 warpEffect(vec2 p, float t) {
   float speed = 0.1 + warpActivation * 0.5;
   offset += sin(offset) * 0.1;
   
+  // Add tiny noise based on ray direction to break grid
+  vec2 noise = vec2(
+    hash(vec2(ray.x * 137.5, ray.y * 285.7)) - 0.5,
+    hash(vec2(ray.y * 421.3, ray.x * 173.1)) - 0.5
+  );
+  ray.xy += noise * 0.002;
   vec3 stp = ray / max(abs(ray.x), abs(ray.y));
-  // Scale up the stepping to avoid precision issues
-  vec3 pos = 4.0 * stp + 0.5;
+  vec3 pos = 2.0 * stp + 0.5;
   
   vec3 deepPinkColor = vec3(0.9, 0.1, 0.5);
   vec3 blueColor = vec3(0.1, 0.4, 1.0);
