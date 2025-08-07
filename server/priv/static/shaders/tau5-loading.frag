@@ -53,10 +53,9 @@ vec3 warpEffect(vec2 p, float t) {
   float speed = 0.1 + warpActivation * 0.5;
   offset += sin(offset) * 0.1;
   
-  // Use length normalization instead of max component for better mobile compatibility
-  float rayLen = length(ray.xy);
-  vec3 stp = ray / (rayLen + 0.001); // Add small epsilon to avoid division by zero
-  vec3 pos = 2.0 * stp + 0.5;
+  float maxComponent = max(abs(ray.x), abs(ray.y));
+  vec3 stp = ray / (maxComponent + 0.0001);
+  vec3 pos = 2.0 * stp + 0.5 + hash(p) * 0.01;
   
   vec3 deepPinkColor = vec3(0.9, 0.1, 0.5);
   vec3 blueColor = vec3(0.1, 0.4, 1.0);
