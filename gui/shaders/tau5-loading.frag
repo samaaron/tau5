@@ -52,12 +52,9 @@ vec3 warpEffect(vec2 p, float t) {
   float speed = 0.1 + warpActivation * 0.5;
   offset += sin(offset) * 0.1;
   
-  // Blend between max and length normalization to reduce grid artifacts
-  float maxComponent = max(abs(ray.x), abs(ray.y));
-  float rayLength = length(ray.xy);
-  float divisor = mix(maxComponent, rayLength, 0.3); // 70% original, 30% circular
-  vec3 stp = ray / (divisor + 0.0001);
-  vec3 pos = 2.0 * stp + 0.5;
+  vec3 stp = ray / max(abs(ray.x), abs(ray.y));
+  // Scale up the stepping to avoid precision issues
+  vec3 pos = 4.0 * stp + 0.5;
   
   vec3 deepPinkColor = vec3(0.9, 0.1, 0.5);
   vec3 blueColor = vec3(0.1, 0.4, 1.0);
