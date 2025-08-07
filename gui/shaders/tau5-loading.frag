@@ -71,11 +71,8 @@ vec3 warpEffect(vec2 p, float t) {
     z = fract(z - offset);
     float d = 30.0 * z - pos.z;
     
-    // Early exit if star is too far
-    if(d < -1.0 || d > 31.0) {
-      pos += stp;
-      continue;
-    }
+    // Check if star is in range (avoid continue statement for compatibility)
+    float inRange = 1.0 - step(1.0, step(31.0, d) + step(d, -1.0));
     
     // Star shape calculation (circular, not boxy)
     float starDist = max(0.0, 1.0 - 8.0 * length(fract(pos.xy) - 0.5));
@@ -91,7 +88,7 @@ vec3 warpEffect(vec2 p, float t) {
     vec3 starColor = mix(deepPinkColor, blueColor, 0.5 + 0.5 * sin(z * PI));
     c *= starColor;
     
-    col += weight * brightnessBoost * (1.0 - z) * c * w * centerFade;
+    col += inRange * weight * brightnessBoost * (1.0 - z) * c * w * centerFade;
     
     pos += stp;
   }
@@ -161,15 +158,19 @@ void main() {
   #ifdef GL_ES
   logoUV.y = 1.0 - logoUV.y;
   #endif
-  float logoMask = 0.0;
-  if(logoUV.x >= 0.0 && logoUV.x <= 1.0 && logoUV.y >= 0.0 && logoUV.y <= 1.0) {
-    vec4 logoColor = texture2D(logoTexture, logoUV);
-    float lum = dot(logoColor.rgb, vec3(0.299, 0.587, 0.114));
-    logoMask = (logoColor.a > 0.5 && lum < 0.5) ? 1.0 : 0.0;
-  }
+  // Sample texture unconditionally to avoid dynamic texture sampling
+  vec4 logoColor = texture2D(logoTexture, logoUV);
+  float lum = dot(logoColor.rgb, vec3(0.299, 0.587, 0.114));
+  
+  // Check if we're in valid UV range
+  float validUV = step(0.0, logoUV.x) * step(logoUV.x, 1.0) * step(0.0, logoUV.y) * step(logoUV.y, 1.0);
+  
+  // Calculate logo mask without ternary operator
+  float logoMask = validUV * step(0.5, logoColor.a) * (1.0 - step(0.5, lum));
   
   col += cubeWireframe(p, logoMask);
-  if(logoMask > 0.5) col = 1.0 - col;
+  // Invert colors based on logo mask without if statement
+  col = mix(col, 1.0 - col, step(0.5, logoMask));
   col *= 1.0 + length(p) * 0.7;
   
   col *= (1.0 - fadeValue);
