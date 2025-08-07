@@ -68,15 +68,20 @@ vec3 warpEffect(vec2 p, float t) {
   for(int i = 0; i < 20; i++) {
     // Control visibility with weight instead of breaking  
     float weight = 1.0 - step(iterationWeight * 20.0, float(i));
-    float z = hash(floor(pos.xy));
+    
+    // Separate floor and fract calculations for better precision
+    vec2 posFloor = floor(pos.xy);
+    vec2 posFract = pos.xy - posFloor;
+    
+    float z = hash(posFloor);
     z = fract(z - offset);
     float d = 30.0 * z - pos.z;
     
     // Check if star is in range (avoid continue statement for compatibility)
     float inRange = 1.0 - step(1.0, step(31.0, d) + step(d, -1.0));
     
-    // Star shape calculation (circular, not boxy)
-    float starDist = max(0.0, 1.0 - 8.0 * length(fract(pos.xy) - 0.5));
+    // Star shape calculation with explicit fract calculation
+    float starDist = max(0.0, 1.0 - 8.0 * length(posFract - 0.5));
     float w = starDist * starDist;
     
     // Color streaks with proper RGB separation for motion blur effect
