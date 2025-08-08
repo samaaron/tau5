@@ -148,21 +148,8 @@
         return;
       }
       
-      // Detect GPU precision to choose appropriate shader
-      const highPrecision = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
-      const mediumPrecision = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_FLOAT);
-      
-      // Use mobile shader for GPUs with less than 23 bits of precision
-      // This typically catches mid-range/older Android devices
-      const useMobileShader = highPrecision.precision < 23;
-      
-      console.log('GPU Precision:', highPrecision.precision, 'bits - Using', useMobileShader ? 'mobile' : 'desktop', 'shader');
-      
       const vertexShaderSource = await loadShader('/shaders/tau5-loading.vert');
-      const fragmentShaderPath = useMobileShader ? 
-        '/shaders/tau5-loading-mobile.frag' : 
-        '/shaders/tau5-loading.frag';
-      const fragmentShaderSource = await loadShader(fragmentShaderPath);
+      const fragmentShaderSource = await loadShader('/shaders/tau5-loading.frag');
       
       if (!vertexShaderSource || !fragmentShaderSource) {
         document.getElementById('info').textContent = 'Failed to load shaders';
