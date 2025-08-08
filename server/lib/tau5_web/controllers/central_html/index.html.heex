@@ -40,11 +40,113 @@
     #logo-img {
       display: none;
     }
+    
+    .cta-button {
+      position: fixed;
+      bottom: 140px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      opacity: 0;
+      animation: fadeIn 0.8s ease-out forwards;
+      animation-delay: 3s;
+    }
+    
+    .cta-button a {
+      display: inline-block;
+      padding: 20px 48px;
+      color: #ffffff;
+      background: rgba(0, 0, 0, 0.9);
+      text-decoration: none;
+      font-family: 'Courier New', monospace;
+      font-size: 22px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      position: relative;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      border: 3px solid transparent;
+      text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+    }
+    
+    .cta-button a:hover {
+      color: #00ff88;
+      text-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+      transform: scale(1.05);
+      background: rgba(0, 0, 0, 0.95);
+    }
+    
+    .cta-button a::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      background: conic-gradient(
+        from var(--angle),
+        #ff00ff 0deg,
+        #00ffff 120deg,
+        #00ff88 240deg,
+        #ff00ff 360deg
+      );
+      border-radius: 4px;
+      z-index: -1;
+      animation: rotate 3s linear infinite;
+      padding: 4px;
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+    }
+    
+    .cta-button a::after {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      background: conic-gradient(
+        from var(--angle),
+        #ff00ff 0deg,
+        #00ffff 120deg,
+        #00ff88 240deg,
+        #ff00ff 360deg
+      );
+      border-radius: 4px;
+      z-index: -2;
+      filter: blur(15px);
+      opacity: 0.4;
+      animation: rotate 3s linear infinite;
+    }
+    
+    @property --angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+    
+    @keyframes rotate {
+      from {
+        --angle: 0deg;
+      }
+      to {
+        --angle: 360deg;
+      }
+    }
+    
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
   <img id="logo-img" src="/images/tau5-bw-hirez.png" />
+  <div class="cta-button">
+    <a href="#" onclick="return false;">Discover Tau5</a>
+  </div>
   <div id="info">tau5.live</div>
   
   <script>
@@ -62,8 +164,26 @@
         return;
       }
       
+      // Detect GPU precision to choose appropriate shader
+      const highPrecision = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
+      const mediumPrecision = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_FLOAT);
+      
+      // Use mobile shader for GPUs with less than 23 bits of precision
+      // This typically catches mid-range/older Android devices
+      const useMobileShader = highPrecision.precision < 23;
+      
+      console.log('GPU Precision:', highPrecision.precision, 'bits - Using', useMobileShader ? 'mobile' : 'desktop', 'shader');
+      
       const vertexShaderSource = await loadShader('/shaders/tau5-loading.vert');
-      const fragmentShaderSource = await loadShader('/shaders/tau5-loading.frag');
+      const fragmentShaderPath = useMobileShader ? 
+        '/shaders/tau5-loading-mobile.frag' : 
+        '/shaders/tau5-loading.frag';
+      const fragmentShaderSource = await loadShader(fragmentShaderPath);
+      
+      if (!vertexShaderSource || !fragmentShaderSource) {
+        document.getElementById('info').textContent = 'Failed to load shaders';
+        return;
+      }
       
       function compileShader(source, type) {
         const shader = gl.createShader(type);
@@ -71,7 +191,10 @@
         gl.compileShader(shader);
         
         if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-          console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
+          const error = gl.getShaderInfoLog(shader);
+          console.error('Shader compilation error:', error);
+          // Show error on screen for mobile
+          document.getElementById('info').textContent = 'Shader error: ' + error.substring(0, 100);
           gl.deleteShader(shader);
           return null;
         }
