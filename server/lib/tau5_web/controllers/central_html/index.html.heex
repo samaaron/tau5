@@ -5,6 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tau5 Live</title>
   <style>
+    @font-face {
+      font-family: 'Cascadia Code';
+      src: url('/fonts/CascadiaCodePL.woff2') format('woff2');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+    
+    @font-face {
+      font-family: 'Cascadia Code';
+      src: url('/fonts/CascadiaCodePL.woff2') format('woff2');
+      font-weight: bold;
+      font-style: normal;
+      font-display: swap;
+    }
+    
     * {
       margin: 0;
       padding: 0;
@@ -58,7 +74,7 @@
       color: #ffffff;
       background: rgba(0, 0, 0, 0.2);
       text-decoration: none;
-      font-family: 'Courier New', monospace;
+      font-family: 'Cascadia Code', 'Cascadia Mono', monospace;
       font-size: 22px;
       font-weight: bold;
       letter-spacing: 3px;
@@ -77,6 +93,23 @@
         #ff00ff 360deg
       ) 1;
       animation: rotate 3s linear infinite;
+      white-space: nowrap;
+    }
+    
+    @media (max-width: 480px) {
+      .cta-button a {
+        font-size: 18px;
+        padding: 16px 36px;
+        letter-spacing: 2px;
+      }
+    }
+    
+    @media (max-width: 360px) {
+      .cta-button a {
+        font-size: 16px;
+        padding: 14px 28px;
+        letter-spacing: 1px;
+      }
     }
     
     .cta-button a:hover {
