@@ -171,9 +171,9 @@
     document.getElementById('cta-btn').addEventListener('click', function(e) {
       e.preventDefault();
       const messages = [
-        'Initializing...',
+        'Initialising...',
         'Almost Ready...',
-        'Stay Tuned'
+        'Info Soon'
       ];
       let index = 0;
       
@@ -187,7 +187,7 @@
         } else {
           clearInterval(interval);
         }
-      }, 800);
+      }, 1200);
     });
     
     async function loadShader(url) {
