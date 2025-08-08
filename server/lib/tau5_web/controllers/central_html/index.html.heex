@@ -43,7 +43,7 @@
     
     .cta-button {
       position: fixed;
-      bottom: 140px;
+      bottom: 70px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 10;
@@ -56,7 +56,7 @@
       display: inline-block;
       padding: 20px 48px;
       color: #ffffff;
-      background: rgba(0, 0, 0, 0.9);
+      background: rgba(0, 0, 0, 0.2);
       text-decoration: none;
       font-family: 'Courier New', monospace;
       font-size: 22px;
@@ -64,54 +64,38 @@
       letter-spacing: 3px;
       position: relative;
       transition: all 0.3s ease;
-      backdrop-filter: blur(10px);
-      border: 3px solid transparent;
-      text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(20px) saturate(150%);
+      -webkit-backdrop-filter: blur(20px) saturate(150%);
+      text-shadow: 0 0 10px rgba(0, 0, 0, 0.9), 0 0 3px rgba(0, 0, 0, 0.8);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+      border: 3px solid;
+      border-image: conic-gradient(
+        from var(--angle),
+        #ff00ff 0deg,
+        #00ffff 120deg,
+        #00ff88 240deg,
+        #ff00ff 360deg
+      ) 1;
+      animation: rotate 3s linear infinite;
     }
     
     .cta-button a:hover {
-      color: #00ff88;
-      text-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
-      transform: scale(1.05);
-      background: rgba(0, 0, 0, 0.95);
-    }
-    
-    .cta-button a::before {
-      content: '';
-      position: absolute;
-      inset: -4px;
-      background: conic-gradient(
+      color: #ffffff;
+      text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 0 10px rgba(255, 255, 255, 0.5);
+      transform: scale(1.08);
+      box-shadow: 0 12px 60px 0 rgba(0, 255, 255, 0.3);
+      background: linear-gradient(
+        rgba(0, 0, 0, 0.4),
+        rgba(0, 0, 0, 0.4)
+      ),
+      conic-gradient(
         from var(--angle),
-        #ff00ff 0deg,
-        #00ffff 120deg,
-        #00ff88 240deg,
-        #ff00ff 360deg
+        rgba(255, 0, 255, 0.2) 0deg,
+        rgba(0, 255, 255, 0.2) 120deg,
+        rgba(0, 255, 136, 0.2) 240deg,
+        rgba(255, 0, 255, 0.2) 360deg
       );
-      border-radius: 4px;
-      z-index: -1;
-      animation: rotate 3s linear infinite;
-      padding: 4px;
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-    }
-    
-    .cta-button a::after {
-      content: '';
-      position: absolute;
-      inset: -8px;
-      background: conic-gradient(
-        from var(--angle),
-        #ff00ff 0deg,
-        #00ffff 120deg,
-        #00ff88 240deg,
-        #ff00ff 360deg
-      );
-      border-radius: 4px;
-      z-index: -2;
-      filter: blur(15px);
-      opacity: 0.4;
-      animation: rotate 3s linear infinite;
+      animation: rotate 1s linear infinite;
     }
     
     @property --angle {
