@@ -162,11 +162,34 @@
   <canvas id="canvas"></canvas>
   <img id="logo-img" src="/images/tau5-bw-hirez.png" />
   <div class="cta-button">
-    <a href="#" onclick="return false;">Discover Tau5</a>
+    <a href="#" id="cta-btn">Discover Tau5</a>
   </div>
   <div id="info">tau5.live</div>
   
   <script>
+    // Button click handler
+    document.getElementById('cta-btn').addEventListener('click', function(e) {
+      e.preventDefault();
+      const messages = [
+        'Initializing...',
+        'Almost Ready...',
+        'Stay Tuned'
+      ];
+      let index = 0;
+      
+      this.style.pointerEvents = 'none';
+      this.textContent = messages[index];
+      
+      const interval = setInterval(() => {
+        index++;
+        if (index < messages.length) {
+          this.textContent = messages[index];
+        } else {
+          clearInterval(interval);
+        }
+      }, 800);
+    });
+    
     async function loadShader(url) {
       const response = await fetch(url);
       return await response.text();
