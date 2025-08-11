@@ -12,6 +12,7 @@
 #include <QStringList>
 #include <QPushButton>
 #include <QPointer>
+#include <QMouseEvent>
 
 class LoadingOverlay : public QWidget
 {
@@ -46,6 +47,9 @@ private:
     void initializeGL() override;
     void resizeGL(int w, int h) override;
     void paintGL() override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
     
   private:
     QOpenGLShaderProgram *shaderProgram;
@@ -56,6 +60,15 @@ private:
     int resolutionUniform;
     int logoTextureUniform;
     int fadeUniform;
+    int cameraRotationUniform;
+    
+    // Mouse interaction state
+    bool isDragging;
+    QPoint lastMousePos;
+    float cameraPitch;     // Camera pitch (up/down)
+    float cameraYaw;       // Camera yaw (left/right)
+    float cameraVelocityX; // Camera pitch velocity
+    float cameraVelocityY; // Camera yaw velocity
     
     void createLogoTexture();
   };

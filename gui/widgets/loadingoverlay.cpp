@@ -12,6 +12,7 @@
 #include <QFile>
 #include <QTextStream>
 #include <QCoreApplication>
+#include <cmath>
 #include "../logger.h"
 #include "../styles/StyleManager.h"
 
@@ -256,6 +257,12 @@ LoadingOverlay::GLWidget::GLWidget(QWidget *parent)
     : QOpenGLWidget(parent)
     , shaderProgram(nullptr)
     , logoTexture(nullptr)
+    , isDragging(false)
+    , lastMousePos(0, 0)
+    , cameraPitch(0.0f)
+    , cameraYaw(0.0f)
+    , cameraVelocityX(0.0f)
+    , cameraVelocityY(0.0f)
 {
   QSurfaceFormat format = QSurfaceFormat::defaultFormat();
   format.setSwapInterval(1);
@@ -263,6 +270,10 @@ LoadingOverlay::GLWidget::GLWidget(QWidget *parent)
   format.setRenderableType(QSurfaceFormat::OpenGL);
   format.setProfile(QSurfaceFormat::CompatibilityProfile);
   setFormat(format);
+  
+  // Enable mouse tracking to get hover cursor changes
+  setMouseTracking(true);
+  setCursor(Qt::OpenHandCursor);
 }
 
 LoadingOverlay::GLWidget::~GLWidget()
@@ -353,6 +364,7 @@ void LoadingOverlay::GLWidget::initializeGL()
   resolutionUniform = shaderProgram->uniformLocation("resolution");
   logoTextureUniform = shaderProgram->uniformLocation("logoTexture");
   fadeUniform = shaderProgram->uniformLocation("fadeValue");
+  cameraRotationUniform = shaderProgram->uniformLocation("cameraRotation");
   
   createLogoTexture();
   
@@ -371,6 +383,23 @@ void LoadingOverlay::GLWidget::paintGL()
 {
   if (!isVisible()) {
     return;
+  }
+  
+  // Update physics when not dragging
+  if (!isDragging) {
+    // Apply inertia to camera rotation
+    cameraPitch += cameraVelocityX;
+    cameraYaw += cameraVelocityY;
+    
+    // Apply damping to camera velocity
+    const float damping = 0.985f;
+    cameraVelocityX *= damping;
+    cameraVelocityY *= damping;
+    
+    // Stop when velocity is very small
+    const float minVelocity = 0.00001f;
+    if (std::abs(cameraVelocityX) < minVelocity) cameraVelocityX = 0.0f;
+    if (std::abs(cameraVelocityY) < minVelocity) cameraVelocityY = 0.0f;
   }
   
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -393,6 +422,9 @@ void LoadingOverlay::GLWidget::paintGL()
   shaderProgram->setUniformValue(resolutionUniform, QVector2D(fbSize.width(), fbSize.height()));
   shaderProgram->setUniformValue(logoTextureUniform, 0);
   
+  // Pass camera rotation to shader
+  shaderProgram->setUniformValue(cameraRotationUniform, QVector2D(cameraPitch, cameraYaw));
+  
   LoadingOverlay* parent = qobject_cast<LoadingOverlay*>(parentWidget());
   float fadeValue = parent ? parent->getFadeToBlackValue() : 0.0f;
   shaderProgram->setUniformValue(fadeUniform, fadeValue);
@@ -414,4 +446,44 @@ void LoadingOverlay::GLWidget::paintGL()
   shaderProgram->disableAttributeArray(vertexLoc);
   
   shaderProgram->release();
+}
+
+void LoadingOverlay::GLWidget::mousePressEvent(QMouseEvent *event)
+{
+  if (event->button() == Qt::LeftButton) {
+    isDragging = true;
+    lastMousePos = event->pos();
+    cameraVelocityX = 0.0f;
+    cameraVelocityY = 0.0f;
+    setCursor(Qt::ClosedHandCursor);
+  }
+}
+
+void LoadingOverlay::GLWidget::mouseMoveEvent(QMouseEvent *event)
+{
+  if (isDragging && (event->buttons() & Qt::LeftButton)) {
+    QPoint delta = event->pos() - lastMousePos;
+    
+    // Camera rotation - perfect screen-space control
+    const float rotationSpeed = 0.01f;
+    
+    // Update camera velocities (both axes inverted for consistency with web version)
+    cameraVelocityX = -delta.y() * rotationSpeed;  // Vertical drag -> pitch (inverted)
+    cameraVelocityY = delta.x() * rotationSpeed;   // Horizontal drag -> yaw (inverted)
+    
+    // Apply camera rotations
+    cameraPitch += cameraVelocityX;
+    cameraYaw += cameraVelocityY;
+    
+    lastMousePos = event->pos();
+    update(); // Request a repaint
+  }
+}
+
+void LoadingOverlay::GLWidget::mouseReleaseEvent(QMouseEvent *event)
+{
+  if (event->button() == Qt::LeftButton) {
+    isDragging = false;
+    setCursor(Qt::OpenHandCursor);
+  }
 }

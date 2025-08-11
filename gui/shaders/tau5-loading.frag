@@ -7,6 +7,7 @@ uniform float time;
 uniform vec2 resolution;
 uniform sampler2D logoTexture;
 uniform float fadeValue;
+uniform vec2 cameraRotation; // Camera rotation angles (pitch, yaw)
 
 #define PI 3.14159265359
 
@@ -34,9 +35,8 @@ vec3 warpEffect(vec2 p, float t) {
   float clampedTime = min(t, 10.0);
   
   float warpActivation = smoothstep(0.0, 2.0, clampedTime * 0.35);
-  float accelProgress = clampedTime / 10.0;
-  float smoothAccel = smoothstep(0.0, 0.8, accelProgress);
-  float speedMultiplier = 0.5 + warpActivation * 4.0 + smoothAccel * 2.0;
+  float continuousAccel = clampedTime * 0.1;
+  float speedMultiplier = 0.5 + warpActivation * 6.5 + continuousAccel * continuousAccel * 2.5;
   
   float offset;
   if (t <= 10.0) {
@@ -58,9 +58,10 @@ vec3 warpEffect(vec2 p, float t) {
   vec3 blueColor = vec3(0.1, 0.4, 1.0);
   float centerFade = smoothstep(0.35, 0.5, centerDist);
   
-  // Mobile-compatible fixed iteration count with weight-based visibility
-  float iterationWeight = (12.0 + smoothAccel * 8.0) / 20.0;
-  float brightnessBoost = 1.0 + smoothAccel * 0.5;
+  // Fixed iterations for mobile compatibility
+  // Use weight to control visibility instead of dynamic iteration count
+  float iterationWeight = (12.0 + min(8.0, continuousAccel * 20.0)) / 20.0;
+  float brightnessBoost = 1.0 + min(1.5, continuousAccel);
   
   for(int i = 0; i < 20; i++) {
     float weight = 1.0 - step(iterationWeight * 20.0, float(i));
@@ -92,14 +93,20 @@ vec3 warpEffect(vec2 p, float t) {
 
 vec3 cubeWireframe(vec2 p, float logoMask) {
   vec3 col = vec3(0.0);
-  float rotSpeed = mix(0.05, 0.15, logoMask);
-  float t = time * rotSpeed;
-  vec3 angles = vec3(t, t * 0.7, t * 0.3);
   
+  // Mobile-compatible vertex definition
   float scale = mix(0.3, 0.35, logoMask);
   vec2 proj[8];
+  
+  // Auto-rotation (object spins slowly)
+  float rotSpeed = mix(0.05, 0.15, logoMask);
+  float t = time * rotSpeed;
+  vec3 autoRotation = vec3(t, t * 0.7, t * 0.3);
+  
+  // Define cube vertices inline for mobile compatibility
   for(int i = 0; i < 8; i++) {
     vec3 v;
+    // Manually set each vertex based on index
     if(i == 0) v = vec3(-1.0, -1.0, -1.0);
     else if(i == 1) v = vec3( 1.0, -1.0, -1.0);
     else if(i == 2) v = vec3( 1.0,  1.0, -1.0);
@@ -107,11 +114,18 @@ vec3 cubeWireframe(vec2 p, float logoMask) {
     else if(i == 4) v = vec3(-1.0, -1.0,  1.0);
     else if(i == 5) v = vec3( 1.0, -1.0,  1.0);
     else if(i == 6) v = vec3( 1.0,  1.0,  1.0);
-    else v = vec3(-1.0,  1.0,  1.0);
+    else v = vec3(-1.0,  1.0,  1.0); // i == 7
     
-    v.yz *= rot(angles.x);
-    v.xz *= rot(angles.y);
-    v.xy *= rot(angles.z);
+    // Apply auto-rotation to the cube
+    v.yz *= rot(autoRotation.x);
+    v.xz *= rot(autoRotation.y);
+    v.xy *= rot(autoRotation.z);
+    
+    // Apply camera rotation (view transform)
+    // This gives us perfect screen-space control
+    v.xz *= rot(cameraRotation.y); // Yaw (horizontal mouse movement)
+    v.yz *= rot(cameraRotation.x); // Pitch (vertical mouse movement)
+    
     proj[i] = v.xy * (2.0 / (4.0 + v.z)) * scale;
   }
   
