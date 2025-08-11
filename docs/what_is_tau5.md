@@ -92,7 +92,7 @@ _Your audience won't know you just fixed that bug, they'll just feel the flow._
 
 ### Tau5 is Open Source
 
-Tau5 is Open Source and the developers amongst you can track progress over on GitHub: [https://github.com/samaaron/tau5.](https://github.com/samaaron/tau5.) However, for at least the first year, signed pre-built releases will only be available to supporters. This means supporters get easy-to-install binaries initially for Windows and macOS with Flatpak and/or AppImage builds for Linux planned for the future.
+Tau5 is Open Source and the developers amongst you can track progress over on GitHub: [https://github.com/samaaron/tau5].(https://github.com/samaaron/tau5) However, for at least the first year, signed pre-built releases will only be available to supporters. This means supporters get easy-to-install binaries initially for Windows and macOS with Flatpak and/or AppImage builds for Linux planned for the future.
 
 _The full source is always open for those who want to build from scratch._
 
