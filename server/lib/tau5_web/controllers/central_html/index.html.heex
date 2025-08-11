@@ -1,427 +1,427 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tau5 Live</title>
-  <style>
-    @font-face {
-      font-family: 'Cascadia Code';
-      src: url('/fonts/CascadiaCodePL.woff2') format('woff2');
-      font-weight: normal;
-      font-style: normal;
-      font-display: swap;
-    }
-    
-    @font-face {
-      font-family: 'Cascadia Code';
-      src: url('/fonts/CascadiaCodePL.woff2') format('woff2');
-      font-weight: bold;
-      font-style: normal;
-      font-display: swap;
-    }
-    
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      overflow: hidden;
-      background: #000;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    }
-    
-    #canvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: #000;
-    }
-    
-    #info {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 14px;
-      text-align: center;
-      z-index: 10;
-      text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-    }
-    
-    #logo-img {
-      display: none;
-    }
-    
-    .cta-button {
-      position: fixed;
-      bottom: 70px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      opacity: 0;
-      animation: fadeIn 0.8s ease-out forwards;
-      animation-delay: 3s;
-    }
-    
-    .cta-button a {
-      display: inline-block;
-      padding: 20px 48px;
-      color: #ffffff;
-      background: rgba(0, 0, 0, 0.2);
-      text-decoration: none;
-      font-family: 'Cascadia Code', 'Cascadia Mono', monospace;
-      font-size: 22px;
-      font-weight: bold;
-      letter-spacing: 3px;
-      position: relative;
-      transition: all 0.3s ease;
-      backdrop-filter: blur(20px) saturate(150%);
-      -webkit-backdrop-filter: blur(20px) saturate(150%);
-      text-shadow: 0 0 10px rgba(0, 0, 0, 0.9), 0 0 3px rgba(0, 0, 0, 0.8);
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
-      border: 3px solid;
-      border-image: conic-gradient(
-        from var(--angle),
-        #ff00ff 0deg,
-        #00ffff 120deg,
-        #00ff88 240deg,
-        #ff00ff 360deg
-      ) 1;
-      animation: rotate 3s linear infinite;
-      white-space: nowrap;
-    }
-    
-    @media (max-width: 480px) {
-      .cta-button a {
-        font-size: 18px;
-        padding: 16px 36px;
-        letter-spacing: 2px;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tau5 Live</title>
+    <style>
+      @font-face {
+        font-family: 'Cascadia Code';
+        src: url('/fonts/CascadiaCodePL.woff2') format('woff2');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
       }
-    }
-    
-    @media (max-width: 360px) {
-      .cta-button a {
-        font-size: 16px;
-        padding: 14px 28px;
-        letter-spacing: 1px;
+
+      @font-face {
+        font-family: 'Cascadia Code';
+        src: url('/fonts/CascadiaCodePL.woff2') format('woff2');
+        font-weight: bold;
+        font-style: normal;
+        font-display: swap;
       }
-    }
-    
-    .cta-button a:hover {
-      color: #ffffff;
-      text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 0 10px rgba(255, 255, 255, 0.5);
-      transform: scale(1.08);
-      box-shadow: 0 12px 60px 0 rgba(0, 255, 255, 0.3);
-      background: linear-gradient(
-        rgba(0, 0, 0, 0.4),
-        rgba(0, 0, 0, 0.4)
-      ),
-      conic-gradient(
-        from var(--angle),
-        rgba(255, 0, 255, 0.2) 0deg,
-        rgba(0, 255, 255, 0.2) 120deg,
-        rgba(0, 255, 136, 0.2) 240deg,
-        rgba(255, 0, 255, 0.2) 360deg
-      );
-      animation: rotate 1s linear infinite;
-    }
-    
-    @property --angle {
-      syntax: '<angle>';
-      initial-value: 0deg;
-      inherits: false;
-    }
-    
-    @keyframes rotate {
-      from {
-        --angle: 0deg;
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
-      to {
-        --angle: 360deg;
+
+      body {
+        overflow: hidden;
+        background: #000;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       }
-    }
-    
-    @keyframes fadeIn {
-      from {
+
+      #canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+      }
+
+      #info {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 14px;
+        text-align: center;
+        z-index: 10;
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      }
+
+      #logo-img {
+        display: none;
+      }
+
+      .cta-button {
+        position: fixed;
+        bottom: 70px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
         opacity: 0;
-        transform: translateX(-50%) translateY(20px);
+        animation: fadeIn 0.8s ease-out forwards;
+        animation-delay: 3s;
       }
-      to {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
+
+      .cta-button a {
+        display: inline-block;
+        padding: 20px 48px;
+        color: #ffffff;
+        background: rgba(0, 0, 0, 0.2);
+        text-decoration: none;
+        font-family: 'Cascadia Code', 'Cascadia Mono', monospace;
+        font-size: 22px;
+        font-weight: bold;
+        letter-spacing: 3px;
+        position: relative;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(20px) saturate(150%);
+        -webkit-backdrop-filter: blur(20px) saturate(150%);
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.9), 0 0 3px rgba(0, 0, 0, 0.8);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+        border: 3px solid;
+        border-image: conic-gradient(
+          from var(--angle),
+          #ff00ff 0deg,
+          #00ffff 120deg,
+          #00ff88 240deg,
+          #ff00ff 360deg
+        ) 1;
+        animation: rotate 3s linear infinite;
+        white-space: nowrap;
       }
-    }
-  </style>
-</head>
-<body>
-  <canvas id="canvas"></canvas>
-  <img id="logo-img" src="/images/tau5-bw-hirez.png" />
-  <div class="cta-button">
-    <a href="#" id="cta-btn">Discover Tau5</a>
-  </div>
-  <div id="info">tau5.live</div>
-  
-  <script>
-    // Button click handler
-    document.getElementById('cta-btn').addEventListener('click', function(e) {
-      e.preventDefault();
-      const messages = [
-        'Initialising...',
-        'Almost Ready...',
-        'Info Soon'
-      ];
-      let index = 0;
-      
-      this.style.pointerEvents = 'none';
-      this.textContent = messages[index];
-      
-      const interval = setInterval(() => {
-        index++;
-        if (index < messages.length) {
-          this.textContent = messages[index];
-        } else {
-          clearInterval(interval);
+
+      @media (max-width: 480px) {
+        .cta-button a {
+          font-size: 18px;
+          padding: 16px 36px;
+          letter-spacing: 2px;
         }
-      }, 1200);
-    });
-    
-    async function loadShader(url) {
-      const response = await fetch(url);
-      return await response.text();
-    }
-    
-    async function init() {
-      const canvas = document.getElementById('canvas');
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      
-      if (!gl) {
-        document.getElementById('info').textContent = 'WebGL not supported';
-        return;
       }
-      
-      const vertexShaderSource = await loadShader('/shaders/tau5-loading.vert');
-      const fragmentShaderSource = await loadShader('/shaders/tau5-loading.frag');
-      
-      if (!vertexShaderSource || !fragmentShaderSource) {
-        document.getElementById('info').textContent = 'Failed to load shaders';
-        return;
-      }
-      
-      function compileShader(source, type) {
-        const shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-          const error = gl.getShaderInfoLog(shader);
-          console.error('Shader compilation error:', error);
-          // Show error on screen for mobile
-          document.getElementById('info').textContent = 'Shader error: ' + error.substring(0, 100);
-          gl.deleteShader(shader);
-          return null;
+
+      @media (max-width: 360px) {
+        .cta-button a {
+          font-size: 16px;
+          padding: 14px 28px;
+          letter-spacing: 1px;
         }
-        return shader;
       }
-      
-      const vertexShader = compileShader(vertexShaderSource, gl.VERTEX_SHADER);
-      const fragmentShader = compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER);
-      
-      // Create program
-      const program = gl.createProgram();
-      gl.attachShader(program, vertexShader);
-      gl.attachShader(program, fragmentShader);
-      gl.linkProgram(program);
-      
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        console.error('Program linking error:', gl.getProgramInfoLog(program));
+
+      .cta-button a:hover {
+        color: #ffffff;
+        text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 0 10px rgba(255, 255, 255, 0.5);
+        transform: scale(1.08);
+        box-shadow: 0 12px 60px 0 rgba(0, 255, 255, 0.3);
+        background: linear-gradient(
+          rgba(0, 0, 0, 0.4),
+          rgba(0, 0, 0, 0.4)
+        ),
+        conic-gradient(
+          from var(--angle),
+          rgba(255, 0, 255, 0.2) 0deg,
+          rgba(0, 255, 255, 0.2) 120deg,
+          rgba(0, 255, 136, 0.2) 240deg,
+          rgba(255, 0, 255, 0.2) 360deg
+        );
+        animation: rotate 1s linear infinite;
       }
-      
-      gl.useProgram(program);
-      
-      // Set up geometry
-      const vertices = new Float32Array([
-        -1, -1,
-         1, -1,
-        -1,  1,
-         1,  1
-      ]);
-      
-      const buffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-      
-      const aPos = gl.getAttribLocation(program, 'aPos');
-      gl.enableVertexAttribArray(aPos);
-      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-      
-      const timeUniform = gl.getUniformLocation(program, 'time');
-      const resolutionUniform = gl.getUniformLocation(program, 'resolution');
-      const logoTextureUniform = gl.getUniformLocation(program, 'logoTexture');
-      const fadeUniform = gl.getUniformLocation(program, 'fadeValue');
-      const cameraRotationUniform = gl.getUniformLocation(program, 'cameraRotation');
-      
-      const logoImg = document.getElementById('logo-img');
-      const logoTexture = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, logoTexture);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      
-      logoImg.onload = function() {
-        gl.bindTexture(gl.TEXTURE_2D, logoTexture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, logoImg);
-      };
-      
-      if (logoImg.complete) {
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, logoImg);
+
+      @property --angle {
+        syntax: '<angle>';
+        initial-value: 0deg;
+        inherits: false;
       }
-      
-      // Mouse interaction state
-      let isDragging = false;
-      let lastMouseX = 0;
-      let lastMouseY = 0;
-      let cameraVelocityX = 0;  // Camera pitch velocity
-      let cameraVelocityY = 0;  // Camera yaw velocity
-      let cameraPitch = 0;      // Camera pitch (up/down)
-      let cameraYaw = 0;        // Camera yaw (left/right)
-      const damping = 0.985; // Inertia damping factor (higher = longer spin)
-      const minVelocity = 0.00001; // Minimum velocity threshold
-      
-      // Set up mouse and touch event listeners
-      function setupMouseEvents() {
-        // Helper to get position from mouse or touch event
-        function getEventPosition(e) {
-          if (e.touches && e.touches.length > 0) {
-            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+
+      @keyframes rotate {
+        from {
+          --angle: 0deg;
+        }
+        to {
+          --angle: 360deg;
+        }
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateX(-50%) translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <img id="logo-img" src="/images/tau5-bw-hirez.png" />
+    <div class="cta-button">
+      <a href="#" id="cta-btn">Discover Tau5</a>
+    </div>
+    <div id="info">tau5.live</div>
+
+    <script>
+      // Button click handler
+      document.getElementById('cta-btn').addEventListener('click', function(e) {
+        e.preventDefault();
+        const messages = [
+          'Initialising...',
+          'Almost Ready...',
+          'Info Soon'
+        ];
+        let index = 0;
+
+        this.style.pointerEvents = 'none';
+        this.textContent = messages[index];
+
+        const interval = setInterval(() => {
+          index++;
+          if (index < messages.length) {
+            this.textContent = messages[index];
+          } else {
+            clearInterval(interval);
           }
-          return { x: e.clientX, y: e.clientY };
+        }, 1200);
+      });
+
+      async function loadShader(url) {
+        const response = await fetch(url);
+        return await response.text();
+      }
+
+      async function init() {
+        const canvas = document.getElementById('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+        if (!gl) {
+          document.getElementById('info').textContent = 'WebGL not supported';
+          return;
         }
-        
-        // Start dragging (mouse or touch)
-        function startDrag(e) {
-          e.preventDefault();
-          isDragging = true;
-          const pos = getEventPosition(e);
-          lastMouseX = pos.x;
-          lastMouseY = pos.y;
-          cameraVelocityX = 0;
-          cameraVelocityY = 0;
-          canvas.style.cursor = 'grabbing';
+
+        const vertexShaderSource = await loadShader('/shaders/tau5-loading.vert');
+        const fragmentShaderSource = await loadShader('/shaders/tau5-loading.frag');
+
+        if (!vertexShaderSource || !fragmentShaderSource) {
+          document.getElementById('info').textContent = 'Failed to load shaders';
+          return;
         }
-        
-        // Move while dragging (mouse or touch)
-        function moveDrag(e) {
-          if (!isDragging) return;
-          e.preventDefault();
-          
-          const pos = getEventPosition(e);
-          const deltaX = pos.x - lastMouseX;
-          const deltaY = pos.y - lastMouseY;
-          
-          // Camera rotation - perfect screen-space control
-          const rotationSpeed = 0.01;
-          
-          // Update camera velocities (both axes inverted)
-          cameraVelocityX = -deltaY * rotationSpeed;  // Vertical drag -> pitch (inverted)
-          cameraVelocityY = deltaX * rotationSpeed;   // Horizontal drag -> yaw (inverted)
-          
-          // Apply camera rotations
-          cameraPitch += cameraVelocityX;
-          cameraYaw += cameraVelocityY;
-          
-          lastMouseX = pos.x;
-          lastMouseY = pos.y;
+
+        function compileShader(source, type) {
+          const shader = gl.createShader(type);
+          gl.shaderSource(shader, source);
+          gl.compileShader(shader);
+
+          if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            const error = gl.getShaderInfoLog(shader);
+            console.error('Shader compilation error:', error);
+            // Show error on screen for mobile
+            document.getElementById('info').textContent = 'Shader error: ' + error.substring(0, 100);
+            gl.deleteShader(shader);
+            return null;
+          }
+          return shader;
         }
-        
-        // Stop dragging (mouse or touch)
-        function endDrag(e) {
-          isDragging = false;
+
+        const vertexShader = compileShader(vertexShaderSource, gl.VERTEX_SHADER);
+        const fragmentShader = compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER);
+
+        // Create program
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          console.error('Program linking error:', gl.getProgramInfoLog(program));
+        }
+
+        gl.useProgram(program);
+
+        // Set up geometry
+        const vertices = new Float32Array([
+          -1, -1,
+           1, -1,
+          -1,  1,
+           1,  1
+        ]);
+
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+        const aPos = gl.getAttribLocation(program, 'aPos');
+        gl.enableVertexAttribArray(aPos);
+        gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+        const timeUniform = gl.getUniformLocation(program, 'time');
+        const resolutionUniform = gl.getUniformLocation(program, 'resolution');
+        const logoTextureUniform = gl.getUniformLocation(program, 'logoTexture');
+        const fadeUniform = gl.getUniformLocation(program, 'fadeValue');
+        const cameraRotationUniform = gl.getUniformLocation(program, 'cameraRotation');
+
+        const logoImg = document.getElementById('logo-img');
+        const logoTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, logoTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+        logoImg.onload = function() {
+          gl.bindTexture(gl.TEXTURE_2D, logoTexture);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, logoImg);
+        };
+
+        if (logoImg.complete) {
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, logoImg);
+        }
+
+        // Mouse interaction state
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let cameraVelocityX = 0;  // Camera pitch velocity
+        let cameraVelocityY = 0;  // Camera yaw velocity
+        let cameraPitch = 0;      // Camera pitch (up/down)
+        let cameraYaw = 0;        // Camera yaw (left/right)
+        const damping = 0.985; // Inertia damping factor (higher = longer spin)
+        const minVelocity = 0.00001; // Minimum velocity threshold
+
+        // Set up mouse and touch event listeners
+        function setupMouseEvents() {
+          // Helper to get position from mouse or touch event
+          function getEventPosition(e) {
+            if (e.touches && e.touches.length > 0) {
+              return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+          }
+
+          // Start dragging (mouse or touch)
+          function startDrag(e) {
+            e.preventDefault();
+            isDragging = true;
+            const pos = getEventPosition(e);
+            lastMouseX = pos.x;
+            lastMouseY = pos.y;
+            cameraVelocityX = 0;
+            cameraVelocityY = 0;
+            canvas.style.cursor = 'grabbing';
+          }
+
+          // Move while dragging (mouse or touch)
+          function moveDrag(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+
+            const pos = getEventPosition(e);
+            const deltaX = pos.x - lastMouseX;
+            const deltaY = pos.y - lastMouseY;
+
+            // Camera rotation - perfect screen-space control
+            const rotationSpeed = 0.01;
+
+            // Update camera velocities (both axes inverted)
+            cameraVelocityX = -deltaY * rotationSpeed;  // Vertical drag -> pitch (inverted)
+            cameraVelocityY = deltaX * rotationSpeed;   // Horizontal drag -> yaw (inverted)
+
+            // Apply camera rotations
+            cameraPitch += cameraVelocityX;
+            cameraYaw += cameraVelocityY;
+
+            lastMouseX = pos.x;
+            lastMouseY = pos.y;
+          }
+
+          // Stop dragging (mouse or touch)
+          function endDrag(e) {
+            isDragging = false;
+            canvas.style.cursor = 'grab';
+          }
+
+          // Mouse events
+          canvas.addEventListener('mousedown', startDrag);
+          window.addEventListener('mousemove', moveDrag);
+          window.addEventListener('mouseup', endDrag);
+
+          // Touch events with passive: false to prevent scrolling
+          canvas.addEventListener('touchstart', startDrag, { passive: false });
+          canvas.addEventListener('touchmove', moveDrag, { passive: false });
+          canvas.addEventListener('touchend', endDrag, { passive: false });
+          canvas.addEventListener('touchcancel', endDrag, { passive: false });
+
+          // Add hover cursor for desktop
           canvas.style.cursor = 'grab';
         }
-        
-        // Mouse events
-        canvas.addEventListener('mousedown', startDrag);
-        window.addEventListener('mousemove', moveDrag);
-        window.addEventListener('mouseup', endDrag);
-        
-        // Touch events with passive: false to prevent scrolling
-        canvas.addEventListener('touchstart', startDrag, { passive: false });
-        canvas.addEventListener('touchmove', moveDrag, { passive: false });
-        canvas.addEventListener('touchend', endDrag, { passive: false });
-        canvas.addEventListener('touchcancel', endDrag, { passive: false });
-        
-        // Add hover cursor for desktop
-        canvas.style.cursor = 'grab';
-      }
-      
-      setupMouseEvents();
-      
-      function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        gl.viewport(0, 0, canvas.width, canvas.height);
-      }
-      resize();
-      window.addEventListener('resize', resize);
-      
-      const startTime = Date.now();
-      
-      function render() {
-        const time = (Date.now() - startTime) / 1000.0;
-        
-        // Update physics when not dragging
-        if (!isDragging) {
-          // Apply inertia to camera rotation
-          cameraPitch += cameraVelocityX;
-          cameraYaw += cameraVelocityY;
-          
-          // Apply damping to camera velocity
-          cameraVelocityX *= damping;
-          cameraVelocityY *= damping;
-          
-          // Stop when velocity is very small
-          if (Math.abs(cameraVelocityX) < minVelocity) cameraVelocityX = 0;
-          if (Math.abs(cameraVelocityY) < minVelocity) cameraVelocityY = 0;
+
+        setupMouseEvents();
+
+        function resize() {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+          gl.viewport(0, 0, canvas.width, canvas.height);
         }
-        
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        
-        gl.uniform1f(timeUniform, time);
-        gl.uniform2f(resolutionUniform, canvas.width, canvas.height);
-        gl.uniform1i(logoTextureUniform, 0);
-        
-        if (fadeUniform !== -1) {
-          gl.uniform1f(fadeUniform, 0.0);
+        resize();
+        window.addEventListener('resize', resize);
+
+        const startTime = Date.now();
+
+        function render() {
+          const time = (Date.now() - startTime) / 1000.0;
+
+          // Update physics when not dragging
+          if (!isDragging) {
+            // Apply inertia to camera rotation
+            cameraPitch += cameraVelocityX;
+            cameraYaw += cameraVelocityY;
+
+            // Apply damping to camera velocity
+            cameraVelocityX *= damping;
+            cameraVelocityY *= damping;
+
+            // Stop when velocity is very small
+            if (Math.abs(cameraVelocityX) < minVelocity) cameraVelocityX = 0;
+            if (Math.abs(cameraVelocityY) < minVelocity) cameraVelocityY = 0;
+          }
+
+          gl.clearColor(0, 0, 0, 1);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+
+          gl.uniform1f(timeUniform, time);
+          gl.uniform2f(resolutionUniform, canvas.width, canvas.height);
+          gl.uniform1i(logoTextureUniform, 0);
+
+          if (fadeUniform !== -1) {
+            gl.uniform1f(fadeUniform, 0.0);
+          }
+
+          // Pass camera rotation to shader
+          if (cameraRotationUniform !== -1) {
+            gl.uniform2f(cameraRotationUniform, cameraPitch, cameraYaw);
+          }
+
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, logoTexture);
+
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+          requestAnimationFrame(render);
         }
-        
-        // Pass camera rotation to shader
-        if (cameraRotationUniform !== -1) {
-          gl.uniform2f(cameraRotationUniform, cameraPitch, cameraYaw);
-        }
-        
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, logoTexture);
-        
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        
-        requestAnimationFrame(render);
+
+        render();
       }
-      
-      render();
-    }
-    
-    init().catch(err => {
-      console.error('Failed to initialize:', err);
-      document.getElementById('info').textContent = 'Failed to load shader';
-    });
-  </script>
-</body>
+
+      init().catch(err => {
+        console.error('Failed to initialize:', err);
+        document.getElementById('info').textContent = 'Failed to load shader';
+      });
+    </script>
+  </body>
 </html>
