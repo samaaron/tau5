@@ -132,11 +132,9 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
   
   glWidget->stackUnder(logContainer);
   logContainer->raise();
-  logContainer->setVisible(true);
   closeButton->raise();
   
-  appendLog("[TAU5] System initializing...");
-  appendLog("[BEAM] Starting Erlang VM...");
+  appendLog("[TAU5] System initializing...\n[BEAM] Starting Erlang VM...");
   
   fadeAnimation = new QPropertyAnimation(this, "fadeToBlackValue", this);
   fadeAnimation->setDuration(1000);
@@ -160,20 +158,15 @@ LoadingOverlay::LoadingOverlay(QWidget *parent)
   renderTimer->setTimerType(Qt::PreciseTimer);
   connect(renderTimer, &QTimer::timeout, [this]() {
     if (glWidget) {
-      QTimer::singleShot(0, glWidget, [this]() {
-        if (glWidget) {
-          glWidget->update();
-        }
-      });
+      glWidget->update();
     }
   });
-  renderTimer->start(16);
+  renderTimer->start(16);  // 60 FPS for smooth animation
   
   QTimer::singleShot(10000, [this]() {
     if (closeButton && fadeAnimation && fadeAnimation->state() != QAbstractAnimation::Running) {
       closeButton->setVisible(true);
       closeButton->raise();
-      Logger::log(Logger::Debug, "[LoadingOverlay] Close button shown after 10 seconds");
     }
   });
 }
@@ -182,16 +175,12 @@ LoadingOverlay::~LoadingOverlay()
 {
   if (renderTimer) {
     renderTimer->stop();
-    Logger::log(Logger::Debug, "[LoadingOverlay] Render timer stopped in destructor");
   }
-  
-  Logger::log(Logger::Debug, "[LoadingOverlay] Destructor completed - child widgets cleaned up");
 }
 
 void LoadingOverlay::fadeOut()
 {
   if (fadeAnimation && fadeAnimation->state() != QAbstractAnimation::Running) {
-    Logger::log(Logger::Debug, "[LoadingOverlay] Starting fade out");
     
     raise();
     activateWindow();
@@ -200,10 +189,7 @@ void LoadingOverlay::fadeOut()
       closeButton->setVisible(false);
     }
     
-    {
-      QMutexLocker locker(&logMutex);
-      logLines.clear();
-    }
+    // Log lines will be hidden by fade anyway
     
     fadeAnimation->start();
   }
@@ -231,9 +217,6 @@ void LoadingOverlay::resizeEvent(QResizeEvent *event)
     int x = width() - logWidth - 20;
     int y = height() - logHeight - 20;
     logContainer->setGeometry(x, y, logWidth, logHeight);
-    
-    Logger::log(Logger::Debug, QString("[LoadingOverlay] Log container positioned at %1,%2 size %3x%4")
-                .arg(x).arg(y).arg(logWidth).arg(logHeight));
   }
   
   if (closeButton) {
@@ -260,15 +243,6 @@ void LoadingOverlay::appendLog(const QString &message)
   
   QString logText = logLines.join("\n");
   logWidget->setPlainText(logText);
-  logWidget->raise();
-  logWidget->setVisible(true);
-  logWidget->update(); // Force repaint
-  
-  Logger::log(Logger::Debug, QString("[LoadingOverlay] Log widget visible: %1, geometry: %2x%3, parent visible: %4")
-              .arg(logWidget->isVisible())
-              .arg(logWidget->width())
-              .arg(logWidget->height())
-              .arg(isVisible()));
   
   QScrollBar *sb = logWidget->verticalScrollBar();
   if (sb) {
@@ -282,7 +256,6 @@ LoadingOverlay::GLWidget::GLWidget(QWidget *parent)
     : QOpenGLWidget(parent)
     , shaderProgram(nullptr)
     , logoTexture(nullptr)
-    , lastFrameTime(0.0f)
 {
   QSurfaceFormat format = QSurfaceFormat::defaultFormat();
   format.setSwapInterval(1);
@@ -290,22 +263,25 @@ LoadingOverlay::GLWidget::GLWidget(QWidget *parent)
   format.setRenderableType(QSurfaceFormat::OpenGL);
   format.setProfile(QSurfaceFormat::CompatibilityProfile);
   setFormat(format);
-  
-  QSurfaceFormat::setDefaultFormat(format);
 }
 
 LoadingOverlay::GLWidget::~GLWidget()
 {
-  makeCurrent();
-  delete shaderProgram;
-  delete logoTexture;
-  doneCurrent();
+  if (context() && context()->isValid()) {
+    makeCurrent();
+    delete shaderProgram;
+    delete logoTexture;
+    doneCurrent();
+  }
 }
 
 void LoadingOverlay::GLWidget::createLogoTexture()
 {
+  makeCurrent();
+  
   if (logoTexture) {
     delete logoTexture;
+    logoTexture = nullptr;
   }
   
   QImage logoImage(":/images/tau5-bw-hirez.png");
@@ -319,6 +295,8 @@ void LoadingOverlay::GLWidget::createLogoTexture()
   logoTexture->setMinificationFilter(QOpenGLTexture::Linear);
   logoTexture->setMagnificationFilter(QOpenGLTexture::Linear);
   logoTexture->setWrapMode(QOpenGLTexture::ClampToEdge);
+  
+  doneCurrent();
 }
 
 void LoadingOverlay::GLWidget::initializeGL()
@@ -354,13 +332,20 @@ void LoadingOverlay::GLWidget::initializeGL()
   Logger::log(Logger::Debug, "[LoadingOverlay] Loaded fragment shader from file");
   
   shaderProgram = new QOpenGLShaderProgram(this);
-  if (!shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource.toUtf8().constData())) {
-    Logger::log(Logger::Error, QString("[LoadingOverlay] Vertex shader error: %1").arg(shaderProgram->log()));
-  }
-  if (!shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource.toUtf8().constData())) {
-    Logger::log(Logger::Error, QString("[LoadingOverlay] Fragment shader error: %1").arg(shaderProgram->log()));
-  }
-  if (!shaderProgram->link()) {
+  
+  auto addShader = [this](QOpenGLShader::ShaderType type, const QString& source, const char* name) {
+    if (!shaderProgram->addShaderFromSourceCode(type, source.toUtf8().constData())) {
+      Logger::log(Logger::Error, QString("[LoadingOverlay] %1 shader error: %2")
+                  .arg(name).arg(shaderProgram->log()));
+      return false;
+    }
+    return true;
+  };
+  
+  bool vertexOk = addShader(QOpenGLShader::Vertex, vertexShaderSource, "Vertex");
+  bool fragmentOk = addShader(QOpenGLShader::Fragment, fragmentShaderSource, "Fragment");
+  
+  if (vertexOk && fragmentOk && !shaderProgram->link()) {
     Logger::log(Logger::Error, QString("[LoadingOverlay] Shader link error: %1").arg(shaderProgram->log()));
   }
   
@@ -402,10 +387,7 @@ void LoadingOverlay::GLWidget::paintGL()
   
   float currentTime = timer.elapsed() / 1000.0f;
   
-  float frameTime = frameTimer.restart() / 1000.0f;
-  if (frameTime > 0.05f) {
-    frameTime = 0.016f;
-  }
+  frameTimer.restart();  // Just restart for next frame
   
   shaderProgram->setUniformValue(timeUniform, currentTime);
   shaderProgram->setUniformValue(resolutionUniform, QVector2D(fbSize.width(), fbSize.height()));

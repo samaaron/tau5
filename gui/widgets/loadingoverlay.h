@@ -11,6 +11,7 @@
 #include <QMutex>
 #include <QStringList>
 #include <QPushButton>
+#include <QPointer>
 
 class LoadingOverlay : public QWidget
 {
@@ -50,8 +51,7 @@ private:
     QOpenGLShaderProgram *shaderProgram;
     QOpenGLTexture *logoTexture;
     QElapsedTimer timer;
-    QElapsedTimer frameTimer;  // For frame-independent animation
-    float lastFrameTime;
+    QElapsedTimer frameTimer;
     int timeUniform;
     int resolutionUniform;
     int logoTextureUniform;
@@ -61,7 +61,7 @@ private:
   };
 
 private:
-  GLWidget *glWidget;
+  QPointer<GLWidget> glWidget;
   QWidget *logContainer;
   QTextEdit *logWidget;
   QPushButton *closeButton;

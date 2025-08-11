@@ -1,5 +1,3 @@
-// Tau5 Loading Screen Fragment Shader
-
 #ifdef GL_ES
 precision mediump float;
 precision mediump int;
@@ -36,8 +34,9 @@ vec3 warpEffect(vec2 p, float t) {
   float clampedTime = min(t, 10.0);
   
   float warpActivation = smoothstep(0.0, 2.0, clampedTime * 0.35);
-  float continuousAccel = clampedTime * 0.1;
-  float speedMultiplier = 0.5 + warpActivation * 6.5 + continuousAccel * continuousAccel * 2.5;
+  float accelProgress = clampedTime / 10.0;
+  float smoothAccel = smoothstep(0.0, 0.8, accelProgress);
+  float speedMultiplier = 0.5 + warpActivation * 4.0 + smoothAccel * 2.0;
   
   float offset;
   if (t <= 10.0) {
@@ -59,31 +58,21 @@ vec3 warpEffect(vec2 p, float t) {
   vec3 blueColor = vec3(0.1, 0.4, 1.0);
   float centerFade = smoothstep(0.35, 0.5, centerDist);
   
-  // Fixed iterations for mobile compatibility
-  // Use weight to control visibility instead of dynamic iteration count
-  float iterationWeight = (12.0 + min(8.0, continuousAccel * 20.0)) / 20.0;
-  float brightnessBoost = 1.0 + min(1.5, continuousAccel);
+  // Mobile-compatible fixed iteration count with weight-based visibility
+  float iterationWeight = (12.0 + smoothAccel * 8.0) / 20.0;
+  float brightnessBoost = 1.0 + smoothAccel * 0.5;
   
   for(int i = 0; i < 20; i++) {
-    // Control visibility with weight instead of breaking
     float weight = 1.0 - step(iterationWeight * 20.0, float(i));
-    
-    // Separate floor and fract calculations for better precision
     vec2 posFloor = floor(pos.xy);
     vec2 posFract = pos.xy - posFloor;
     
     float z = hash(posFloor);
     z = fract(z - offset);
     float d = 30.0 * z - pos.z;
-    
-    // Check if star is in range (avoid continue statement for compatibility)
     float inRange = 1.0 - step(1.0, step(31.0, d) + step(d, -1.0));
-    
-    // Star shape calculation with explicit fract calculation
     float starDist = max(0.0, 1.0 - 8.0 * length(posFract - 0.5));
     float w = starDist * starDist;
-    
-    // Color streaks with proper RGB separation for motion blur effect
     vec3 c = max(vec3(0.0), vec3(
       1.0 - abs(d + speed2 * 0.5) / speed,
       1.0 - abs(d) / speed,
@@ -107,14 +96,10 @@ vec3 cubeWireframe(vec2 p, float logoMask) {
   float t = time * rotSpeed;
   vec3 angles = vec3(t, t * 0.7, t * 0.3);
   
-  // Mobile-compatible vertex definition
   float scale = mix(0.3, 0.35, logoMask);
   vec2 proj[8];
-  
-  // Define cube vertices inline for mobile compatibility
   for(int i = 0; i < 8; i++) {
     vec3 v;
-    // Manually set each vertex based on index
     if(i == 0) v = vec3(-1.0, -1.0, -1.0);
     else if(i == 1) v = vec3( 1.0, -1.0, -1.0);
     else if(i == 2) v = vec3( 1.0,  1.0, -1.0);
@@ -122,7 +107,7 @@ vec3 cubeWireframe(vec2 p, float logoMask) {
     else if(i == 4) v = vec3(-1.0, -1.0,  1.0);
     else if(i == 5) v = vec3( 1.0, -1.0,  1.0);
     else if(i == 6) v = vec3( 1.0,  1.0,  1.0);
-    else v = vec3(-1.0,  1.0,  1.0); // i == 7
+    else v = vec3(-1.0,  1.0,  1.0);
     
     v.yz *= rot(angles.x);
     v.xz *= rot(angles.y);
@@ -159,22 +144,15 @@ void main() {
   col += vec3(0.05, 0.02, 0.1) * (1.0 - smoothstep(0.0, 1.5, length(p))) * 0.3;
   
   vec2 logoUV = p + 0.5;
-  // Flip Y coordinate for WebGL (OpenGL and WebGL have opposite Y axes)
   #ifdef GL_ES
-  logoUV.y = 1.0 - logoUV.y;
+  logoUV.y = 1.0 - logoUV.y;  // WebGL has opposite Y axis
   #endif
-  // Sample texture unconditionally to avoid dynamic texture sampling
   vec4 logoColor = texture2D(logoTexture, logoUV);
   float lum = dot(logoColor.rgb, vec3(0.299, 0.587, 0.114));
-  
-  // Check if we're in valid UV range
   float validUV = step(0.0, logoUV.x) * step(logoUV.x, 1.0) * step(0.0, logoUV.y) * step(logoUV.y, 1.0);
-  
-  // Calculate logo mask without ternary operator
   float logoMask = validUV * step(0.5, logoColor.a) * (1.0 - step(0.5, lum));
   
   col += cubeWireframe(p, logoMask);
-  // Invert colors based on logo mask without if statement
   col = mix(col, 1.0 - col, step(0.5, logoMask));
   col *= 1.0 + length(p) * 0.7;
   
