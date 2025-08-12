@@ -138,6 +138,7 @@ defmodule Tau5Web.ConsoleLive do
             value={@current_input}
             phx-keydown="handle_keydown"
             phx-change="update_input"
+            phx-hook="ConsoleInput"
             class="tau5-terminal-input"
             autocomplete="off"
             autofocus
