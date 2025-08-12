@@ -171,17 +171,69 @@ let Hooks = {
 
   ConsoleInput: {
     mounted() {
+      this.el.focus();
+      
+      if (this.el.tagName === 'TEXTAREA') {
+        const len = this.el.value.length;
+        this.el.setSelectionRange(len, len);
+      }
+      
       this.handleEvent("update_input_value", ({value}) => {
         this.el.value = value;
+        this.el.focus();
+      });
+      
+      this.handleEvent("focus_input", () => {
+        setTimeout(() => {
+          this.el.focus();
+          if (this.el.tagName === 'TEXTAREA') {
+            const len = this.el.value.length;
+            this.el.setSelectionRange(len, len);
+          }
+        }, 0);
       });
 
       this.killRing = "";
       
       this.handleKeydown = (e) => {
+        if (e.key === 'Enter') {
+          if (e.altKey) {
+            e.preventDefault();
+            this.pushEvent("handle_keydown", {key: "force_execute"});
+            return;
+          }
+          
+          if (this.el.tagName === 'INPUT') {
+            return;
+          }
+          
+          if (!e.shiftKey) {
+            e.preventDefault();
+            const start = this.el.selectionStart;
+            const end = this.el.selectionEnd;
+            const value = this.el.value;
+            
+            this.el.value = value.slice(0, start) + '\n' + value.slice(end);
+            const newPos = start + 1;
+            this.el.setSelectionRange(newPos, newPos);
+            
+            this.el.dispatchEvent(new Event('input', { bubbles: true }));
+            
+            setTimeout(() => this.el.form.requestSubmit(), 0);
+            
+            return;
+          }
+        }
+        
+        if (e.ctrlKey && e.key === 'j') {
+          e.preventDefault();
+          this.pushEvent("handle_keydown", {key: "insert_newline"});
+          return;
+        }
+        
         if (!e.ctrlKey && !e.altKey) return;
         
         const {value, selectionStart: pos, selectionEnd: end} = this.el;
-        const hasSelection = pos !== end;
         
         const handlers = {
           ctrl: {
@@ -202,7 +254,10 @@ let Hooks = {
                 pos + this.killRing.length
               );
             },
-            g: () => this.updateInput("", 0),
+            g: () => {
+              this.pushEvent("handle_keydown", {key: "cancel_multiline"});
+              this.updateInput("", 0);
+            },
             d: () => {
               if (pos < value.length) {
                 this.updateInput(value.slice(0, pos) + value.slice(pos + 1), pos);

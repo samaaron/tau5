@@ -15,8 +15,8 @@ defmodule Tau5Web.ConsoleLive do
        |> assign(:command_history, [])
        |> assign(:history_index, -1)
        |> assign(:current_input, "")
-       |> assign(:prompt, "tau5(1)> ")
-       |> assign(:counter, 1)}
+       |> assign(:multiline_mode, false)
+       |> assign(:prompt, "tau5> ")}
     else
       {:ok,
        socket
@@ -25,8 +25,8 @@ defmodule Tau5Web.ConsoleLive do
        |> assign(:command_history, [])
        |> assign(:history_index, -1)
        |> assign(:current_input, "")
-       |> assign(:prompt, "tau5(1)> ")
-       |> assign(:counter, 1)}
+       |> assign(:multiline_mode, false)
+       |> assign(:prompt, "tau5> ")}
     end
   end
 
@@ -120,6 +120,18 @@ defmodule Tau5Web.ConsoleLive do
     """
   end
 
+  defp code_complete?(code) do
+    try do
+      case Code.string_to_quoted(code) do
+        {:ok, _} -> true
+        {:error, {_line, _message, _token}} -> false
+      end
+    rescue
+      _ -> false
+    end
+  end
+
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -131,8 +143,23 @@ defmodule Tau5Web.ConsoleLive do
       
       <div class="tau5-input-line">
         <span class="tau5-prompt">{@prompt}</span>
-        <form phx-submit="execute_command" class="flex flex-1">
+        <form phx-submit="execute_command" class="flex-1">
+          <textarea
+            :if={@multiline_mode}
+            name="command"
+            phx-keydown="handle_keydown"
+            phx-change="update_input"
+            phx-hook="ConsoleInput"
+            phx-mounted={JS.focus()}
+            class="tau5-terminal-input"
+            autocomplete="off"
+            autofocus
+            spellcheck="false"
+            id="terminal-input"
+            rows={max(2, length(String.split(@current_input, "\n")))}
+          >{@current_input}</textarea>
           <input
+            :if={!@multiline_mode}
             type="text"
             name="command"
             value={@current_input}
@@ -152,77 +179,158 @@ defmodule Tau5Web.ConsoleLive do
   end
 
   @impl true
-  def handle_event("execute_command", %{"command" => command}, socket) do
-    if String.trim(command) != "" do
-      history = [command | socket.assigns.command_history] |> Enum.take(100)
-
-      escaped_command = command |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
-
-      output =
-        socket.assigns.terminal_output <>
-          ~s(<span class="tau5-prompt">#{socket.assigns.prompt}</span>) <>
-          escaped_command <> "\n"
-
-      if evaluator = socket.assigns[:evaluator] do
-        send(evaluator, {:eval, self(), command})
-      end
-
-      {:noreply,
-       socket
-       |> assign(terminal_output: output)
-       |> assign(command_history: history)
-       |> assign(history_index: -1)
-       |> assign(current_input: "")}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  @impl true
   def handle_event("update_input", %{"command" => input}, socket) do
     {:noreply, assign(socket, current_input: input)}
   end
 
   @impl true
-  def handle_event("handle_keydown", %{"key" => "ArrowUp"}, socket) do
-    history = socket.assigns.command_history
-    current_index = socket.assigns.history_index
-
-    if length(history) > 0 do
-      new_index = min(current_index + 1, length(history) - 1)
-      command = Enum.at(history, new_index, "")
-
-      {:noreply,
-       socket
-       |> assign(history_index: new_index)
-       |> assign(current_input: command)
-       |> push_event("update_input_value", %{value: command})}
-    else
-      {:noreply, socket}
+  def handle_event("execute_command", %{"command" => command}, socket) do
+    cond do
+      String.trim(command) == "" and not socket.assigns.multiline_mode ->
+        {:noreply, socket}
+      
+      socket.assigns.multiline_mode ->
+        cond do
+          String.ends_with?(command, "\n\n") ->
+            execute_code(socket, String.trim_trailing(command))
+          
+          String.ends_with?(command, "\n") and code_complete?(String.trim_trailing(command)) ->
+            execute_code(socket, String.trim_trailing(command))
+          
+          true ->
+            {:noreply, socket}
+        end
+      
+      true ->
+        if code_complete?(command) do
+          execute_code(socket, command)
+        else
+          enter_multiline_mode(socket, command)
+        end
     end
+  end
+  
+  defp enter_multiline_mode(socket, initial_line) do
+    {:noreply,
+     socket
+     |> assign(multiline_mode: true)
+     |> assign(current_input: initial_line <> "\n")
+     |> push_event("focus_input", %{})}
+  end
+  
+  defp execute_code(socket, code) do
+    history = 
+      if String.trim(code) != "" do
+        [code | socket.assigns.command_history] |> Enum.take(100)
+      else
+        socket.assigns.command_history
+      end
+    
+    output = 
+      if socket.assigns.multiline_mode do
+        lines = String.split(code, "\n")
+        
+        formatted_output = lines
+        |> Enum.with_index()
+        |> Enum.map_join("\n", fn {line, idx} ->
+          escaped = line |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+          prompt = if idx == 0, do: socket.assigns.prompt, else: "      "
+          ~s(<span class="tau5-prompt">#{prompt}</span>#{escaped})
+        end)
+        
+        socket.assigns.terminal_output <> formatted_output <> "\n"
+      else
+        escaped_code = code |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+        socket.assigns.terminal_output <>
+        ~s(<span class="tau5-prompt">#{socket.assigns.prompt}</span>) <>
+        escaped_code <> "\n"
+      end
+    
+    if evaluator = socket.assigns[:evaluator] do
+      send(evaluator, {:eval, self(), code})
+    end
+    
+    {:noreply,
+     socket
+     |> assign(terminal_output: output)
+     |> assign(command_history: history)
+     |> assign(history_index: -1)
+     |> assign(current_input: "")
+     |> assign(multiline_mode: false)}
+  end
+
+  @impl true
+  def handle_event("handle_keydown", %{"key" => "ArrowUp"}, socket) do
+    navigate_history(socket, :up)
   end
 
   @impl true
   def handle_event("handle_keydown", %{"key" => "ArrowDown"}, socket) do
+    navigate_history(socket, :down)
+  end
+  
+  defp navigate_history(socket, direction) do
+    history = socket.assigns.command_history
     current_index = socket.assigns.history_index
-
-    if current_index > -1 do
-      new_index = current_index - 1
-
-      command =
-        if new_index == -1 do
-          ""
-        else
-          Enum.at(socket.assigns.command_history, new_index, "")
-        end
-
+    
+    new_index = case direction do
+      :up -> min(current_index + 1, length(history) - 1)
+      :down -> max(current_index - 1, -1)
+    end
+    
+    cond do
+      direction == :up and length(history) == 0 ->
+        {:noreply, socket}
+        
+      direction == :down and current_index == -1 ->
+        {:noreply, socket}
+        
+      true ->
+        {command, is_multiline} = 
+          if new_index == -1 do
+            {"", false}
+          else
+            cmd = Enum.at(history, new_index, "")
+            {cmd, String.contains?(cmd, "\n")}
+          end
+        
+        mode_changed = is_multiline != socket.assigns.multiline_mode
+        
+        {:noreply,
+         socket
+         |> assign(history_index: new_index)
+         |> assign(current_input: command)
+         |> assign(multiline_mode: is_multiline)
+         |> push_event(if(mode_changed, do: "focus_input", else: "update_input_value"), 
+                      if(mode_changed, do: %{}, else: %{value: command}))}
+    end
+  end
+  
+  @impl true
+  def handle_event("handle_keydown", %{"key" => "force_execute"}, socket) do
+    execute_code(socket, socket.assigns.current_input)
+  end
+  
+  @impl true
+  def handle_event("handle_keydown", %{"key" => "insert_newline"}, socket) do
+    current = socket.assigns.current_input
+    
+    if socket.assigns.multiline_mode do
+      {:noreply, assign(socket, current_input: current <> "\n")}
+    else
+      enter_multiline_mode(socket, current)
+    end
+  end
+  
+  @impl true
+  def handle_event("handle_keydown", %{"key" => "cancel_multiline"}, socket) do
+    if socket.assigns.multiline_mode do
       {:noreply,
        socket
-       |> assign(history_index: new_index)
-       |> assign(current_input: command)
-       |> push_event("update_input_value", %{value: command})}
+       |> assign(current_input: "")
+       |> assign(multiline_mode: false)}
     else
-      {:noreply, socket}
+      {:noreply, assign(socket, current_input: "")}
     end
   end
 
@@ -243,14 +351,9 @@ defmodule Tau5Web.ConsoleLive do
     full_output =
       full_output <> ~s(<span style="color: #4169E1;">) <> formatted_result <> ~s(</span>\n)
 
-    counter = socket.assigns.counter + 1
-    new_prompt = "tau5(#{counter})> "
-
     {:noreply,
      socket
      |> assign(terminal_output: socket.assigns.terminal_output <> full_output)
-     |> assign(prompt: new_prompt)
-     |> assign(counter: counter)
      |> push_event("scroll_to_bottom", %{})}
   end
 
