@@ -16,7 +16,8 @@ defmodule Tau5Web.ConsoleLive do
        |> assign(:history_index, -1)
        |> assign(:current_input, "")
        |> assign(:multiline_mode, false)
-       |> assign(:prompt, "tau5> ")}
+       |> assign(:counter, 1)
+       |> assign(:prompt, "tau5(1)> ")}
     else
       {:ok,
        socket
@@ -26,7 +27,8 @@ defmodule Tau5Web.ConsoleLive do
        |> assign(:history_index, -1)
        |> assign(:current_input, "")
        |> assign(:multiline_mode, false)
-       |> assign(:prompt, "tau5> ")}
+       |> assign(:counter, 1)
+       |> assign(:prompt, "tau5(1)> ")}
     end
   end
 
@@ -351,9 +353,13 @@ defmodule Tau5Web.ConsoleLive do
     full_output =
       full_output <> ~s(<span style="color: #4169E1;">) <> formatted_result <> ~s(</span>\n)
 
+    new_counter = socket.assigns.counter + 1
+
     {:noreply,
      socket
      |> assign(terminal_output: socket.assigns.terminal_output <> full_output)
+     |> assign(counter: new_counter)
+     |> assign(prompt: "tau5(#{new_counter})> ")
      |> push_event("scroll_to_bottom", %{})}
   end
 
@@ -365,6 +371,7 @@ defmodule Tau5Web.ConsoleLive do
     full_output =
       full_output <> ~s(<span class="tau5-output-error">) <> escaped_error <> ~s(</span>\n)
 
+    # Note: Counter doesn't increment on errors per test expectations
     {:noreply,
      socket
      |> assign(terminal_output: socket.assigns.terminal_output <> full_output)

@@ -251,7 +251,7 @@ void DebugPaneThemeStyles::injectDevToolsFontScript(QWebEngineView *view)
     QWebEngineScript fontScript;
     fontScript.setName("CascadiaCodeFont");
     fontScript.setWorldId(QWebEngineScript::ApplicationWorld);
-    fontScript.setInjectionPoint(QWebEngineScript::DocumentCreation);
+    fontScript.setInjectionPoint(QWebEngineScript::DocumentReady);
     fontScript.setRunsOnSubFrames(true);
     
     QString scriptSource = QString(R"SCRIPT(

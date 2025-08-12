@@ -59,7 +59,8 @@ defmodule Tau5Web.ConsoleLiveTest do
           current_input: "",
           terminal_output: "",
           prompt: "tau5(1)> ",
-          evaluator: nil
+          evaluator: nil,
+          multiline_mode: false
         }
       }
       
@@ -80,7 +81,8 @@ defmodule Tau5Web.ConsoleLiveTest do
           current_input: "",
           terminal_output: "Welcome\n",
           prompt: "tau5(1)> ",
-          evaluator: self()  # Mock evaluator
+          evaluator: self(),  # Mock evaluator
+          multiline_mode: false
         }
       }
       
@@ -104,7 +106,8 @@ defmodule Tau5Web.ConsoleLiveTest do
           flash: %{},
           command_history: ["3 + 3", "2 + 2", "1 + 1"],  # Most recent first
           history_index: -1,
-          current_input: ""
+          current_input: "",
+          multiline_mode: false
         }
       }
       
@@ -136,7 +139,8 @@ defmodule Tau5Web.ConsoleLiveTest do
           flash: %{},
           command_history: ["3 + 3", "2 + 2", "1 + 1"],
           history_index: 2,  # At oldest
-          current_input: "1 + 1"
+          current_input: "1 + 1",
+          multiline_mode: false
         }
       }
       
@@ -159,7 +163,8 @@ defmodule Tau5Web.ConsoleLiveTest do
           flash: %{},
           terminal_output: "tau5(1)> 1 + 1\n",
           prompt: "tau5(1)> ",
-          counter: 1
+          counter: 1,
+          multiline_mode: false
         }
       }
       
