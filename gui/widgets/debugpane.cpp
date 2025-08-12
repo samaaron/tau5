@@ -1340,15 +1340,15 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
             QPolygon stripe;
             
             if ((stripeIndex / 2) % 2 == 0) {
-              stripe << QPoint(x, chevronHeight/2)
-                     << QPoint(x + stripeWidth, chevronHeight/2)
-                     << QPoint(x + stripeWidth + chevronHeight/2, 0)
-                     << QPoint(x + chevronHeight/2, 0);
+              stripe << QPoint(x + chevronHeight/2, chevronHeight/2)
+                     << QPoint(x + stripeWidth + chevronHeight/2, chevronHeight/2)
+                     << QPoint(x + stripeWidth, 0)
+                     << QPoint(x, 0);
             } else {
-              stripe << QPoint(x, chevronHeight/2)
-                     << QPoint(x + stripeWidth, chevronHeight/2)
-                     << QPoint(x + stripeWidth + chevronHeight/2, chevronHeight)
-                     << QPoint(x + chevronHeight/2, chevronHeight);
+              stripe << QPoint(x + chevronHeight/2, chevronHeight/2)
+                     << QPoint(x + stripeWidth + chevronHeight/2, chevronHeight/2)
+                     << QPoint(x + stripeWidth, chevronHeight)
+                     << QPoint(x, chevronHeight);
             }
             
             QPainterPath path;
