@@ -11,6 +11,7 @@
 #include <QThread>
 #include <QUuid>
 #include <QTcpServer>
+#include <QtConcurrent/QtConcurrent>
 #include "../logger.h"
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode)
@@ -78,7 +79,6 @@ Beam::~Beam()
     heartbeatTimer->stop();
   }
 
-  // Only kill the BEAM process by PID
   if (beamPid > 0)
   {
     killBeamProcess();
@@ -87,14 +87,11 @@ Beam::~Beam()
   // Clean up the QProcess to avoid "destroyed while still running" warning
   if (process)
   {
-    // Disconnect all signals to prevent any callbacks during cleanup
     process->disconnect();
     
-    // If the launcher script is still running, terminate it
     if (process->state() != QProcess::NotRunning)
     {
       process->terminate();
-      // Give it a short time to finish
       if (!process->waitForFinished(1000))
       {
         process->kill();
@@ -109,7 +106,6 @@ void Beam::handleStandardOutput()
   QByteArray output = process->readAllStandardOutput();
   QString outputStr = QString::fromUtf8(output);
   
-  // Check for BEAM PID marker
   QRegularExpression pidRegex("\\[TAU5_BEAM_PID:(\\d+)\\]");
   QRegularExpressionMatch pidMatch = pidRegex.match(outputStr);
   if (pidMatch.hasMatch())
@@ -120,7 +116,6 @@ void Beam::handleStandardOutput()
     heartbeatTimer->start();
   }
   
-  // Check for OTP ready marker
   if (outputStr.contains("[TAU5_OTP_READY]"))
   {
     otpTreeReady = true;
@@ -394,7 +389,6 @@ void Beam::restart()
 {
   Logger::log(Logger::Info, "Restarting BEAM process...");
   
-  // Prevent multiple restarts
   if (isRestarting)
   {
     Logger::log(Logger::Warning, "Restart already in progress");
@@ -402,38 +396,46 @@ void Beam::restart()
   }
   isRestarting = true;
   
-  // Stop the heartbeat timer
   if (heartbeatTimer && heartbeatTimer->isActive())
   {
     heartbeatTimer->stop();
   }
   
-  // Reset state flags
   serverReady = false;
   otpTreeReady = false;
   
-  // Kill the BEAM process by PID if we have it
-  if (beamPid > 0)
-  {
-    Logger::log(Logger::Info, "Terminating BEAM process by PID...");
-    killBeamProcess();
-    beamPid = 0;
-  }
-  
-  // Disconnect existing process signals
   if (process)
   {
     disconnect(process, &QProcess::readyReadStandardOutput, this, &Beam::handleStandardOutput);
     disconnect(process, &QProcess::readyReadStandardError, this, &Beam::handleStandardError);
   }
   
-  // Continue with restart after a short delay to ensure process cleanup
-  QTimer::singleShot(1000, this, &Beam::continueRestart);
+  if (beamPid > 0)
+  {
+    Logger::log(Logger::Info, "Terminating BEAM process by PID (in background thread)...");
+    
+    // Run killBeamProcess in a separate thread to avoid blocking the UI
+    QFuture<void> future = QtConcurrent::run([this]() {
+      killBeamProcess();
+    });
+    
+    // Use a QFutureWatcher to know when it's done
+    QFutureWatcher<void> *watcher = new QFutureWatcher<void>(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this, [this, watcher]() {
+      beamPid = 0;
+      continueRestart();
+      watcher->deleteLater();
+    });
+    watcher->setFuture(future);
+  }
+  else
+  {
+    continueRestart();
+  }
 }
 
 void Beam::continueRestart()
 {
-  // Prevent multiple calls
   if (!isRestarting)
   {
     Logger::log(Logger::Warning, "continueRestart called but not restarting");
@@ -442,14 +444,12 @@ void Beam::continueRestart()
   
   Logger::log(Logger::Info, "Continuing BEAM restart...");
   
-  // Delete the old process
   if (process)
   {
     process->deleteLater();
     process = nullptr;
   }
   
-  // Start checking if the port is available
   checkPortAndStartNewProcess();
 }
 
@@ -464,7 +464,6 @@ void Beam::checkPortAndStartNewProcess()
     return;
   }
   
-  // Check if the port is available
   QTcpServer testServer;
   bool portAvailable = testServer.listen(QHostAddress::LocalHost, appPort);
   testServer.close();
@@ -501,10 +500,8 @@ void Beam::startNewBeamProcess()
     return;
   }
   
-  // Create a new process
   process = new QProcess(this);
   
-  // Reconnect signals
   connect(process, &QProcess::readyReadStandardOutput,
           this, &Beam::handleStandardOutput);
   connect(process, &QProcess::readyReadStandardError,
@@ -520,11 +517,9 @@ void Beam::startNewBeamProcess()
     }
   });
   
-  // Generate a new session token
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
   Logger::log(Logger::Debug, QString("Generated new session token: %1").arg(sessionToken));
   
-  // Start the new process
   Logger::log(Logger::Info, "Starting new BEAM process...");
   if (devMode)
   {
