@@ -28,6 +28,9 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QScrollBar>
+#include <QGraphicsColorizeEffect>
+#include <QPainter>
+#include <QPainterPath>
 #include <QSplitter>
 #include <QTabWidget>
 #include <QTabBar>
@@ -67,6 +70,7 @@
 #include <QKeyEvent>
 #include <QTextDocument>
 #include <QTextEdit>
+#include <QRandomGenerator>
 #include <cmath>
 
 // Helper function to create buttons with codicon font
@@ -128,7 +132,8 @@ DebugPane::DebugPane(QWidget *parent)
       m_elixirConsoleView(nullptr), m_elixirConsoleTabButton(nullptr),
       m_currentFontSize(12), m_guiLogFontSize(12), m_devToolsMainContainer(nullptr),
       m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
-      m_dragHandleWidget(nullptr), m_restartButton(nullptr), m_closeButton(nullptr), m_restartAnimationTimer(nullptr),
+      m_dragHandleWidget(nullptr), m_dragHandleAnimationTimer(nullptr), m_animationBar(nullptr), 
+      m_restartLabel(nullptr), m_restartButton(nullptr), m_closeButton(nullptr),
       m_beamLogSearchWidget(nullptr), m_beamLogSearchInput(nullptr),
       m_beamLogSearchCloseButton(nullptr), m_guiLogSearchWidget(nullptr), m_guiLogSearchInput(nullptr),
       m_guiLogSearchCloseButton(nullptr), m_beamLogSearchButton(nullptr), m_guiLogSearchButton(nullptr),
@@ -156,7 +161,15 @@ DebugPane::DebugPane(QWidget *parent)
   hide();
 }
 
-DebugPane::~DebugPane() = default;
+DebugPane::~DebugPane()
+{
+  if (m_dragHandleAnimationTimer)
+  {
+    m_dragHandleAnimationTimer->stop();
+    m_dragHandleAnimationTimer->deleteLater();
+    m_dragHandleAnimationTimer = nullptr;
+  }
+}
 
 void DebugPane::setupUi()
 {
@@ -220,9 +233,21 @@ void DebugPane::setupUi()
 void DebugPane::setupViewControls()
 {
   m_headerWidget = new QWidget(this);
-  m_headerWidget->setStyleSheet(StyleManager::consoleHeader());
   m_headerWidget->setMouseTracking(true);
-
+  m_headerWidget->setStyleSheet(StyleManager::consoleHeader());
+  m_headerWidget->setMinimumHeight(30);  // Maintain height when buttons are hidden
+  
+  m_animationBar = new QWidget(m_headerWidget);
+  m_animationBar->hide();
+  m_animationBar->setStyleSheet("background: transparent;"); // Start transparent
+  m_animationBar->setAttribute(Qt::WA_TransparentForMouseEvents);
+  
+  m_restartLabel = new QLabel("Tau5 Server Rebooting", m_headerWidget);
+  m_restartLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+  m_restartLabel->setStyleSheet("QLabel { color: white; font-family: 'Cascadia Code', 'Cascadia Mono', monospace; font-size: 13px; font-weight: normal; background: transparent; padding-left: 10px; }");
+  m_restartLabel->setAttribute(Qt::WA_TranslucentBackground);
+  m_restartLabel->hide();
+  
   m_headerLayout = new QHBoxLayout(m_headerWidget);
   m_headerLayout->setContentsMargins(10, 2, 10, 2);
 
@@ -739,7 +764,6 @@ void DebugPane::mousePressEvent(QMouseEvent *event)
   if (event->button() == Qt::LeftButton)
   {
     QPoint pos = event->position().toPoint();
-    // Check if click is in the top resize area OR in the header widget
     bool inResizeArea = pos.y() < RESIZE_HANDLE_HEIGHT;
     bool inHeaderWidget = m_headerWidget && m_headerWidget->geometry().contains(pos);
     
@@ -852,8 +876,19 @@ void DebugPane::resizeEvent(QResizeEvent *event)
   if (m_dragHandleWidget)
   {
     m_dragHandleWidget->resize(width(), RESIZE_HANDLE_VISUAL_HEIGHT);
-    // Position the drag handle at the top of the widget
     m_dragHandleWidget->move(0, 0);
+  }
+  
+  if (m_animationBar && m_headerWidget)
+  {
+    m_animationBar->resize(m_headerWidget->size());
+    m_animationBar->move(0, 0);
+  }
+  
+  if (m_restartLabel && m_headerWidget)
+  {
+    m_restartLabel->resize(m_headerWidget->width(), m_headerWidget->height());
+    m_restartLabel->move(0, 0);
   }
 
   if (m_beamLogSearchWidget && m_beamLogSearchWidget->isVisible())
@@ -1101,6 +1136,7 @@ void DebugPane::saveSettings()
   settings.setValue("devToolsTabIndex", m_devToolsStack->currentIndex());
 
   settings.endGroup();
+  settings.sync();  // Force write to disk
 }
 
 void DebugPane::restoreSettings()
@@ -1178,12 +1214,6 @@ void DebugPane::restoreSettings()
     }
   }
 
-  bool wasVisible = settings.value("visible", false).toBool();
-  if (wasVisible)
-  {
-    m_isVisible = false;
-  }
-
   settings.endGroup();
 }
 
@@ -1193,28 +1223,168 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
     return;
 
   m_restartButton->setEnabled(enabled);
+  m_restartButton->setVisible(enabled);
+  
+  if (m_beamLogButton) m_beamLogButton->setVisible(enabled);
+  if (m_devToolsButton) m_devToolsButton->setVisible(enabled);
+  if (m_sideBySideButton) m_sideBySideButton->setVisible(enabled);
+  if (m_closeButton) m_closeButton->setVisible(enabled);
+  
+  if (m_beamLogTabButton) m_beamLogTabButton->setVisible(enabled);
+  if (m_guiLogTabButton) m_guiLogTabButton->setVisible(enabled);
+  if (m_elixirConsoleTabButton) m_elixirConsoleTabButton->setVisible(enabled);
+  if (m_devToolsTabButton) m_devToolsTabButton->setVisible(enabled);
+  if (m_liveDashboardTabButton) m_liveDashboardTabButton->setVisible(enabled);
 
   if (enabled)
   {
-    if (m_restartAnimationTimer)
+    if (m_dragHandleAnimationTimer)
     {
-      AnimationControl::stopRestartAnimation(m_restartAnimationTimer, m_restartButton, QIcon());
+      m_dragHandleAnimationTimer->stop();
+      m_dragHandleAnimationTimer->deleteLater();
+      m_dragHandleAnimationTimer = nullptr;
+      
+      if (m_animationBar)
+      {
+        m_animationBar->hide();
+      }
     }
-
+    
+    if (m_restartLabel)
+    {
+      m_restartLabel->hide();
+    }
+    
     m_restartButton->setText(QChar(0xEB37));
     m_restartButton->setToolTip("Restart BEAM");
   }
   else
   {
-    m_restartButton->setToolTip("BEAM restart in progress...");
-
-    // Use sync icon for progress (this will be animated)
-    m_restartButton->setText(QChar(0xEA6A)); // sync icon
-
-    if (!m_restartAnimationTimer)
+    if (m_animationBar && !m_dragHandleAnimationTimer)
     {
-      m_restartAnimationTimer = AnimationControl::createRestartAnimation(this, m_restartButton, QIcon());
+      if (m_headerWidget)
+      {
+        m_animationBar->resize(m_headerWidget->size());
+        m_animationBar->move(0, 0);
+      }
+      m_animationBar->show();
+      
+      class ChevronWidget : public QWidget {
+      public:
+        float scrollOffset = 0.0;
+        float growthProgress = 0.0;
+        
+        ChevronWidget(QWidget *parent) : QWidget(parent) {
+          setAttribute(Qt::WA_TranslucentBackground);
+          setAttribute(Qt::WA_TransparentForMouseEvents);
+        }
+        
+      protected:
+        void paintEvent(QPaintEvent *) override {
+          QPainter painter(this);
+          painter.setRenderHint(QPainter::Antialiasing, false);
+          
+          int widgetWidth = width();
+          int widgetHeight = height();
+          
+          int stripeWidth = 20;
+          
+          int leadingEdge = (widgetWidth + 100) * growthProgress;
+          
+          QPolygon clipShape;
+          int triangleHeight = widgetHeight / 2;
+          int triangleWidth = triangleHeight;
+          
+          if (leadingEdge <= triangleWidth) {
+            float ratio = float(leadingEdge) / float(triangleWidth);
+            clipShape << QPoint(0, widgetHeight/2)
+                      << QPoint(leadingEdge, widgetHeight/2 - (triangleHeight * ratio))
+                      << QPoint(leadingEdge, widgetHeight/2 + (triangleHeight * ratio))
+                      << QPoint(0, widgetHeight/2);
+          } else {
+            int rectEnd = leadingEdge - triangleWidth;
+            
+            if (rectEnd > widgetWidth) {
+              clipShape << QPoint(0, 0)
+                        << QPoint(widgetWidth, 0)
+                        << QPoint(widgetWidth, widgetHeight)
+                        << QPoint(0, widgetHeight);
+            } else {
+              clipShape << QPoint(0, 0)
+                        << QPoint(rectEnd, 0)
+                        << QPoint(leadingEdge, widgetHeight/2)
+                        << QPoint(rectEnd, widgetHeight)
+                        << QPoint(0, widgetHeight);
+            }
+          }
+          painter.setClipRegion(clipShape);
+          
+          painter.fillRect(0, 0, widgetWidth, widgetHeight, QColor(25, 47, 217));
+          
+          int blockWidth = stripeWidth * 4;
+          
+          QColor deepPink(219, 39, 119);
+          QColor yellow(255, 225, 25);
+          
+          int scrollPixels = -int(scrollOffset * blockWidth);
+          
+          painter.setRenderHint(QPainter::Antialiasing, false);
+          
+          const int chevronHeight = widgetHeight;
+          const int chevronWidth = chevronHeight;
+          
+          for (int x = -chevronWidth * 2 - scrollPixels; x < widgetWidth + chevronWidth * 2; x += stripeWidth) {
+            int stripeIndex = (x + scrollPixels + 10000) / stripeWidth;
+            bool isPink = (stripeIndex % 2) == 0;
+            
+            QPolygon stripe;
+            
+            if ((stripeIndex / 2) % 2 == 0) {
+              stripe << QPoint(x, chevronHeight/2)
+                     << QPoint(x + stripeWidth, chevronHeight/2)
+                     << QPoint(x + stripeWidth + chevronHeight/2, 0)
+                     << QPoint(x + chevronHeight/2, 0);
+            } else {
+              stripe << QPoint(x, chevronHeight/2)
+                     << QPoint(x + stripeWidth, chevronHeight/2)
+                     << QPoint(x + stripeWidth + chevronHeight/2, chevronHeight)
+                     << QPoint(x + chevronHeight/2, chevronHeight);
+            }
+            
+            QPainterPath path;
+            path.addPolygon(stripe);
+            painter.fillPath(path, isPink ? deepPink : yellow);
+          }
+        }
+      };
+      
+      if (m_animationBar) {
+        m_animationBar->deleteLater();
+      }
+      
+      ChevronWidget *chevronBar = new ChevronWidget(m_headerWidget);
+      chevronBar->resize(m_headerWidget->size());
+      chevronBar->move(0, 0);
+      chevronBar->show();
+      m_animationBar = chevronBar;
+      
+      m_dragHandleAnimationTimer = new QTimer(this);
+      m_dragHandleAnimationTimer->setInterval(33);
+      
+      connect(m_dragHandleAnimationTimer, &QTimer::timeout, [this, chevronBar]() {
+        if (!m_animationBar) return;
+        
+        chevronBar->scrollOffset += 0.005;
+        if (chevronBar->scrollOffset > 1.0) chevronBar->scrollOffset -= 1.0;
+        
+        chevronBar->growthProgress = qMin(1.0f, chevronBar->growthProgress + 0.00333f);
+        
+        chevronBar->update();
+      });
+      
+      m_dragHandleAnimationTimer->start();
     }
+    
   }
 }
 

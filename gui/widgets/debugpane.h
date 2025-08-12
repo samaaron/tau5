@@ -42,6 +42,7 @@ public:
   void appendOutput(const QString &text, bool isError = false);
   void appendGuiLog(const QString &text, bool isError = false);
   void toggle();
+  void slide(bool show);
   bool isVisible() const { return m_isVisible; }
   void setWebView(PhxWebView *webView);
   void setViewMode(ViewMode mode);
@@ -105,7 +106,6 @@ private:
   void setupViewControls();
   void setupConsole();
   void setupDevTools();
-  void slide(bool show);
   void updateViewMode();
   int constrainHeight(int requestedHeight) const;
   void switchConsoleTab(int index, const QList<QPushButton *> &tabButtons);
@@ -171,7 +171,6 @@ private:
   QPushButton *m_sideBySideButton;
   QPushButton *m_restartButton;
   QPushButton *m_closeButton;
-  QTimer *m_restartAnimationTimer;
 
   std::unique_ptr<QPropertyAnimation> m_slideAnimation;
   bool m_isVisible;
@@ -186,6 +185,9 @@ private:
   bool m_isHoveringHandle;
 
   QWidget *m_dragHandleWidget;
+  QTimer *m_dragHandleAnimationTimer;
+  QWidget *m_animationBar;
+  QLabel *m_restartLabel;
 
   // Search functionality
   QWidget *m_beamLogSearchWidget;
