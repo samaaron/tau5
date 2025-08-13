@@ -37,9 +37,7 @@ defmodule Tau5Web.Endpoint do
     param_key: "request_logger",
     cookie_key: "request_logger"
 
-  if Code.ensure_loaded?(Tidewave) do
-    plug Tidewave
-  end
+  plug :maybe_plug_tidewave
 
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
@@ -53,4 +51,12 @@ defmodule Tau5Web.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
   plug Tau5Web.Router
+
+  defp maybe_plug_tidewave(conn, _opts) do
+    if System.get_env("TAU5_ENABLE_DEV_MCP") && Code.ensure_loaded?(Tidewave) do
+      Tidewave.call(conn, Tidewave.init([]))
+    else
+      conn
+    end
+  end
 end

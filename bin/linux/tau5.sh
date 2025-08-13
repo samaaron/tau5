@@ -12,4 +12,6 @@ trap cleanup_function EXIT
 
 cd "${ROOT_DIR}"
 
+# Enable MCP mode for development
+export TAU5_ENABLE_DEV_MCP=1
 ./gui/build/tau5 dev

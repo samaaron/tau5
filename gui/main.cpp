@@ -140,11 +140,18 @@ bool initializeApplication(QApplication &app, bool devMode)
 {
   originalMessageHandler = qInstallMessageHandler(tau5MessageHandler);
   
-  if (devMode) {
+  // Check if MCP servers should be enabled
+  bool enableMCP = qEnvironmentVariableIsSet("TAU5_ENABLE_DEV_MCP");
+  
+  if (devMode && enableMCP) {
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS_DEV);
     Logger::log(Logger::Info, QString("Chrome DevTools Protocol enabled on port %1").arg(Config::DEVTOOLS_PORT));
+    Logger::log(Logger::Info, "MCP servers enabled (TAU5_ENABLE_DEV_MCP is set)");
   } else {
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS);
+    if (devMode && !enableMCP) {
+      Logger::log(Logger::Info, "Running in dev mode without MCP servers (set TAU5_ENABLE_DEV_MCP to enable)");
+    }
   }
 
   QCoreApplication::setAttribute(Qt::AA_DontShowIconsInMenus, false);

@@ -136,7 +136,7 @@ DebugPane::DebugPane(QWidget *parent)
       m_currentFontSize(12), m_guiLogFontSize(12),
       m_devToolsMainContainer(nullptr),
       m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
-      m_dragHandleWidget(nullptr), m_dragHandleAnimationTimer(nullptr), m_animationBar(nullptr), 
+      m_dragHandleWidget(nullptr), m_dragHandleAnimationTimer(nullptr), m_animationBar(nullptr),
       m_restartLabel(nullptr), m_restartButton(nullptr), m_resetButton(nullptr), m_closeButton(nullptr),
       m_newBeamLogWidget(nullptr), m_newGuiLogWidget(nullptr), m_newTau5MCPWidget(nullptr),
       m_newGuiMCPWidget(nullptr), m_guiLogFileManager(nullptr)
@@ -150,12 +150,12 @@ DebugPane::DebugPane(QWidget *parent)
     }
   }
 
-  
+
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowFlags(Qt::FramelessWindowHint);
   setMouseTracking(true);
   setMinimumHeight(100);
-  
+
   // Initialize GUI log file manager
   QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
   LogFileManager::Config guiLogConfig;
@@ -163,7 +163,7 @@ DebugPane::DebugPane(QWidget *parent)
   guiLogConfig.maxSizeBytes = 10 * 1024 * 1024;  // 10MB
   guiLogConfig.maxBackups = 1;
   m_guiLogFileManager = new LogFileManager(guiLogConfig);
-  
+
   setupUi();
   hide();
 }
@@ -244,18 +244,18 @@ void DebugPane::setupViewControls()
   m_headerWidget->setMouseTracking(true);
   m_headerWidget->setStyleSheet(StyleManager::consoleHeader());
   m_headerWidget->setMinimumHeight(30);  // Maintain height when buttons are hidden
-  
+
   m_animationBar = new QWidget(m_headerWidget);
   m_animationBar->hide();
   m_animationBar->setStyleSheet("background: transparent;"); // Start transparent
   m_animationBar->setAttribute(Qt::WA_TransparentForMouseEvents);
-  
+
   m_restartLabel = new QLabel("Tau5 Server Rebooting", m_headerWidget);
   m_restartLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
   m_restartLabel->setStyleSheet("QLabel { color: white; font-family: 'Cascadia Code', 'Cascadia Mono', monospace; font-size: 13px; font-weight: normal; background: transparent; padding-left: 10px; }");
   m_restartLabel->setAttribute(Qt::WA_TranslucentBackground);
   m_restartLabel->hide();
-  
+
   m_headerLayout = new QHBoxLayout(m_headerWidget);
   m_headerLayout->setContentsMargins(10, 2, 10, 2);
 
@@ -314,10 +314,14 @@ void DebugPane::setupConsole()
   m_guiLogTabButton = ButtonUtilities::createTabButton("GUI Log", consoleToolbar);
 
   m_elixirConsoleTabButton = ButtonUtilities::createTabButton("Elixir", consoleToolbar);
-  
+
+  bool enableDevMCP = qEnvironmentVariableIsSet("TAU5_ENABLE_DEV_MCP");
   m_tau5MCPTabButton = ButtonUtilities::createTabButton("Tau5 MCP", consoleToolbar);
-  
   m_guiMCPTabButton = ButtonUtilities::createTabButton("GUI MCP", consoleToolbar);
+
+  if (!enableDevMCP) {
+    m_guiMCPTabButton->setToolTip("GUI Dev MCP disabled - click for more information");
+  }
 
   toolbarLayout->addWidget(m_beamLogTabButton);
   toolbarLayout->addWidget(m_guiLogTabButton);
@@ -330,7 +334,7 @@ void DebugPane::setupConsole()
   // No toolbar buttons needed - LogWidget handles its own toolbar
 
   m_consoleStack = new QStackedWidget(m_consoleContainer);
-  
+
   m_elixirConsoleContainer = new QWidget();
   QVBoxLayout *elixirConsoleLayout = new QVBoxLayout(m_elixirConsoleContainer);
   elixirConsoleLayout->setContentsMargins(0, 0, 0, 0);
@@ -341,28 +345,77 @@ void DebugPane::setupConsole()
   elixirConsoleLayout->addWidget(m_elixirConsoleView);
 
   m_consoleStack->addWidget(m_elixirConsoleContainer);
-  
-  // NEW: Create LogWidget instances for cleaner implementation
+
   m_newBeamLogWidget = new LogWidget(LogWidget::BeamLog, this);
   m_newGuiLogWidget = new LogWidget(LogWidget::GuiLog, this);
+
   m_newTau5MCPWidget = new LogWidget(LogWidget::MCPLog, this);
-  m_newGuiMCPWidget = new LogWidget(LogWidget::MCPLog, this); // Using MCPLog type for GUI MCP
-  
-  // Configure the MCP log widgets
+  m_newGuiMCPWidget = new LogWidget(LogWidget::MCPLog, this);
+
   QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
   QString tau5LogFilePath = QDir(logsPath).absoluteFilePath("Tau5/logs/mcp-tau5.log");
   m_newTau5MCPWidget->setLogFilePath(tau5LogFilePath);
-  m_newTau5MCPWidget->startFileMonitoring(500);  // Start monitoring immediately
-  
-  QString guiMCPLogFilePath = QDir(logsPath).absoluteFilePath("Tau5/logs/mcp-gui-dev.log");
-  m_newGuiMCPWidget->setLogFilePath(guiMCPLogFilePath);
-  m_newGuiMCPWidget->startFileMonitoring(500);  // Start monitoring immediately
-  
+
+  // Add startup message for Tau5 MCP
+  QString tau5MCPStartupMessage =
+    "Tau5 Dev Server MCP\n"
+    "═══════════════\n\n"
+    "MCP Tools for the Elixir server provided by Tidewave:\n"
+    "• project_eval - Execute Elixir code in the server context\n"
+    "• list_liveview_pages - Get all LiveView pages and routes\n"
+    "• get_source_location - Find source code locations\n"
+    "• get_package_location - Get package installation paths\n"
+    "• get_logs - Read server logs with filtering\n\n"
+    "Use these tools through AI assistants like Claude to:\n"
+    "• Debug and inspect the running Elixir server\n"
+    "• Execute code in the server's runtime context\n"
+    "• Navigate and understand the codebase\n"
+    "• Monitor server logs and behaviour\n\n"
+    "────────────────────────────────────────\n";
+  m_newTau5MCPWidget->appendLog(tau5MCPStartupMessage, false);
+
+  m_newTau5MCPWidget->startFileMonitoring(500);
+
+  if (enableDevMCP) {
+    QString guiMCPLogFilePath = QDir(logsPath).absoluteFilePath("Tau5/logs/mcp-gui-dev.log");
+    m_newGuiMCPWidget->setLogFilePath(guiMCPLogFilePath);
+
+    // Add startup message for GUI Dev MCP
+    QString guiMCPStartupMessage =
+      "Tau5 Dev GUI MCP\n"
+      "══════════════════════════\n\n"
+
+      "Available Services:\n"
+      "• DOM inspection and manipulation\n"
+      "• JavaScript execution in WebViews\n"
+      "• Element selection and style inspection\n"
+      "• GUI application logs access\n\n"
+      "Chrome DevTools Protocol server listening on port 9223\n\n"
+
+      "────────────────────────────────────────\n";
+    m_newGuiMCPWidget->appendLog(guiMCPStartupMessage, false);
+
+    m_newGuiMCPWidget->startFileMonitoring(500);
+  } else {
+    QString disabledMessage =
+      "\nTau5 Dev MCP Services - DISABLED\n"
+      " ════════════════════════════\n\n"
+      "Tau5's Development MCP services are not enabled.\n\n\n"
+      "To enable, set TAU5_ENABLE_DEV_MCP=1 before starting Tau5\n\n\n"
+      "When enabled, the following services will become available:\n\n"
+      "• Chromium DevTools Protocol on port 9223\n"
+      "    - for manipulating/observing the GUI\n\n"
+      "• Tidewave - an MCP server\n"
+      "    - for manipulating/observing the Elixir server\n\n";
+
+    m_newGuiMCPWidget->appendLog(disabledMessage, false);
+  }
+
   m_consoleStack->addWidget(m_newBeamLogWidget);  // Index 1
   m_consoleStack->addWidget(m_newGuiLogWidget);   // Index 2
   m_consoleStack->addWidget(m_newTau5MCPWidget);  // Index 3
   m_consoleStack->addWidget(m_newGuiMCPWidget);   // Index 4
-  
+
   m_consoleStack->setCurrentIndex(1);
 
   consoleMainLayout->addWidget(consoleToolbar);
@@ -629,7 +682,7 @@ void DebugPane::mousePressEvent(QMouseEvent *event)
     QPoint pos = event->position().toPoint();
     bool inResizeArea = pos.y() < RESIZE_HANDLE_HEIGHT;
     bool inHeaderWidget = m_headerWidget && m_headerWidget->geometry().contains(pos);
-    
+
     if (inResizeArea || inHeaderWidget)
     {
       m_isResizing = true;
@@ -643,7 +696,7 @@ void DebugPane::mousePressEvent(QMouseEvent *event)
       return;
     }
   }
-  
+
   QWidget::mousePressEvent(event);
 }
 
@@ -741,13 +794,13 @@ void DebugPane::resizeEvent(QResizeEvent *event)
     m_dragHandleWidget->resize(width(), RESIZE_HANDLE_VISUAL_HEIGHT);
     m_dragHandleWidget->move(0, 0);
   }
-  
+
   if (m_animationBar && m_headerWidget)
   {
     m_animationBar->resize(m_headerWidget->size());
     m_animationBar->move(0, 0);
   }
-  
+
   if (m_restartLabel && m_headerWidget)
   {
     m_restartLabel->resize(m_headerWidget->width(), m_headerWidget->height());
@@ -782,7 +835,7 @@ void DebugPane::appendGuiLog(const QString &text, bool isError)
   if (m_newGuiLogWidget) {
     m_newGuiLogWidget->appendLog(text, isError);
   }
-  
+
   // Also write to file for MCP server access (with automatic rotation)
   if (m_guiLogFileManager) {
     QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz");
@@ -799,7 +852,7 @@ void DebugPane::setLiveDashboardUrl(const QString &url)
   {
     m_liveDashboardUrl = url;  // Store for reset functionality
   }
-  
+
   if (m_liveDashboardView && !url.isEmpty())
   {
     QUrl dashboardUrl(url);
@@ -821,7 +874,7 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
   {
     m_elixirConsoleUrl = url;  // Store for reset functionality
   }
-  
+
   if (m_elixirConsoleView && !url.isEmpty())
   {
     QUrl elixirConsoleUrl(url);
@@ -912,7 +965,9 @@ void DebugPane::showGuiMCPLog()
   m_guiMCPTabButton->setChecked(true);
   m_elixirConsoleTabButton->setChecked(false);
   if (m_newGuiMCPWidget) {
-    m_newGuiMCPWidget->startFileMonitoring();
+    if (qEnvironmentVariableIsSet("TAU5_ENABLE_DEV_MCP")) {
+      m_newGuiMCPWidget->startFileMonitoring();
+    }
     m_newGuiMCPWidget->setFocus();
   }
 }
@@ -1055,13 +1110,13 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
 
   m_restartButton->setEnabled(enabled);
   m_restartButton->setVisible(enabled);
-  
+
   if (m_resetButton) m_resetButton->setVisible(enabled);
   if (m_beamLogButton) m_beamLogButton->setVisible(enabled);
   if (m_devToolsButton) m_devToolsButton->setVisible(enabled);
   if (m_sideBySideButton) m_sideBySideButton->setVisible(enabled);
   if (m_closeButton) m_closeButton->setVisible(enabled);
-  
+
   if (m_beamLogTabButton) m_beamLogTabButton->setVisible(enabled);
   if (m_guiLogTabButton) m_guiLogTabButton->setVisible(enabled);
   if (m_elixirConsoleTabButton) m_elixirConsoleTabButton->setVisible(enabled);
@@ -1075,18 +1130,18 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
       m_dragHandleAnimationTimer->stop();
       m_dragHandleAnimationTimer->deleteLater();
       m_dragHandleAnimationTimer = nullptr;
-      
+
       if (m_animationBar)
       {
         m_animationBar->hide();
       }
     }
-    
+
     if (m_restartLabel)
     {
       m_restartLabel->hide();
     }
-    
+
     m_restartButton->setText(QChar(0xEB37));
     m_restartButton->setToolTip("Restart BEAM");
   }
@@ -1100,33 +1155,33 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
         m_animationBar->move(0, 0);
       }
       m_animationBar->show();
-      
+
       class ChevronWidget : public QWidget {
       public:
         float scrollOffset = 0.0;
         float growthProgress = 0.0;
-        
+
         ChevronWidget(QWidget *parent) : QWidget(parent) {
           setAttribute(Qt::WA_TranslucentBackground);
           setAttribute(Qt::WA_TransparentForMouseEvents);
         }
-        
+
       protected:
         void paintEvent(QPaintEvent *) override {
           QPainter painter(this);
           painter.setRenderHint(QPainter::Antialiasing, false);
-          
+
           int widgetWidth = width();
           int widgetHeight = height();
-          
+
           int stripeWidth = 20;
-          
+
           int leadingEdge = (widgetWidth + 100) * growthProgress;
-          
+
           QPolygon clipShape;
           int triangleHeight = widgetHeight / 2;
           int triangleWidth = triangleHeight;
-          
+
           if (leadingEdge <= triangleWidth) {
             float ratio = float(leadingEdge) / float(triangleWidth);
             clipShape << QPoint(0, widgetHeight/2)
@@ -1135,7 +1190,7 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
                       << QPoint(0, widgetHeight/2);
           } else {
             int rectEnd = leadingEdge - triangleWidth;
-            
+
             if (rectEnd > widgetWidth) {
               clipShape << QPoint(0, 0)
                         << QPoint(widgetWidth, 0)
@@ -1150,27 +1205,27 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
             }
           }
           painter.setClipRegion(clipShape);
-          
+
           painter.fillRect(0, 0, widgetWidth, widgetHeight, QColor(25, 47, 217));
-          
+
           int blockWidth = stripeWidth * 4;
-          
+
           QColor deepPink(219, 39, 119);
           QColor yellow(255, 225, 25);
-          
+
           int scrollPixels = -int(scrollOffset * blockWidth);
-          
+
           painter.setRenderHint(QPainter::Antialiasing, false);
-          
+
           const int chevronHeight = widgetHeight;
           const int chevronWidth = chevronHeight;
-          
+
           for (int x = -chevronWidth * 2 - scrollPixels; x < widgetWidth + chevronWidth * 2; x += stripeWidth) {
             int stripeIndex = (x + scrollPixels + 10000) / stripeWidth;
             bool isPink = (stripeIndex % 2) == 0;
-            
+
             QPolygon stripe;
-            
+
             if ((stripeIndex / 2) % 2 == 0) {
               stripe << QPoint(x + chevronHeight/2, chevronHeight/2)
                      << QPoint(x + stripeWidth + chevronHeight/2, chevronHeight/2)
@@ -1182,41 +1237,41 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
                      << QPoint(x + stripeWidth, chevronHeight)
                      << QPoint(x, chevronHeight);
             }
-            
+
             QPainterPath path;
             path.addPolygon(stripe);
             painter.fillPath(path, isPink ? deepPink : yellow);
           }
         }
       };
-      
+
       if (m_animationBar) {
         m_animationBar->deleteLater();
       }
-      
+
       ChevronWidget *chevronBar = new ChevronWidget(m_headerWidget);
       chevronBar->resize(m_headerWidget->size());
       chevronBar->move(0, 0);
       chevronBar->show();
       m_animationBar = chevronBar;
-      
+
       m_dragHandleAnimationTimer = new QTimer(this);
       m_dragHandleAnimationTimer->setInterval(33);
-      
+
       connect(m_dragHandleAnimationTimer, &QTimer::timeout, [this, chevronBar]() {
         if (!m_animationBar) return;
-        
+
         chevronBar->scrollOffset += 0.005;
         if (chevronBar->scrollOffset > 1.0) chevronBar->scrollOffset -= 1.0;
-        
+
         chevronBar->growthProgress = qMin(1.0f, chevronBar->growthProgress + 0.00333f);
-        
+
         chevronBar->update();
       });
-      
+
       m_dragHandleAnimationTimer->start();
     }
-    
+
   }
 }
 
@@ -1262,7 +1317,7 @@ void DebugPane::handleInspectElementRequested()
 void DebugPane::resetDevPaneBrowsers()
 {
   Logger::log(Logger::Debug, "DebugPane::resetDevPaneBrowsers - Resetting dev pane browsers");
-  
+
   // Reset Live Dashboard
   if (m_liveDashboardView && !m_liveDashboardUrl.isEmpty())
   {
@@ -1270,15 +1325,15 @@ void DebugPane::resetDevPaneBrowsers()
     QUrl dashboardUrl(m_liveDashboardUrl);
     m_liveDashboardView->setUrl(dashboardUrl);
   }
-  
-  // Reset Elixir Console  
+
+  // Reset Elixir Console
   if (m_elixirConsoleView && !m_elixirConsoleUrl.isEmpty())
   {
     Logger::log(Logger::Debug, QString("Resetting Elixir Console to: %1").arg(m_elixirConsoleUrl));
     QUrl consoleUrl(m_elixirConsoleUrl);
     m_elixirConsoleView->load(consoleUrl);
   }
-  
+
   // For DevTools, we need to reconnect it to the target page
   // DevTools is special - it's connected via setDevToolsPage
   // When navigated away, we can't simply navigate back
@@ -1292,7 +1347,7 @@ void DebugPane::resetDevPaneBrowsers()
       // Re-set the DevTools page to force a refresh
       targetPage->setDevToolsPage(nullptr);
       targetPage->setDevToolsPage(m_devToolsView->page());
-      
+
       // Ensure the theme is reapplied after reconnection
       connect(m_devToolsView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok)
       {
@@ -1303,7 +1358,7 @@ void DebugPane::resetDevPaneBrowsers()
       }, Qt::SingleShotConnection);  // Use SingleShotConnection to avoid multiple connections
     }
   }
-  
+
   Logger::log(Logger::Info, "Dev pane browsers have been reset");
 }
 
