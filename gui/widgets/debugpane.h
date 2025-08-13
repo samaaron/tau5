@@ -51,6 +51,7 @@ public:
   void saveSettings();
   void restoreSettings();
   void setRestartButtonEnabled(bool enabled);
+  void resetDevPaneBrowsers();
 
   int slidePosition() const { return pos().y(); }
   void setSlidePosition(int pos) { move(x(), pos); }
@@ -170,6 +171,7 @@ private:
   QPushButton *m_devToolsButton;
   QPushButton *m_sideBySideButton;
   QPushButton *m_restartButton;
+  QPushButton *m_resetButton;
   QPushButton *m_closeButton;
 
   std::unique_ptr<QPropertyAnimation> m_slideAnimation;
@@ -203,6 +205,10 @@ private:
 
   // Shortcut management
   QList<QShortcut *> m_shortcuts;
+  
+  // Store original URLs for reset functionality
+  QString m_liveDashboardUrl;
+  QString m_elixirConsoleUrl;
 
 public:
   static constexpr int RESIZE_HANDLE_HEIGHT = 10;       // Interaction area

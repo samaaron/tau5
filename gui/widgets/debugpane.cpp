@@ -133,7 +133,7 @@ DebugPane::DebugPane(QWidget *parent)
       m_currentFontSize(12), m_guiLogFontSize(12), m_devToolsMainContainer(nullptr),
       m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
       m_dragHandleWidget(nullptr), m_dragHandleAnimationTimer(nullptr), m_animationBar(nullptr), 
-      m_restartLabel(nullptr), m_restartButton(nullptr), m_closeButton(nullptr),
+      m_restartLabel(nullptr), m_restartButton(nullptr), m_resetButton(nullptr), m_closeButton(nullptr),
       m_beamLogSearchWidget(nullptr), m_beamLogSearchInput(nullptr),
       m_beamLogSearchCloseButton(nullptr), m_guiLogSearchWidget(nullptr), m_guiLogSearchInput(nullptr),
       m_guiLogSearchCloseButton(nullptr), m_beamLogSearchButton(nullptr), m_guiLogSearchButton(nullptr),
@@ -252,18 +252,22 @@ void DebugPane::setupViewControls()
   m_headerLayout->setContentsMargins(10, 2, 10, 2);
 
   m_restartButton = createCodiconButton(m_headerWidget, QChar(0xEB37), "Restart BEAM");
+  m_resetButton = createCodiconButton(m_headerWidget, QChar(0xEB06), "Reset Dev Pane Browsers to Home");
   m_beamLogButton = createCodiconButton(m_headerWidget, QChar(0xEA85), "BEAM Log Only", true);
   m_devToolsButton = createCodiconButton(m_headerWidget, QChar(0xEAAF), "DevTools Only", true);
   m_sideBySideButton = createCodiconButton(m_headerWidget, QChar(0xEB56), "Side by Side View", true);
   m_closeButton = createCodiconButton(m_headerWidget, QChar(0xEA76), "Close Debug Pane");
 
   m_restartButton->setFocusPolicy(Qt::NoFocus);
+  m_resetButton->setFocusPolicy(Qt::NoFocus);
   m_beamLogButton->setFocusPolicy(Qt::NoFocus);
   m_devToolsButton->setFocusPolicy(Qt::NoFocus);
   m_sideBySideButton->setFocusPolicy(Qt::NoFocus);
   m_closeButton->setFocusPolicy(Qt::NoFocus);
 
   m_headerLayout->addWidget(m_restartButton);
+  m_headerLayout->addSpacing(8);
+  m_headerLayout->addWidget(m_resetButton);
   m_headerLayout->addSpacing(20);
   m_headerLayout->addStretch();
 
@@ -276,6 +280,7 @@ void DebugPane::setupViewControls()
   m_headerLayout->addWidget(m_closeButton);
 
   connect(m_restartButton, &QPushButton::clicked, this, &DebugPane::restartBeamRequested);
+  connect(m_resetButton, &QPushButton::clicked, this, &DebugPane::resetDevPaneBrowsers);
   connect(m_beamLogButton, &QPushButton::clicked, this, &DebugPane::showBeamLogOnly);
   connect(m_devToolsButton, &QPushButton::clicked, this, &DebugPane::showDevToolsOnly);
   connect(m_sideBySideButton, &QPushButton::clicked, this, &DebugPane::showSideBySide);
@@ -1008,6 +1013,11 @@ void DebugPane::clearLogFileOnStartup()
 
 void DebugPane::setLiveDashboardUrl(const QString &url)
 {
+  if (!url.isEmpty())
+  {
+    m_liveDashboardUrl = url;  // Store for reset functionality
+  }
+  
   if (m_liveDashboardView && !url.isEmpty())
   {
     QUrl dashboardUrl(url);
@@ -1025,6 +1035,11 @@ void DebugPane::setLiveDashboardUrl(const QString &url)
 
 void DebugPane::setElixirConsoleUrl(const QString &url)
 {
+  if (!url.isEmpty())
+  {
+    m_elixirConsoleUrl = url;  // Store for reset functionality
+  }
+  
   if (m_elixirConsoleView && !url.isEmpty())
   {
     QUrl elixirConsoleUrl(url);
@@ -1225,6 +1240,7 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
   m_restartButton->setEnabled(enabled);
   m_restartButton->setVisible(enabled);
   
+  if (m_resetButton) m_resetButton->setVisible(enabled);
   if (m_beamLogButton) m_beamLogButton->setVisible(enabled);
   if (m_devToolsButton) m_devToolsButton->setVisible(enabled);
   if (m_sideBySideButton) m_sideBySideButton->setVisible(enabled);
@@ -1591,6 +1607,54 @@ void DebugPane::handleInspectElementRequested()
   {
     showDevToolsTab();
   }
+}
+
+void DebugPane::resetDevPaneBrowsers()
+{
+  Logger::log(Logger::Debug, "DebugPane::resetDevPaneBrowsers - Resetting dev pane browsers");
+  
+  // Reset Live Dashboard
+  if (m_liveDashboardView && !m_liveDashboardUrl.isEmpty())
+  {
+    Logger::log(Logger::Debug, QString("Resetting Live Dashboard to: %1").arg(m_liveDashboardUrl));
+    QUrl dashboardUrl(m_liveDashboardUrl);
+    m_liveDashboardView->setUrl(dashboardUrl);
+  }
+  
+  // Reset Elixir Console  
+  if (m_elixirConsoleView && !m_elixirConsoleUrl.isEmpty())
+  {
+    Logger::log(Logger::Debug, QString("Resetting Elixir Console to: %1").arg(m_elixirConsoleUrl));
+    QUrl consoleUrl(m_elixirConsoleUrl);
+    m_elixirConsoleView->load(consoleUrl);
+  }
+  
+  // For DevTools, we need to reconnect it to the target page
+  // DevTools is special - it's connected via setDevToolsPage
+  // When navigated away, we can't simply navigate back
+  // Instead, we need to trigger a reconnection
+  if (m_targetWebView && m_devToolsView)
+  {
+    Logger::log(Logger::Debug, "Resetting DevTools connection");
+    QWebEnginePage *targetPage = m_targetWebView->page();
+    if (targetPage)
+    {
+      // Re-set the DevTools page to force a refresh
+      targetPage->setDevToolsPage(nullptr);
+      targetPage->setDevToolsPage(m_devToolsView->page());
+      
+      // Ensure the theme is reapplied after reconnection
+      connect(m_devToolsView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok)
+      {
+        if (ok) {
+          DebugPaneThemeStyles::applyDevToolsDarkTheme(m_devToolsView);
+          DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
+        }
+      }, Qt::SingleShotConnection);  // Use SingleShotConnection to avoid multiple connections
+    }
+  }
+  
+  Logger::log(Logger::Info, "Dev pane browsers have been reset");
 }
 
 #include "moc_debugpane.cpp"
