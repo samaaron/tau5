@@ -211,6 +211,49 @@ defmodule Tau5Web.ConsoleLive do
         end
     end
   end
+
+  @impl true
+  def handle_event("handle_keydown", %{"key" => "ArrowUp"}, socket) do
+    navigate_history(socket, :up)
+  end
+
+  @impl true
+  def handle_event("handle_keydown", %{"key" => "ArrowDown"}, socket) do
+    navigate_history(socket, :down)
+  end
+
+  @impl true
+  def handle_event("handle_keydown", %{"key" => "force_execute"}, socket) do
+    execute_code(socket, socket.assigns.current_input)
+  end
+  
+  @impl true
+  def handle_event("handle_keydown", %{"key" => "insert_newline"}, socket) do
+    current = socket.assigns.current_input
+    
+    if socket.assigns.multiline_mode do
+      {:noreply, assign(socket, current_input: current <> "\n")}
+    else
+      enter_multiline_mode(socket, current)
+    end
+  end
+  
+  @impl true
+  def handle_event("handle_keydown", %{"key" => "cancel_multiline"}, socket) do
+    if socket.assigns.multiline_mode do
+      {:noreply,
+       socket
+       |> assign(current_input: "")
+       |> assign(multiline_mode: false)}
+    else
+      {:noreply, assign(socket, current_input: "")}
+    end
+  end
+
+  @impl true
+  def handle_event("handle_keydown", _params, socket) do
+    {:noreply, socket}
+  end
   
   defp enter_multiline_mode(socket, initial_line) do
     {:noreply,
@@ -261,15 +304,6 @@ defmodule Tau5Web.ConsoleLive do
      |> assign(multiline_mode: false)}
   end
 
-  @impl true
-  def handle_event("handle_keydown", %{"key" => "ArrowUp"}, socket) do
-    navigate_history(socket, :up)
-  end
-
-  @impl true
-  def handle_event("handle_keydown", %{"key" => "ArrowDown"}, socket) do
-    navigate_history(socket, :down)
-  end
   
   defp navigate_history(socket, direction) do
     history = socket.assigns.command_history
@@ -308,38 +342,6 @@ defmodule Tau5Web.ConsoleLive do
     end
   end
   
-  @impl true
-  def handle_event("handle_keydown", %{"key" => "force_execute"}, socket) do
-    execute_code(socket, socket.assigns.current_input)
-  end
-  
-  @impl true
-  def handle_event("handle_keydown", %{"key" => "insert_newline"}, socket) do
-    current = socket.assigns.current_input
-    
-    if socket.assigns.multiline_mode do
-      {:noreply, assign(socket, current_input: current <> "\n")}
-    else
-      enter_multiline_mode(socket, current)
-    end
-  end
-  
-  @impl true
-  def handle_event("handle_keydown", %{"key" => "cancel_multiline"}, socket) do
-    if socket.assigns.multiline_mode do
-      {:noreply,
-       socket
-       |> assign(current_input: "")
-       |> assign(multiline_mode: false)}
-    else
-      {:noreply, assign(socket, current_input: "")}
-    end
-  end
-
-  @impl true
-  def handle_event("handle_keydown", _params, socket) do
-    {:noreply, socket}
-  end
 
   @impl true
   def handle_info(
