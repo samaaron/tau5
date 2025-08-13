@@ -354,3 +354,22 @@ QString StyleManager::contextMenu()
     .arg(Spacing::SMALL)                     // Separator margin
     .arg("28px");                            // Left padding for icon space
 }
+
+QString StyleManager::tooltip()
+{
+  return QString(
+    "QToolTip {"
+    "  background-color: %1;"
+    "  color: %2;"
+    "  border: 1px solid %3;"
+    "  padding: %4;"
+    "  font-family: %5;"
+    "  font-size: %6;"
+    "}")
+    .arg(Colors::BACKGROUND_SECONDARY)       // Tooltip background (dark gray)
+    .arg(Colors::TEXT_PRIMARY)               // Text color (white)
+    .arg(Colors::ACCENT_PRIMARY)             // Border color (orange)
+    .arg(Spacing::EXTRA_SMALL)               // Padding (2px instead of 4px)
+    .arg(Typography::DEFAULT_FONT_FAMILY)    // Font family
+    .arg(Typography::FONT_SIZE_SMALL);       // Font size
+}

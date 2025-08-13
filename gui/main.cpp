@@ -15,6 +15,7 @@
 #include "mainwindow.h"
 #include "lib/beam.h"
 #include "logger.h"
+#include "styles/StyleManager.h"
 
 namespace Config
 {
@@ -151,6 +152,9 @@ bool initializeApplication(QApplication &app, bool devMode)
   Q_INIT_RESOURCE(Tau5);
   app.setApplicationName(Config::APP_NAME);
   app.setStyle("gtk");
+  
+  // Set global tooltip style
+  app.setStyleSheet(StyleManager::tooltip());
 
   int fontId = QFontDatabase::addApplicationFont(":/fonts/CascadiaCodePL.ttf");
   if (fontId != -1) {

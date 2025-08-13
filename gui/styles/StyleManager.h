@@ -124,6 +124,7 @@ public:
   static QString guiButton();
   static QString mainWindow();
   static QString contextMenu();
+  static QString tooltip();
 
 private:
   StyleManager() = default; // Static class, no instantiation
