@@ -132,16 +132,15 @@ DebugPane::DebugPane(QWidget *parent)
       m_maxLines(5000), m_currentMode(BeamLogOnly), m_isResizing(false),
       m_resizeStartY(0), m_resizeStartHeight(0), m_isHoveringHandle(false),
       m_targetWebView(nullptr), m_devToolsView(nullptr), m_liveDashboardView(nullptr),
-      m_elixirConsoleView(nullptr), m_elixirConsoleTabButton(nullptr),
+      m_elixirConsoleView(nullptr), m_elixirConsoleTabButton(nullptr), m_guiMCPTabButton(nullptr),
       m_currentFontSize(12), m_guiLogFontSize(12),
       m_devToolsMainContainer(nullptr),
       m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
       m_dragHandleWidget(nullptr), m_dragHandleAnimationTimer(nullptr), m_animationBar(nullptr), 
       m_restartLabel(nullptr), m_restartButton(nullptr), m_resetButton(nullptr), m_closeButton(nullptr),
       m_newBeamLogWidget(nullptr), m_newGuiLogWidget(nullptr), m_newTau5MCPWidget(nullptr),
-      m_guiLogFileManager(nullptr)
+      m_newGuiMCPWidget(nullptr), m_guiLogFileManager(nullptr)
 {
-  // Load codicon font if not already loaded
   static bool codiconLoaded = false;
   if (!codiconLoaded) {
     int fontId = QFontDatabase::addApplicationFont(":/fonts/codicon.ttf");
@@ -317,10 +316,13 @@ void DebugPane::setupConsole()
   m_elixirConsoleTabButton = ButtonUtilities::createTabButton("Elixir", consoleToolbar);
   
   m_tau5MCPTabButton = ButtonUtilities::createTabButton("Tau5 MCP", consoleToolbar);
+  
+  m_guiMCPTabButton = ButtonUtilities::createTabButton("GUI MCP", consoleToolbar);
 
   toolbarLayout->addWidget(m_beamLogTabButton);
   toolbarLayout->addWidget(m_guiLogTabButton);
   toolbarLayout->addWidget(m_tau5MCPTabButton);
+  toolbarLayout->addWidget(m_guiMCPTabButton);
   toolbarLayout->addWidget(m_elixirConsoleTabButton);
   toolbarLayout->addStretch();
 
@@ -344,21 +346,24 @@ void DebugPane::setupConsole()
   m_newBeamLogWidget = new LogWidget(LogWidget::BeamLog, this);
   m_newGuiLogWidget = new LogWidget(LogWidget::GuiLog, this);
   m_newTau5MCPWidget = new LogWidget(LogWidget::MCPLog, this);
+  m_newGuiMCPWidget = new LogWidget(LogWidget::MCPLog, this); // Using MCPLog type for GUI MCP
   
-  // Configure the MCP log widget
+  // Configure the MCP log widgets
   QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-  QString logFilePath = QDir(logsPath).absoluteFilePath("Tau5/logs/mcp-tau5.log");
-  m_newTau5MCPWidget->setLogFilePath(logFilePath);
+  QString tau5LogFilePath = QDir(logsPath).absoluteFilePath("Tau5/logs/mcp-tau5.log");
+  m_newTau5MCPWidget->setLogFilePath(tau5LogFilePath);
   m_newTau5MCPWidget->startFileMonitoring(500);  // Start monitoring immediately
   
-  // Add the new widgets to the stack (they'll be at indices 0, 1, 2, 3 since old ones are disconnected)
-  // Index 0 is Elixir Console (added above)
-  // Add new widgets at indices 1, 2, 3
+  QString guiMCPLogFilePath = QDir(logsPath).absoluteFilePath("Tau5/logs/mcp-gui-dev.log");
+  m_newGuiMCPWidget->setLogFilePath(guiMCPLogFilePath);
+  m_newGuiMCPWidget->startFileMonitoring(500);  // Start monitoring immediately
+  
   m_consoleStack->addWidget(m_newBeamLogWidget);  // Index 1
   m_consoleStack->addWidget(m_newGuiLogWidget);   // Index 2
   m_consoleStack->addWidget(m_newTau5MCPWidget);  // Index 3
+  m_consoleStack->addWidget(m_newGuiMCPWidget);   // Index 4
   
-  m_consoleStack->setCurrentIndex(1); // Start with new BEAM log widget
+  m_consoleStack->setCurrentIndex(1);
 
   consoleMainLayout->addWidget(consoleToolbar);
   consoleMainLayout->addWidget(m_consoleStack);
@@ -367,6 +372,7 @@ void DebugPane::setupConsole()
   connect(m_guiLogTabButton, &QPushButton::clicked, this, &DebugPane::showGuiLog);
   connect(m_elixirConsoleTabButton, &QPushButton::clicked, this, &DebugPane::showElixirConsole);
   connect(m_tau5MCPTabButton, &QPushButton::clicked, this, &DebugPane::showTau5MCPLog);
+  connect(m_guiMCPTabButton, &QPushButton::clicked, this, &DebugPane::showGuiMCPLog);
 }
 
 void DebugPane::setupDevTools()
@@ -845,8 +851,8 @@ void DebugPane::showBeamLog()
   m_beamLogTabButton->setChecked(true);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(false);
+  m_guiMCPTabButton->setChecked(false);
   m_elixirConsoleTabButton->setChecked(false);
-  // Give focus to the widget for keyboard shortcuts
   if (m_newBeamLogWidget) {
     m_newBeamLogWidget->setFocus();
   }
@@ -860,8 +866,8 @@ void DebugPane::showGuiLog()
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(true);
   m_tau5MCPTabButton->setChecked(false);
+  m_guiMCPTabButton->setChecked(false);
   m_elixirConsoleTabButton->setChecked(false);
-  // Give focus to the widget for keyboard shortcuts
   if (m_newGuiLogWidget) {
     m_newGuiLogWidget->setFocus();
   }
@@ -875,6 +881,7 @@ void DebugPane::showElixirConsole()
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(false);
+  m_guiMCPTabButton->setChecked(false);
   m_elixirConsoleTabButton->setChecked(true);
 }
 
@@ -886,18 +893,32 @@ void DebugPane::showTau5MCPLog()
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(true);
+  m_guiMCPTabButton->setChecked(false);
   m_elixirConsoleTabButton->setChecked(false);
-  
-  // Start file monitoring for the new widget (in case it wasn't started)
   if (m_newTau5MCPWidget) {
     m_newTau5MCPWidget->startFileMonitoring();
     m_newTau5MCPWidget->setFocus();  // Give focus for keyboard shortcuts
   }
 }
 
+void DebugPane::showGuiMCPLog()
+{
+  // Switch to new LogWidget at index 4
+  m_consoleStack->setCurrentIndex(4);
+  // Update tab button states
+  m_beamLogTabButton->setChecked(false);
+  m_guiLogTabButton->setChecked(false);
+  m_tau5MCPTabButton->setChecked(false);
+  m_guiMCPTabButton->setChecked(true);
+  m_elixirConsoleTabButton->setChecked(false);
+  if (m_newGuiMCPWidget) {
+    m_newGuiMCPWidget->startFileMonitoring();
+    m_newGuiMCPWidget->setFocus();
+  }
+}
+
 void DebugPane::switchConsoleTab(int index, const QList<QPushButton *> &tabButtons)
 {
-  // Simple tab switching - LogWidget handles its own toolbar
   for (int i = 0; i < tabButtons.size(); ++i) {
     tabButtons[i]->setChecked(i == index);
   }

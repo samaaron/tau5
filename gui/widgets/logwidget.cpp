@@ -15,6 +15,8 @@
 #include <QTextStream>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonValue>
 #include <QJsonParseError>
 #include <QDir>
 #include <QDateTime>
@@ -129,7 +131,7 @@ void LogWidget::setupUI()
   
   m_layout->addWidget(toolbar);
   
-  // Create text edit
+  // Create text browser (QTextBrowser supports clickable links)
   m_textEdit = new QTextEdit(this);
   m_textEdit->setReadOnly(true);
   m_textEdit->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -393,7 +395,6 @@ void LogWidget::performSearch()
     QTextCursor cursor = m_textEdit->textCursor();
     cursor.clearSelection();
     m_textEdit->setTextCursor(cursor);
-    m_textEdit->setExtraSelections(QList<QTextEdit::ExtraSelection>());
     return;
   }
   
@@ -473,20 +474,6 @@ void LogWidget::findPrevious()
   }
 }
 
-void LogWidget::closeSearch()
-{
-  m_searchWidget->hide();
-  m_searchInput->clear();
-  m_lastSearchText.clear();
-  
-  // Clear selection and extra selections (highlights)
-  QTextCursor cursor = m_textEdit->textCursor();
-  cursor.clearSelection();
-  m_textEdit->setTextCursor(cursor);
-  m_textEdit->setExtraSelections(QList<QTextEdit::ExtraSelection>());
-  m_textEdit->setFocus();
-}
-
 void LogWidget::highlightAllMatches(const QString &searchText, const QTextCursor &currentMatch)
 {
   QList<QTextEdit::ExtraSelection> extraSelections;
@@ -516,6 +503,20 @@ void LogWidget::highlightAllMatches(const QString &searchText, const QTextCursor
   
   // Apply all selections
   m_textEdit->setExtraSelections(extraSelections);
+}
+
+void LogWidget::closeSearch()
+{
+  m_searchWidget->hide();
+  m_searchInput->clear();
+  m_lastSearchText.clear();
+  
+  // Clear selection and extra selections (highlights)
+  QTextCursor cursor = m_textEdit->textCursor();
+  cursor.clearSelection();
+  m_textEdit->setTextCursor(cursor);
+  m_textEdit->setExtraSelections(QList<QTextEdit::ExtraSelection>());
+  m_textEdit->setFocus();
 }
 
 void LogWidget::setLogFilePath(const QString &path)
@@ -593,7 +594,7 @@ void LogWidget::updateFromFile()
   
   // For MCP logs, parse JSON and format
   if (m_type == MCPLog) {
-    appendFormattedText([&stream](QTextCursor &cursor) {
+    appendFormattedText([this, &stream](QTextCursor &cursor) {
       // Set up text formats
       QTextCharFormat timestampFormat;
       timestampFormat.setForeground(QColor(StyleManager::Colors::TIMESTAMP_GRAY));
@@ -636,10 +637,16 @@ void LogWidget::updateFromFile()
             sessionFormat.setForeground(QColor(StyleManager::Colors::ACCENT_HIGHLIGHT));
             sessionFormat.setFontWeight(QFont::Bold);
             
+            QString sessionId = entry["session_id"].toString();
+            qint64 pid = entry["pid"].toInteger();
+            
             cursor.insertText("\n");
             cursor.setCharFormat(sessionFormat);
             cursor.insertText("════════════════════════════════════════════════════════════\n");
             cursor.insertText(QString("  NEW SESSION - %1\n").arg(timestamp));
+            if (!sessionId.isEmpty()) {
+              cursor.insertText(QString("  Session ID: %1  PID: %2\n").arg(sessionId).arg(pid));
+            }
             cursor.insertText("════════════════════════════════════════════════════════════\n");
             cursor.insertText("\n");
           } else {
@@ -678,24 +685,65 @@ void LogWidget::updateFromFile()
             if (!params.isEmpty() && status != "error" && status != "exception" && status != "crash") {
               QJsonDocument paramsDoc(params);
               QString paramsStr = paramsDoc.toJson(QJsonDocument::Compact);
-              if (paramsStr.length() > 200) {
-                paramsStr = paramsStr.left(197) + "...";
-              }
               cursor.setCharFormat(lineFormat);
-              cursor.insertText(QString("\n  %1").arg(paramsStr));
+              if (paramsStr.length() > 200) {
+                QString truncated = paramsStr.left(197) + "...";
+                cursor.insertText(QString("\n  %1").arg(truncated));
+              } else {
+                cursor.insertText(QString("\n  %1").arg(paramsStr));
+              }
+            }
+            
+            // Response data (for successful calls)
+            if (status == "success" && entry.contains("response")) {
+              QJsonValue response = entry["response"];
+              QString responseStr;
+              
+              if (response.isString()) {
+                responseStr = response.toString();
+              } else if (response.isObject() || response.isArray()) {
+                QJsonDocument responseDoc;
+                if (response.isObject()) {
+                  responseDoc = QJsonDocument(response.toObject());
+                } else {
+                  responseDoc = QJsonDocument(response.toArray());
+                }
+                responseStr = responseDoc.toJson(QJsonDocument::Compact);
+              } else if (response.isDouble()) {
+                responseStr = QString::number(response.toDouble());
+              } else if (response.isBool()) {
+                responseStr = response.toBool() ? "true" : "false";
+              } else if (response.isNull()) {
+                responseStr = "null";
+              }
+              
+              QTextCharFormat responseFormat;
+              responseFormat.setForeground(QColor(StyleManager::Colors::STATUS_SUCCESS));
+              cursor.setCharFormat(responseFormat);
+              
+              // Truncate response if too long
+              if (responseStr.length() > 300) {
+                QString truncated = responseStr.left(297) + "...";
+                cursor.insertText(QString("\n  → %1").arg(truncated));
+              } else {
+                cursor.insertText(QString("\n  → %1").arg(responseStr));
+              }
             }
             
             // Error details (for error/exception/crash statuses)
             QString errorMsg = entry["error"].toString();
             if (!errorMsg.isEmpty() && (status == "error" || status == "exception" || status == "crash")) {
               cursor.setCharFormat(lineFormat);  // Use same color as rest of error line
-              // Truncate error message if too long
-              if (errorMsg.length() > 200) {
-                errorMsg = errorMsg.left(197) + "...";
-              }
               // Replace newlines with spaces for compact display
               errorMsg = errorMsg.replace('\n', ' ');
-              cursor.insertText(QString("\n  Error: %1").arg(errorMsg));
+              
+              // Truncate error message if too long
+              if (errorMsg.length() > 200) {
+                QString truncated = errorMsg.left(197) + "...";
+                cursor.insertText(QString("\n  Error: %1").arg(truncated));
+              } else {
+                cursor.insertText(QString("\n  Error: %1").arg(errorMsg));
+              }
             }
             
             cursor.insertText("\n");

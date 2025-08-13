@@ -4,6 +4,8 @@
 #include <QWidget>
 #include <QString>
 #include <QTextCharFormat>
+#include <QMap>
+#include <QUrl>
 
 QT_BEGIN_NAMESPACE
 class QTextEdit;
@@ -72,8 +74,8 @@ private:
   void setupUI();
   void setupShortcuts();
   void applyFontSize();
-  void enforceMaxLines();
   void highlightAllMatches(const QString &searchText, const QTextCursor &currentMatch);
+  void enforceMaxLines();
   
 private:
   LogType m_type;
@@ -98,6 +100,7 @@ private:
   QString m_logFilePath;
   QTimer *m_fileMonitorTimer;
   qint64 m_lastFilePosition;
+  
 };
 
 #endif // LOGWIDGET_H

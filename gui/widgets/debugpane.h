@@ -73,6 +73,7 @@ private slots:
   void showGuiLog();
   void showElixirConsole();
   void showTau5MCPLog();
+  void showGuiMCPLog();
   void showDevToolsTab();
   void showLiveDashboardTab();
   void handleInspectElementRequested();
@@ -112,6 +113,7 @@ private:
   QPushButton *m_guiLogTabButton;
   QPushButton *m_elixirConsoleTabButton;
   QPushButton *m_tau5MCPTabButton;
+  QPushButton *m_guiMCPTabButton;
   QWidget *m_elixirConsoleContainer;
   SandboxedWebView *m_elixirConsoleView;
   QTabWidget *m_devToolsTabs;
@@ -154,6 +156,7 @@ private:
   LogWidget *m_newBeamLogWidget;
   LogWidget *m_newGuiLogWidget;
   LogWidget *m_newTau5MCPWidget;
+  LogWidget *m_newGuiMCPWidget;
 
   // Store original URLs for reset functionality
   QString m_liveDashboardUrl;

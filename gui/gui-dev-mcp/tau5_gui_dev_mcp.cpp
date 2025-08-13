@@ -6,6 +6,10 @@
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
+#include <QDateTime>
+#include <QJsonDocument>
+#include <QUuid>
+#include <QElapsedTimer>
 #include <iostream>
 #include <memory>
 #include "mcpserver_stdio.h"
@@ -14,6 +18,116 @@
 static void debugLog(const QString& message) {
     std::cerr << "# " << message.toStdString() << std::endl;
 }
+
+class MCPActivityLogger
+{
+public:
+    MCPActivityLogger() {
+        QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+        QString tau5DataPath = QDir(dataPath).absoluteFilePath("Tau5");
+        QString logsPath = QDir(tau5DataPath).absoluteFilePath("logs");
+        
+        // Ensure logs directory exists
+        QDir().mkpath(logsPath);
+        
+        m_logPath = QDir(logsPath).absoluteFilePath("mcp-gui-dev.log");
+        m_processId = QCoreApplication::applicationPid();
+        
+        // Generate a unique session ID for this connection
+        m_sessionId = QString("%1_%2").arg(m_processId).arg(QDateTime::currentDateTime().toString("HHmmss"));
+        
+        rotateLogIfNeeded();
+        writeSessionMarker();
+    }
+    
+    void logActivity(const QString& tool, const QString& requestId, const QJsonObject& params, 
+                     const QString& status, qint64 durationMs, const QString& errorDetails = QString(),
+                     const QJsonValue& responseData = QJsonValue()) {
+        QJsonObject entry;
+        entry["timestamp"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+        entry["session_id"] = m_sessionId;
+        entry["pid"] = m_processId;
+        entry["tool"] = tool;
+        entry["request_id"] = requestId;
+        entry["params"] = params;
+        
+        QJsonDocument paramsDoc(params);
+        entry["params_size"] = static_cast<int>(paramsDoc.toJson(QJsonDocument::Compact).size());
+        
+        entry["status"] = status;
+        entry["duration_ms"] = durationMs;
+        
+        if (!errorDetails.isEmpty() && (status == "error" || status == "exception" || status == "crash")) {
+            entry["error"] = errorDetails;
+        }
+        if (!responseData.isNull() && !responseData.isUndefined() && status == "success") {
+            entry["response"] = responseData;
+            
+            QJsonDocument responseDoc;
+            if (responseData.isObject()) {
+                responseDoc = QJsonDocument(responseData.toObject());
+            } else if (responseData.isArray()) {
+                responseDoc = QJsonDocument(responseData.toArray());
+            } else {
+                QJsonObject wrapper;
+                wrapper["value"] = responseData;
+                responseDoc = QJsonDocument(wrapper);
+            }
+            entry["response_size"] = static_cast<int>(responseDoc.toJson(QJsonDocument::Compact).size());
+        }
+        
+        writeLogEntry(entry);
+    }
+    
+private:
+    void rotateLogIfNeeded() {
+        QFileInfo fileInfo(m_logPath);
+        if (fileInfo.exists() && fileInfo.size() > 10 * 1024 * 1024) { // 10MB limit
+            QString rotatedPath = m_logPath + "." + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss");
+            QFile::rename(m_logPath, rotatedPath);
+            
+            QDir logsDir = fileInfo.dir();
+            QStringList filters;
+            filters << "mcp-gui-dev.log.*";
+            QFileInfoList rotatedFiles = logsDir.entryInfoList(filters, QDir::Files, QDir::Time);
+            
+            while (rotatedFiles.size() > 5) {
+                QFile::remove(rotatedFiles.last().absoluteFilePath());
+                rotatedFiles.removeLast();
+            }
+        }
+    }
+    
+    void writeSessionMarker() {
+        QJsonObject sessionEntry;
+        sessionEntry["timestamp"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+        sessionEntry["session_id"] = m_sessionId;
+        sessionEntry["pid"] = m_processId;
+        sessionEntry["tool"] = "_session";
+        sessionEntry["status"] = "started";
+        QJsonObject params;
+        params["type"] = "mcp_server_session";
+        params["session_id"] = m_sessionId;
+        params["pid"] = m_processId;
+        sessionEntry["params"] = params;
+        
+        writeLogEntry(sessionEntry);
+    }
+    
+    void writeLogEntry(const QJsonObject& entry) {
+        QFile file(m_logPath);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Unbuffered)) {
+            QJsonDocument doc(entry);
+            QByteArray data = doc.toJson(QJsonDocument::Compact) + "\n";
+            file.write(data);
+            file.close();
+        }
+    }
+    
+    QString m_logPath;
+    QString m_sessionId;
+    qint64 m_processId;
+};
 
 class CDPBridge : public QObject
 {
@@ -233,6 +347,8 @@ int main(int argc, char *argv[])
     app.setApplicationName("tau5-gui-dev-mcp");
     app.setOrganizationName("Tau5");
     
+    MCPActivityLogger activityLogger;
+    
     quint16 devToolsPort = 9223;
     bool debugMode = false;
     
@@ -291,18 +407,39 @@ int main(int argc, char *argv[])
             {"type", "object"},
             {"properties", QJsonObject{}}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
             Q_UNUSED(params);
             
             QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->getDocument(cb);
             });
             
+            qint64 duration = timer.elapsed();
+            
             if (result.contains("type") && result["type"].toString() == "text") {
+                QString errorText = result["text"].toString();
+                if (errorText.startsWith("Error: ")) {
+                    activityLogger.logActivity("chromium_devtools_getDocument", requestId, params, "error", duration, errorText);
+                } else {
+                    QString truncatedResponse = errorText.left(500);
+                    if (errorText.length() > 500) {
+                        truncatedResponse += "... (truncated)";
+                    }
+                    activityLogger.logActivity("chromium_devtools_getDocument", requestId, params, "success", duration, QString(), truncatedResponse);
+                }
                 return result;
             }
-            
             QJsonDocument doc(result);
+            QString fullText = QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
+            QString truncatedResponse = fullText.left(500);
+            if (fullText.length() > 500) {
+                truncatedResponse += "... (truncated)";
+            }
+            activityLogger.logActivity("chromium_devtools_getDocument", requestId, params, "success", duration, QString(), truncatedResponse);
+            
             QJsonObject resultObj;
             resultObj["type"] = "text";
             resultObj["text"] = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
@@ -323,28 +460,41 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{"selector"}}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+            
             QString selector = params["selector"].toString();
             
             QJsonObject result = bridge.executeCommand([selector](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->querySelector(selector, cb);
             });
             
+            qint64 duration = timer.elapsed();
+            
             if (result.contains("type") && result["type"].toString() == "text") {
+                QString errorText = result["text"].toString();
+                activityLogger.logActivity("chromium_devtools_querySelector", requestId, params, "error", duration, errorText);
                 return result;
             }
             
             int nodeId = result["nodeId"].toInt();
             if (nodeId == 0) {
+                QString notFoundText = QString("No element found matching selector: %1").arg(selector);
+                activityLogger.logActivity("chromium_devtools_querySelector", requestId, params, "not_found", duration, QString(), notFoundText);
                 return QJsonObject{
                     {"type", "text"},
-                    {"text", QString("No element found matching selector: %1").arg(selector)}
+                    {"text", notFoundText}
                 };
             }
             
+            QString responseText = QString("Found element with nodeId: %1").arg(nodeId);
+            activityLogger.logActivity("chromium_devtools_querySelector", requestId, params, "success", duration, QString(), responseText);
+            
             return QJsonObject{
                 {"type", "text"},
-                {"text", QString("Found element with nodeId: %1").arg(nodeId)}
+                {"text", responseText}
             };
         }
     });
@@ -362,16 +512,26 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{"nodeId"}}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+            
             int nodeId = params["nodeId"].toInt();
             
             QJsonObject result = bridge.executeCommand([nodeId](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->getOuterHTML(nodeId, cb);
             });
             
+            qint64 duration = timer.elapsed();
+            
             if (result.contains("type") && result["type"].toString() == "text") {
+                QString errorText = result["text"].toString();
+                activityLogger.logActivity("chromium_devtools_getOuterHTML", requestId, params, "error", duration, errorText);
                 return result;
             }
+            
+            activityLogger.logActivity("chromium_devtools_getOuterHTML", requestId, params, "success", duration);
             
             return QJsonObject{
                 {"type", "text"},
@@ -393,7 +553,11 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{"expression"}}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+            
             QString expression = params["expression"].toString();
             
             // First try with object references to avoid serialization issues
@@ -401,13 +565,18 @@ int main(int argc, char *argv[])
                 client->evaluateJavaScriptWithObjectReferences(expression, cb);
             });
             
+            qint64 duration = timer.elapsed();
+            
             if (result.contains("type") && result["type"].toString() == "text") {
+                QString errorText = result["text"].toString();
+                activityLogger.logActivity("chromium_devtools_evaluateJavaScript", requestId, params, "error", duration, errorText);
                 return result;
             }
             
             if (result.contains("exceptionDetails")) {
                 QJsonObject exception = result["exceptionDetails"].toObject();
                 QString errorText = exception["text"].toString();
+                activityLogger.logActivity("chromium_devtools_evaluateJavaScript", requestId, params, "exception", duration, errorText);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", QString("JavaScript exception: %1").arg(errorText)}
@@ -437,6 +606,7 @@ int main(int argc, char *argv[])
                 QJsonObject responseObj;
                 responseObj["type"] = "text";
                 responseObj["text"] = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
+                activityLogger.logActivity("chromium_devtools_evaluateJavaScript", requestId, params, "success", duration, QString(), objRef);
                 return responseObj;
             }
             
@@ -458,6 +628,8 @@ int main(int argc, char *argv[])
             } else {
                 resultText = "undefined";
             }
+            
+            activityLogger.logActivity("chromium_devtools_evaluateJavaScript", requestId, params, "success", duration, QString(), resultText);
             
             return QJsonObject{
                 {"type", "text"},
@@ -672,20 +844,29 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{"objectId"}}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+            
             QString objectId = params["objectId"].toString();
             
             QJsonObject result = bridge.executeCommand([objectId](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->getProperties(objectId, cb);
             });
             
+            qint64 duration = timer.elapsed();
+            
             if (result.contains("type") && result["type"].toString() == "text") {
+                QString errorText = result["text"].toString();
+                activityLogger.logActivity("chromium_devtools_getProperties", requestId, params, "error", duration, errorText);
                 return result;
             }
             
             if (result.contains("exceptionDetails")) {
                 QJsonObject exception = result["exceptionDetails"].toObject();
                 QString errorText = exception["text"].toString();
+                activityLogger.logActivity("chromium_devtools_getProperties", requestId, params, "exception", duration, errorText);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", QString("Error: %1").arg(errorText)}
@@ -708,6 +889,8 @@ int main(int argc, char *argv[])
                 propInfo["className"] = value["className"].toString();
                 formattedProps[name] = propInfo;
             }
+            
+            activityLogger.logActivity("chromium_devtools_getProperties", requestId, params, "success", duration, QString(), formattedProps);
             
             QJsonDocument doc(formattedProps);
             QJsonObject responseObj;
