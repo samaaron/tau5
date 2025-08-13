@@ -339,7 +339,8 @@ dl.fields-card dd {
 }
 
 .metric-label, .banner-card-title {
-  color: var(--text-secondary) !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 3px #000000, 0 0 5px #000000 !important;
 }
 
 .bg-white {
@@ -370,7 +371,8 @@ dl.fields-card dd {
 #elixir-card .banner-card-title,
 #phoenix-card .banner-card-title,
 #app-card .banner-card-title {
-  color: var(--text-muted) !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 3px #000000, 0 0 5px #000000 !important;
 }
 
 /* Additional title and heading styles */
