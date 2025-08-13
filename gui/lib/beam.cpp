@@ -12,6 +12,7 @@
 #include <QUuid>
 #include <QTcpServer>
 #include <QtConcurrent/QtConcurrent>
+#include <QStandardPaths>
 #include "../logger.h"
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode)
@@ -155,6 +156,16 @@ void Beam::startElixirServerDev()
   env.insert("PHX_HOST", "127.0.0.1");
   env.insert("MIX_ENV", "dev");
   env.insert("RELEASE_DISTRIBUTION", "none");
+  
+  // Set log directory path for the Elixir server
+  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+  QDir logsDir(logsPath);
+  if (!logsDir.exists("logs")) {
+    logsDir.mkpath("logs");
+  }
+  QString logsDirPath = logsDir.absoluteFilePath("logs");
+  env.insert("TAU5_LOG_DIR", logsDirPath);
+  Logger::log(Logger::Debug, QString("Setting TAU5_LOG_DIR to: %1").arg(logsDirPath));
 
 #ifdef Q_OS_WIN
   QDir dir(QCoreApplication::applicationDirPath());
@@ -186,6 +197,16 @@ void Beam::startElixirServerProd()
   env.insert("MIX_ENV", "prod");
   env.insert("RELEASE_DISTRIBUTION", "none");
   env.insert("PHX_SERVER", "1");
+  
+  // Set log directory path for the Elixir server
+  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+  QDir logsDir(logsPath);
+  if (!logsDir.exists("logs")) {
+    logsDir.mkpath("logs");
+  }
+  QString logsDirPath = logsDir.absoluteFilePath("logs");
+  env.insert("TAU5_LOG_DIR", logsDirPath);
+  Logger::log(Logger::Debug, QString("Setting TAU5_LOG_DIR to: %1").arg(logsDirPath));
 
   env.insert("RELEASE_SYS_CONFIG", releaseSysPath);
   env.insert("RELEASE_ROOT", releaseRoot);

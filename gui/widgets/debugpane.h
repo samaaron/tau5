@@ -14,7 +14,8 @@
 #include <QList>
 
 class QPushButton;
-class SearchFunctionality;
+class LogWidget;
+class LogFileManager;
 class QLabel;
 class QPropertyAnimation;
 class QTextEdit;
@@ -64,29 +65,16 @@ signals:
   void restartBeamRequested();
 
 private slots:
-  void handleAutoScrollToggled(bool checked);
   void animationFinished();
   void showBeamLogOnly();
   void showDevToolsOnly();
   void showSideBySide();
-  void handleZoomIn();
-  void handleZoomOut();
-  void handleConsoleZoomIn();
-  void handleConsoleZoomOut();
-  void handleGuiLogZoomIn();
-  void handleGuiLogZoomOut();
-  void handleElixirConsoleZoomIn();
-  void handleElixirConsoleZoomOut();
   void showBeamLog();
   void showGuiLog();
   void showElixirConsole();
+  void showTau5MCPLog();
   void showDevToolsTab();
   void showLiveDashboardTab();
-  void findNext();
-  void findPrevious();
-  void toggleSearchBar();
-  void performSearch();
-  void handleSearchShortcut();
   void handleInspectElementRequested();
 
 protected:
@@ -111,12 +99,6 @@ private:
   int constrainHeight(int requestedHeight) const;
   void switchConsoleTab(int index, const QList<QPushButton *> &tabButtons);
   void switchDevToolsTab(int index);
-  void getCurrentSearchContext(QWidget *&searchWidget, QLineEdit *&searchInput, QTextEdit *&textEdit, QString *&lastSearchText);
-  void highlightAllMatches(QTextEdit *textEdit, const QString &searchText, const QTextCursor &currentMatch);
-  void setupShortcuts();
-  void cleanupShortcuts();
-  void writeGuiLogToFile(const QString &logLine, bool isError);
-  void clearLogFileOnStartup();
 
 private:
   QVBoxLayout *m_mainLayout;
@@ -129,26 +111,9 @@ private:
   QPushButton *m_beamLogTabButton;
   QPushButton *m_guiLogTabButton;
   QPushButton *m_elixirConsoleTabButton;
-  QWidget *m_beamLogContainer;
-  QVBoxLayout *m_beamLogLayout;
-  QTextEdit *m_outputDisplay;
-  QPushButton *m_autoScrollButton;
-  QPushButton *m_beamLogSearchButton;
-  QPushButton *m_consoleZoomInButton;
-  QPushButton *m_consoleZoomOutButton;
-  QPushButton *m_devToolsZoomInButton;
-  QPushButton *m_devToolsZoomOutButton;
-  QWidget *m_guiLogContainer;
-  QVBoxLayout *m_guiLogLayout;
-  QTextEdit *m_guiLogDisplay;
-  QPushButton *m_guiLogAutoScrollButton;
-  QPushButton *m_guiLogSearchButton;
-  QPushButton *m_guiLogZoomInButton;
-  QPushButton *m_guiLogZoomOutButton;
+  QPushButton *m_tau5MCPTabButton;
   QWidget *m_elixirConsoleContainer;
   SandboxedWebView *m_elixirConsoleView;
-  QPushButton *m_elixirConsoleZoomInButton;
-  QPushButton *m_elixirConsoleZoomOutButton;
   QTabWidget *m_devToolsTabs;
   QWidget *m_devToolsMainContainer;
   QStackedWidget *m_devToolsStack;
@@ -156,12 +121,8 @@ private:
   QPushButton *m_liveDashboardTabButton;
   QWidget *m_devToolsContainer;
   SandboxedWebView *m_devToolsView;
-  QPushButton *m_zoomInButton;
-  QPushButton *m_zoomOutButton;
   QWidget *m_liveDashboardContainer;
   SandboxedWebView *m_liveDashboardView;
-  QPushButton *m_liveDashboardZoomInButton;
-  QPushButton *m_liveDashboardZoomOutButton;
 
   PhxWebView *m_targetWebView;
   int m_currentFontSize;
@@ -176,8 +137,6 @@ private:
 
   std::unique_ptr<QPropertyAnimation> m_slideAnimation;
   bool m_isVisible;
-  bool m_autoScroll;
-  bool m_guiLogAutoScroll;
   int m_maxLines;
   ViewMode m_currentMode;
 
@@ -191,24 +150,17 @@ private:
   QWidget *m_animationBar;
   QLabel *m_restartLabel;
 
-  // Search functionality
-  QWidget *m_beamLogSearchWidget;
-  QLineEdit *m_beamLogSearchInput;
-  QPushButton *m_beamLogSearchCloseButton;
-  QString m_beamLogLastSearchText;
+  // NEW: LogWidget instances for cleaner implementation
+  LogWidget *m_newBeamLogWidget;
+  LogWidget *m_newGuiLogWidget;
+  LogWidget *m_newTau5MCPWidget;
 
-  QWidget *m_guiLogSearchWidget;
-  QLineEdit *m_guiLogSearchInput;
-  QPushButton *m_guiLogSearchCloseButton;
-  QString m_guiLogLastSearchText;
-  SearchFunctionality *m_searchFunctionality;
-
-  // Shortcut management
-  QList<QShortcut *> m_shortcuts;
-  
   // Store original URLs for reset functionality
   QString m_liveDashboardUrl;
   QString m_elixirConsoleUrl;
+  
+  // Log file manager for GUI logs
+  LogFileManager *m_guiLogFileManager;
 
 public:
   static constexpr int RESIZE_HANDLE_HEIGHT = 10;       // Interaction area

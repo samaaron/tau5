@@ -2,8 +2,9 @@
 // https://github.com/microsoft/vscode-icons
 // Licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
 #include "debugpane.h"
+#include "logwidget.h"
+#include "logfilemanager.h"
 #include "debugpane/customsplitter.h"
-#include "debugpane/searchfunctionality.h"
 #include "debugpane/buttonutilities.h"
 #include "debugpane/themestyles.h"
 #include "debugpane/zoomcontrol.h"
@@ -15,7 +16,6 @@
 #include "sandboxedwebview.h"
 #include "../logger.h"
 #include "../lib/fontloader.h"
-#include "../shortcuts/ShortcutManager.h"
 #include <QDir>
 #include <QStandardPaths>
 #include <QFile>
@@ -72,6 +72,9 @@
 #include <QTextEdit>
 #include <QRandomGenerator>
 #include <cmath>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
 
 // Helper function to create buttons with codicon font
 static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, const QString &tooltip,
@@ -125,19 +128,18 @@ static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, cons
 }
 
 DebugPane::DebugPane(QWidget *parent)
-    : QWidget(parent), m_isVisible(false), m_autoScroll(true), m_guiLogAutoScroll(true),
+    : QWidget(parent), m_isVisible(false),
       m_maxLines(5000), m_currentMode(BeamLogOnly), m_isResizing(false),
       m_resizeStartY(0), m_resizeStartHeight(0), m_isHoveringHandle(false),
       m_targetWebView(nullptr), m_devToolsView(nullptr), m_liveDashboardView(nullptr),
       m_elixirConsoleView(nullptr), m_elixirConsoleTabButton(nullptr),
-      m_currentFontSize(12), m_guiLogFontSize(12), m_devToolsMainContainer(nullptr),
+      m_currentFontSize(12), m_guiLogFontSize(12),
+      m_devToolsMainContainer(nullptr),
       m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
       m_dragHandleWidget(nullptr), m_dragHandleAnimationTimer(nullptr), m_animationBar(nullptr), 
       m_restartLabel(nullptr), m_restartButton(nullptr), m_resetButton(nullptr), m_closeButton(nullptr),
-      m_beamLogSearchWidget(nullptr), m_beamLogSearchInput(nullptr),
-      m_beamLogSearchCloseButton(nullptr), m_guiLogSearchWidget(nullptr), m_guiLogSearchInput(nullptr),
-      m_guiLogSearchCloseButton(nullptr), m_beamLogSearchButton(nullptr), m_guiLogSearchButton(nullptr),
-      m_searchFunctionality(new SearchFunctionality(this))
+      m_newBeamLogWidget(nullptr), m_newGuiLogWidget(nullptr), m_newTau5MCPWidget(nullptr),
+      m_guiLogFileManager(nullptr)
 {
   // Load codicon font if not already loaded
   static bool codiconLoaded = false;
@@ -149,20 +151,27 @@ DebugPane::DebugPane(QWidget *parent)
     }
   }
 
-  // Clear log file from previous session
-  clearLogFileOnStartup();
   
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowFlags(Qt::FramelessWindowHint);
   setMouseTracking(true);
   setMinimumHeight(100);
+  
+  // Initialize GUI log file manager
+  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+  LogFileManager::Config guiLogConfig;
+  guiLogConfig.filePath = QDir(logsPath).absoluteFilePath("Tau5/logs/gui.log");
+  guiLogConfig.maxSizeBytes = 10 * 1024 * 1024;  // 10MB
+  guiLogConfig.maxBackups = 1;
+  m_guiLogFileManager = new LogFileManager(guiLogConfig);
+  
   setupUi();
-  setupShortcuts();
   hide();
 }
 
 DebugPane::~DebugPane()
 {
+  delete m_guiLogFileManager;
   if (m_dragHandleAnimationTimer)
   {
     m_dragHandleAnimationTimer->stop();
@@ -306,101 +315,20 @@ void DebugPane::setupConsole()
   m_guiLogTabButton = ButtonUtilities::createTabButton("GUI Log", consoleToolbar);
 
   m_elixirConsoleTabButton = ButtonUtilities::createTabButton("Elixir", consoleToolbar);
+  
+  m_tau5MCPTabButton = ButtonUtilities::createTabButton("Tau5 MCP", consoleToolbar);
 
   toolbarLayout->addWidget(m_beamLogTabButton);
   toolbarLayout->addWidget(m_guiLogTabButton);
+  toolbarLayout->addWidget(m_tau5MCPTabButton);
   toolbarLayout->addWidget(m_elixirConsoleTabButton);
   toolbarLayout->addStretch();
 
-  m_beamLogContainer = new QWidget();
-  m_beamLogLayout = new QVBoxLayout(m_beamLogContainer);
-  m_beamLogLayout->setContentsMargins(0, 0, 0, 0);
-  m_beamLogLayout->setSpacing(0);
-
-  m_autoScrollButton = createCodiconButton(consoleToolbar, QChar(0xEA9A), "Auto-scroll", true, true);
-  m_autoScrollButton->setFixedSize(20, 20);
-
-  m_beamLogSearchButton = createCodiconButton(consoleToolbar, QChar(0xEA6D), "Search (Ctrl+S)", true);
-  m_beamLogSearchButton->setFixedSize(20, 20);
-
-  m_consoleZoomOutButton = createCodiconButton(consoleToolbar, QChar('-'), "Zoom Out");
-  m_consoleZoomInButton = createCodiconButton(consoleToolbar, QChar('+'), "Zoom In");
-  m_consoleZoomOutButton->setFixedSize(20, 20);
-  m_consoleZoomInButton->setFixedSize(20, 20);
-  m_consoleZoomOutButton->setVisible(true);
-  m_consoleZoomInButton->setVisible(true);
-
-  m_guiLogAutoScrollButton = createCodiconButton(consoleToolbar, QChar(0xEA9A), "Auto-scroll", true, true);
-  m_guiLogAutoScrollButton->setFixedSize(20, 20);
-  m_guiLogAutoScrollButton->setVisible(false);
-
-  m_guiLogSearchButton = createCodiconButton(consoleToolbar, QChar(0xEA6D), "Search (Ctrl+S)", true);
-  m_guiLogSearchButton->setFixedSize(20, 20);
-  m_guiLogSearchButton->setVisible(false);
-
-  m_guiLogZoomOutButton = createCodiconButton(consoleToolbar, QChar('-'), "Zoom Out");
-  m_guiLogZoomOutButton->setFixedSize(20, 20);
-  m_guiLogZoomOutButton->setVisible(false);
-
-  m_guiLogZoomInButton = createCodiconButton(consoleToolbar, QChar('+'), "Zoom In");
-  m_guiLogZoomInButton->setFixedSize(20, 20);
-  m_guiLogZoomInButton->setVisible(false);
-
-  m_elixirConsoleZoomOutButton = createCodiconButton(consoleToolbar, QChar('-'), "Zoom Out");
-  m_elixirConsoleZoomOutButton->setFixedSize(20, 20);
-  m_elixirConsoleZoomOutButton->setVisible(false);
-
-  m_elixirConsoleZoomInButton = createCodiconButton(consoleToolbar, QChar('+'), "Zoom In");
-  m_elixirConsoleZoomInButton->setFixedSize(20, 20);
-  m_elixirConsoleZoomInButton->setVisible(false);
-
-  toolbarLayout->addWidget(m_beamLogSearchButton);
-  toolbarLayout->addWidget(m_guiLogSearchButton);
-  toolbarLayout->addWidget(m_autoScrollButton);
-  toolbarLayout->addWidget(m_guiLogAutoScrollButton);
-  toolbarLayout->addSpacing(5);
-  toolbarLayout->addWidget(m_consoleZoomOutButton);
-  toolbarLayout->addWidget(m_consoleZoomInButton);
-  toolbarLayout->addWidget(m_guiLogZoomOutButton);
-  toolbarLayout->addWidget(m_guiLogZoomInButton);
-  toolbarLayout->addWidget(m_elixirConsoleZoomOutButton);
-  toolbarLayout->addWidget(m_elixirConsoleZoomInButton);
+  // Old containers removed - using new LogWidget instances
+  // No toolbar buttons needed - LogWidget handles its own toolbar
 
   m_consoleStack = new QStackedWidget(m_consoleContainer);
-
-  m_outputDisplay = new QTextEdit(m_beamLogContainer);
-  m_outputDisplay->setReadOnly(true);
-  m_outputDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-  m_outputDisplay->setStyleSheet(StyleManager::consoleOutput());
-
-  DebugPaneZoomControl::applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
-
-  m_beamLogLayout->addWidget(m_outputDisplay);
-
-  m_beamLogSearchWidget = SearchFunctionality::createSearchWidget(m_beamLogContainer, m_beamLogSearchInput, m_beamLogSearchCloseButton);
-  connect(m_beamLogSearchInput, &QLineEdit::textChanged, this, &DebugPane::performSearch);
-  connect(m_beamLogSearchInput, &QLineEdit::returnPressed, this, &DebugPane::findNext);
-  connect(m_beamLogSearchCloseButton, &QPushButton::clicked, this, &DebugPane::toggleSearchBar);
-
-  m_guiLogContainer = new QWidget();
-  m_guiLogLayout = new QVBoxLayout(m_guiLogContainer);
-  m_guiLogLayout->setContentsMargins(0, 0, 0, 0);
-  m_guiLogLayout->setSpacing(0);
-
-  m_guiLogDisplay = new QTextEdit(m_guiLogContainer);
-  m_guiLogDisplay->setReadOnly(true);
-  m_guiLogDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-  m_guiLogDisplay->setStyleSheet(StyleManager::consoleOutput());
-
-  DebugPaneZoomControl::applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
-
-  m_guiLogLayout->addWidget(m_guiLogDisplay);
-
-  m_guiLogSearchWidget = SearchFunctionality::createSearchWidget(m_guiLogContainer, m_guiLogSearchInput, m_guiLogSearchCloseButton);
-  connect(m_guiLogSearchInput, &QLineEdit::textChanged, this, &DebugPane::performSearch);
-  connect(m_guiLogSearchInput, &QLineEdit::returnPressed, this, &DebugPane::findNext);
-  connect(m_guiLogSearchCloseButton, &QPushButton::clicked, this, &DebugPane::toggleSearchBar);
-
+  
   m_elixirConsoleContainer = new QWidget();
   QVBoxLayout *elixirConsoleLayout = new QVBoxLayout(m_elixirConsoleContainer);
   elixirConsoleLayout->setContentsMargins(0, 0, 0, 0);
@@ -410,10 +338,27 @@ void DebugPane::setupConsole()
   m_elixirConsoleView->page()->setBackgroundColor(QColor(StyleManager::Colors::CONSOLE_BACKGROUND));
   elixirConsoleLayout->addWidget(m_elixirConsoleView);
 
-  m_consoleStack->addWidget(m_beamLogContainer);
-  m_consoleStack->addWidget(m_guiLogContainer);
   m_consoleStack->addWidget(m_elixirConsoleContainer);
-  m_consoleStack->setCurrentIndex(0);
+  
+  // NEW: Create LogWidget instances for cleaner implementation
+  m_newBeamLogWidget = new LogWidget(LogWidget::BeamLog, this);
+  m_newGuiLogWidget = new LogWidget(LogWidget::GuiLog, this);
+  m_newTau5MCPWidget = new LogWidget(LogWidget::MCPLog, this);
+  
+  // Configure the MCP log widget
+  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+  QString logFilePath = QDir(logsPath).absoluteFilePath("Tau5/logs/mcp-tau5.log");
+  m_newTau5MCPWidget->setLogFilePath(logFilePath);
+  m_newTau5MCPWidget->startFileMonitoring(500);  // Start monitoring immediately
+  
+  // Add the new widgets to the stack (they'll be at indices 0, 1, 2, 3 since old ones are disconnected)
+  // Index 0 is Elixir Console (added above)
+  // Add new widgets at indices 1, 2, 3
+  m_consoleStack->addWidget(m_newBeamLogWidget);  // Index 1
+  m_consoleStack->addWidget(m_newGuiLogWidget);   // Index 2
+  m_consoleStack->addWidget(m_newTau5MCPWidget);  // Index 3
+  
+  m_consoleStack->setCurrentIndex(1); // Start with new BEAM log widget
 
   consoleMainLayout->addWidget(consoleToolbar);
   consoleMainLayout->addWidget(m_consoleStack);
@@ -421,25 +366,7 @@ void DebugPane::setupConsole()
   connect(m_beamLogTabButton, &QPushButton::clicked, this, &DebugPane::showBeamLog);
   connect(m_guiLogTabButton, &QPushButton::clicked, this, &DebugPane::showGuiLog);
   connect(m_elixirConsoleTabButton, &QPushButton::clicked, this, &DebugPane::showElixirConsole);
-
-  connect(m_autoScrollButton, &QPushButton::toggled, this, &DebugPane::handleAutoScrollToggled);
-  connect(m_beamLogSearchButton, &QPushButton::clicked, this, &DebugPane::toggleSearchBar);
-  connect(m_consoleZoomInButton, &QPushButton::clicked, this, &DebugPane::handleConsoleZoomIn);
-  connect(m_consoleZoomOutButton, &QPushButton::clicked, this, &DebugPane::handleConsoleZoomOut);
-
-  connect(m_guiLogAutoScrollButton, &QPushButton::toggled, [this](bool checked)
-          {
-    m_guiLogAutoScroll = checked;
-    if (checked) {
-      QScrollBar *scrollBar = m_guiLogDisplay->verticalScrollBar();
-      scrollBar->setValue(scrollBar->maximum());
-    } });
-  connect(m_guiLogSearchButton, &QPushButton::clicked, this, &DebugPane::toggleSearchBar);
-  connect(m_guiLogZoomInButton, &QPushButton::clicked, this, &DebugPane::handleGuiLogZoomIn);
-  connect(m_guiLogZoomOutButton, &QPushButton::clicked, this, &DebugPane::handleGuiLogZoomOut);
-
-  connect(m_elixirConsoleZoomInButton, &QPushButton::clicked, this, &DebugPane::handleElixirConsoleZoomIn);
-  connect(m_elixirConsoleZoomOutButton, &QPushButton::clicked, this, &DebugPane::handleElixirConsoleZoomOut);
+  connect(m_tau5MCPTabButton, &QPushButton::clicked, this, &DebugPane::showTau5MCPLog);
 }
 
 void DebugPane::setupDevTools()
@@ -464,26 +391,8 @@ void DebugPane::setupDevTools()
   toolbarLayout->addWidget(m_liveDashboardTabButton);
   toolbarLayout->addStretch();
 
-  m_zoomOutButton = createCodiconButton(devToolsToolbar, QChar('-'), "Zoom Out");
-  m_zoomOutButton->setFixedSize(20, 20);
-  m_zoomOutButton->setVisible(true);
-
-  m_zoomInButton = createCodiconButton(devToolsToolbar, QChar('+'), "Zoom In");
-  m_zoomInButton->setFixedSize(20, 20);
-  m_zoomInButton->setVisible(true);
-
-  m_liveDashboardZoomOutButton = createCodiconButton(devToolsToolbar, QChar('-'), "Zoom Out");
-  m_liveDashboardZoomOutButton->setFixedSize(20, 20);
-  m_liveDashboardZoomOutButton->setVisible(false);
-
-  m_liveDashboardZoomInButton = createCodiconButton(devToolsToolbar, QChar('+'), "Zoom In");
-  m_liveDashboardZoomInButton->setFixedSize(20, 20);
-  m_liveDashboardZoomInButton->setVisible(false);
-
-  toolbarLayout->addWidget(m_zoomOutButton);
-  toolbarLayout->addWidget(m_zoomInButton);
-  toolbarLayout->addWidget(m_liveDashboardZoomOutButton);
-  toolbarLayout->addWidget(m_liveDashboardZoomInButton);
+  // Dev tools zoom buttons could be added here if needed
+  // But since dev tools are web views, they have their own zoom controls
 
   m_devToolsStack = new QStackedWidget(m_devToolsMainContainer);
 
@@ -523,14 +432,7 @@ void DebugPane::setupDevTools()
   connect(m_devToolsTabButton, &QPushButton::clicked, this, &DebugPane::showDevToolsTab);
   connect(m_liveDashboardTabButton, &QPushButton::clicked, this, &DebugPane::showLiveDashboardTab);
 
-  connect(m_zoomInButton, &QPushButton::clicked, this, &DebugPane::handleZoomIn);
-  connect(m_zoomOutButton, &QPushButton::clicked, this, &DebugPane::handleZoomOut);
-
-  connect(m_liveDashboardZoomInButton, &QPushButton::clicked, [this]()
-          { DebugPaneZoomControl::zoomWebView(m_liveDashboardView, true); });
-
-  connect(m_liveDashboardZoomOutButton, &QPushButton::clicked, [this]()
-          { DebugPaneZoomControl::zoomWebView(m_liveDashboardView, false); });
+  // Zoom controls can be handled internally by the web views
 }
 
 void DebugPane::setWebView(PhxWebView *webView)
@@ -606,8 +508,9 @@ void DebugPane::updateViewMode()
     fullViewLayout->addWidget(m_consoleContainer);
     m_consoleContainer->show();
     m_splitter->hide();
-    DebugPaneZoomControl::applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
-    DebugPaneZoomControl::applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
+    // OLD WIDGETS REMOVED - Using new LogWidget instances
+    // DebugPaneZoomControl::applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
+    // DebugPaneZoomControl::applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
     break;
 
   case DevToolsOnly:
@@ -624,8 +527,9 @@ void DebugPane::updateViewMode()
     fullViewLayout->addWidget(m_splitter);
     m_devToolsMainContainer->show();
     m_splitter->show();
-    DebugPaneZoomControl::applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
-    DebugPaneZoomControl::applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
+    // OLD WIDGETS REMOVED - Using new LogWidget instances
+    // DebugPaneZoomControl::applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
+    // DebugPaneZoomControl::applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
     break;
   }
 }
@@ -650,39 +554,9 @@ void DebugPane::appendOutput(const QString &text, bool isError)
   if (text.isEmpty())
     return;
 
-  QTextCursor cursor = m_outputDisplay->textCursor();
-  cursor.movePosition(QTextCursor::End);
-
-  QString timestamp = QDateTime::currentDateTime().toString("[hh:mm:ss.zzz] ");
-
-  QTextCharFormat format;
-  format.setForeground(isError ? QColor(StyleManager::Colors::ERROR_BLUE) : QColor(StyleManager::Colors::PRIMARY_ORANGE));
-
-  QTextCharFormat timestampFormat;
-  timestampFormat.setForeground(QColor(StyleManager::Colors::TIMESTAMP_GRAY));
-  cursor.setCharFormat(timestampFormat);
-  cursor.insertText(timestamp);
-
-  cursor.setCharFormat(format);
-  cursor.insertText(text);
-
-  if (!text.endsWith('\n'))
-  {
-    cursor.insertText("\n");
-  }
-
-  if (m_outputDisplay->document()->lineCount() > m_maxLines)
-  {
-    cursor.movePosition(QTextCursor::Start);
-    cursor.movePosition(QTextCursor::Down, QTextCursor::KeepAnchor,
-                        m_outputDisplay->document()->lineCount() - m_maxLines);
-    cursor.removeSelectedText();
-  }
-
-  if (m_autoScroll)
-  {
-    QScrollBar *scrollBar = m_outputDisplay->verticalScrollBar();
-    scrollBar->setValue(scrollBar->maximum());
+  // Append to NEW LogWidget ONLY
+  if (m_newBeamLogWidget) {
+    m_newBeamLogWidget->appendLog(text, isError);
   }
 }
 
@@ -719,30 +593,8 @@ void DebugPane::slide(bool show)
   m_isVisible = show;
 }
 
-void DebugPane::handleAutoScrollToggled(bool checked)
-{
-  m_autoScroll = checked;
-}
 
-void DebugPane::handleZoomIn()
-{
-  DebugPaneZoomControl::zoomWebView(m_devToolsView, true);
-}
 
-void DebugPane::handleZoomOut()
-{
-  DebugPaneZoomControl::zoomWebView(m_devToolsView, false);
-}
-
-void DebugPane::handleConsoleZoomIn()
-{
-  DebugPaneZoomControl::zoomTextEdit(m_outputDisplay, m_currentFontSize, true);
-}
-
-void DebugPane::handleConsoleZoomOut()
-{
-  DebugPaneZoomControl::zoomTextEdit(m_outputDisplay, m_currentFontSize, false);
-}
 
 void DebugPane::animationFinished()
 {
@@ -896,19 +748,7 @@ void DebugPane::resizeEvent(QResizeEvent *event)
     m_restartLabel->move(0, 0);
   }
 
-  if (m_beamLogSearchWidget && m_beamLogSearchWidget->isVisible())
-  {
-    int x = m_beamLogContainer->width() - m_beamLogSearchWidget->width() - 20;
-    int y = m_beamLogContainer->height() - m_beamLogSearchWidget->height() - 20;
-    m_beamLogSearchWidget->move(x, y);
-  }
-
-  if (m_guiLogSearchWidget && m_guiLogSearchWidget->isVisible())
-  {
-    int x = m_guiLogContainer->width() - m_guiLogSearchWidget->width() - 20;
-    int y = m_guiLogContainer->height() - m_guiLogSearchWidget->height() - 20;
-    m_guiLogSearchWidget->move(x, y);
-  }
+  // Old search widget positioning removed - new LogWidget handles its own search
 }
 
 int DebugPane::constrainHeight(int requestedHeight) const
@@ -932,84 +772,20 @@ void DebugPane::appendGuiLog(const QString &text, bool isError)
   if (text.isEmpty())
     return;
 
-  QTextCursor cursor = m_guiLogDisplay->textCursor();
-  cursor.movePosition(QTextCursor::End);
-
-  QString timestamp = QDateTime::currentDateTime().toString("[hh:mm:ss.zzz] ");
-
-  QTextCharFormat format;
-  format.setForeground(isError ? QColor(StyleManager::Colors::ERROR_BLUE) : QColor(StyleManager::Colors::PRIMARY_ORANGE));
-
-  QTextCharFormat timestampFormat;
-  timestampFormat.setForeground(QColor(StyleManager::Colors::TIMESTAMP_GRAY));
-  cursor.setCharFormat(timestampFormat);
-  cursor.insertText(timestamp);
-
-  cursor.setCharFormat(format);
-  cursor.insertText(text);
-
-  if (!text.endsWith('\n'))
-  {
-    cursor.insertText("\n");
-  }
-
-  if (m_guiLogDisplay->document()->lineCount() > m_maxLines)
-  {
-    cursor.movePosition(QTextCursor::Start);
-    cursor.movePosition(QTextCursor::Down, QTextCursor::KeepAnchor,
-                        m_guiLogDisplay->document()->lineCount() - m_maxLines);
-    cursor.removeSelectedText();
-  }
-
-  if (m_guiLogAutoScroll)
-  {
-    QScrollBar *scrollBar = m_guiLogDisplay->verticalScrollBar();
-    scrollBar->setValue(scrollBar->maximum());
+  // Append to NEW LogWidget for display
+  if (m_newGuiLogWidget) {
+    m_newGuiLogWidget->appendLog(text, isError);
   }
   
-  writeGuiLogToFile(timestamp + text, isError);
-}
-
-void DebugPane::writeGuiLogToFile(const QString &logLine, bool isError)
-{
-  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-  QDir logsDir(logsPath);
-  
-  // Ensure logs directory exists
-  if (!logsDir.exists("logs")) {
-    if (!logsDir.mkpath("logs")) {
-      return; // Unable to create logs directory
-    }
-  }
-  
-  QString logFilePath = logsDir.absoluteFilePath("logs/gui.log");
-  QFile logFile(logFilePath);
-  
-  // Write log entry
-  if (logFile.open(QIODevice::WriteOnly | QIODevice::Append)) {
-    QTextStream stream(&logFile);
-    QString level = isError ? "[ERROR]" : "[INFO]";
-    stream << level << " " << logLine << Qt::endl;
-    logFile.close();
-  }
-  
-  // Check file size and rotate if necessary (10MB limit)
-  QFileInfo fileInfo(logFilePath);
-  if (fileInfo.exists() && fileInfo.size() > 10 * 1024 * 1024) {
-    logFile.remove();
+  // Also write to file for MCP server access (with automatic rotation)
+  if (m_guiLogFileManager) {
+    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz");
+    QString level = isError ? "ERROR" : "INFO";
+    QString logLine = QString("%1 [%2] %3").arg(timestamp).arg(level).arg(text);
+    m_guiLogFileManager->writeLine(logLine);
   }
 }
 
-void DebugPane::clearLogFileOnStartup()
-{
-  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-  QString logFilePath = QDir(logsPath).absoluteFilePath("logs/gui.log");
-  
-  QFile logFile(logFilePath);
-  if (logFile.exists()) {
-    logFile.remove();
-  }
-}
 
 void DebugPane::setLiveDashboardUrl(const QString &url)
 {
@@ -1060,49 +836,74 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
   }
 }
 
-void DebugPane::handleGuiLogZoomIn()
-{
-  DebugPaneZoomControl::zoomTextEdit(m_guiLogDisplay, m_guiLogFontSize, true);
-}
-
-void DebugPane::handleGuiLogZoomOut()
-{
-  DebugPaneZoomControl::zoomTextEdit(m_guiLogDisplay, m_guiLogFontSize, false);
-}
-
-void DebugPane::handleElixirConsoleZoomIn()
-{
-  DebugPaneZoomControl::zoomWebView(m_elixirConsoleView, true);
-}
-
-void DebugPane::handleElixirConsoleZoomOut()
-{
-  DebugPaneZoomControl::zoomWebView(m_elixirConsoleView, false);
-}
 
 void DebugPane::showBeamLog()
 {
-  switchConsoleTab(0, {m_beamLogTabButton, m_guiLogTabButton, m_elixirConsoleTabButton});
+  // Switch to new LogWidget at index 1
+  m_consoleStack->setCurrentIndex(1);
+  // Update tab button states
+  m_beamLogTabButton->setChecked(true);
+  m_guiLogTabButton->setChecked(false);
+  m_tau5MCPTabButton->setChecked(false);
+  m_elixirConsoleTabButton->setChecked(false);
+  // Give focus to the widget for keyboard shortcuts
+  if (m_newBeamLogWidget) {
+    m_newBeamLogWidget->setFocus();
+  }
 }
 
 void DebugPane::showGuiLog()
 {
-  switchConsoleTab(1, {m_beamLogTabButton, m_guiLogTabButton, m_elixirConsoleTabButton});
+  // Switch to new LogWidget at index 2
+  m_consoleStack->setCurrentIndex(2);
+  // Update tab button states
+  m_beamLogTabButton->setChecked(false);
+  m_guiLogTabButton->setChecked(true);
+  m_tau5MCPTabButton->setChecked(false);
+  m_elixirConsoleTabButton->setChecked(false);
+  // Give focus to the widget for keyboard shortcuts
+  if (m_newGuiLogWidget) {
+    m_newGuiLogWidget->setFocus();
+  }
 }
 
 void DebugPane::showElixirConsole()
 {
-  switchConsoleTab(2, {m_beamLogTabButton, m_guiLogTabButton, m_elixirConsoleTabButton});
+  // Elixir console is at index 0
+  m_consoleStack->setCurrentIndex(0);
+  // Update tab button states
+  m_beamLogTabButton->setChecked(false);
+  m_guiLogTabButton->setChecked(false);
+  m_tau5MCPTabButton->setChecked(false);
+  m_elixirConsoleTabButton->setChecked(true);
+}
+
+void DebugPane::showTau5MCPLog()
+{
+  // Switch to new LogWidget at index 3
+  m_consoleStack->setCurrentIndex(3);
+  // Update tab button states
+  m_beamLogTabButton->setChecked(false);
+  m_guiLogTabButton->setChecked(false);
+  m_tau5MCPTabButton->setChecked(true);
+  m_elixirConsoleTabButton->setChecked(false);
+  
+  // Start file monitoring for the new widget (in case it wasn't started)
+  if (m_newTau5MCPWidget) {
+    m_newTau5MCPWidget->startFileMonitoring();
+    m_newTau5MCPWidget->setFocus();  // Give focus for keyboard shortcuts
+  }
 }
 
 void DebugPane::switchConsoleTab(int index, const QList<QPushButton *> &tabButtons)
 {
-  QList<QPushButton *> allButtons = {
-      m_autoScrollButton, m_beamLogSearchButton, m_consoleZoomOutButton, m_consoleZoomInButton,
-      m_guiLogAutoScrollButton, m_guiLogSearchButton, m_guiLogZoomOutButton, m_guiLogZoomInButton,
-      m_elixirConsoleZoomOutButton, m_elixirConsoleZoomInButton};
-
-  TabSwitcher::switchConsoleTab(index, tabButtons, m_consoleStack, allButtons);
+  // Simple tab switching - LogWidget handles its own toolbar
+  for (int i = 0; i < tabButtons.size(); ++i) {
+    tabButtons[i]->setChecked(i == index);
+  }
+  if (m_consoleStack) {
+    m_consoleStack->setCurrentIndex(index);
+  }
 }
 
 void DebugPane::showDevToolsTab()
@@ -1121,12 +922,10 @@ void DebugPane::showLiveDashboardTab()
 
 void DebugPane::switchDevToolsTab(int index)
 {
-  QList<QPushButton *> zoomButtons = {
-      m_zoomOutButton, m_zoomInButton,
-      m_liveDashboardZoomOutButton, m_liveDashboardZoomInButton};
-
-  TabSwitcher::switchDevToolsTab(index, m_devToolsTabButton, m_liveDashboardTabButton,
-                                 m_devToolsStack, zoomButtons);
+  // Simple tab switching for dev tools
+  if (m_devToolsTabButton) m_devToolsTabButton->setChecked(index == 0);
+  if (m_liveDashboardTabButton) m_liveDashboardTabButton->setChecked(index == 1);
+  if (m_devToolsStack) m_devToolsStack->setCurrentIndex(index);
 }
 
 void DebugPane::saveSettings()
@@ -1145,8 +944,6 @@ void DebugPane::saveSettings()
 
   settings.setValue("beamLogFontSize", m_currentFontSize);
   settings.setValue("guiLogFontSize", m_guiLogFontSize);
-  settings.setValue("beamLogAutoScroll", m_autoScroll);
-  settings.setValue("guiLogAutoScroll", m_guiLogAutoScroll);
   settings.setValue("consoleTabIndex", m_consoleStack->currentIndex());
   settings.setValue("devToolsTabIndex", m_devToolsStack->currentIndex());
 
@@ -1184,20 +981,18 @@ void DebugPane::restoreSettings()
   if (settings.contains("beamLogFontSize"))
   {
     m_currentFontSize = settings.value("beamLogFontSize", 12).toInt();
-    DebugPaneZoomControl::applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
+    if (m_newBeamLogWidget) {
+      m_newBeamLogWidget->setFontSize(m_currentFontSize);
+    }
   }
 
   if (settings.contains("guiLogFontSize"))
   {
     m_guiLogFontSize = settings.value("guiLogFontSize", 12).toInt();
-    DebugPaneZoomControl::applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
+    if (m_newGuiLogWidget) {
+      m_newGuiLogWidget->setFontSize(m_guiLogFontSize);
+    }
   }
-
-  m_autoScroll = settings.value("beamLogAutoScroll", true).toBool();
-  m_autoScrollButton->setChecked(m_autoScroll);
-
-  m_guiLogAutoScroll = settings.value("guiLogAutoScroll", true).toBool();
-  m_guiLogAutoScrollButton->setChecked(m_guiLogAutoScroll);
 
   if (settings.contains("consoleTabIndex"))
   {
@@ -1419,174 +1214,8 @@ void DebugPane::focusOutEvent(QFocusEvent *event)
   QWidget::focusOutEvent(event);
 }
 
-void DebugPane::setupShortcuts()
-{
-  ShortcutManager &mgr = ShortcutManager::instance();
 
-  // Search/Find Next shortcut (Ctrl+S)
-  QShortcut *searchShortcut = new QShortcut(mgr.getKeySequence(ShortcutManager::DebugPaneSearch), this);
-  searchShortcut->setContext(Qt::WidgetWithChildrenShortcut);
-  connect(searchShortcut, &QShortcut::activated, this, &DebugPane::handleSearchShortcut);
-  m_shortcuts.append(searchShortcut);
 
-  // Find Previous shortcut (Ctrl+R)
-  QShortcut *findPrevShortcut = new QShortcut(mgr.getKeySequence(ShortcutManager::DebugPaneFindPrevious), this);
-  findPrevShortcut->setContext(Qt::WidgetWithChildrenShortcut);
-  connect(findPrevShortcut, &QShortcut::activated, this, &DebugPane::findPrevious);
-  m_shortcuts.append(findPrevShortcut);
-
-  // Close Search shortcut (Ctrl+G)
-  QShortcut *closeSearchShortcut = new QShortcut(mgr.getKeySequence(ShortcutManager::DebugPaneCloseSearch), this);
-  closeSearchShortcut->setContext(Qt::WidgetWithChildrenShortcut);
-  connect(closeSearchShortcut, &QShortcut::activated, this, &DebugPane::toggleSearchBar);
-  m_shortcuts.append(closeSearchShortcut);
-}
-
-void DebugPane::cleanupShortcuts()
-{
-  // Shortcuts are automatically cleaned up when the widget is destroyed
-}
-
-void DebugPane::getCurrentSearchContext(QWidget *&searchWidget, QLineEdit *&searchInput, QTextEdit *&textEdit, QString *&lastSearchText)
-{
-  searchWidget = nullptr;
-  searchInput = nullptr;
-  textEdit = nullptr;
-  lastSearchText = nullptr;
-
-  if (m_consoleStack->currentIndex() == 0)
-  {
-    searchWidget = m_beamLogSearchWidget;
-    searchInput = m_beamLogSearchInput;
-    textEdit = m_outputDisplay;
-    lastSearchText = &m_beamLogLastSearchText;
-  }
-  else if (m_consoleStack->currentIndex() == 1)
-  {
-    searchWidget = m_guiLogSearchWidget;
-    searchInput = m_guiLogSearchInput;
-    textEdit = m_guiLogDisplay;
-    lastSearchText = &m_guiLogLastSearchText;
-  }
-}
-
-void DebugPane::highlightAllMatches(QTextEdit *textEdit, const QString &searchText, const QTextCursor &currentMatch)
-{
-  SearchFunctionality::highlightAllMatches(textEdit, searchText, currentMatch);
-}
-
-void DebugPane::toggleSearchBar()
-{
-  QWidget *searchWidget = nullptr;
-  QLineEdit *searchInput = nullptr;
-  QTextEdit *textEdit = nullptr;
-  QString *lastSearchText = nullptr;
-
-  getCurrentSearchContext(searchWidget, searchInput, textEdit, lastSearchText);
-
-  if (!searchWidget || !searchInput || !textEdit)
-    return;
-
-  int currentTab = m_consoleStack->currentIndex();
-  QPushButton *searchButton = (currentTab == 0) ? m_beamLogSearchButton : m_guiLogSearchButton;
-  QWidget *container = (currentTab == 0) ? m_beamLogContainer : m_guiLogContainer;
-
-  SearchFunctionality::SearchContext context = {
-      searchWidget,
-      searchInput,
-      textEdit,
-      lastSearchText,
-      searchButton};
-
-  m_searchFunctionality->toggleSearchBar(context, container);
-}
-
-void DebugPane::performSearch()
-{
-  QLineEdit *searchInput = qobject_cast<QLineEdit *>(sender());
-  if (!searchInput)
-    return;
-
-  QTextEdit *currentTextEdit = nullptr;
-  QString *lastSearchText = nullptr;
-
-  if (searchInput == m_beamLogSearchInput)
-  {
-    currentTextEdit = m_outputDisplay;
-    lastSearchText = &m_beamLogLastSearchText;
-  }
-  else if (searchInput == m_guiLogSearchInput)
-  {
-    currentTextEdit = m_guiLogDisplay;
-    lastSearchText = &m_guiLogLastSearchText;
-  }
-
-  if (!currentTextEdit || !lastSearchText)
-    return;
-
-  m_searchFunctionality->performSearch(searchInput, currentTextEdit, *lastSearchText);
-}
-
-void DebugPane::handleSearchShortcut()
-{
-  if (!m_isVisible)
-    return;
-
-  QWidget *searchWidget = (m_consoleStack->currentIndex() == 0) ? m_beamLogSearchWidget : m_guiLogSearchWidget;
-
-  if (searchWidget && searchWidget->isVisible())
-  {
-    findNext();
-  }
-  else
-  {
-    toggleSearchBar();
-  }
-}
-
-void DebugPane::findNext()
-{
-  QWidget *searchWidget = nullptr;
-  QLineEdit *searchInput = nullptr;
-  QTextEdit *currentTextEdit = nullptr;
-  QString *lastSearchText = nullptr;
-
-  getCurrentSearchContext(searchWidget, searchInput, currentTextEdit, lastSearchText);
-
-  if (!searchWidget || !searchInput || !currentTextEdit || !lastSearchText)
-    return;
-
-  SearchFunctionality::SearchContext context = {
-      searchWidget,
-      searchInput,
-      currentTextEdit,
-      lastSearchText,
-      nullptr};
-
-  m_searchFunctionality->findNext(context);
-}
-
-void DebugPane::findPrevious()
-{
-  QWidget *searchWidget = nullptr;
-  QLineEdit *searchInput = nullptr;
-  QTextEdit *currentTextEdit = nullptr;
-  QString *lastSearchText = nullptr;
-
-  getCurrentSearchContext(searchWidget, searchInput, currentTextEdit, lastSearchText);
-
-  if (!searchWidget || !searchInput || !currentTextEdit || !lastSearchText)
-    return;
-
-  SearchFunctionality::SearchContext context = {
-      searchWidget,
-      searchInput,
-      currentTextEdit,
-      lastSearchText,
-      nullptr};
-
-  m_searchFunctionality->findPrevious(context);
-}
 
 void DebugPane::handleInspectElementRequested()
 {
@@ -1656,5 +1285,7 @@ void DebugPane::resetDevPaneBrowsers()
   
   Logger::log(Logger::Info, "Dev pane browsers have been reset");
 }
+
+
 
 #include "moc_debugpane.cpp"

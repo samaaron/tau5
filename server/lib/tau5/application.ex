@@ -25,6 +25,9 @@ defmodule Tau5.Application do
     
     case Supervisor.start_link(children, opts) do
       {:ok, pid} ->
+        # Initialize MCP activity logger
+        Tau5MCP.ActivityLogger.init()
+        
         Logger.info("[TAU5_OTP_READY] OTP supervision tree is up and running")
         {:ok, pid}
       

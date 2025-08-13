@@ -30,21 +30,52 @@ defmodule Tau5MCP.Server do
   end
 
   @impl true
-  def handle_tool_call("lua_eval", %{code: code}, frame) do
+  def handle_tool_call("lua_eval", %{code: code} = params, frame) do
     Logger.info("[#{__MODULE__}] => lua_eval tool was called #{frame.assigns.counter + 1}")
+    
+    request_id = frame.request.id
+    start_time = System.monotonic_time(:millisecond)
     
     print_callback = fn message ->
       send_log_message(frame, :info, "[Lua] #{message}")
       Logger.debug("[#{__MODULE__}] Lua print output: #{message}")
     end
     
-    case LuaEvaluator.evaluate(code, print_callback: print_callback) do
-      {:ok, result} ->
-        resp = Response.text(Response.tool(), result)
-        {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
+    try do
+      case LuaEvaluator.evaluate(code, print_callback: print_callback) do
+        {:ok, result} ->
+          duration = System.monotonic_time(:millisecond) - start_time
+          Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :success, duration)
+          
+          resp = Response.text(Response.tool(), result)
+          {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
+          
+        {:error, reason} ->
+          duration = System.monotonic_time(:millisecond) - start_time
+          Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :error, duration, reason)
+          
+          resp = Response.text(Response.tool(), "Error: #{reason}")
+          {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
+      end
+    rescue
+      exception ->
+        duration = System.monotonic_time(:millisecond) - start_time
+        error_msg = "Uncaught exception: #{Exception.message(exception)}"
+        Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :exception, duration, error_msg)
         
-      {:error, reason} ->
-        resp = Response.text(Response.tool(), "Error: #{reason}")
+        Logger.error("[#{__MODULE__}] Uncaught exception in lua_eval: #{inspect(exception)}")
+        
+        resp = Response.text(Response.tool(), "Internal error: #{Exception.message(exception)}")
+        {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
+    catch
+      kind, reason ->
+        duration = System.monotonic_time(:millisecond) - start_time
+        error_msg = "Process #{kind}: #{inspect(reason)}"
+        Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :crash, duration, error_msg)
+        
+        Logger.error("[#{__MODULE__}] Process #{kind} in lua_eval: #{inspect(reason)}")
+        
+        resp = Response.text(Response.tool(), "Process error: #{kind}")
         {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
     end
   end
