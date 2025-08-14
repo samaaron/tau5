@@ -8,7 +8,8 @@ defmodule Tau5Web.Plugs.ConsoleSecurity do
     if conn.request_path == "/dev/console" do
       conn = fetch_query_params(conn)
       
-      with :ok <- check_localhost(conn),
+      with :ok <- check_console_enabled(),
+           :ok <- check_localhost(conn),
            :ok <- check_token(conn) do
         conn
       else
@@ -20,6 +21,22 @@ defmodule Tau5Web.Plugs.ConsoleSecurity do
       end
     else
       conn
+    end
+  end
+  
+  defp check_console_enabled do
+    if Application.get_env(:tau5, :console_enabled, false) do
+      :ok
+    else
+      Logger.info("Tau5 Console - Access blocked, TAU5_ENABLE_DEV_REPL not set")
+      {:error, """
+      The Tau5 Elixir REPL console is disabled for security.
+      
+      To enable the console, set the TAU5_ENABLE_DEV_REPL=1 environment variable
+      before starting Tau5, then restart the server.
+      
+      This feature should only be enabled in trusted development environments.
+      """}
     end
   end
   

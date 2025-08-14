@@ -28,7 +28,7 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, QWidget *parent)
     , m_mainWindowLoaded(false)
 #ifdef BUILD_WITH_DEBUG_PANE
     , m_liveDashboardLoaded(!enableDebugPane)  // If debug pane disabled, consider these loaded
-    , m_elixirConsoleLoaded(!enableDebugPane)
+    , m_elixirConsoleLoaded(!enableDebugPane || !isElixirReplEnabled())  // Consider loaded if disabled
     , m_webDevToolsLoaded(!enableDebugPane)
 #else
     , m_liveDashboardLoaded(true)  // Always true when debug pane not built
@@ -169,6 +169,12 @@ bool MainWindow::connectToServer(quint16 port)
                          tr("Failed to initialize connection: %1").arg(e.what()));
     return false;
   }
+}
+
+bool MainWindow::isElixirReplEnabled()
+{
+  QString replValue = qEnvironmentVariable("TAU5_ENABLE_DEV_REPL", "false").toLower();
+  return (replValue == "1" || replValue == "true" || replValue == "yes");
 }
 
 void MainWindow::initializePhxWidget(quint16 port)
@@ -473,7 +479,7 @@ void MainWindow::handleBeamRestart()
   // Reset component loaded flags
   m_mainWindowLoaded = false;
   m_liveDashboardLoaded = false;
-  m_elixirConsoleLoaded = false;
+  m_elixirConsoleLoaded = !isElixirReplEnabled();  // If REPL disabled, consider it "loaded"
   m_webDevToolsLoaded = false;
   m_allComponentsSignalEmitted = false;
   

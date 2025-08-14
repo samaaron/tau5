@@ -100,6 +100,8 @@ private:
   int constrainHeight(int requestedHeight) const;
   void switchConsoleTab(int index, const QList<QPushButton *> &tabButtons);
   void switchDevToolsTab(int index);
+  static bool isElixirReplEnabled();
+  static bool isMcpEnabled();
 
 private:
   QVBoxLayout *m_mainLayout;

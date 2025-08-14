@@ -59,6 +59,7 @@ private:
   void initializeDebugPane();
   void initializeControlLayer();
   void checkAllComponentsLoaded();
+  static bool isElixirReplEnabled();
 
 private:
   std::unique_ptr<PhxWidget> phxWidget;

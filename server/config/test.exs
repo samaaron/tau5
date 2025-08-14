@@ -34,6 +34,4 @@ config :phoenix, :plug_init_mode, :runtime
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true
 
-# Enable console for testing
 config :tau5, :dev_routes, true
-config :tau5, :console_enabled, true

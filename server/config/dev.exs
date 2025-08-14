@@ -61,11 +61,7 @@ config :tau5, Tau5Web.Endpoint,
     ]
   ]
 
-# Enable dev routes for dashboard and mailbox
 config :tau5, dev_routes: true
-
-# Enable Elixir console in dev tools
-config :tau5, console_enabled: true
 
 # Console allowed origins (optional)
 # config :tau5, console_allowed_origins: ["http://localhost:4000", "http://localhost:5555"]

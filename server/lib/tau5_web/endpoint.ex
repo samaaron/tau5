@@ -53,7 +53,9 @@ defmodule Tau5Web.Endpoint do
   plug Tau5Web.Router
 
   defp maybe_plug_tidewave(conn, _opts) do
-    if System.get_env("TAU5_ENABLE_DEV_MCP") && Code.ensure_loaded?(Tidewave) do
+    mcp_enabled = System.get_env("TAU5_ENABLE_DEV_MCP", "false") in ["1", "true", "yes"]
+    
+    if mcp_enabled && Code.ensure_loaded?(Tidewave) do
       Tidewave.call(conn, Tidewave.init([]))
     else
       conn

@@ -179,6 +179,18 @@ DebugPane::~DebugPane()
   }
 }
 
+bool DebugPane::isElixirReplEnabled()
+{
+  QString replValue = qEnvironmentVariable("TAU5_ENABLE_DEV_REPL", "false").toLower();
+  return (replValue == "1" || replValue == "true" || replValue == "yes");
+}
+
+bool DebugPane::isMcpEnabled()
+{
+  QString mcpValue = qEnvironmentVariable("TAU5_ENABLE_DEV_MCP", "false").toLower();
+  return (mcpValue == "1" || mcpValue == "true" || mcpValue == "yes");
+}
+
 void DebugPane::setupUi()
 {
   setFocusPolicy(Qt::StrongFocus);
@@ -315,7 +327,7 @@ void DebugPane::setupConsole()
 
   m_elixirConsoleTabButton = ButtonUtilities::createTabButton("Elixir", consoleToolbar);
 
-  bool enableDevMCP = qEnvironmentVariableIsSet("TAU5_ENABLE_DEV_MCP");
+  bool enableDevMCP = isMcpEnabled();
   m_tau5MCPTabButton = ButtonUtilities::createTabButton("Tau5 MCP", consoleToolbar);
   m_guiMCPTabButton = ButtonUtilities::createTabButton("GUI MCP", consoleToolbar);
 
@@ -335,16 +347,41 @@ void DebugPane::setupConsole()
 
   m_consoleStack = new QStackedWidget(m_consoleContainer);
 
-  m_elixirConsoleContainer = new QWidget();
-  QVBoxLayout *elixirConsoleLayout = new QVBoxLayout(m_elixirConsoleContainer);
-  elixirConsoleLayout->setContentsMargins(0, 0, 0, 0);
-  elixirConsoleLayout->setSpacing(0);
+  // Check if Elixir REPL is enabled
+  bool enableDevREPL = isElixirReplEnabled();
+  
+  if (enableDevREPL) {
+    m_elixirConsoleContainer = new QWidget();
+    QVBoxLayout *elixirConsoleLayout = new QVBoxLayout(m_elixirConsoleContainer);
+    elixirConsoleLayout->setContentsMargins(0, 0, 0, 0);
+    elixirConsoleLayout->setSpacing(0);
 
-  m_elixirConsoleView = new SandboxedWebView(m_elixirConsoleContainer);
-  m_elixirConsoleView->page()->setBackgroundColor(QColor(StyleManager::Colors::CONSOLE_BACKGROUND));
-  elixirConsoleLayout->addWidget(m_elixirConsoleView);
+    m_elixirConsoleView = new SandboxedWebView(m_elixirConsoleContainer);
+    m_elixirConsoleView->page()->setBackgroundColor(QColor(StyleManager::Colors::CONSOLE_BACKGROUND));
+    elixirConsoleLayout->addWidget(m_elixirConsoleView);
 
-  m_consoleStack->addWidget(m_elixirConsoleContainer);
+    m_consoleStack->addWidget(m_elixirConsoleContainer);
+  } else {
+    // Create a LogWidget to show the disabled message
+    LogWidget *elixirDisabledWidget = new LogWidget(LogWidget::GuiLog, this);
+    QString disabledMessage =
+      "\nTau5 Elixir REPL Console - DISABLED\n"
+      "═══════════════════════════════════\n\n"
+      "The Tau5 Elixir REPL console is disabled for security.\n\n\n"
+      "To enable the console, set TAU5_ENABLE_DEV_REPL=1 before starting Tau5.\n\n\n"
+      "When enabled, you will have access to:\n\n"
+      "• Interactive Elixir console\n"
+      "• Direct server code execution\n"
+      "• Runtime debugging capabilities\n"
+      "• Access to all server modules and functions\n\n\n"
+      "This feature should only be enabled in trusted development environments.\n";
+    
+    elixirDisabledWidget->appendLog(disabledMessage, false);
+    m_consoleStack->addWidget(elixirDisabledWidget);
+    
+    // Set tooltip on the tab button
+    m_elixirConsoleTabButton->setToolTip("Elixir REPL disabled - click for more information");
+  }
 
   m_newBeamLogWidget = new LogWidget(LogWidget::BeamLog, this);
   m_newGuiLogWidget = new LogWidget(LogWidget::GuiLog, this);
@@ -875,7 +912,10 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
     m_elixirConsoleUrl = url;  // Store for reset functionality
   }
 
-  if (m_elixirConsoleView && !url.isEmpty())
+  // Only load the URL if the REPL is enabled and the view exists
+  bool enableDevREPL = isElixirReplEnabled();
+  
+  if (enableDevREPL && m_elixirConsoleView && !url.isEmpty())
   {
     QUrl elixirConsoleUrl(url);
     Logger::log(Logger::Debug, QString("DebugPane::setElixirConsoleUrl - Setting URL: %1").arg(url));
@@ -888,6 +928,10 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
         DebugPaneThemeStyles::applyConsoleDarkTheme(m_elixirConsoleView);
         emit elixirConsoleLoaded();
       } });
+  }
+  else if (!enableDevREPL)
+  {
+    Logger::log(Logger::Info, "DebugPane::setElixirConsoleUrl - Elixir REPL is disabled (TAU5_ENABLE_DEV_REPL not set)");
   }
   else
   {
@@ -965,7 +1009,7 @@ void DebugPane::showGuiMCPLog()
   m_guiMCPTabButton->setChecked(true);
   m_elixirConsoleTabButton->setChecked(false);
   if (m_newGuiMCPWidget) {
-    if (qEnvironmentVariableIsSet("TAU5_ENABLE_DEV_MCP")) {
+    if (isMcpEnabled()) {
       m_newGuiMCPWidget->startFileMonitoring();
     }
     m_newGuiMCPWidget->setFocus();
@@ -1326,8 +1370,9 @@ void DebugPane::resetDevPaneBrowsers()
     m_liveDashboardView->setUrl(dashboardUrl);
   }
 
-  // Reset Elixir Console
-  if (m_elixirConsoleView && !m_elixirConsoleUrl.isEmpty())
+  // Reset Elixir Console (only if enabled)
+  bool enableDevREPL = isElixirReplEnabled();
+  if (enableDevREPL && m_elixirConsoleView && !m_elixirConsoleUrl.isEmpty())
   {
     Logger::log(Logger::Debug, QString("Resetting Elixir Console to: %1").arg(m_elixirConsoleUrl));
     QUrl consoleUrl(m_elixirConsoleUrl);

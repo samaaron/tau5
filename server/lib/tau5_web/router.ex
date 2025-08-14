@@ -53,13 +53,10 @@ defmodule Tau5Web.Router do
       
       live_dashboard("/dashboard", metrics: Tau5Web.Telemetry)
       forward("/mailbox", Plug.Swoosh.MailboxPreview)
-    end
-
-    if Application.compile_env(:tau5, :console_enabled, false) do
-      scope "/dev" do
-        pipe_through([:browser, :console_secure])
-        live("/console", Tau5Web.ConsoleLive, :console)
-      end
+      
+      # Console route - security is handled by ConsoleSecurity plug
+      pipe_through(:console_secure)
+      live("/console", Tau5Web.ConsoleLive, :console)
     end
   end
 end

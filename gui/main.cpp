@@ -141,7 +141,8 @@ bool initializeApplication(QApplication &app, bool devMode)
   originalMessageHandler = qInstallMessageHandler(tau5MessageHandler);
   
   // Check if MCP servers should be enabled
-  bool enableMCP = qEnvironmentVariableIsSet("TAU5_ENABLE_DEV_MCP");
+  QString mcpValue = qEnvironmentVariable("TAU5_ENABLE_DEV_MCP", "false").toLower();
+  bool enableMCP = (mcpValue == "1" || mcpValue == "true" || mcpValue == "yes");
   
   if (devMode && enableMCP) {
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS_DEV);

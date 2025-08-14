@@ -47,6 +47,12 @@ if config_env() == :prod do
   
   # Explicitly disable console in production
   config :tau5, console_enabled: false
+else
+  # In dev/test, check if console should be enabled via env var
+  # Default to false for security unless explicitly enabled
+  # Accept "1", "true", or "yes" as enabled
+  repl_enabled = System.get_env("TAU5_ENABLE_DEV_REPL", "false")
+  config :tau5, console_enabled: repl_enabled in ["1", "true", "yes"]
 end
 
 if config_env() == :prod do
