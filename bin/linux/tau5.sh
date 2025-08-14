@@ -12,5 +12,4 @@ trap cleanup_function EXIT
 
 cd "${ROOT_DIR}"
 
-#./gui/build/tau5 dev --enable-mcp --enable-repl
-./gui/build/tau5 dev --enable-repl
+./gui/build/tau5 dev --enable-mcp --enable-repl
