@@ -349,7 +349,7 @@ void DebugPane::setupConsole()
 
   // Check if Elixir REPL is enabled
   bool enableDevREPL = isElixirReplEnabled();
-  
+
   if (enableDevREPL) {
     m_elixirConsoleContainer = new QWidget();
     QVBoxLayout *elixirConsoleLayout = new QVBoxLayout(m_elixirConsoleContainer);
@@ -375,10 +375,10 @@ void DebugPane::setupConsole()
       "• Runtime debugging capabilities\n"
       "• Access to all server modules and functions\n\n\n"
       "This feature should only be enabled in trusted development environments.\n";
-    
+
     elixirDisabledWidget->appendLog(disabledMessage, false);
     m_consoleStack->addWidget(elixirDisabledWidget);
-    
+
     // Set tooltip on the tab button
     m_elixirConsoleTabButton->setToolTip("Elixir REPL disabled - click for more information");
   }
@@ -395,19 +395,8 @@ void DebugPane::setupConsole()
 
   // Add startup message for Tau5 MCP
   QString tau5MCPStartupMessage =
-    "Tau5 Dev Server MCP\n"
-    "═══════════════\n\n"
-    "MCP Tools for the Elixir server provided by Tidewave:\n"
-    "• project_eval - Execute Elixir code in the server context\n"
-    "• list_liveview_pages - Get all LiveView pages and routes\n"
-    "• get_source_location - Find source code locations\n"
-    "• get_package_location - Get package installation paths\n"
-    "• get_logs - Read server logs with filtering\n\n"
-    "Use these tools through AI assistants like Claude to:\n"
-    "• Debug and inspect the running Elixir server\n"
-    "• Execute code in the server's runtime context\n"
-    "• Navigate and understand the codebase\n"
-    "• Monitor server logs and behaviour\n\n"
+    "Tau5 MCP Server\n"
+    "(All commands are executed in a secure sandboxed environment.)\n\n"
     "────────────────────────────────────────\n";
   m_newTau5MCPWidget->appendLog(tau5MCPStartupMessage, false);
 
@@ -914,7 +903,7 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
 
   // Only load the URL if the REPL is enabled and the view exists
   bool enableDevREPL = isElixirReplEnabled();
-  
+
   if (enableDevREPL && m_elixirConsoleView && !url.isEmpty())
   {
     QUrl elixirConsoleUrl(url);
