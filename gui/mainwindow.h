@@ -25,7 +25,7 @@ signals:
   void allComponentsLoaded();
 
 public:
-  explicit MainWindow(bool devMode = false, bool enableDebugPane = true, QWidget *parent = nullptr);
+  explicit MainWindow(bool devMode = false, bool enableDebugPane = true, bool enableMcp = false, bool enableRepl = false, QWidget *parent = nullptr);
   ~MainWindow();
 
   bool connectToServer(quint16 port);
@@ -59,7 +59,7 @@ private:
   void initializeDebugPane();
   void initializeControlLayer();
   void checkAllComponentsLoaded();
-  static bool isElixirReplEnabled();
+  bool isElixirReplEnabled();
 
 private:
   std::unique_ptr<PhxWidget> phxWidget;
@@ -72,6 +72,8 @@ private:
   Beam *beamInstance;
   bool m_devMode;
   bool m_enableDebugPane;
+  bool m_enableMcp;
+  bool m_enableRepl;
   
   bool m_mainWindowLoaded;
   bool m_liveDashboardLoaded;

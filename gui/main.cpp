@@ -279,7 +279,7 @@ int main(int argc, char *argv[])
   std::unique_ptr<Beam> beam = std::make_unique<Beam>(&app, basePath, Config::APP_NAME,
                                                       Config::APP_VERSION, port, devMode, enableMcp, enableRepl);
 
-  MainWindow mainWindow(devMode, enableDebugPane);
+  MainWindow mainWindow(devMode, enableDebugPane, enableMcp, enableRepl);
   
   QObject::connect(&Logger::instance(), &Logger::logMessage,
                    &mainWindow, &MainWindow::handleGuiLog);

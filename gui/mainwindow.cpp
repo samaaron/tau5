@@ -20,15 +20,17 @@
 #include "logger.h"
 #include "styles/StyleManager.h"
 
-MainWindow::MainWindow(bool devMode, bool enableDebugPane, QWidget *parent)
+MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool enableRepl, QWidget *parent)
     : QMainWindow(parent)
     , beamInstance(nullptr)
     , m_devMode(devMode)
     , m_enableDebugPane(enableDebugPane)
+    , m_enableMcp(enableMcp)
+    , m_enableRepl(enableRepl)
     , m_mainWindowLoaded(false)
 #ifdef BUILD_WITH_DEBUG_PANE
     , m_liveDashboardLoaded(!enableDebugPane)  // If debug pane disabled, consider these loaded
-    , m_elixirConsoleLoaded(!enableDebugPane || !isElixirReplEnabled())  // Consider loaded if disabled
+    , m_elixirConsoleLoaded(!enableDebugPane || !enableRepl)  // Consider loaded if disabled
     , m_webDevToolsLoaded(!enableDebugPane)
 #else
     , m_liveDashboardLoaded(true)  // Always true when debug pane not built
@@ -173,8 +175,7 @@ bool MainWindow::connectToServer(quint16 port)
 
 bool MainWindow::isElixirReplEnabled()
 {
-  QString replValue = qEnvironmentVariable("TAU5_ENABLE_DEV_REPL", "false").toLower();
-  return (replValue == "1" || replValue == "true" || replValue == "yes");
+  return m_enableRepl;
 }
 
 void MainWindow::initializePhxWidget(quint16 port)
@@ -222,7 +223,7 @@ void MainWindow::initializePhxWidget(quint16 port)
 #ifdef BUILD_WITH_DEBUG_PANE
 void MainWindow::initializeDebugPane()
 {
-  debugPane = std::make_unique<DebugPane>(this);
+  debugPane = std::make_unique<DebugPane>(this, m_enableMcp, m_enableRepl);
 
   int defaultHeight = height() / 2;
   debugPane->resize(width(), defaultHeight);
@@ -479,7 +480,7 @@ void MainWindow::handleBeamRestart()
   // Reset component loaded flags
   m_mainWindowLoaded = false;
   m_liveDashboardLoaded = false;
-  m_elixirConsoleLoaded = !isElixirReplEnabled();  // If REPL disabled, consider it "loaded"
+  m_elixirConsoleLoaded = !m_enableRepl;  // If REPL disabled, consider it "loaded"
   m_webDevToolsLoaded = false;
   m_allComponentsSignalEmitted = false;
   

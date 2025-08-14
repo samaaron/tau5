@@ -127,7 +127,7 @@ static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, cons
   return button;
 }
 
-DebugPane::DebugPane(QWidget *parent)
+DebugPane::DebugPane(QWidget *parent, bool enableMcp, bool enableRepl)
     : QWidget(parent), m_isVisible(false),
       m_maxLines(5000), m_currentMode(BeamLogOnly), m_isResizing(false),
       m_resizeStartY(0), m_resizeStartHeight(0), m_isHoveringHandle(false),
@@ -139,7 +139,8 @@ DebugPane::DebugPane(QWidget *parent)
       m_dragHandleWidget(nullptr), m_dragHandleAnimationTimer(nullptr), m_animationBar(nullptr),
       m_restartLabel(nullptr), m_restartButton(nullptr), m_resetButton(nullptr), m_closeButton(nullptr),
       m_newBeamLogWidget(nullptr), m_newGuiLogWidget(nullptr), m_newTau5MCPWidget(nullptr),
-      m_newGuiMCPWidget(nullptr), m_guiLogFileManager(nullptr)
+      m_newGuiMCPWidget(nullptr), m_guiLogFileManager(nullptr),
+      m_mcpEnabled(enableMcp), m_replEnabled(enableRepl)
 {
   static bool codiconLoaded = false;
   if (!codiconLoaded) {
@@ -181,14 +182,12 @@ DebugPane::~DebugPane()
 
 bool DebugPane::isElixirReplEnabled()
 {
-  QString replValue = qEnvironmentVariable("TAU5_ENABLE_DEV_REPL", "false").toLower();
-  return (replValue == "1" || replValue == "true" || replValue == "yes");
+  return m_replEnabled;
 }
 
 bool DebugPane::isMcpEnabled()
 {
-  QString mcpValue = qEnvironmentVariable("TAU5_ENABLE_DEV_MCP", "false").toLower();
-  return (mcpValue == "1" || mcpValue == "true" || mcpValue == "yes");
+  return m_mcpEnabled;
 }
 
 void DebugPane::setupUi()

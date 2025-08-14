@@ -37,7 +37,7 @@ public:
     SideBySide
   };
 
-  explicit DebugPane(QWidget *parent = nullptr);
+  explicit DebugPane(QWidget *parent = nullptr, bool enableMcp = false, bool enableRepl = false);
   ~DebugPane();
 
   void appendOutput(const QString &text, bool isError = false);
@@ -100,8 +100,8 @@ private:
   int constrainHeight(int requestedHeight) const;
   void switchConsoleTab(int index, const QList<QPushButton *> &tabButtons);
   void switchDevToolsTab(int index);
-  static bool isElixirReplEnabled();
-  static bool isMcpEnabled();
+  bool isElixirReplEnabled();
+  bool isMcpEnabled();
 
 private:
   QVBoxLayout *m_mainLayout;
@@ -166,6 +166,10 @@ private:
   
   // Log file manager for GUI logs
   LogFileManager *m_guiLogFileManager;
+  
+  // Feature flags
+  bool m_mcpEnabled;
+  bool m_replEnabled;
 
 public:
   static constexpr int RESIZE_HANDLE_HEIGHT = 10;       // Interaction area
