@@ -136,22 +136,18 @@ void tau5MessageHandler(QtMsgType type, const QMessageLogContext &context, const
   }
 }
 
-bool initializeApplication(QApplication &app, bool devMode)
+bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool enableRepl)
 {
   originalMessageHandler = qInstallMessageHandler(tau5MessageHandler);
   
-  // Check if MCP servers should be enabled
-  QString mcpValue = qEnvironmentVariable("TAU5_ENABLE_DEV_MCP", "false").toLower();
-  bool enableMCP = (mcpValue == "1" || mcpValue == "true" || mcpValue == "yes");
-  
-  if (devMode && enableMCP) {
+  if (devMode && enableMcp) {
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS_DEV);
     Logger::log(Logger::Info, QString("Chrome DevTools Protocol enabled on port %1").arg(Config::DEVTOOLS_PORT));
-    Logger::log(Logger::Info, "MCP servers enabled (TAU5_ENABLE_DEV_MCP is set)");
+    Logger::log(Logger::Info, "MCP servers enabled (--enable-mcp flag set)");
   } else {
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS);
-    if (devMode && !enableMCP) {
-      Logger::log(Logger::Info, "Running in dev mode without MCP servers (set TAU5_ENABLE_DEV_MCP to enable)");
+    if (devMode && !enableMcp) {
+      Logger::log(Logger::Info, "Running in dev mode without MCP servers (use --enable-mcp to enable)");
     }
   }
 
@@ -192,14 +188,31 @@ int main(int argc, char *argv[])
 {
   bool devMode = false;
   bool enableDebugPane = true;
+  bool enableMcp = false;
+  bool enableRepl = false;
   
   for (int i = 1; i < argc; ++i) {
     if (std::strcmp(argv[i], "dev") == 0) {
       devMode = true;
     } else if (std::strcmp(argv[i], "--no-debug-pane") == 0) {
       enableDebugPane = false;
+    } else if (std::strcmp(argv[i], "--enable-mcp") == 0) {
+      enableMcp = true;
+    } else if (std::strcmp(argv[i], "--enable-repl") == 0) {
+      enableRepl = true;
+    } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
+      std::cout << "Usage: tau5 [options]\n"
+                << "Options:\n"
+                << "  dev              Run in development mode\n"
+                << "  check            Check if application can start\n"
+                << "  --no-debug-pane  Disable debug pane\n"
+                << "  --enable-mcp     Enable MCP development servers\n"
+                << "  --enable-repl    Enable Elixir REPL console\n"
+                << "  --help, -h       Show this help message\n";
+      return 0;
     }
   }
+  
 
   if (devMode)
   {
@@ -235,7 +248,7 @@ int main(int argc, char *argv[])
 
   QApplication app(argc, argv);
 
-  if (!initializeApplication(app, devMode))
+  if (!initializeApplication(app, devMode, enableMcp, enableRepl))
   {
     QMessageBox::critical(nullptr, "Error", "Failed to initialize application");
     return 1;
@@ -264,7 +277,7 @@ int main(int argc, char *argv[])
   }
 
   std::unique_ptr<Beam> beam = std::make_unique<Beam>(&app, basePath, Config::APP_NAME,
-                                                      Config::APP_VERSION, port, devMode);
+                                                      Config::APP_VERSION, port, devMode, enableMcp, enableRepl);
 
   MainWindow mainWindow(devMode, enableDebugPane);
   

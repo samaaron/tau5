@@ -15,10 +15,11 @@
 #include <QStandardPaths>
 #include "../logger.h"
 
-Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode)
+Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp, bool enableRepl)
     : QObject(parent), appBasePath(basePath), process(new QProcess(this)), 
       beamPid(0), serverReady(false), otpTreeReady(false), devMode(devMode),
-      appName(appName), appVersion(version), isRestarting(false)
+      appName(appName), appVersion(version), isRestarting(false),
+      enableMcp(enableMcp), enableRepl(enableRepl)
 {
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
   Logger::log(Logger::Debug, QString("Generated session token: %1").arg(sessionToken));
@@ -166,6 +167,16 @@ void Beam::startElixirServerDev()
   QString logsDirPath = logsDir.absoluteFilePath("logs");
   env.insert("TAU5_LOG_DIR", logsDirPath);
   Logger::log(Logger::Debug, QString("Setting TAU5_LOG_DIR to: %1").arg(logsDirPath));
+  
+  // Set MCP and REPL flags based on constructor parameters
+  if (enableMcp) {
+    env.insert("TAU5_ENABLE_DEV_MCP", "1");
+    Logger::log(Logger::Debug, "MCP enabled for Elixir server");
+  }
+  if (enableRepl) {
+    env.insert("TAU5_ENABLE_DEV_REPL", "1");
+    Logger::log(Logger::Debug, "REPL enabled for Elixir server");
+  }
 
 #ifdef Q_OS_WIN
   QDir dir(QCoreApplication::applicationDirPath());
@@ -207,6 +218,16 @@ void Beam::startElixirServerProd()
   QString logsDirPath = logsDir.absoluteFilePath("logs");
   env.insert("TAU5_LOG_DIR", logsDirPath);
   Logger::log(Logger::Debug, QString("Setting TAU5_LOG_DIR to: %1").arg(logsDirPath));
+  
+  // Set MCP and REPL flags based on constructor parameters
+  if (enableMcp) {
+    env.insert("TAU5_ENABLE_DEV_MCP", "1");
+    Logger::log(Logger::Debug, "MCP enabled for Elixir server");
+  }
+  if (enableRepl) {
+    env.insert("TAU5_ENABLE_DEV_REPL", "1");
+    Logger::log(Logger::Debug, "REPL enabled for Elixir server");
+  }
 
   env.insert("RELEASE_SYS_CONFIG", releaseSysPath);
   env.insert("RELEASE_ROOT", releaseRoot);

@@ -7,11 +7,7 @@ set ROOT_DIR=%SCRIPT_DIR%..\..
 
 cd /d "%ROOT_DIR%"
 
-REM Enable MCP mode for development
-set TAU5_ENABLE_DEV_MCP=1
-REM Enable Elixir REPL console for development
-set TAU5_ENABLE_DEV_REPL=1
-gui\build\Release\Tau5.exe dev
+gui\build\Release\Tau5.exe dev --enable-mcp --enable-repl
 
 cd /d "%WORKING_DIR%"
 endlocal

@@ -11,7 +11,7 @@ class Beam : public QObject
   Q_OBJECT
 
 public:
-  explicit Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode);
+  explicit Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp = false, bool enableRepl = false);
   ~Beam();
   
   QString getSessionToken() const { return sessionToken; }
@@ -52,6 +52,8 @@ private:
   QString appName;
   QString appVersion;
   bool isRestarting;
+  bool enableMcp;
+  bool enableRepl;
 
   void startProcess(const QString &cmd, const QStringList &args);
   bool isWindows() const;
