@@ -325,8 +325,6 @@ void DebugPane::setupConsole()
 
   m_guiLogTabButton = ButtonUtilities::createTabButton("GUI Log", consoleToolbar);
 
-  m_elixirConsoleTabButton = ButtonUtilities::createTabButton("Elixir", consoleToolbar);
-
   bool enableDevMCP = isMcpEnabled();
   m_tau5MCPTabButton = ButtonUtilities::createTabButton("Tau5 MCP", consoleToolbar);
   m_guiMCPTabButton = ButtonUtilities::createTabButton("GUI MCP", consoleToolbar);
@@ -339,7 +337,6 @@ void DebugPane::setupConsole()
   toolbarLayout->addWidget(m_guiLogTabButton);
   toolbarLayout->addWidget(m_tau5MCPTabButton);
   toolbarLayout->addWidget(m_guiMCPTabButton);
-  toolbarLayout->addWidget(m_elixirConsoleTabButton);
   toolbarLayout->addStretch();
 
   // Old containers removed - using new LogWidget instances
@@ -347,41 +344,7 @@ void DebugPane::setupConsole()
 
   m_consoleStack = new QStackedWidget(m_consoleContainer);
 
-  // Check if Elixir REPL is enabled
-  bool enableDevREPL = isElixirReplEnabled();
-
-  if (enableDevREPL) {
-    m_elixirConsoleContainer = new QWidget();
-    QVBoxLayout *elixirConsoleLayout = new QVBoxLayout(m_elixirConsoleContainer);
-    elixirConsoleLayout->setContentsMargins(0, 0, 0, 0);
-    elixirConsoleLayout->setSpacing(0);
-
-    m_elixirConsoleView = new SandboxedWebView(m_elixirConsoleContainer);
-    m_elixirConsoleView->page()->setBackgroundColor(QColor(StyleManager::Colors::CONSOLE_BACKGROUND));
-    elixirConsoleLayout->addWidget(m_elixirConsoleView);
-
-    m_consoleStack->addWidget(m_elixirConsoleContainer);
-  } else {
-    // Create a LogWidget to show the disabled message
-    LogWidget *elixirDisabledWidget = new LogWidget(LogWidget::GuiLog, this);
-    QString disabledMessage =
-      "\nTau5 Elixir REPL Console - DISABLED\n"
-      "═══════════════════════════════════\n\n"
-      "The Tau5 Elixir REPL console is disabled for security.\n\n\n"
-      "To enable the console, set TAU5_ENABLE_DEV_REPL=1 before starting Tau5.\n\n\n"
-      "When enabled, you will have access to:\n\n"
-      "• Interactive Elixir console\n"
-      "• Direct server code execution\n"
-      "• Runtime debugging capabilities\n"
-      "• Access to all server modules and functions\n\n\n"
-      "This feature should only be enabled in trusted development environments.\n";
-
-    elixirDisabledWidget->appendLog(disabledMessage, false);
-    m_consoleStack->addWidget(elixirDisabledWidget);
-
-    // Set tooltip on the tab button
-    m_elixirConsoleTabButton->setToolTip("Elixir REPL disabled - click for more information");
-  }
+  // Elixir console moved to dev tools section
 
   m_newBeamLogWidget = new LogWidget(LogWidget::BeamLog, this);
   m_newGuiLogWidget = new LogWidget(LogWidget::GuiLog, this);
@@ -396,8 +359,7 @@ void DebugPane::setupConsole()
   // Add startup message for Tau5 MCP
   QString tau5MCPStartupMessage =
     "Tau5 MCP Server\n"
-    "(All commands are executed in a secure sandboxed environment.)\n\n"
-    "────────────────────────────────────────\n";
+    "(All commands are executed in a secure sandboxed environment.)\n\n";
   m_newTau5MCPWidget->appendLog(tau5MCPStartupMessage, false);
 
   m_newTau5MCPWidget->startFileMonitoring(500);
@@ -437,19 +399,18 @@ void DebugPane::setupConsole()
     m_newGuiMCPWidget->appendLog(disabledMessage, false);
   }
 
-  m_consoleStack->addWidget(m_newBeamLogWidget);  // Index 1
-  m_consoleStack->addWidget(m_newGuiLogWidget);   // Index 2
-  m_consoleStack->addWidget(m_newTau5MCPWidget);  // Index 3
-  m_consoleStack->addWidget(m_newGuiMCPWidget);   // Index 4
+  m_consoleStack->addWidget(m_newBeamLogWidget);  // Index 0
+  m_consoleStack->addWidget(m_newGuiLogWidget);   // Index 1
+  m_consoleStack->addWidget(m_newTau5MCPWidget);  // Index 2
+  m_consoleStack->addWidget(m_newGuiMCPWidget);   // Index 3
 
-  m_consoleStack->setCurrentIndex(1);
+  m_consoleStack->setCurrentIndex(0);
 
   consoleMainLayout->addWidget(consoleToolbar);
   consoleMainLayout->addWidget(m_consoleStack);
 
   connect(m_beamLogTabButton, &QPushButton::clicked, this, &DebugPane::showBeamLog);
   connect(m_guiLogTabButton, &QPushButton::clicked, this, &DebugPane::showGuiLog);
-  connect(m_elixirConsoleTabButton, &QPushButton::clicked, this, &DebugPane::showElixirConsole);
   connect(m_tau5MCPTabButton, &QPushButton::clicked, this, &DebugPane::showTau5MCPLog);
   connect(m_guiMCPTabButton, &QPushButton::clicked, this, &DebugPane::showGuiMCPLog);
 }
@@ -472,8 +433,12 @@ void DebugPane::setupDevTools()
 
   m_liveDashboardTabButton = ButtonUtilities::createTabButton("Live Dashboard", devToolsToolbar);
 
+  // Move Elixir console to dev tools section
+  m_elixirConsoleTabButton = ButtonUtilities::createTabButton("Elixir", devToolsToolbar);
+
   toolbarLayout->addWidget(m_devToolsTabButton);
   toolbarLayout->addWidget(m_liveDashboardTabButton);
+  toolbarLayout->addWidget(m_elixirConsoleTabButton);
   toolbarLayout->addStretch();
 
   // Dev tools zoom buttons could be added here if needed
@@ -507,8 +472,46 @@ void DebugPane::setupDevTools()
   m_liveDashboardView->page()->setBackgroundColor(QColor(StyleManager::Colors::DARK_BACKGROUND));
   liveDashboardLayout->addWidget(m_liveDashboardView);
 
+  // Check if Elixir REPL is enabled and create Elixir console container
+  bool enableDevREPL = isElixirReplEnabled();
+  QWidget *elixirWidget = nullptr;
+  
+  if (enableDevREPL) {
+    m_elixirConsoleContainer = new QWidget();
+    QVBoxLayout *elixirConsoleLayout = new QVBoxLayout(m_elixirConsoleContainer);
+    elixirConsoleLayout->setContentsMargins(0, 0, 0, 0);
+    elixirConsoleLayout->setSpacing(0);
+
+    m_elixirConsoleView = new SandboxedWebView(m_elixirConsoleContainer);
+    m_elixirConsoleView->page()->setBackgroundColor(QColor(StyleManager::Colors::CONSOLE_BACKGROUND));
+    elixirConsoleLayout->addWidget(m_elixirConsoleView);
+    
+    elixirWidget = m_elixirConsoleContainer;
+  } else {
+    // Create a LogWidget to show the disabled message
+    LogWidget *elixirDisabledWidget = new LogWidget(LogWidget::GuiLog, this);
+    QString disabledMessage =
+      "\nTau5 Elixir REPL Console - DISABLED\n"
+      "═══════════════════════════════════\n\n"
+      "The Tau5 Elixir REPL console is disabled for security.\n\n\n"
+      "To enable the console, set TAU5_ENABLE_DEV_REPL=1 before starting Tau5.\n\n\n"
+      "When enabled, you will have access to:\n\n"
+      "• Interactive Elixir console\n"
+      "• Direct server code execution\n"
+      "• Runtime debugging capabilities\n"
+      "• Access to all server modules and functions\n\n\n"
+      "This feature should only be enabled in trusted development environments.\n";
+
+    elixirDisabledWidget->appendLog(disabledMessage, false);
+    elixirWidget = elixirDisabledWidget;
+    
+    // Set tooltip on the tab button
+    m_elixirConsoleTabButton->setToolTip("Elixir REPL disabled - click for more information");
+  }
+
   m_devToolsStack->addWidget(m_devToolsContainer);
   m_devToolsStack->addWidget(m_liveDashboardContainer);
+  m_devToolsStack->addWidget(elixirWidget);
   m_devToolsStack->setCurrentIndex(0);
 
   devToolsMainLayout->addWidget(devToolsToolbar);
@@ -516,6 +519,7 @@ void DebugPane::setupDevTools()
 
   connect(m_devToolsTabButton, &QPushButton::clicked, this, &DebugPane::showDevToolsTab);
   connect(m_liveDashboardTabButton, &QPushButton::clicked, this, &DebugPane::showLiveDashboardTab);
+  connect(m_elixirConsoleTabButton, &QPushButton::clicked, this, &DebugPane::showElixirConsole);
 
   // Zoom controls can be handled internally by the web views
 }
@@ -931,14 +935,13 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
 
 void DebugPane::showBeamLog()
 {
-  // Switch to new LogWidget at index 1
-  m_consoleStack->setCurrentIndex(1);
+  // Switch to new LogWidget at index 0
+  m_consoleStack->setCurrentIndex(0);
   // Update tab button states
   m_beamLogTabButton->setChecked(true);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(false);
-  m_elixirConsoleTabButton->setChecked(false);
   if (m_newBeamLogWidget) {
     m_newBeamLogWidget->setFocus();
   }
@@ -946,14 +949,13 @@ void DebugPane::showBeamLog()
 
 void DebugPane::showGuiLog()
 {
-  // Switch to new LogWidget at index 2
-  m_consoleStack->setCurrentIndex(2);
+  // Switch to new LogWidget at index 1
+  m_consoleStack->setCurrentIndex(1);
   // Update tab button states
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(true);
   m_tau5MCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(false);
-  m_elixirConsoleTabButton->setChecked(false);
   if (m_newGuiLogWidget) {
     m_newGuiLogWidget->setFocus();
   }
@@ -961,26 +963,23 @@ void DebugPane::showGuiLog()
 
 void DebugPane::showElixirConsole()
 {
-  // Elixir console is at index 0
-  m_consoleStack->setCurrentIndex(0);
+  // Elixir console is now at index 2 in dev tools stack
+  m_devToolsStack->setCurrentIndex(2);
   // Update tab button states
-  m_beamLogTabButton->setChecked(false);
-  m_guiLogTabButton->setChecked(false);
-  m_tau5MCPTabButton->setChecked(false);
-  m_guiMCPTabButton->setChecked(false);
+  m_devToolsTabButton->setChecked(false);
+  m_liveDashboardTabButton->setChecked(false);
   m_elixirConsoleTabButton->setChecked(true);
 }
 
 void DebugPane::showTau5MCPLog()
 {
-  // Switch to new LogWidget at index 3
-  m_consoleStack->setCurrentIndex(3);
+  // Switch to new LogWidget at index 2
+  m_consoleStack->setCurrentIndex(2);
   // Update tab button states
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(true);
   m_guiMCPTabButton->setChecked(false);
-  m_elixirConsoleTabButton->setChecked(false);
   if (m_newTau5MCPWidget) {
     m_newTau5MCPWidget->startFileMonitoring();
     m_newTau5MCPWidget->setFocus();  // Give focus for keyboard shortcuts
@@ -989,14 +988,13 @@ void DebugPane::showTau5MCPLog()
 
 void DebugPane::showGuiMCPLog()
 {
-  // Switch to new LogWidget at index 4
-  m_consoleStack->setCurrentIndex(4);
+  // Switch to new LogWidget at index 3
+  m_consoleStack->setCurrentIndex(3);
   // Update tab button states
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(true);
-  m_elixirConsoleTabButton->setChecked(false);
   if (m_newGuiMCPWidget) {
     if (isMcpEnabled()) {
       m_newGuiMCPWidget->startFileMonitoring();
@@ -1034,6 +1032,7 @@ void DebugPane::switchDevToolsTab(int index)
   // Simple tab switching for dev tools
   if (m_devToolsTabButton) m_devToolsTabButton->setChecked(index == 0);
   if (m_liveDashboardTabButton) m_liveDashboardTabButton->setChecked(index == 1);
+  if (m_elixirConsoleTabButton) m_elixirConsoleTabButton->setChecked(index == 2);
   if (m_devToolsStack) m_devToolsStack->setCurrentIndex(index);
 }
 
@@ -1152,9 +1151,11 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
 
   if (m_beamLogTabButton) m_beamLogTabButton->setVisible(enabled);
   if (m_guiLogTabButton) m_guiLogTabButton->setVisible(enabled);
-  if (m_elixirConsoleTabButton) m_elixirConsoleTabButton->setVisible(enabled);
+  if (m_tau5MCPTabButton) m_tau5MCPTabButton->setVisible(enabled);
+  if (m_guiMCPTabButton) m_guiMCPTabButton->setVisible(enabled);
   if (m_devToolsTabButton) m_devToolsTabButton->setVisible(enabled);
   if (m_liveDashboardTabButton) m_liveDashboardTabButton->setVisible(enabled);
+  if (m_elixirConsoleTabButton) m_elixirConsoleTabButton->setVisible(enabled);
 
   if (enabled)
   {
