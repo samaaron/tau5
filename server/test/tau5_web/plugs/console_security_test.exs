@@ -8,6 +8,13 @@ defmodule Tau5Web.Plugs.ConsoleSecurityTest do
   end
 
   describe "localhost validation" do
+    setup do
+      # Enable console for testing
+      Application.put_env(:tau5, :console_enabled, true)
+      on_exit(fn -> Application.delete_env(:tau5, :console_enabled) end)
+      :ok
+    end
+
     test "allows IPv4 localhost (127.0.0.1)", %{conn: _conn} do
       System.put_env("TAU5_SESSION_TOKEN", "test-token-123")
       
@@ -95,8 +102,13 @@ defmodule Tau5Web.Plugs.ConsoleSecurityTest do
 
   describe "token validation" do
     setup do
+      # Enable console for testing
+      Application.put_env(:tau5, :console_enabled, true)
       System.put_env("TAU5_SESSION_TOKEN", "valid-test-token")
-      on_exit(fn -> System.delete_env("TAU5_SESSION_TOKEN") end)
+      on_exit(fn -> 
+        System.delete_env("TAU5_SESSION_TOKEN")
+        Application.delete_env(:tau5, :console_enabled)
+      end)
       :ok
     end
 
@@ -172,7 +184,51 @@ defmodule Tau5Web.Plugs.ConsoleSecurityTest do
     end
   end
 
+  describe "console enabled/disabled behavior" do
+    test "blocks all access when console is disabled", %{conn: _conn} do
+      # Ensure console is disabled
+      Application.delete_env(:tau5, :console_enabled)
+      System.put_env("TAU5_SESSION_TOKEN", "valid-token")
+      
+      conn = 
+        build_conn_with_query("token=valid-token")
+        |> Map.put(:remote_ip, {127, 0, 0, 1})
+      
+      result = ConsoleSecurity.call(conn, [])
+      
+      assert result.halted
+      assert result.status == 403
+      assert result.resp_body =~ "The Tau5 Elixir REPL console is disabled"
+      assert result.resp_body =~ "TAU5_ENABLE_DEV_REPL"
+      
+      System.delete_env("TAU5_SESSION_TOKEN")
+    end
+
+    test "allows access when console is enabled with proper security", %{conn: _conn} do
+      Application.put_env(:tau5, :console_enabled, true)
+      System.put_env("TAU5_SESSION_TOKEN", "valid-token")
+      
+      conn = 
+        build_conn_with_query("token=valid-token")
+        |> Map.put(:remote_ip, {127, 0, 0, 1})
+      
+      result = ConsoleSecurity.call(conn, [])
+      
+      refute result.halted
+      
+      Application.delete_env(:tau5, :console_enabled)
+      System.delete_env("TAU5_SESSION_TOKEN")
+    end
+  end
+
   describe "security combinations" do
+    setup do
+      # Enable console for testing
+      Application.put_env(:tau5, :console_enabled, true)
+      on_exit(fn -> Application.delete_env(:tau5, :console_enabled) end)
+      :ok
+    end
+
     test "requires both localhost AND valid token", %{conn: _conn} do
       System.put_env("TAU5_SESSION_TOKEN", "valid-token")
       

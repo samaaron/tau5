@@ -3,7 +3,26 @@ defmodule Tau5Web.ConsoleLiveTest do
   alias Tau5Web.ConsoleLive
 
   describe "security integration" do
+    test "mount fails when console is disabled", %{conn: conn} do
+      # Ensure console is disabled
+      Application.delete_env(:tau5, :console_enabled)
+      System.put_env("TAU5_SESSION_TOKEN", "test-token")
+      
+      conn = 
+        conn
+        |> Map.put(:remote_ip, {127, 0, 0, 1})
+      
+      conn = get(conn, "/dev/console?token=test-token")
+      assert conn.status == 403
+      assert conn.resp_body =~ "The Tau5 Elixir REPL console is disabled"
+      
+      System.delete_env("TAU5_SESSION_TOKEN")
+    end
+
     test "mount fails without proper security", %{conn: conn} do
+      # Enable console for this test
+      Application.put_env(:tau5, :console_enabled, true)
+      
       conn = 
         conn
         |> Map.put(:remote_ip, {192, 168, 1, 1})  # Non-localhost
@@ -11,9 +30,13 @@ defmodule Tau5Web.ConsoleLiveTest do
       conn = get(conn, "/dev/console")
       assert conn.status == 403
       assert conn.resp_body =~ "does not accept remote connections"
+      
+      Application.delete_env(:tau5, :console_enabled)
     end
     
     test "mount fails without token", %{conn: conn} do
+      # Enable console for this test
+      Application.put_env(:tau5, :console_enabled, true)
       System.put_env("TAU5_SESSION_TOKEN", "test-token")
       
       conn = 
@@ -25,6 +48,7 @@ defmodule Tau5Web.ConsoleLiveTest do
       assert conn.resp_body =~ "Invalid or missing session token"
       
       System.delete_env("TAU5_SESSION_TOKEN")
+      Application.delete_env(:tau5, :console_enabled)
     end
   end
   
