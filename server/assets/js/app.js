@@ -40,119 +40,248 @@ let Hooks = {
     }
   },
   
-  Splitter: {
+  ShaderCanvas: {
     mounted() {
-      try {
-        const splitter = this.el;
-        const container = splitter.parentElement;
-        const prev = splitter.previousElementSibling;
-        const next = splitter.nextElementSibling;
-        const nodeId = splitter.dataset.nodeId;
-        const orientation = splitter.dataset.orientation;
-        
-        // Validate elements exist
-        if (!container || !prev || !next) {
-          console.error('Splitter: Missing required elements');
-          return;
-        }
-        
-        let dragging = false;
-        let currentRatio = 0.5;
-        
-        // Simple position getter
-        const getEventPos = (e) => {
-          if (e.touches && e.touches.length > 0) {
-            return orientation === "horizontal" ? e.touches[0].clientX : e.touches[0].clientY;
-          }
-          return orientation === "horizontal" ? e.clientX : e.clientY;
-        };
-        
-        // Update layout immediately without RAF for mobile
-        const updateLayout = (ratio) => {
-          if (!prev || !next) return;
-          
-          // Ensure ratio is valid - match server-side clamping
-          ratio = Math.min(0.8, Math.max(0.2, ratio));
-          if (isNaN(ratio)) ratio = 0.5;
-          
-          prev.style.flex = `0 0 ${ratio * 100}%`;
-          next.style.flex = `1 1 ${(1 - ratio) * 100}%`;
-          currentRatio = ratio;
-        };
-        
-        const onMove = (e) => {
-          if (!dragging) return;
-          
-          try {
-            e.preventDefault();
-            
-            const rect = container.getBoundingClientRect();
-            const pos = getEventPos(e);
-            const size = orientation === "horizontal" ? rect.width : rect.height;
-            const start = orientation === "horizontal" ? rect.left : rect.top;
-            
-            let ratio = (pos - start) / size;
-            updateLayout(ratio);
-          } catch (err) {
-            console.error('Splitter onMove error:', err);
-          }
-        };
-        
-        const onEnd = (e) => {
-          if (!dragging) return;
-          
-          try {
-            dragging = false;
-            
-            // Clean up
-            document.removeEventListener("mousemove", onMove);
-            document.removeEventListener("mouseup", onEnd);
-            document.removeEventListener("touchmove", onMove);
-            document.removeEventListener("touchend", onEnd);
-            document.removeEventListener("touchcancel", onEnd);
-            
-            splitter.classList.remove("dragging");
-            document.body.classList.remove("dragging");
-            
-            // Send final ratio to server
-            if (this.pushEvent) {
-              this.pushEvent("resize_split", { id: nodeId, ratio: currentRatio });
-            }
-          } catch (err) {
-            console.error('Splitter onEnd error:', err);
-          }
-        };
-        
-        const onStart = (e) => {
-          try {
-            e.preventDefault();
-            dragging = true;
-            
-            splitter.classList.add("dragging");
-            document.body.classList.add("dragging");
-            
-            // Use passive: false only for touchmove
-            document.addEventListener("mousemove", onMove);
-            document.addEventListener("mouseup", onEnd);
-            document.addEventListener("touchmove", onMove, { passive: false });
-            document.addEventListener("touchend", onEnd);
-            document.addEventListener("touchcancel", onEnd);
-          } catch (err) {
-            console.error('Splitter onStart error:', err);
-          }
-        };
-        
-        // Add event listeners
-        splitter.addEventListener("mousedown", onStart);
-        splitter.addEventListener("touchstart", onStart, { passive: false });
-        
-      } catch (err) {
-        console.error('Splitter mount error:', err);
+      this.initShader();
+    },
+    
+    updated() {
+      // Re-init if shader isn't running
+      if (!this.animationFrame) {
+        this.initShader();
       }
     },
     
+    initShader() {
+      const vertexId = this.el.dataset.vertexShaderId;
+      const fragmentId = this.el.dataset.fragmentShaderId;
+      
+      const vertexSource = document.getElementById(vertexId)?.textContent;
+      const fragmentSource = document.getElementById(fragmentId)?.textContent;
+      
+      if (!vertexSource || !fragmentSource) {
+        console.error('Shader sources not found for', this.el.id);
+        return;
+      }
+      
+      this.initWebGL(vertexSource, fragmentSource);
+    },
+    
+    initWebGL(vertexSource, fragmentSource) {
+      const canvas = this.el;
+      
+      // Stop any existing animation
+      if (this.animationFrame) {
+        cancelAnimationFrame(this.animationFrame);
+        this.animationFrame = null;
+      }
+      
+      // Try to get WebGL context with performance-conscious settings
+      const gl = canvas.getContext('webgl', {
+        failIfMajorPerformanceCaveat: false,
+        preserveDrawingBuffer: false,
+        antialias: false,
+        depth: false,
+        stencil: false,
+        powerPreference: 'low-power'
+      }) || canvas.getContext('experimental-webgl');
+      
+      if (!gl) {
+        console.warn('WebGL not supported, using fallback for panel', canvas.id);
+        this.showFallback();
+        return;
+      }
+      
+      // Compile shaders
+      const vertexShader = this.compileShader(gl, gl.VERTEX_SHADER, vertexSource);
+      const fragmentShader = this.compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+      
+      if (!vertexShader || !fragmentShader) return;
+      
+      // Link program
+      const program = gl.createProgram();
+      gl.attachShader(program, vertexShader);
+      gl.attachShader(program, fragmentShader);
+      gl.linkProgram(program);
+      
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error('Failed to link program');
+        return;
+      }
+      
+      // Set up geometry
+      const vertices = new Float32Array([
+        -1.0, -1.0,
+         1.0, -1.0,
+        -1.0,  1.0,
+         1.0,  1.0
+      ]);
+      
+      const buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+      
+      const aPos = gl.getAttribLocation(program, 'aPos');
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+      
+      // Start render loop
+      this.gl = gl;
+      this.program = program;
+      this.startTime = Date.now();
+      this.render();
+    },
+    
+    compileShader(gl, type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+        return null;
+      }
+      
+      return shader;
+    },
+    
+    render() {
+      if (!this.gl || !this.program) return;
+      
+      const canvas = this.el;
+      const gl = this.gl;
+      
+      // Check if panel is visible (for performance)
+      const isVisible = canvas.offsetParent !== null && 
+                       canvas.style.visibility !== 'hidden';
+      
+      if (!isVisible) {
+        // Skip rendering but keep the loop going
+        this.animationFrame = requestAnimationFrame(() => this.render());
+        return;
+      }
+      
+      // Check for context loss
+      if (gl.isContextLost()) {
+        console.warn('WebGL context lost for', canvas.id);
+        this.showFallback();
+        return;
+      }
+      
+      // Resize canvas if needed
+      if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+      }
+      
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      
+      gl.useProgram(this.program);
+      
+      // Set uniforms
+      const time = (Date.now() - this.startTime) / 1000.0;
+      const timeLocation = gl.getUniformLocation(this.program, 'time');
+      const resolutionLocation = gl.getUniformLocation(this.program, 'resolution');
+      
+      if (timeLocation) gl.uniform1f(timeLocation, time);
+      if (resolutionLocation) gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+      
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      
+      this.animationFrame = requestAnimationFrame(() => this.render());
+    },
+    
+    showFallback() {
+      // Replace canvas with a fallback div
+      const panelIndex = this.el.dataset.panelIndex || '?';
+      const fallback = document.createElement('div');
+      fallback.className = 'shader-fallback';
+      fallback.style.cssText = `
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-size: 24px;
+        font-weight: bold;
+      `;
+      fallback.textContent = `Panel ${panelIndex}`;
+      this.el.parentNode.replaceChild(fallback, this.el);
+    },
+    
     destroyed() {
-      // Clean up if needed
+      if (this.animationFrame) {
+        cancelAnimationFrame(this.animationFrame);
+      }
+      
+      // Clean up WebGL resources
+      if (this.gl && this.program) {
+        this.gl.deleteProgram(this.program);
+        this.program = null;
+      }
+    }
+  },
+  
+  Splitter: {
+    mounted() {
+      const splitter = this.el;
+      const container = splitter.parentElement;
+      const direction = splitter.dataset.direction;
+      const splitId = splitter.dataset.splitId;
+      
+      let dragging = false;
+      
+      const getPosition = (e) => {
+        const rect = container.getBoundingClientRect();
+        if (direction === "horizontal") {
+          return (e.clientX - rect.left) / rect.width;
+        } else {
+          return (e.clientY - rect.top) / rect.height;
+        }
+      };
+      
+      const onMove = (e) => {
+        if (!dragging) return;
+        e.preventDefault();
+        
+        const ratio = Math.min(0.8, Math.max(0.2, getPosition(e)));
+        const prev = splitter.previousElementSibling;
+        const next = splitter.nextElementSibling;
+        
+        if (prev && next) {
+          prev.style.flex = `0 0 ${ratio * 100}%`;
+          next.style.flex = `1 1 ${(1 - ratio) * 100}%`;
+        }
+      };
+      
+      const onEnd = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        
+        splitter.classList.remove("dragging");
+        document.body.classList.remove("dragging");
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onEnd);
+        
+        const ratio = getPosition(e);
+        this.pushEvent("resize_split", { id: splitId, ratio: ratio });
+      };
+      
+      const onStart = (e) => {
+        e.preventDefault();
+        dragging = true;
+        
+        splitter.classList.add("dragging");
+        document.body.classList.add("dragging");
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onEnd);
+      };
+      
+      splitter.addEventListener("mousedown", onStart);
     }
   },
   

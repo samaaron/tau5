@@ -4,6 +4,10 @@
 
 /* Monaco editor CSS import required for esbuild */
 @import "../vendor/monaco-editor/min/vs/editor/editor.main.css";
+
+/* Tiled layout styles */
+@import "./tiled_layout.css";
+
 @font-face {
   font-family: 'CascadiaCode PL';
   src: url('/fonts/CascadiaCodePL.woff2') format('woff2');
@@ -12,109 +16,8 @@
   font-display: swap;
 }
 
-/* Split pane styles */
-.splitter {
-  @apply relative bg-gray-800 flex-shrink-0;
-  @apply transition-colors duration-150;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: none;
-}
-
-.splitter-vertical {
-  @apply w-1 cursor-col-resize;
-  @apply hover:bg-pink-600;
-  /* Larger touch target on mobile */
-  min-width: 4px;
-}
-
-.splitter-vertical::before {
-  content: '';
-  @apply absolute inset-y-0;
-  /* Bigger touch area: 20px total width */
-  left: -8px;
-  right: -8px;
-}
-
-@media (max-width: 768px) {
-  .splitter-vertical {
-    min-width: 6px;
-  }
-  .splitter-vertical::before {
-    left: -12px;
-    right: -12px;
-  }
-}
-
-.splitter-horizontal {
-  @apply h-1 cursor-row-resize;
-  @apply hover:bg-pink-600;
-  /* Larger touch target on mobile */
-  min-height: 4px;
-}
-
-.splitter-horizontal::before {
-  content: '';
-  @apply absolute inset-x-0;
-  /* Bigger touch area: 20px total height */
-  top: -8px;
-  bottom: -8px;
-}
-
-@media (max-width: 768px) {
-  .splitter-horizontal {
-    min-height: 6px;
-  }
-  .splitter-horizontal::before {
-    top: -12px;
-    bottom: -12px;
-  }
-}
-
-.splitter.dragging {
-  @apply bg-pink-600;
-  background-color: #db2777; /* Deep pink - more vibrant than default pink-600 */
-  /* Prevent iOS bounce effect during drag */
-  -webkit-overflow-scrolling: touch;
-}
-
-.pane-child {
-  @apply overflow-hidden;
-  /* Prevent layout shifts on mobile */
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
-}
-
-/* Prevent unwanted scrolling/zooming on mobile during drag */
-body.dragging {
-  overflow: hidden;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-/* Ensure full viewport usage on mobile */
+/* Ensure full viewport usage */
 html, body {
   overflow: hidden;
   overscroll-behavior: none;
-}
-
-/* Responsive adjustments for very small screens */
-@media (max-width: 400px) {
-  .splitter-vertical {
-    min-width: 8px;
-  }
-  .splitter-horizontal {
-    min-height: 8px;
-  }
-  
-  /* Ensure minimum touch target size */
-  .splitter-vertical::before {
-    left: -16px;
-    right: -16px;
-  }
-  .splitter-horizontal::before {
-    top: -16px;
-    bottom: -16px;
-  }
 }

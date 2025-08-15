@@ -1,145 +1,239 @@
 defmodule Tau5Web.MainLive do
+  @moduledoc """
+  LiveView for the tiled layout system.
+  Shows panels with indices and provides controls for layout operations.
+  """
+  
   use Tau5Web, :live_view
-  require Logger
-  alias Tau5.Layout
-
-  @link_num_peers_topic "link-num-peers"
-  @link_tempo_topic "link-tempo"
+  alias Tau5.TiledLayout
 
   @impl true
   def mount(_params, _session, socket) do
-    if connected?(socket) do
-      Phoenix.PubSub.subscribe(Tau5.PubSub, @link_num_peers_topic)
-      Phoenix.PubSub.subscribe(Tau5.PubSub, @link_tempo_topic)
-    end
-
-    # Create initial layout with deep nesting using color widgets
-    initial_layout = 
-      Layout.new_split(
-        :horizontal,
-        Layout.new_leaf(%{color: "#FF6B6B"}),  # Red
-        Layout.new_split(
-          :vertical,
-          Layout.new_leaf(%{color: "#4ECDC4"}),  # Teal
-          Layout.new_split(
-            :horizontal,
-            Layout.new_leaf(%{color: "#45B7D1"}),  # Blue
-            Layout.new_split(
-              :vertical,
-              Layout.new_leaf(%{color: "#96CEB4"}),  # Green
-              Layout.new_split(
-                :horizontal,
-                Layout.new_leaf(%{color: "#FFEAA7"}),  # Yellow
-                Layout.new_leaf(%{color: "#DDA0DD"}),  # Plum
-                0.5
-              ),
-              0.5
-            ),
-            0.5
-          ),
-          0.5
-        ),
-        0.3
-      )
-
     {:ok,
-     assign(socket,
-       link_tempo: Tau5.Link.tempo(),
-       link_num_peers: Tau5.Link.num_peers(),
-       pane_layout: initial_layout
-     )}
+     socket
+     |> assign(:layout_state, TiledLayout.new())
+     |> assign(:show_controls, true)}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="fixed inset-0 bg-black">
-      <%= render_pane(assigns, @pane_layout) %>
-    </div>
-    """
-  end
-
-  # Recursive function to render the layout tree
-  defp render_pane(assigns, %{type: :leaf, opts: opts, id: widget_id}) do
-    assigns = assign(assigns, :color, opts[:color] || "#4ECDC4")
-    assigns = assign(assigns, :widget_id, widget_id)
-    
-    ~H"""
-    <div class="w-full h-full">
-      <.live_component 
-        module={Tau5Web.Widgets.ColorWidget} 
-        id={@widget_id}
-        color={@color}
-      />
-    </div>
-    """
-  end
-
-  defp render_pane(assigns, %{type: :split, orientation: orientation, ratio: ratio, left: left, right: right, id: node_id}) do
-    assigns = assign(assigns, :orientation, orientation)
-    assigns = assign(assigns, :ratio, ratio)
-    assigns = assign(assigns, :left, left)
-    assigns = assign(assigns, :right, right)
-    assigns = assign(assigns, :node_id, node_id)
-    assigns = assign(assigns, :flex_direction, if(orientation == :horizontal, do: "flex-row", else: "flex-col"))
-    
-    ~H"""
-    <div class={"flex #{@flex_direction} w-full h-full"}>
-      <div class="pane-child" style={"flex: 0 0 #{@ratio * 100}%;"}>
-        <%= render_pane(assigns, @left) %>
+    <div class="layout-container">
+      
+      <div class="layout-header">
+        <div class="layout-controls">
+          <button phx-click="split_h" phx-value-panel={to_string(@layout_state.active)}>
+            H
+          </button>
+          <button phx-click="split_v" phx-value-panel={to_string(@layout_state.active)}>
+            V
+          </button>
+          <button phx-click="close" phx-value-panel={to_string(@layout_state.active)}>
+            X
+          </button>
+          
+          <div class="separator"></div>
+          
+          <button phx-click="layout_even_h">Even</button>
+          <button phx-click="layout_main_v">Main</button>
+          <button phx-click="layout_tiled">Tile</button>
+          
+          <div class="separator"></div>
+          
+          <button phx-click="zoom" phx-value-panel={to_string(@layout_state.active)} class={if @layout_state.zoom != nil, do: "active"}>
+            Zoom
+          </button>
+        </div>
+        
+        <div class="layout-info">
+          <span>Panels: <%= TiledLayout.panel_count(@layout_state) %></span>
+          <span>Active: <%= @layout_state.active %></span>
+          <%= if @layout_state.zoom != nil do %>
+            <span class="zoomed">ZOOMED: Panel <%= @layout_state.zoom %></span>
+          <% end %>
+        </div>
       </div>
-      <div 
-        id={"splitter-#{@node_id}"}
-        class={[
-          "splitter",
-          @orientation == :horizontal && "splitter-vertical",
-          @orientation == :vertical && "splitter-horizontal"
-        ]}
-        phx-hook="Splitter" 
-        data-node-id={@node_id}
-        data-orientation={@orientation}
-      />
-      <div class="pane-child" style={"flex: 1 1 #{(1 - @ratio) * 100}%;"}>
-        <%= render_pane(assigns, @right) %>
+      
+      <div class={["layout-body", @layout_state.zoom != nil && "zoom-mode"]} 
+           phx-window-keydown="keydown"
+           data-zoomed-panel={@layout_state.zoom}>
+        <%= render_tree(assigns, @layout_state.tree, @layout_state) %>
       </div>
     </div>
     """
   end
 
+  # Render the tree recursively
+  defp render_tree(assigns, tree, layout) do
+    do_render_tree(assigns, tree, layout)
+  end
+  
+  defp do_render_tree(assigns, %{type: :panel, id: panel_id}, layout) do
+    panel_index = find_panel_index(layout.index, panel_id)
+    is_active = panel_index == layout.active
+    is_zoomed = layout.zoom == panel_index
+    
+    assigns = 
+      assigns
+      |> assign(:panel_id, panel_id)
+      |> assign(:panel_index, panel_index)
+      |> assign(:is_active, is_active)
+      |> assign(:is_zoomed, is_zoomed)
+    
+    ~H"""
+    <div class={[
+           "panel", 
+           @is_active && "active",
+           @is_zoomed && "zoomed-panel"
+         ]} 
+         data-panel-index={@panel_index}
+         phx-click="focus" 
+         phx-value-panel={to_string(@panel_index)}>
+      <.live_component
+        module={Tau5Web.Widgets.ShaderPanelWidget}
+        id={@panel_id}
+        panel_id={@panel_id}
+        index={@panel_index}
+        active={@is_active}
+      />
+    </div>
+    """
+  end
+
+  defp do_render_tree(assigns, %{type: :split} = split, layout) do
+    assigns = 
+      assigns
+      |> assign(:split, split)
+      |> assign(:layout, layout)
+      |> assign(:flex_class, if(split.direction == :horizontal, do: "flex-row", else: "flex-col"))
+    
+    ~H"""
+    <div class={["split", @flex_class]}>
+      <div class="split-child" style={"flex: 0 0 #{@split.ratio * 100}%"}>
+        <%= do_render_tree(assigns, @split.left, @layout) %>
+      </div>
+      
+      <div class={["splitter", splitter_class(@split.direction)]}
+           id={"splitter-#{@split.id}"}
+           phx-hook="Splitter"
+           data-split-id={@split.id}
+           data-direction={to_string(@split.direction)}>
+      </div>
+      
+      <div class="split-child" style={"flex: 1 1 #{(1 - @split.ratio) * 100}%"}>
+        <%= do_render_tree(assigns, @split.right, @layout) %>
+      </div>
+    </div>
+    """
+  end
+
+  # Event handlers
+
   @impl true
-  def handle_event("resize_split", %{"id" => id, "ratio" => ratio}, socket) do
-    new_layout = Layout.update_ratio(socket.assigns.pane_layout, id, ratio)
-    {:noreply, assign(socket, :pane_layout, new_layout)}
+  def handle_event("split_h", %{"panel" => panel}, socket) do
+    panel_index = String.to_integer(panel)
+    new_layout = TiledLayout.split_horizontal(socket.assigns.layout_state, panel_index)
+    {:noreply, assign(socket, :layout_state, new_layout)}
   end
 
   @impl true
-  def handle_info({:split_pane, node_id, orientation}, socket) do
-    # When splitting a pane, add a new color widget with random color
-    case Layout.split_node(socket.assigns.pane_layout, node_id, orientation) do
-      {:ok, new_layout} ->
-        {:noreply, assign(socket, :pane_layout, new_layout)}
-      {:error, :not_found} ->
-        {:noreply, socket}
-    end
+  def handle_event("split_v", %{"panel" => panel}, socket) do
+    panel_index = String.to_integer(panel)
+    new_layout = TiledLayout.split_vertical(socket.assigns.layout_state, panel_index)
+    {:noreply, assign(socket, :layout_state, new_layout)}
   end
 
   @impl true
-  def handle_info({:link_num_peers, num_peers}, socket) do
-    {:noreply, assign(socket, :link_num_peers, num_peers)}
+  def handle_event("close", %{"panel" => panel}, socket) do
+    panel_index = String.to_integer(panel)
+    new_layout = TiledLayout.close_panel(socket.assigns.layout_state, panel_index)
+    {:noreply, assign(socket, :layout_state, new_layout)}
   end
 
   @impl true
-  def handle_info({:link_tempo, tempo}, socket) do
-    {:noreply, assign(socket, :link_tempo, tempo)}
+  def handle_event("focus", %{"panel" => panel}, socket) do
+    panel_index = String.to_integer(panel)
+    new_layout = TiledLayout.focus_panel(socket.assigns.layout_state, panel_index)
+    {:noreply, assign(socket, :layout_state, new_layout)}
   end
 
   @impl true
-  def handle_info(:link_start, socket) do
-    {:noreply, socket}
+  def handle_event("layout_even_h", _, socket) do
+    new_layout = TiledLayout.apply_even_horizontal(socket.assigns.layout_state)
+    {:noreply, assign(socket, :layout_state, new_layout)}
   end
 
   @impl true
-  def handle_info(:link_stop, socket) do
-    {:noreply, socket}
+  def handle_event("layout_main_v", _, socket) do
+    new_layout = TiledLayout.apply_main_vertical(socket.assigns.layout_state)
+    {:noreply, assign(socket, :layout_state, new_layout)}
   end
+
+  @impl true
+  def handle_event("layout_tiled", _, socket) do
+    new_layout = TiledLayout.apply_tiled(socket.assigns.layout_state)
+    {:noreply, assign(socket, :layout_state, new_layout)}
+  end
+
+  @impl true
+  def handle_event("zoom", %{"panel" => panel}, socket) do
+    layout = socket.assigns.layout_state
+    new_layout = 
+      if layout.zoom != nil do
+        TiledLayout.unzoom(layout)
+      else
+        panel_index = String.to_integer(panel)
+        TiledLayout.zoom_panel(layout, panel_index)
+      end
+    {:noreply, assign(socket, :layout_state, new_layout)}
+  end
+
+  @impl true
+  def handle_event("resize_split", %{"id" => split_id, "ratio" => ratio}, socket) do
+    new_layout = TiledLayout.update_ratio(socket.assigns.layout_state, split_id, ratio)
+    {:noreply, assign(socket, :layout_state, new_layout)}
+  end
+
+  @impl true
+  def handle_event("keydown", %{"key" => key}, socket) do
+    handle_keyboard(key, socket)
+  end
+
+  @impl true
+  def handle_event(_, _, socket), do: {:noreply, socket}
+
+  # Keyboard shortcuts
+  defp handle_keyboard(key, socket) do
+    layout = socket.assigns.layout_state
+    
+    new_layout = 
+      case key do
+        "h" -> TiledLayout.split_horizontal(layout, layout.active)
+        "v" -> TiledLayout.split_vertical(layout, layout.active)
+        "x" -> TiledLayout.close_panel(layout, layout.active)
+        "z" -> 
+          if layout.zoom != nil do
+            TiledLayout.unzoom(layout)
+          else
+            TiledLayout.zoom_panel(layout, layout.active)
+          end
+        "e" -> TiledLayout.apply_even_horizontal(layout)
+        "m" -> TiledLayout.apply_main_vertical(layout)
+        "t" -> TiledLayout.apply_tiled(layout)
+        _ -> layout
+      end
+    
+    {:noreply, assign(socket, :layout_state, new_layout)}
+  end
+
+  # Helper functions
+
+  defp find_panel_index(index_map, panel_id) do
+    Enum.find_value(index_map, fn {idx, id} -> 
+      if id == panel_id, do: idx
+    end)
+  end
+
+  defp splitter_class(:horizontal), do: "splitter-vertical"
+  defp splitter_class(:vertical), do: "splitter-horizontal"
 end

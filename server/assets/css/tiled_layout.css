@@ -1,0 +1,205 @@
+/* Tiled Layout Styles */
+
+.layout-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #0a0a0a;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.layout-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #1a1a1a;
+  border-bottom: 1px solid #333;
+  flex-shrink: 0;
+}
+
+.layout-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.layout-controls button {
+  padding: 0.5rem 0.75rem;
+  background: #2a2a2a;
+  color: #e0e0e0;
+  border: 1px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.layout-controls button:hover {
+  background: #3a3a3a;
+  border-color: #666;
+}
+
+.layout-controls button.active {
+  background: #4a7c94;
+  border-color: #5a9cba;
+}
+
+.separator {
+  width: 1px;
+  height: 24px;
+  background: #444;
+  margin: 0 0.5rem;
+}
+
+.layout-info {
+  display: flex;
+  gap: 1rem;
+  color: #999;
+  font-size: 14px;
+}
+
+.layout-info .zoomed {
+  color: #4a7c94;
+  font-weight: bold;
+}
+
+.layout-body {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.split {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.flex-row { flex-direction: row; }
+.flex-col { flex-direction: column; }
+
+.split-child {
+  position: relative;
+  overflow: hidden;
+}
+
+.panel {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+/* .panel.active - intentionally no styles, kept for future use */
+
+/* Zoom mode */
+.layout-body.zoom-mode {
+  position: relative;
+}
+
+/* Reset container positioning in zoom mode for absolute positioning */
+.layout-body.zoom-mode .split,
+.layout-body.zoom-mode .split-child {
+  position: static !important;
+}
+
+/* Hide non-zoomed panels */
+.layout-body.zoom-mode .panel:not(.zoomed-panel) {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Hide splitters in zoom mode */
+.layout-body.zoom-mode .splitter {
+  visibility: hidden !important;
+}
+
+/* The zoomed panel fills the entire layout-body */
+.layout-body.zoom-mode .zoomed-panel {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 10;
+  visibility: visible !important;
+}
+
+.panel-widget {
+  transition: opacity 0.2s;
+}
+
+.panel:hover .panel-widget {
+  opacity: 0.95;
+}
+
+.panel-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.panel-index {
+  font-size: clamp(24px, 5vw, 48px);
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.panel-id {
+  font-size: 12px;
+  font-family: monospace;
+  color: rgba(255,255,255,0.6);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.splitter {
+  flex-shrink: 0;
+  background: #333;
+  position: relative;
+  z-index: 10;
+  transition: background 0.2s;
+}
+
+.splitter-vertical {
+  width: 2px;
+  cursor: col-resize;
+}
+
+.splitter-horizontal {
+  height: 2px;
+  cursor: row-resize;
+}
+
+.splitter:hover {
+  background: #db2777;  /* Deep pink on hover */
+}
+
+.splitter.dragging {
+  background: #db2777;  /* Deep pink when dragging */
+}
+
+/* Global body state for dragging */
+body.dragging {
+  user-select: none;
+  cursor: col-resize !important;
+}
+
+/* Shader fallback styles */
+.shader-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
