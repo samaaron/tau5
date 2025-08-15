@@ -70,22 +70,18 @@ void SandboxedWebView::handleDownloadRequested(QWebEngineDownloadRequest *downlo
 void SandboxedWebView::setScrollbarColours(QColor foreground, QColor background, QColor hover)
 {
     insertStyleSheet("scrollbar",
-                     QString("/* Width */"
+                     QString("/* Hide scrollbar entirely to fix Linux border issue */"
                              "::-webkit-scrollbar {"
-                             "  width: 5px;"
+                             "  display: none;"
+                             "  width: 0;"
+                             "  height: 0;"
                              "}"
-                             "/* Track */"
-                             "::-webkit-scrollbar-track {"
-                             "    background: %1;"
-                             "}"
-                             "/* Thumb */"
-                             "::-webkit-scrollbar-thumb {"
-                             "  border-radius: 8px;"
-                             "  background: %2;"
-                             "}"
-                             "/* Thumb on hover */"
-                             "::-webkit-scrollbar-thumb:hover {"
-                             "  background: %3;"
+                             "/* Ensure body takes full width */"
+                             "body {"
+                             "  width: 100% !important;"
+                             "  min-width: 100% !important;"
+                             "  overflow-y: auto;"
+                             "  overflow-x: hidden;"
                              "}")
                          .arg(background.name())
                          .arg(foreground.name())
