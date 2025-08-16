@@ -125,6 +125,10 @@ endif()
 
 set_target_properties(${APP_NAME} PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+  RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug
+  RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
+  RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/RelWithDebInfo
+  RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/MinSizeRel
 )
 
 if(APPLE)
@@ -219,6 +223,7 @@ if(WIN32)
     COMMAND ${CMAKE_PREFIX_PATH}/bin/windeployqt $<TARGET_FILE:${APP_NAME}>)
   
   # Copy QWindowKit DLLs to the output directory
+  # Use generator expressions to handle multi-configuration generators
   add_custom_command(TARGET ${APP_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:QWKCore>
@@ -228,6 +233,11 @@ if(WIN32)
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:QWKWidgets>
     $<TARGET_FILE_DIR:${APP_NAME}>)
+  
+  # Debug: List files in output directory
+  add_custom_command(TARGET ${APP_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo "Output directory contents:"
+    COMMAND cmd /c dir $<TARGET_FILE_DIR:${APP_NAME}>)
 endif() # Win32
 
 # Build options
