@@ -34,7 +34,8 @@
 }
 
 .tau5-prompt {
-  @apply text-orange-500 font-bold mr-2 whitespace-nowrap;
+  @apply font-bold mr-2 whitespace-nowrap;
+  color: #FFD700; /* Golden yellow to match the cube */
 }
 
 .tau5-terminal-input {
@@ -74,7 +75,7 @@ textarea.tau5-terminal-input {
 }
 
 .tau5-atom {
-  color: #FFA500;
+  color: #FFD700; /* Golden yellow */
 }
 
 .tau5-string {

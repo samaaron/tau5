@@ -169,7 +169,7 @@ export class Tau5Shader {
         e = proj[6] - proj[2]; d = min(d, length(p - proj[2] - e * clamp(dot(p - proj[2], e) / dot(e, e), 0.0, 1.0)));
         e = proj[7] - proj[3]; d = min(d, length(p - proj[3] - e * clamp(dot(p - proj[3], e) / dot(e, e), 0.0, 1.0)));
         
-        vec3 cubeColor = vec3(1.0, 0.65, 0.0); // Orange
+        vec3 cubeColor = vec3(1.0, 0.843, 0.0); // Golden yellow (#FFD700)
         col += cubeColor * smoothstep(0.02, 0.0, d) * 2.0;
         
         return col;

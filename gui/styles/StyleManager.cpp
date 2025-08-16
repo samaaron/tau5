@@ -1,8 +1,8 @@
 #include "StyleManager.h"
 
-// Primary brand colors
-const QString StyleManager::Colors::ACCENT_PRIMARY = "#ffa500";
-const QString StyleManager::Colors::ACCENT_PRIMARY_RGB = "rgb(255, 165, 0)";
+// Primary brand colors - golden yellow to match shader cube
+const QString StyleManager::Colors::ACCENT_PRIMARY = "#ffd700";
+const QString StyleManager::Colors::ACCENT_PRIMARY_RGB = "rgb(255, 215, 0)";
 const QString StyleManager::Colors::ACCENT_SECONDARY = "rgb(255, 20, 147)";
 const QString StyleManager::Colors::ACCENT_HIGHLIGHT = "#1e90ff";
 
@@ -26,15 +26,15 @@ const QString StyleManager::Colors::TEXT_TIMESTAMP = "#888888";
 const QString StyleManager::Colors::SCROLLBAR_TRACK = "#1e1e1e";
 const QString StyleManager::Colors::SCROLLBAR_THUMB = "#5e5e5e";
 const QString StyleManager::Colors::SCROLLBAR_THUMB_HOVER = "#888888";
-const QString StyleManager::Colors::BUTTON_HOVER = "#ff8c00";
-const QString StyleManager::Colors::BUTTON_ACTIVE = "#cc6600";
+const QString StyleManager::Colors::BUTTON_HOVER = "#ffcc00";
+const QString StyleManager::Colors::BUTTON_ACTIVE = "#daa520";
 const QString StyleManager::Colors::BUTTON_CLOSE_HOVER = "#e81123";
 
 // Special purpose colors
 const QString StyleManager::Colors::TERMINAL_CURSOR = "rgb(255, 20, 147)";
 const QString StyleManager::Colors::SELECTION_BACKGROUND = "rgb(255, 20, 147)";
 const QString StyleManager::Colors::SELECTION_TEXT = "#000000";
-const QString StyleManager::Colors::BORDER_DEFAULT = "#ffa500";
+const QString StyleManager::Colors::BORDER_DEFAULT = "#ffd700";
 const QString StyleManager::Colors::SCANLINE_OVERLAY = "rgba(0, 0, 0, 0.08)";
 
 // Status colors
