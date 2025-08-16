@@ -159,12 +159,12 @@ void Beam::startElixirServerDev()
   env.insert("RELEASE_DISTRIBUTION", "none");
   
   // Set log directory path for the Elixir server
-  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
   QDir logsDir(logsPath);
-  if (!logsDir.exists("logs")) {
-    logsDir.mkpath("logs");
+  if (!logsDir.exists("Tau5/logs")) {
+    logsDir.mkpath("Tau5/logs");
   }
-  QString logsDirPath = logsDir.absoluteFilePath("logs");
+  QString logsDirPath = logsDir.absoluteFilePath("Tau5/logs");
   env.insert("TAU5_LOG_DIR", logsDirPath);
   Logger::log(Logger::Debug, QString("Setting TAU5_LOG_DIR to: %1").arg(logsDirPath));
   
@@ -210,12 +210,12 @@ void Beam::startElixirServerProd()
   env.insert("PHX_SERVER", "1");
   
   // Set log directory path for the Elixir server
-  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
   QDir logsDir(logsPath);
-  if (!logsDir.exists("logs")) {
-    logsDir.mkpath("logs");
+  if (!logsDir.exists("Tau5/logs")) {
+    logsDir.mkpath("Tau5/logs");
   }
-  QString logsDirPath = logsDir.absoluteFilePath("logs");
+  QString logsDirPath = logsDir.absoluteFilePath("Tau5/logs");
   env.insert("TAU5_LOG_DIR", logsDirPath);
   Logger::log(Logger::Debug, QString("Setting TAU5_LOG_DIR to: %1").arg(logsDirPath));
   

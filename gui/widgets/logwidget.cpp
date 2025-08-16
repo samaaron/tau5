@@ -585,8 +585,14 @@ void LogWidget::updateFromFile()
   // Read from last position
   if (m_lastFilePosition > 0 && m_lastFilePosition < currentSize) {
     logFile.seek(m_lastFilePosition);
+  } else if (m_lastFilePosition > currentSize) {
+    // File was truncated or replaced (e.g., server restart)
+    // Reset to beginning and re-read entire file
+    m_lastFilePosition = 0;
+    logFile.seek(0);
+    clear();
   } else {
-    // First read or file was truncated
+    // First read
     clear();
   }
   
