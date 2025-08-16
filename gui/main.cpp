@@ -12,6 +12,7 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <QFontDatabase>
+#include <QSurfaceFormat>
 #include "mainwindow.h"
 #include "lib/beam.h"
 #include "logger.h"
@@ -28,13 +29,57 @@ namespace Config
       "--disable-renderer-backgrounding "
       "--disable-backgrounding-occluded-windows "
       "--disable-features=AudioServiceOutOfProcess "
-      "--autoplay-policy=no-user-gesture-required";
+      "--autoplay-policy=no-user-gesture-required "
+      "--ignore-gpu-blocklist "
+      "--enable-gpu-rasterization "
+      "--enable-accelerated-2d-canvas "
+      "--enable-zero-copy "
+      "--use-angle=d3d11 "
+      "--use-cmd-decoder=passthrough "
+      "--disable-gpu-driver-bug-workarounds "
+      "--disable-gpu-vsync "
+      "--disable-frame-rate-limit "
+      "--disable-gpu-watchdog "
+      "--enable-unsafe-webgpu "
+      "--enable-features=CanvasOopRasterization "
+      "--disable-features=RendererCodeIntegrity "
+      "--force-color-profile=srgb "
+      "--disable-partial-raster "
+      "--enable-gpu-memory-buffer-compositor-resources "
+      "--enable-oop-rasterization "
+      "--canvas-oop-rasterization "
+      "--num-raster-threads=4 "
+      "--enable-webgl-draft-extensions "
+      "--webgl-antialiasing-mode=none "
+      "--disable-blink-features=LowLatencyCanvas2dImageChromium";
   constexpr const char *CHROMIUM_FLAGS_DEV =
       "--disable-background-timer-throttling "
       "--disable-renderer-backgrounding "
       "--disable-backgrounding-occluded-windows "
       "--disable-features=AudioServiceOutOfProcess "
       "--autoplay-policy=no-user-gesture-required "
+      "--ignore-gpu-blocklist "
+      "--enable-gpu-rasterization "
+      "--enable-accelerated-2d-canvas "
+      "--enable-zero-copy "
+      "--use-angle=d3d11 "
+      "--use-cmd-decoder=passthrough "
+      "--disable-gpu-driver-bug-workarounds "
+      "--disable-gpu-vsync "
+      "--disable-frame-rate-limit "
+      "--disable-gpu-watchdog "
+      "--enable-unsafe-webgpu "
+      "--enable-features=CanvasOopRasterization "
+      "--disable-features=RendererCodeIntegrity "
+      "--force-color-profile=srgb "
+      "--disable-partial-raster "
+      "--enable-gpu-memory-buffer-compositor-resources "
+      "--enable-oop-rasterization "
+      "--canvas-oop-rasterization "
+      "--num-raster-threads=4 "
+      "--enable-webgl-draft-extensions "
+      "--webgl-antialiasing-mode=none "
+      "--disable-blink-features=LowLatencyCanvas2dImageChromium "
       "--remote-debugging-port=9223";
 }
 
@@ -153,6 +198,20 @@ bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool
   }
 
   QCoreApplication::setAttribute(Qt::AA_DontShowIconsInMenus, false);
+  
+  // Fix WebGL rendering artifacts by ensuring proper buffer synchronization
+  QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts, true);
+  QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL, true);
+  QCoreApplication::setAttribute(Qt::AA_DisableHighDpiScaling, false);
+  
+  // Configure OpenGL surface format for proper double buffering
+  QSurfaceFormat format;
+  format.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
+  format.setSwapInterval(0); // Disable vsync for maximum performance
+  format.setRenderableType(QSurfaceFormat::OpenGL);
+  format.setProfile(QSurfaceFormat::CoreProfile);
+  format.setVersion(4, 3); // Use a modern OpenGL version
+  QSurfaceFormat::setDefaultFormat(format);
 
   Q_INIT_RESOURCE(Tau5);
   app.setApplicationName(Config::APP_NAME);
