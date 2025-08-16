@@ -360,18 +360,13 @@ void MainWindow::initializeDebugPane()
 
   debugPane->restoreSettings();
 
+  // Store the visibility preference but don't show immediately
   QSettings settings;
   settings.beginGroup("DebugPane");
-  bool shouldBeVisible = settings.value("visible", false).toBool();
+  m_debugPaneShouldBeVisible = settings.value("visible", false).toBool();
   settings.endGroup();
-
-  if (shouldBeVisible) {
-    QTimer::singleShot(100, [this]() {
-      if (debugPane) {
-        debugPane->toggle();
-      }
-    });
-  }
+  
+  // Don't auto-show during boot - wait until after transition completes
 
   connect(debugPane.get(), &DebugPane::visibilityChanged,
           this, [this](bool visible) {

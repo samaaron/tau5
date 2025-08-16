@@ -97,6 +97,7 @@ private:
   bool m_webDevToolsLoaded;
   bool m_allComponentsSignalEmitted;
   bool m_beamReady;
+  bool m_debugPaneShouldBeVisible = false;
   
   static constexpr int DEBUG_PANE_RESTORE_DELAY_MS = 500;
 };
