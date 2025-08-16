@@ -9,13 +9,21 @@
 #include <winsock2.h>
 #endif
 
-class PhxWidget;
+class MainPhxWidget;
 #ifdef BUILD_WITH_DEBUG_PANE
 class DebugPane;
 #endif
 class ControlLayer;
 class Beam;
-class LoadingOverlay;
+class ConsoleOverlay;
+class TransitionOverlay;
+
+#ifndef Q_OS_MACOS
+class CustomTitleBar;
+namespace QWK {
+    class WidgetWindowAgent;
+}
+#endif
 
 class MainWindow : public QMainWindow
 {
@@ -53,31 +61,42 @@ private slots:
   void handleOpenExternalBrowser();
   void handleResetBrowser();
   void handleBeamRestart();
+  void startTransitionToApp();
+  void onFadeToBlackComplete();
+  void onAppPageReady();
 
 private:
-  void initializePhxWidget(quint16 port);
   void initializeDebugPane();
   void initializeControlLayer();
   void checkAllComponentsLoaded();
   bool isElixirReplEnabled();
 
 private:
-  std::unique_ptr<PhxWidget> phxWidget;
+  std::unique_ptr<MainPhxWidget> phxWidget;
 #ifdef BUILD_WITH_DEBUG_PANE
   std::unique_ptr<DebugPane> debugPane;
 #endif
   std::unique_ptr<ControlLayer> controlLayer;
-  std::unique_ptr<LoadingOverlay> loadingOverlay;
-  QDateTime loadingOverlayStartTime;
+  std::unique_ptr<ConsoleOverlay> consoleOverlay;
+  std::unique_ptr<TransitionOverlay> transitionOverlay;
+#ifndef Q_OS_MACOS
+  CustomTitleBar *m_titleBar;
+  QWK::WidgetWindowAgent *m_windowAgent;
+#endif
+  QDateTime bootStartTime;
   Beam *beamInstance;
   bool m_devMode;
   bool m_enableDebugPane;
   bool m_enableMcp;
   bool m_enableRepl;
+  quint16 m_serverPort;
   
   bool m_mainWindowLoaded;
   bool m_liveDashboardLoaded;
   bool m_elixirConsoleLoaded;
   bool m_webDevToolsLoaded;
   bool m_allComponentsSignalEmitted;
+  bool m_beamReady;
+  
+  static constexpr int DEBUG_PANE_RESTORE_DELAY_MS = 500;
 };

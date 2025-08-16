@@ -14,7 +14,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  background: #1a1a1a;
+  background: rgb(52, 52, 52);
   border-bottom: 1px solid #333;
   flex-shrink: 0;
 }
@@ -27,7 +27,7 @@
 
 .layout-controls button {
   padding: 0.5rem 0.75rem;
-  background: #2a2a2a;
+  background: #1a1a1a;
   color: #e0e0e0;
   border: 1px solid #444;
   border-radius: 4px;
@@ -37,7 +37,7 @@
 }
 
 .layout-controls button:hover {
-  background: #3a3a3a;
+  background: #222222;
   border-color: #666;
 }
 

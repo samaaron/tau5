@@ -10,34 +10,41 @@
 #include <QMoveEvent>
 #include <QPropertyAnimation>
 #include "mainwindow.h"
-#include "widgets/phxwidget.h"
+#include "widgets/mainphxwidget.h"
 #ifdef BUILD_WITH_DEBUG_PANE
 #include "widgets/debugpane.h"
 #endif
 #include "widgets/controllayer.h"
-#include "widgets/loadingoverlay.h"
+#include "widgets/consoleoverlay.h"
+#include "widgets/transitionoverlay.h"
 #include "lib/beam.h"
 #include "logger.h"
 #include "styles/StyleManager.h"
 
+#ifndef Q_OS_MACOS
+#include "widgets/customtitlebar.h"
+#include <QWKWidgets/widgetwindowagent.h>
+#include <QWKCore/qwkglobal.h>
+#endif
+
 MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool enableRepl, QWidget *parent)
     : QMainWindow(parent)
     , beamInstance(nullptr)
+#ifndef Q_OS_MACOS
+    , m_titleBar(nullptr)
+    , m_windowAgent(nullptr)
+#endif
     , m_devMode(devMode)
     , m_enableDebugPane(enableDebugPane)
     , m_enableMcp(enableMcp)
     , m_enableRepl(enableRepl)
+    , m_serverPort(0)
     , m_mainWindowLoaded(false)
-#ifdef BUILD_WITH_DEBUG_PANE
-    , m_liveDashboardLoaded(!enableDebugPane)  // If debug pane disabled, consider these loaded
-    , m_elixirConsoleLoaded(!enableDebugPane || !enableRepl)  // Consider loaded if disabled
+    , m_liveDashboardLoaded(!enableDebugPane)
+    , m_elixirConsoleLoaded(!enableDebugPane || !enableRepl)
     , m_webDevToolsLoaded(!enableDebugPane)
-#else
-    , m_liveDashboardLoaded(true)  // Always true when debug pane not built
-    , m_elixirConsoleLoaded(true)
-    , m_webDevToolsLoaded(true)
-#endif
     , m_allComponentsSignalEmitted(false)
+    , m_beamReady(false)
 {
   QCoreApplication::setOrganizationName("Tau5");
   QCoreApplication::setApplicationName("Tau5");
@@ -51,105 +58,145 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool 
   }
 
   this->setStyleSheet(StyleManager::mainWindow());
+  
+  transitionOverlay = std::make_unique<TransitionOverlay>(this);
+  transitionOverlay->resize(size());
+  transitionOverlay->setImmediateOpacity(1.0);
+  transitionOverlay->show();
+  transitionOverlay->raise();
 
-#ifdef Q_OS_MACOS
   QMenuBar *menuBar = this->menuBar();
-  QMenu *helpMenu = menuBar->addMenu(tr("&Help"));
-  QAction *aboutAction = helpMenu->addAction(tr("&About"));
-  connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
-#else
-  this->menuBar()->hide();
-#endif
+  if (menuBar) {
+    QMenu *helpMenu = menuBar->addMenu(tr("&Help"));
+    QAction *aboutAction = helpMenu->addAction(tr("&About"));
+    connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
+    
+    #ifndef Q_OS_MACOS
+    menuBar->hide();
+    #endif
+  }
 
-#ifdef BUILD_WITH_DEBUG_PANE
+#ifndef Q_OS_MACOS
+  m_windowAgent = new QWK::WidgetWindowAgent(this);
+  m_windowAgent->setup(this);
+  
+  QWidget *centralContainer = new QWidget(this);
+  QVBoxLayout *centralLayout = new QVBoxLayout(centralContainer);
+  centralLayout->setContentsMargins(0, 0, 0, 0);
+  centralLayout->setSpacing(0);
+  
+  m_titleBar = new CustomTitleBar(this);
+  centralLayout->addWidget(m_titleBar);
+  
+  m_windowAgent->setTitleBar(m_titleBar);
+  
+  m_windowAgent->setSystemButton(QWK::WindowAgentBase::Minimize, m_titleBar->minimizeButton());
+  m_windowAgent->setSystemButton(QWK::WindowAgentBase::Maximize, m_titleBar->maximizeButton());
+  m_windowAgent->setSystemButton(QWK::WindowAgentBase::Close, m_titleBar->closeButton());
+  
+  connect(m_titleBar, &CustomTitleBar::minimizeClicked, [this]() {
+    this->setWindowState(Qt::WindowMinimized);
+  });
+  
+  connect(m_titleBar, &CustomTitleBar::maximizeClicked, [this]() {
+    if (this->windowState() & Qt::WindowMaximized) {
+      this->setWindowState(Qt::WindowNoState);
+    } else {
+      this->setWindowState(Qt::WindowMaximized);
+    }
+    QTimer::singleShot(50, [this]() {
+      m_titleBar->updateMaximizeButton();
+    });
+  });
+  
+  connect(m_titleBar, &CustomTitleBar::closeClicked, [this]() {
+    this->close();
+  });
+  
+  phxWidget = std::make_unique<MainPhxWidget>(m_devMode, this);
+  centralLayout->addWidget(phxWidget.get());
+  
+  setCentralWidget(centralContainer);
+#else
+  phxWidget = std::make_unique<MainPhxWidget>(m_devMode, this);
+  setCentralWidget(phxWidget.get());
+#endif
+  
+  connect(phxWidget.get(), &PhxWidget::pageLoaded, this, [this]() {
+    if (!m_mainWindowLoaded) {
+      m_mainWindowLoaded = true;
+      Logger::log(Logger::Info, "Shader page loaded and ready");
+      checkAllComponentsLoaded();
+    }
+  });
+  
+  phxWidget->loadShaderPage();
+
+  consoleOverlay = std::make_unique<ConsoleOverlay>(this);
+  consoleOverlay->raise();
+  consoleOverlay->show();
+  
+#ifndef Q_OS_MACOS
+  if (m_titleBar && transitionOverlay) {
+    transitionOverlay->move(0, m_titleBar->height());
+    transitionOverlay->resize(width(), height() - m_titleBar->height());
+  }
+#else
+  if (transitionOverlay) {
+    transitionOverlay->resize(size());
+  }
+#endif
+  
+  if (transitionOverlay) {
+    transitionOverlay->raise();
+    transitionOverlay->activateWindow();
+  }
+  
+  QTimer::singleShot(200, [this]() {
+    if (transitionOverlay) {
+      transitionOverlay->fadeOut(1000);  // 1 second fade to transparent
+    }
+  });
+
+  #ifdef BUILD_WITH_DEBUG_PANE
   if (m_enableDebugPane) {
     initializeDebugPane();
   }
-#endif
-  initializeControlLayer();
-
-  // Create loading overlay immediately to ensure it's ready for BEAM output
-  loadingOverlay = std::make_unique<LoadingOverlay>();
-  loadingOverlayStartTime = QDateTime::currentDateTime();
+  #endif
   
-  // Show the loading overlay immediately and ensure it appears above the main window
-  // Since main window is not shown yet, we need to use screen geometry
-  QTimer::singleShot(0, this, [this]() {
-    // Use the main window's intended geometry
-    QRect targetGeometry = frameGeometry();
-    if (!targetGeometry.isValid() || targetGeometry.isEmpty()) {
-      // Fallback to screen center if geometry isn't set yet
-      QScreen *screen = QApplication::primaryScreen();
-      if (screen) {
-        QRect screenGeometry = screen->geometry();
-        targetGeometry = QRect(
-          (screenGeometry.width() - 1024) / 2,
-          (screenGeometry.height() - 768) / 2,
-          1024, 768
-        );
-      }
-    }
-    loadingOverlay->updateGeometry(targetGeometry);
-    loadingOverlay->show();
-    loadingOverlay->raise();
-    loadingOverlay->activateWindow();
-  });
+  initializeControlLayer();
+  
+  if (controlLayer) {
+    controlLayer->hide();
+  }
 
-  connect(this, &MainWindow::allComponentsLoaded, [this]() {
-    Logger::log(Logger::Info, "=== Tau5 is ready! ===");
-    
-    // Refresh the main browser now that all components are loaded
-    if (phxWidget) {
-      phxWidget->handleResetBrowser();
-    }
-    
-    if (loadingOverlay) {
-      // Calculate remaining time to ensure minimum 8 seconds display
-      qint64 elapsedMs = loadingOverlayStartTime.msecsTo(QDateTime::currentDateTime());
-      qint64 remainingMs = qMax(0LL, 8000LL - elapsedMs);
-      
-      QTimer::singleShot(remainingMs + 500, [this]() {
-        if (loadingOverlay) {
-          if (beamInstance) {
-            disconnect(beamInstance, &Beam::standardOutput,
-                      loadingOverlay.get(), &LoadingOverlay::appendLog);
-            disconnect(beamInstance, &Beam::standardError,
-                      loadingOverlay.get(), &LoadingOverlay::appendLog);
-          }
-          
-          connect(loadingOverlay.get(), &LoadingOverlay::fadeToBlackComplete, this, [this]() {
-            this->show();
-            this->raise();
-            this->activateWindow();
-          });
-          
-          loadingOverlay->fadeOut();
-        }
-      });
-    }
-  });
+  bootStartTime = QDateTime::currentDateTime();
+
+  show();
+  raise();
+  activateWindow();
+  
+  if (transitionOverlay) {
+    transitionOverlay->raise();
+  }
+
 }
 
 MainWindow::~MainWindow() {
-  if (loadingOverlay && loadingOverlay->isVisible()) {
-    loadingOverlay->close();
-  }
 }
 
 void MainWindow::setBeamInstance(Beam *beam)
 {
   beamInstance = beam;
   if (beamInstance) {
-    // Connect to loading overlay for initial display
-    if (loadingOverlay) {
+    if (consoleOverlay) {
       connect(beamInstance, &Beam::standardOutput,
-              loadingOverlay.get(), &LoadingOverlay::appendLog);
+              consoleOverlay.get(), &ConsoleOverlay::appendLog);
       connect(beamInstance, &Beam::standardError,
-              loadingOverlay.get(), &LoadingOverlay::appendLog);
+              consoleOverlay.get(), &ConsoleOverlay::appendLog);
     }
     
 #ifdef BUILD_WITH_DEBUG_PANE
-    // Connect to debug pane for later
     if (debugPane) {
       connect(beamInstance, &Beam::standardOutput,
               this, &MainWindow::handleBeamOutput);
@@ -162,44 +209,22 @@ void MainWindow::setBeamInstance(Beam *beam)
 
 bool MainWindow::connectToServer(quint16 port)
 {
-  try {
-    initializePhxWidget(port);
-    return true;
-  }
-  catch (const std::exception& e) {
-    QMessageBox::critical(this, tr("Connection Error"),
-                         tr("Failed to initialize connection: %1").arg(e.what()));
+  if (port == 0 || port > 65535) {
+    Logger::log(Logger::Error, QString("Invalid port number received: %1").arg(port));
+    QMessageBox::critical(this, tr("Server Error"),
+                         tr("Invalid server port number: %1").arg(port));
     return false;
   }
-}
-
-bool MainWindow::isElixirReplEnabled()
-{
-  return m_enableRepl;
-}
-
-void MainWindow::initializePhxWidget(quint16 port)
-{
-  QUrl phxUrl;
-  phxUrl.setScheme("http");
-  phxUrl.setHost("localhost");
-  phxUrl.setPort(port);
-
-  phxWidget = std::make_unique<PhxWidget>(m_devMode, this);
-  connect(phxWidget.get(), &PhxWidget::pageLoaded, this, &MainWindow::handleMainWindowLoaded);
-  phxWidget->connectToTauPhx(phxUrl);
-  setCentralWidget(phxWidget.get());
-
-  // Set DevTools availability for the web view
-  bool devToolsAvailable = false;
-#ifdef BUILD_WITH_DEBUG_PANE
-  devToolsAvailable = m_enableDebugPane;
-#endif
-  phxWidget->getWebView()->setDevToolsAvailable(devToolsAvailable);
-
+  
+  m_serverPort = port;
+  
+  m_beamReady = true;
+  Logger::log(Logger::Info, "BEAM server ready, port: " + QString::number(port));
+  
+  startTransitionToApp();
+  
 #ifdef BUILD_WITH_DEBUG_PANE
   if (debugPane) {
-    debugPane->setWebView(phxWidget->getWebView());
     QString dashboardUrl = QString("http://localhost:%1/dev/dashboard").arg(port);
     debugPane->setLiveDashboardUrl(dashboardUrl);
 
@@ -207,18 +232,120 @@ void MainWindow::initializePhxWidget(quint16 port)
       QString token = beamInstance->getSessionToken();
       QString consoleUrl = QString("http://localhost:%1/dev/console?token=%2").arg(port).arg(token);
       debugPane->setElixirConsoleUrl(consoleUrl);
-    } else {
-      Logger::log(Logger::Warning, "BeamInstance is null when setting Tau5 Console URL");
     }
-
-    debugPane->raise();
   }
 #endif
+  
+  return true;
+}
 
-  if (controlLayer) {
-    controlLayer->raise();
+bool MainWindow::isElixirReplEnabled()
+{
+  return m_enableRepl;
+}
+
+void MainWindow::startTransitionToApp()
+{
+  Logger::log(Logger::Info, "BEAM ready, checking timing before transition");
+  
+  if (m_serverPort == 0) {
+    Logger::log(Logger::Error, "Invalid server port for transition");
+    return;
+  }
+  
+  qint64 elapsedMs = bootStartTime.msecsTo(QDateTime::currentDateTime());
+  qint64 minDisplayMs = 5000;
+  qint64 remainingMs = qMax(0LL, minDisplayMs - elapsedMs);
+  
+  Logger::log(Logger::Info, QString("Boot elapsed: %1ms, waiting %2ms before fade").arg(elapsedMs).arg(remainingMs));
+  
+  QTimer::singleShot(remainingMs, [this]() {
+    Logger::log(Logger::Info, "Starting fade to black transition");
+    
+    if (transitionOverlay) {
+      transitionOverlay->fadeIn(500);
+      
+      connect(transitionOverlay.get(), &TransitionOverlay::fadeInComplete, 
+              this, &MainWindow::onFadeToBlackComplete, Qt::SingleShotConnection);
+    }
+  });
+}
+
+void MainWindow::onFadeToBlackComplete()
+{
+  Logger::log(Logger::Info, "Fade to black complete, switching to app page");
+  
+  QUrl phxUrl;
+  phxUrl.setScheme("http");
+  phxUrl.setHost("localhost");
+  phxUrl.setPort(m_serverPort);
+  
+  if (phxWidget) {
+    phxWidget->transitionToApp(phxUrl);
+    
+    bool devToolsAvailable = false;
+#ifdef BUILD_WITH_DEBUG_PANE
+    devToolsAvailable = m_enableDebugPane;
+#endif
+    phxWidget->getWebView()->setDevToolsAvailable(devToolsAvailable);
+    
+    connect(phxWidget.get(), &PhxWidget::appPageReady, 
+            this, &MainWindow::onAppPageReady, Qt::SingleShotConnection);
   }
 }
+
+void MainWindow::onAppPageReady()
+{
+  Logger::log(Logger::Info, "App page ready, fading out overlay");
+  
+  if (transitionOverlay) {
+    transitionOverlay->fadeOut(600);
+    
+    connect(transitionOverlay.get(), &TransitionOverlay::fadeOutComplete, this, [this]() {
+      Logger::log(Logger::Info, "Transition complete, cleaning up overlay");
+      if (transitionOverlay) {
+        transitionOverlay->hide();
+      }
+    }, Qt::SingleShotConnection);
+  }
+  
+  if (controlLayer) {
+    controlLayer->show();
+    controlLayer->raise();
+  }
+  
+  if (consoleOverlay) {
+    consoleOverlay->fadeOut();
+    connect(consoleOverlay.get(), &ConsoleOverlay::fadeComplete, this, [this]() {
+      if (beamInstance) {
+        disconnect(beamInstance, &Beam::standardOutput,
+                  consoleOverlay.get(), &ConsoleOverlay::appendLog);
+        disconnect(beamInstance, &Beam::standardError,
+                  consoleOverlay.get(), &ConsoleOverlay::appendLog);
+      }
+    }, Qt::SingleShotConnection);
+  }
+  
+#ifdef BUILD_WITH_DEBUG_PANE
+  if (debugPane && phxWidget) {
+    debugPane->setWebView(phxWidget->getWebView());
+    
+    QSettings settings;
+    settings.beginGroup("DebugPane");
+    bool shouldBeVisible = settings.value("visible", false).toBool();
+    settings.endGroup();
+    
+    if (shouldBeVisible) {
+      QTimer::singleShot(DEBUG_PANE_RESTORE_DELAY_MS, [this]() {
+        if (debugPane) {
+          debugPane->toggle();
+        }
+      });
+    }
+  }
+#endif
+}
+
 
 #ifdef BUILD_WITH_DEBUG_PANE
 void MainWindow::initializeDebugPane()
@@ -344,23 +471,25 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     controlLayer->positionControls();
     controlLayer->raise();
   }
-
-  if (loadingOverlay && loadingOverlay->isVisible()) {
-    QRect globalGeometry = geometry();
-    globalGeometry.moveTopLeft(mapToGlobal(QPoint(0, 0)));
-    loadingOverlay->updateGeometry(globalGeometry);
+  
+  if (transitionOverlay) {
+#ifndef Q_OS_MACOS
+    if (m_titleBar) {
+      int titleBarHeight = m_titleBar->height();
+      transitionOverlay->move(0, titleBarHeight);
+      transitionOverlay->resize(width(), height() - titleBarHeight);
+    } else {
+      transitionOverlay->resize(size());
+    }
+#else
+    transitionOverlay->resize(size());
+#endif
   }
 }
 
 void MainWindow::moveEvent(QMoveEvent *event)
 {
   QMainWindow::moveEvent(event);
-  
-  if (loadingOverlay && loadingOverlay->isVisible()) {
-    QRect globalGeometry = geometry();
-    globalGeometry.moveTopLeft(mapToGlobal(QPoint(0, 0)));
-    loadingOverlay->updateGeometry(globalGeometry);
-  }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -373,10 +502,6 @@ void MainWindow::closeEvent(QCloseEvent *event)
     debugPane->saveSettings();
   }
 #endif
-
-  if (loadingOverlay) {
-    loadingOverlay->close();
-  }
 
   QMainWindow::closeEvent(event);
 }
@@ -445,14 +570,13 @@ void MainWindow::handleWebDevToolsLoaded()
 
 void MainWindow::checkAllComponentsLoaded()
 {
-#ifdef BUILD_WITH_DEBUG_PANE
-  bool debugPaneReady = !m_enableDebugPane || (m_liveDashboardLoaded && m_elixirConsoleLoaded && m_webDevToolsLoaded);
-  if (m_mainWindowLoaded && debugPaneReady && !m_allComponentsSignalEmitted) {
-#else
-  if (m_mainWindowLoaded && !m_allComponentsSignalEmitted) {
-#endif
+  if (m_mainWindowLoaded && m_beamReady && !m_allComponentsSignalEmitted) {
     m_allComponentsSignalEmitted = true;
     emit allComponentsLoaded();
+  } else {
+    Logger::log(Logger::Debug, QString("Waiting for components - Window: %1, BEAM: %2")
+                .arg(m_mainWindowLoaded)
+                .arg(m_beamReady));
   }
 }
 
@@ -467,51 +591,41 @@ void MainWindow::handleBeamRestart()
   
   Logger::log(Logger::Info, "User requested BEAM restart");
   
-  // Disable the restart button to prevent multiple restarts
   if (debugPane)
   {
     debugPane->setRestartButtonEnabled(false);
     
-    // Add a clear visual separator in the log
     QString separator = "\n" + QString("=").repeated(60) + "\n";
     debugPane->appendOutput(separator + "       BEAM RESTART IN PROGRESS..." + separator, false);
   }
   
-  // Reset component loaded flags
   m_mainWindowLoaded = false;
   m_liveDashboardLoaded = false;
-  m_elixirConsoleLoaded = !m_enableRepl;  // If REPL disabled, consider it "loaded"
+  m_elixirConsoleLoaded = !m_enableRepl;
   m_webDevToolsLoaded = false;
   m_allComponentsSignalEmitted = false;
   
-  // Connect to the restart complete signal
   QObject *context = new QObject();
   connect(beamInstance, &Beam::restartComplete, context, [this, context]() {
     Logger::log(Logger::Info, "BEAM restart complete, reconnecting to server...");
     
-    // Re-enable the restart button
     if (debugPane)
     {
       debugPane->setRestartButtonEnabled(true);
       
-      // Add completion message
       QString separator = "\n" + QString("=").repeated(60) + "\n";
       debugPane->appendOutput(separator + "       BEAM RESTART COMPLETE!" + separator, false);
     }
     
-    // Get the new session token
     QString newToken = beamInstance->getSessionToken();
     
-    // Reconnect the Phoenix widget
     if (phxWidget)
     {
       phxWidget->handleResetBrowser();
     }
     
-    // Update the Elixir Console URL with the new token
     if (debugPane && beamInstance)
     {
-      // Use the port stored in the Beam instance
       quint16 port = beamInstance->getPort();
       QString consoleUrl = QString("http://localhost:%1/dev/console?token=%2").arg(port).arg(newToken);
       debugPane->setElixirConsoleUrl(consoleUrl);
@@ -520,7 +634,6 @@ void MainWindow::handleBeamRestart()
     context->deleteLater();
   });
   
-  // Trigger the restart
   beamInstance->restart();
 #endif
 }

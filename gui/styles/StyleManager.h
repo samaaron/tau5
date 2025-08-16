@@ -23,6 +23,7 @@ public:
     static const QString BACKGROUND_CONSOLE;      // Console specific background
     static const QString BACKGROUND_SURFACE;      // Surface/card background
     static const QString BACKGROUND_SURFACE_LIGHT;// Lighter surface background
+    static const QString BACKGROUND_TITLEBAR_DARK;// macOS dark mode titlebar color
     
     // Text colors
     static const QString TEXT_PRIMARY;            // Primary text (white)
@@ -37,6 +38,7 @@ public:
     static const QString SCROLLBAR_THUMB_HOVER;   // Scrollbar thumb hover
     static const QString BUTTON_HOVER;            // Button hover state
     static const QString BUTTON_ACTIVE;           // Button active/pressed state
+    static const QString BUTTON_CLOSE_HOVER;      // Close button hover (red)
     
     // Special purpose colors
     static const QString TERMINAL_CURSOR;         // Terminal cursor color

@@ -13,6 +13,7 @@ const QString StyleManager::Colors::BACKGROUND_TERTIARY = "#1a1a1a";
 const QString StyleManager::Colors::BACKGROUND_CONSOLE = "#000000";
 const QString StyleManager::Colors::BACKGROUND_SURFACE = "#0a0a0a";
 const QString StyleManager::Colors::BACKGROUND_SURFACE_LIGHT = "#333333";
+const QString StyleManager::Colors::BACKGROUND_TITLEBAR_DARK = "#343434";
 
 // Text colors
 const QString StyleManager::Colors::TEXT_PRIMARY = "#ffffff";
@@ -27,6 +28,7 @@ const QString StyleManager::Colors::SCROLLBAR_THUMB = "#5e5e5e";
 const QString StyleManager::Colors::SCROLLBAR_THUMB_HOVER = "#888888";
 const QString StyleManager::Colors::BUTTON_HOVER = "#ff8c00";
 const QString StyleManager::Colors::BUTTON_ACTIVE = "#cc6600";
+const QString StyleManager::Colors::BUTTON_CLOSE_HOVER = "#e81123";
 
 // Special purpose colors
 const QString StyleManager::Colors::TERMINAL_CURSOR = "rgb(255, 20, 147)";

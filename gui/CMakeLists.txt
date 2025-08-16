@@ -18,7 +18,6 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 set(QTAPP_ROOT ${CMAKE_CURRENT_LIST_DIR})
 
-# Set cmake prefix path so it can find the Qt libraries
 if((${BUILD_32BIT}) AND(DEFINED ENV{QT_INSTALL_LOCATION32}))
   message(STATUS "Setting up a 32 bit Qt Build")
   message(STATUS "Setting prefix to user-defined Qt (32-bit) install location: $ENV{QT_INSTALL_LOCATION32}")
@@ -28,7 +27,6 @@ elseif(DEFINED ENV{QT_INSTALL_LOCATION})
   set(CMAKE_PREFIX_PATH $ENV{QT_INSTALL_LOCATION})
 endif()
 
-# Qt Setup
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
@@ -39,7 +37,20 @@ set_property(GLOBAL PROPERTY AUTOMOC_FOLDER Automoc)
 set_property(GLOBAL PROPERTY AUTOGEN_TARGETS_FOLDER Automoc)
 
 find_package(Qt6 QUIET)
-find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg SvgWidgets LinguistTools WebEngineWidgets WebSockets OpenGLWidgets REQUIRED)
+find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg SvgWidgets LinguistTools WebEngineWidgets WebSockets REQUIRED)
+
+if(NOT APPLE)
+  set(QWINDOWKIT_BUILD_STATIC OFF CACHE BOOL "" FORCE)
+  set(QWINDOWKIT_BUILD_WIDGETS ON CACHE BOOL "" FORCE)
+  set(QWINDOWKIT_BUILD_QUICK OFF CACHE BOOL "" FORCE)
+  set(QWINDOWKIT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  set(QWINDOWKIT_BUILD_DOCUMENTATIONS OFF CACHE BOOL "" FORCE)
+  set(QWINDOWKIT_INSTALL OFF CACHE BOOL "" FORCE)
+  set(QWINDOWKIT_ENABLE_WINDOWS_SYSTEM_BORDERS ON CACHE BOOL "" FORCE)
+  set(QWINDOWKIT_ENABLE_STYLE_AGENT ON CACHE BOOL "" FORCE)
+  
+  add_subdirectory(external/qwindowkit-1.4.0)
+endif()
 
 
 set(APP_NAME tau5)
@@ -55,14 +66,21 @@ set(SOURCES
   ${QTAPP_ROOT}/widgets/phxwebview.cpp
   ${QTAPP_ROOT}/widgets/phxwidget.h
   ${QTAPP_ROOT}/widgets/phxwidget.cpp
+  ${QTAPP_ROOT}/widgets/mainphxwidget.h
+  ${QTAPP_ROOT}/widgets/mainphxwidget.cpp
+  ${QTAPP_ROOT}/widgets/shaderpage.h
+  ${QTAPP_ROOT}/widgets/shaderpage.cpp
+  ${QTAPP_ROOT}/widgets/shadercode.h
   ${QTAPP_ROOT}/widgets/phxurlinterceptor.h
   ${QTAPP_ROOT}/widgets/phxurlinterceptor.cpp
   ${QTAPP_ROOT}/widgets/sandboxedwebview.h
   ${QTAPP_ROOT}/widgets/sandboxedwebview.cpp
   ${QTAPP_ROOT}/widgets/controllayer.h
   ${QTAPP_ROOT}/widgets/controllayer.cpp
-  ${QTAPP_ROOT}/widgets/loadingoverlay.h
-  ${QTAPP_ROOT}/widgets/loadingoverlay.cpp
+  ${QTAPP_ROOT}/widgets/consoleoverlay.h
+  ${QTAPP_ROOT}/widgets/consoleoverlay.cpp
+  ${QTAPP_ROOT}/widgets/transitionoverlay.h
+  ${QTAPP_ROOT}/widgets/transitionoverlay.cpp
   ${QTAPP_ROOT}/lib/beam.h
   ${QTAPP_ROOT}/lib/beam.cpp
   ${QTAPP_ROOT}/lib/fontloader.h
@@ -73,9 +91,14 @@ set(SOURCES
   ${QTAPP_ROOT}/shortcuts/ShortcutManager.cpp
 )
 
-# Conditionally add debug pane sources
+if(NOT APPLE)
+  list(APPEND SOURCES
+    ${QTAPP_ROOT}/widgets/customtitlebar.h
+    ${QTAPP_ROOT}/widgets/customtitlebar.cpp
+  )
+endif()
+
 if(BUILD_DEBUG_PANE)
-  # Include the debugpane module
   include(${QTAPP_ROOT}/widgets/debugpane/CMakeLists.txt)
   
   list(APPEND SOURCES
@@ -94,14 +117,12 @@ SET(RESOURCES
   ${QTAPP_ROOT}/images/app.icns
 )
 
-# Create the Qt version of the app
 if(APPLE)
   add_executable(${APP_NAME} MACOSX_BUNDLE ${SOURCES} ${RESOURCES})
 else()
-  add_executable(${APP_NAME} WIN32 ${SOURCES} ${RESOURCES}) # Win32 ignored on non-windows
+  add_executable(${APP_NAME} WIN32 ${SOURCES} ${RESOURCES})
 endif()
 
-# Set output directory to build root
 set_target_properties(${APP_NAME} PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
@@ -171,8 +192,14 @@ target_link_libraries(${APP_NAME}
   Qt::Svg
   Qt::SvgWidgets
   Qt::WebEngineWidgets
-  Qt::WebSockets
-  Qt::OpenGLWidgets)
+  Qt::WebSockets)
+
+# Link QWindowKit for Windows/Linux
+if(NOT APPLE)
+  target_link_libraries(${APP_NAME}
+    PRIVATE
+    QWindowKit::Widgets)
+endif()
 
 # Add compile definitions based on build options
 if(BUILD_DEBUG_PANE)

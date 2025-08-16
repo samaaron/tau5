@@ -38,6 +38,7 @@ namespace Config
       "--remote-debugging-port=9223";
 }
 
+
 QString getTau5Logo()
 {
   return R"(                            ╘

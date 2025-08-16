@@ -1,0 +1,174 @@
+#include "consoleoverlay.h"
+#include <QResizeEvent>
+#include <QPainter>
+#include <QLinearGradient>
+#include <QRadialGradient>
+#include <QScrollBar>
+#include <QVBoxLayout>
+#include "../logger.h"
+#include "../styles/StyleManager.h"
+
+ConsoleOverlay::ConsoleOverlay(QWidget *parent)
+    : QWidget(parent)
+    , m_logWidget(new QTextEdit(this))
+    , m_opacityEffect(new QGraphicsOpacityEffect(this))
+{
+    setAttribute(Qt::WA_TransparentForMouseEvents, false);
+    setAttribute(Qt::WA_TranslucentBackground);
+    
+    setGraphicsEffect(m_opacityEffect);
+    m_opacityEffect->setOpacity(1.0);
+    
+    m_logWidget->setReadOnly(true);
+    m_logWidget->setFrameStyle(QFrame::NoFrame);
+    m_logWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_logWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    
+    QVBoxLayout *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(m_logWidget);
+    
+    m_fadeAnimation = std::make_unique<QPropertyAnimation>(m_opacityEffect, "opacity", this);
+    m_fadeAnimation->setDuration(500);
+    m_fadeAnimation->setEasingCurve(QEasingCurve::InOutQuad);
+    
+    connect(m_fadeAnimation.get(), &QPropertyAnimation::finished, [this]() {
+        if (m_opacityEffect->opacity() < 0.01) {
+            hide();
+            emit fadeComplete();
+        }
+    });
+    
+    setupStyles();
+    positionOverlay();
+    
+    appendLog("[TAU5] System initializing...");
+    appendLog("[BEAM] Starting Erlang VM...");
+}
+
+void ConsoleOverlay::setupStyles()
+{
+    setAttribute(Qt::WA_StyledBackground, false);
+    
+    m_logWidget->setStyleSheet(QString(R"(
+        QTextEdit {
+            background-color: transparent;
+            color: %1;
+            font-family: 'Cascadia Code', 'Cascadia Mono', 'Consolas', monospace;
+            font-size: 9px;
+            font-weight: 600;
+            padding: 12px;
+            border: none;
+            text-shadow: 0 0 3px rgba(255, 165, 0, 0.5);
+        }
+        QTextEdit::selection {
+            background-color: %2;
+            color: %3;
+        }
+    )").arg(StyleManager::Colors::ACCENT_PRIMARY)
+       .arg(StyleManager::Colors::accentPrimaryAlpha(0.4))
+       .arg(StyleManager::Colors::TEXT_PRIMARY));
+}
+
+void ConsoleOverlay::appendLog(const QString &message)
+{
+    QStringList lines = message.split('\n', Qt::SkipEmptyParts);
+    for (const QString &line : lines) {
+        QString trimmed = line.trimmed();
+        if (!trimmed.isEmpty()) {
+            m_logLines.append(trimmed);
+            while (m_logLines.size() > MAX_LOG_LINES) {
+                m_logLines.removeFirst();
+            }
+        }
+    }
+    
+    QString logText = m_logLines.join("\n");
+    m_logWidget->setPlainText(logText);
+    
+    QScrollBar *scrollBar = m_logWidget->verticalScrollBar();
+    if (scrollBar) {
+        scrollBar->setValue(scrollBar->maximum());
+    }
+}
+
+void ConsoleOverlay::clear()
+{
+    m_logLines.clear();
+    m_logWidget->clear();
+}
+
+void ConsoleOverlay::fadeOut()
+{
+    if (m_fadeAnimation->state() != QAbstractAnimation::Running) {
+        m_fadeAnimation->setStartValue(m_opacityEffect->opacity());
+        m_fadeAnimation->setEndValue(0.0);
+        m_fadeAnimation->start();
+    }
+}
+
+void ConsoleOverlay::fadeIn()
+{
+    show();
+    if (m_fadeAnimation->state() != QAbstractAnimation::Running) {
+        m_fadeAnimation->setStartValue(m_opacityEffect->opacity());
+        m_fadeAnimation->setEndValue(1.0);
+        m_fadeAnimation->start();
+    }
+}
+
+qreal ConsoleOverlay::opacity() const
+{
+    return m_opacityEffect->opacity();
+}
+
+void ConsoleOverlay::setOpacity(qreal opacity)
+{
+    m_opacityEffect->setOpacity(opacity);
+}
+
+void ConsoleOverlay::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    positionOverlay();
+}
+
+void ConsoleOverlay::positionOverlay()
+{
+    if (parentWidget()) {
+        int width = qMin(OVERLAY_WIDTH, parentWidget()->width() / 3);
+        int height = qMin(OVERLAY_HEIGHT, parentWidget()->height() / 3);
+        int x = parentWidget()->width() - width - MARGIN;
+        int y = parentWidget()->height() - height - MARGIN;
+        setGeometry(x, y, width, height);
+    }
+}
+
+void ConsoleOverlay::paintEvent(QPaintEvent *event)
+{
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    
+    QLinearGradient bgGradient(0, 0, 0, height());
+    bgGradient.setColorAt(0, QColor(0, 0, 0, 80));
+    bgGradient.setColorAt(1, QColor(0, 0, 0, 120));
+    
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(bgGradient);
+    painter.drawRoundedRect(rect(), 5, 5);
+    
+    QRadialGradient glowGradient(rect().center(), rect().width() / 2);
+    glowGradient.setColorAt(0, QColor(255, 165, 0, 60));
+    glowGradient.setColorAt(0.5, QColor(255, 165, 0, 40));
+    glowGradient.setColorAt(1, QColor(255, 165, 0, 0));
+    
+    QPen borderPen(QBrush(glowGradient), 3);
+    painter.setPen(borderPen);
+    painter.setBrush(Qt::NoBrush);
+    painter.drawRoundedRect(rect().adjusted(1.5, 1.5, -1.5, -1.5), 5, 5);
+    
+    painter.setPen(QPen(QColor(255, 165, 0, 200), 2));
+    painter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 5, 5);
+    
+    QWidget::paintEvent(event);
+}

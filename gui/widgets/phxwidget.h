@@ -26,9 +26,12 @@ public:
 
 signals:
   void pageLoaded();
+  void appPageReady();  // Emitted when the main app page is ready
 
 protected:
   void resizeEvent(QResizeEvent *event) override;
+  void setPhxAlive(bool alive) { phxAlive = alive; }
+  PhxWebView* getPhxView() const { return phxView; }
 
 private:
   QHBoxLayout *mainLayout;
@@ -37,12 +40,11 @@ private:
   QUrl defaultUrl;
   bool m_devMode;
   
-  // Retry limiting members
   int retryCount;
   QDateTime lastRetryTime;
   QTimer *retryTimer;
-  static const int MAX_RETRIES = 5;
-  static const int INITIAL_RETRY_DELAY_MS = 1000; // 1 second
+  static constexpr int MAX_RETRIES = 5;
+  static constexpr int INITIAL_RETRY_DELAY_MS = 1000;
 
 private slots:
   void handleLoadFinished(bool ok);

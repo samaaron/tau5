@@ -3,6 +3,9 @@
 #include <QTimer>
 #include <QResizeEvent>
 #include <QDebug>
+#include <QFile>
+#include <QTextStream>
+#include <QVariant>
 #include <cmath>
 
 #include "phxwidget.h"
@@ -84,6 +87,12 @@ void PhxWidget::handleLoadFinished(bool ok)
       phxView->show();
       emit pageLoaded();
     }
+    else
+    {
+      // This is a subsequent page load (like transitioning to app)
+      Logger::log(Logger::Info, "[PHX] - app page loaded");
+      emit appPageReady();
+    }
   }
   else
   {
@@ -132,3 +141,4 @@ void PhxWidget::resizeEvent(QResizeEvent *event)
 {
   QWidget::resizeEvent(event);
 }
+

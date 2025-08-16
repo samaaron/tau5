@@ -4,10 +4,13 @@
     <file>images/tau5-hirez.png</file>
     <file>images/tau5-bw.png</file>
     <file>images/tau5-bw-hirez.png</file>
+    <file>images/tau5-alpha.png</file>
     <file>styles/tau5-dashboard-theme.css</file>
     <file>fonts/CascadiaCodePL.ttf</file>
     <file>fonts/codicon.ttf</file>
-    <file>shaders/tau5-loading.vert</file>
-    <file>shaders/tau5-loading.frag</file>
+    <file>images/window-controls/minimize.svg</file>
+    <file>images/window-controls/maximize.svg</file>
+    <file>images/window-controls/restore.svg</file>
+    <file>images/window-controls/close.svg</file>
   </qresource>
 </RCC>
