@@ -217,6 +217,17 @@ if(WIN32)
   # Run winddeployqt if it can be found, to ensure installed dependencies
   add_custom_command(TARGET ${APP_NAME} POST_BUILD
     COMMAND ${CMAKE_PREFIX_PATH}/bin/windeployqt $<TARGET_FILE:${APP_NAME}>)
+  
+  # Copy QWindowKit DLLs to the output directory
+  add_custom_command(TARGET ${APP_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:QWKCore>
+    $<TARGET_FILE_DIR:${APP_NAME}>)
+  
+  add_custom_command(TARGET ${APP_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:QWKWidgets>
+    $<TARGET_FILE_DIR:${APP_NAME}>)
 endif() # Win32
 
 # Build options
