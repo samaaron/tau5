@@ -124,6 +124,7 @@ public:
   static QString consoleOutput();
   static QString consoleScrollbar();
   static QString guiButton();
+  static QString invertedButton();
   static QString mainWindow();
   static QString contextMenu();
   static QString tooltip();

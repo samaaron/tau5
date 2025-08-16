@@ -12,14 +12,20 @@ ControlLayer::ControlLayer(QWidget *parent)
 
 void ControlLayer::setupControls()
 {
-  m_sizeDownButton = new QPushButton("-", this);
-  m_sizeUpButton = new QPushButton("+", this);
-  m_openExternalBrowserButton = new QPushButton(" E ", this);
-  m_resetBrowserButton = new QPushButton(" R ", this);
-  m_consoleToggleButton = new QPushButton(" ▲ ", this);
+  m_sizeDownButton = new QPushButton("−", this);  // Unicode minus sign for zoom out
+  m_sizeUpButton = new QPushButton("+", this);  // Plus for zoom in
+  m_openExternalBrowserButton = new QPushButton("λ", this);  // Lambda symbol for External
+  m_resetBrowserButton = new QPushButton("τ", this);  // Tau symbol for Reset
+  m_consoleToggleButton = new QPushButton("▲", this);  // Up arrow for debug pane
   m_consoleToggleButton->setToolTip("Toggle Debug Pane");
+  
+  // Add tooltips for all buttons
+  m_sizeDownButton->setToolTip("Zoom Out");
+  m_sizeUpButton->setToolTip("Zoom In");
+  m_openExternalBrowserButton->setToolTip("Open in External Browser (Lambda)");
+  m_resetBrowserButton->setToolTip("Reset Browser (Tau)");
 
-  QString buttonStyle = StyleManager::guiButton();
+  QString buttonStyle = StyleManager::invertedButton();
 
   m_sizeDownButton->setStyleSheet(buttonStyle);
   m_sizeUpButton->setStyleSheet(buttonStyle);
@@ -44,12 +50,10 @@ void ControlLayer::setupControls()
   setLayout(m_buttonLayout);
   setStyleSheet(
       QString("ControlLayer { "
-              "  background-color: %1; "
-              "  border-top: 1px solid %2; "
-              "  border-bottom: 1px solid %2; "
-              "}")
-          .arg(StyleManager::Colors::blackAlpha(191))
-          .arg(StyleManager::Colors::primaryOrangeAlpha(100)));
+              "  background-color: rgba(0, 0, 0, 100); "  // Semi-transparent black background
+              "  border-top: 1px solid rgba(255, 255, 255, 30); "  // Semi-transparent white border
+              "  border-bottom: 1px solid rgba(255, 255, 255, 30); "
+              "}"));
 
   positionControls();
 }
@@ -68,11 +72,11 @@ void ControlLayer::setConsoleVisible(bool visible)
   m_consoleVisible = visible;
   if (m_consoleVisible)
   {
-    m_consoleToggleButton->setText(" ▼ ");
+    m_consoleToggleButton->setText("▼");  // Down arrow when console is visible (can hide)
   }
   else
   {
-    m_consoleToggleButton->setText(" ▲ ");
+    m_consoleToggleButton->setText("▲");  // Up arrow when console is hidden (can show)
   }
 }
 

@@ -377,7 +377,13 @@ void MainWindow::initializeDebugPane()
           this, [this](bool visible) {
             if (controlLayer) {
               controlLayer->setConsoleVisible(visible);
-              controlLayer->raise();
+              if (!visible) {
+                // Only raise control layer when debug pane is hidden
+                controlLayer->raise();
+              } else {
+                // When debug pane is visible, ensure it's above control layer
+                debugPane->raise();
+              }
             }
           });
 

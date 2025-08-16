@@ -313,6 +313,44 @@ QString StyleManager::guiButton()
   return primaryButton();
 }
 
+QString StyleManager::invertedButton()
+{
+  return QString(
+             "QPushButton { "
+             "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+             "    stop:0 rgba(255, 255, 255, 100), "
+             "    stop:0.5 rgba(255, 255, 255, 70), "
+             "    stop:1 rgba(255, 255, 255, 90)); "  // Glass-like gradient
+             "  color: rgba(0, 0, 0, 220); "  // Slightly transparent black text
+             "  border: 1px solid rgba(255, 255, 255, 180); " // Bright border
+             "  font-family: %1; "
+             "  font-size: 14px; "  // Slightly larger for symbols
+             "  font-weight: %2; "
+             "  padding: %3 %4; "
+             "  border-radius: 4px; "  // Slightly rounded corners
+             "  text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.8); "  // Subtle text shadow
+             "}"
+             "QPushButton:hover { "
+             "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+             "    stop:0 rgba(255, 255, 255, 120), "
+             "    stop:0.5 rgba(255, 255, 255, 90), "
+             "    stop:1 rgba(255, 255, 255, 110)); "  // Brighter gradient on hover
+             "  border: 1px solid rgba(255, 255, 255, 220); "
+             "  color: rgba(0, 0, 0, 255); "
+             "}"
+             "QPushButton:pressed { "
+             "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+             "    stop:0 rgba(255, 255, 255, 90), "
+             "    stop:0.5 rgba(255, 255, 255, 110), "
+             "    stop:1 rgba(255, 255, 255, 130)); "  // Inverted gradient when pressed
+             "  border: 1px solid rgba(255, 255, 255, 255); "
+             "}")
+      .arg(Typography::MONOSPACE_FONT_FAMILY)
+      .arg(Typography::FONT_WEIGHT_BOLD)
+      .arg(Spacing::SMALL)
+      .arg(Spacing::MEDIUM);
+}
+
 QString StyleManager::mainWindow()
 {
   return QString("background-color: %1;").arg(Colors::BLACK);
