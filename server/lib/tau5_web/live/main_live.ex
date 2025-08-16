@@ -22,26 +22,32 @@ defmodule Tau5Web.MainLive do
       
       <div class="layout-header">
         <div class="layout-controls">
-          <button phx-click="split_h" phx-value-panel={to_string(@layout_state.active)}>
-            H
+          <button phx-click="split_h" phx-value-panel={to_string(@layout_state.active)} title="Split Horizontal">
+            <i class="codicon codicon-split-horizontal"></i>
           </button>
-          <button phx-click="split_v" phx-value-panel={to_string(@layout_state.active)}>
-            V
+          <button phx-click="split_v" phx-value-panel={to_string(@layout_state.active)} title="Split Vertical">
+            <i class="codicon codicon-split-vertical"></i>
           </button>
-          <button phx-click="close" phx-value-panel={to_string(@layout_state.active)}>
-            X
+          <button phx-click="close" phx-value-panel={to_string(@layout_state.active)} title="Close Panel">
+            <i class="codicon codicon-close"></i>
           </button>
           
           <div class="separator"></div>
           
-          <button phx-click="layout_even_h">Even</button>
-          <button phx-click="layout_main_v">Main</button>
-          <button phx-click="layout_tiled">Tile</button>
+          <button phx-click="layout_even_h" title="Even Horizontal Layout">
+            <i class="codicon codicon-layout-panel-justify"></i>
+          </button>
+          <button phx-click="layout_main_v" title="Main Vertical Layout">
+            <i class="codicon codicon-layout-sidebar-left"></i>
+          </button>
+          <button phx-click="layout_tiled" title="Tiled Layout">
+            <i class="codicon codicon-layout"></i>
+          </button>
           
           <div class="separator"></div>
           
-          <button phx-click="zoom" phx-value-panel={to_string(@layout_state.active)} class={if @layout_state.zoom != nil, do: "active"}>
-            Zoom
+          <button phx-click="zoom" phx-value-panel={to_string(@layout_state.active)} class={if @layout_state.zoom != nil, do: "active"} title={if @layout_state.zoom != nil, do: "Exit Zoom", else: "Zoom Panel"}>
+            <i class={if @layout_state.zoom != nil, do: "codicon codicon-screen-normal", else: "codicon codicon-screen-full"}></i>
           </button>
         </div>
         

@@ -13,10 +13,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 1rem;
-  background: rgb(52, 52, 52);
-  border-bottom: 1px solid #333;
+  padding: 0.375rem 1rem;
+  background: rgba(52, 52, 52, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
+  position: relative;
+  z-index: 100;
 }
 
 .layout-controls {
@@ -26,19 +30,57 @@
 }
 
 .layout-controls button {
-  padding: 0.5rem 0.75rem;
-  background: #1a1a1a;
+  padding: 0.25rem 0.5rem;
+  background: rgba(26, 26, 26, 0.5);
   color: #e0e0e0;
-  border: 1px solid #444;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   transition: all 0.2s;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
 }
 
 .layout-controls button:hover {
-  background: #222222;
-  border-color: #666;
+  background: rgba(34, 34, 34, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Codicon font and icons */
+@font-face {
+  font-family: "codicon";
+  src: url('/fonts/codicon.ttf') format("truetype");
+  font-display: block;
+}
+
+.codicon {
+  font: normal normal normal 14px/1 codicon;
+  display: inline-block;
+  text-decoration: none;
+  text-rendering: auto;
+  text-align: center;
+  text-transform: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Icon definitions */
+.codicon-split-horizontal:before { content: '\eb56'; }
+.codicon-split-vertical:before { content: '\eb57'; }
+.codicon-close:before { content: '\ea76'; }
+.codicon-layout-panel-justify:before { content: '\ebf0'; }
+.codicon-layout-sidebar-left:before { content: '\ebf3'; }
+.codicon-layout:before { content: '\ebeb'; }
+.codicon-screen-full:before { content: '\eb61'; }
+.codicon-screen-normal:before { content: '\eb62'; }
+
+.layout-controls button .codicon {
+  font-size: 14px;
+  line-height: 1;
+  display: inline-block;
 }
 
 .layout-controls button.active {
@@ -48,16 +90,16 @@
 
 .separator {
   width: 1px;
-  height: 24px;
-  background: #444;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.2);
   margin: 0 0.5rem;
 }
 
 .layout-info {
   display: flex;
   gap: 1rem;
-  color: #999;
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
 }
 
 .layout-info .zoomed {
