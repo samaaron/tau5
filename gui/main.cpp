@@ -34,13 +34,10 @@ namespace Config
       "--enable-gpu-rasterization "
       "--enable-accelerated-2d-canvas "
       "--enable-zero-copy "
-      "--use-angle=d3d11 "
-      "--use-cmd-decoder=passthrough "
       "--disable-gpu-driver-bug-workarounds "
       "--disable-gpu-watchdog "
       "--enable-unsafe-webgpu "
       "--enable-features=CanvasOopRasterization "
-      "--disable-features=RendererCodeIntegrity "
       "--force-color-profile=srgb "
       "--disable-partial-raster "
       "--enable-gpu-memory-buffer-compositor-resources "
@@ -49,7 +46,13 @@ namespace Config
       "--num-raster-threads=4 "
       "--enable-webgl-draft-extensions "
       "--webgl-antialiasing-mode=none "
-      "--disable-blink-features=LowLatencyCanvas2dImageChromium";
+      "--disable-blink-features=LowLatencyCanvas2dImageChromium"
+#ifdef Q_OS_WIN
+      " --use-angle=d3d11"
+      " --use-cmd-decoder=passthrough"
+      " --disable-features=RendererCodeIntegrity"
+#endif
+      ;
   constexpr const char *CHROMIUM_FLAGS_DEV =
       "--disable-background-timer-throttling "
       "--disable-renderer-backgrounding "
@@ -60,13 +63,10 @@ namespace Config
       "--enable-gpu-rasterization "
       "--enable-accelerated-2d-canvas "
       "--enable-zero-copy "
-      "--use-angle=d3d11 "
-      "--use-cmd-decoder=passthrough "
       "--disable-gpu-driver-bug-workarounds "
       "--disable-gpu-watchdog "
       "--enable-unsafe-webgpu "
       "--enable-features=CanvasOopRasterization "
-      "--disable-features=RendererCodeIntegrity "
       "--force-color-profile=srgb "
       "--disable-partial-raster "
       "--enable-gpu-memory-buffer-compositor-resources "
@@ -76,7 +76,13 @@ namespace Config
       "--enable-webgl-draft-extensions "
       "--webgl-antialiasing-mode=none "
       "--disable-blink-features=LowLatencyCanvas2dImageChromium "
-      "--remote-debugging-port=9223";
+      "--remote-debugging-port=9223"
+#ifdef Q_OS_WIN
+      " --use-angle=d3d11"
+      " --use-cmd-decoder=passthrough"
+      " --disable-features=RendererCodeIntegrity"
+#endif
+      ;
 }
 
 
@@ -192,27 +198,20 @@ bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool
       Logger::log(Logger::Info, "Running in dev mode without MCP servers (use --enable-mcp to enable)");
     }
   }
-
-  QCoreApplication::setAttribute(Qt::AA_DontShowIconsInMenus, false);
   
-  // Fix WebGL rendering artifacts by ensuring proper buffer synchronization
-  QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts, true);
-  QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL, true);
-  QCoreApplication::setAttribute(Qt::AA_DisableHighDpiScaling, false);
-  
-  // Configure OpenGL surface format for proper double buffering
-  QSurfaceFormat format;
+  QSurfaceFormat format = QSurfaceFormat::defaultFormat();
   format.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
   format.setSwapInterval(1); // Enable vsync to prevent tearing and buffer sync issues
   format.setRenderableType(QSurfaceFormat::OpenGL);
   format.setProfile(QSurfaceFormat::CoreProfile);
-  format.setVersion(4, 3); // Use a modern OpenGL version
+  format.setVersion(4, 3);
   format.setRedBufferSize(8);
   format.setGreenBufferSize(8);
   format.setBlueBufferSize(8);
   format.setAlphaBufferSize(8);
   format.setDepthBufferSize(24);
   format.setStencilBufferSize(8);
+  
   QSurfaceFormat::setDefaultFormat(format);
 
   Q_INIT_RESOURCE(Tau5);
@@ -307,6 +306,13 @@ int main(int argc, char *argv[])
       return 1;
     }
   }
+
+  QCoreApplication::setAttribute(Qt::AA_DontShowIconsInMenus, false);
+  QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts, true);
+  
+#ifdef Q_OS_WIN
+  QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL, true);
+#endif
 
   QApplication app(argc, argv);
 
