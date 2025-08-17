@@ -166,7 +166,7 @@ void ConsoleOverlay::paintEvent(QPaintEvent *event)
     QPen borderPen(QBrush(glowGradient), 3);
     painter.setPen(borderPen);
     painter.setBrush(Qt::NoBrush);
-    painter.drawRoundedRect(rect().adjusted(1.5, 1.5, -1.5, -1.5), 5, 5);
+    painter.drawRoundedRect(QRectF(rect()).adjusted(1.5, 1.5, -1.5, -1.5), 5, 5);
     
     // Use golden yellow for inner border
     painter.setPen(QPen(QColor(255, 215, 0, 200), 2));
