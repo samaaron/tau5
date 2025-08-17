@@ -505,6 +505,11 @@ void MainWindow::closeEvent(QCloseEvent *event)
   }
 #endif
 
+  // Post a quit message to ensure clean app termination
+  QTimer::singleShot(0, []() {
+    QApplication::quit();
+  });
+  
   QMainWindow::closeEvent(event);
 }
 
