@@ -16,7 +16,7 @@
 #include "../logger.h"
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp, bool enableRepl)
-    : QObject(parent), appBasePath(basePath), process(new QProcess(this)), 
+    : QObject(parent), appBasePath(basePath), process(new QProcess(this)),
       beamPid(0), serverReady(false), otpTreeReady(false), devMode(devMode),
       appName(appName), appVersion(version), isRestarting(false),
       enableMcp(enableMcp), enableRepl(enableRepl)
@@ -85,12 +85,12 @@ Beam::~Beam()
   {
     killBeamProcess();
   }
-  
+
   // Clean up the QProcess to avoid "destroyed while still running" warning
   if (process)
   {
     process->disconnect();
-    
+
     if (process->state() != QProcess::NotRunning)
     {
       process->terminate();
@@ -107,7 +107,7 @@ void Beam::handleStandardOutput()
 {
   QByteArray output = process->readAllStandardOutput();
   QString outputStr = QString::fromUtf8(output);
-  
+
   QRegularExpression pidRegex("\\[TAU5_BEAM_PID:(\\d+)\\]");
   QRegularExpressionMatch pidMatch = pidRegex.match(outputStr);
   if (pidMatch.hasMatch())
@@ -116,13 +116,15 @@ void Beam::handleStandardOutput()
     Logger::log(Logger::Debug, QString("Captured BEAM PID: %1").arg(beamPid));
     serverReady = true;
     heartbeatTimer->start();
+
+    // Emit OTP ready when we receive the PID, as this indicates the server is running
+    if (!otpTreeReady) {
+      otpTreeReady = true;
+      emit otpReady();
+    }
   }
-  
-  if (outputStr.contains("[TAU5_OTP_READY]"))
-  {
-    otpTreeReady = true;
-    emit otpReady();
-  }
+
+
   emit standardOutput(outputStr);
 }
 
@@ -130,9 +132,9 @@ void Beam::handleStandardError()
 {
   QByteArray error = process->readAllStandardError();
   QString errorStr = QString::fromUtf8(error);
-  
+
   // Check for address in use error during restart
-  if (isRestarting && (errorStr.contains("address already in use") || 
+  if (isRestarting && (errorStr.contains("address already in use") ||
                        errorStr.contains("Address already in use") ||
                        errorStr.contains("EADDRINUSE")))
   {
@@ -140,7 +142,7 @@ void Beam::handleStandardError()
     isRestarting = false;
     emit restartComplete(); // Re-enable the button
   }
-  
+
   emit standardError(errorStr);
 }
 
@@ -157,7 +159,7 @@ void Beam::startElixirServerDev()
   env.insert("PHX_HOST", "127.0.0.1");
   env.insert("MIX_ENV", "dev");
   env.insert("RELEASE_DISTRIBUTION", "none");
-  
+
   // Set log directory path for the Elixir server
   QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
   QDir logsDir(logsPath);
@@ -167,7 +169,7 @@ void Beam::startElixirServerDev()
   QString logsDirPath = logsDir.absoluteFilePath("Tau5/logs");
   env.insert("TAU5_LOG_DIR", logsDirPath);
   Logger::log(Logger::Debug, QString("Setting TAU5_LOG_DIR to: %1").arg(logsDirPath));
-  
+
   // Set MCP and REPL flags based on constructor parameters
   if (enableMcp) {
     env.insert("TAU5_ENABLE_DEV_MCP", "1");
@@ -208,7 +210,7 @@ void Beam::startElixirServerProd()
   env.insert("MIX_ENV", "prod");
   env.insert("RELEASE_DISTRIBUTION", "none");
   env.insert("PHX_SERVER", "1");
-  
+
   // Set log directory path for the Elixir server
   QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
   QDir logsDir(logsPath);
@@ -218,7 +220,7 @@ void Beam::startElixirServerProd()
   QString logsDirPath = logsDir.absoluteFilePath("Tau5/logs");
   env.insert("TAU5_LOG_DIR", logsDirPath);
   Logger::log(Logger::Debug, QString("Setting TAU5_LOG_DIR to: %1").arg(logsDirPath));
-  
+
   // Set MCP and REPL flags based on constructor parameters
   if (enableMcp) {
     env.insert("TAU5_ENABLE_DEV_MCP", "1");
@@ -339,12 +341,12 @@ void Beam::killBeamProcess()
 
 #ifdef Q_OS_WIN
   qDebug() << "Windows: Sending graceful termination to PID:" << beamPid;
-  
+
   // Use QProcess instance to suppress error output
   QProcess gracefulKill;
   gracefulKill.start("taskkill", {"/PID", QString::number(beamPid)});
   gracefulKill.waitForFinished();
-  
+
   // Give it a brief moment to terminate gracefully (reduced from 5 seconds to 2)
   for (int i = 2; i > 0; --i)
   {
@@ -352,30 +354,30 @@ void Beam::killBeamProcess()
     checkProcess.start("tasklist", {"/FI", QString("PID eq %1").arg(beamPid)});
     checkProcess.waitForFinished(500); // Shorter timeout
     QString output = checkProcess.readAllStandardOutput();
-    
+
     if (!output.contains(QString::number(beamPid)))
     {
       qDebug() << "Process" << beamPid << "terminated gracefully";
       return;
     }
-    
+
     qDebug() << "Process" << beamPid << "still running, waiting..." << i;
     QThread::msleep(500); // Shorter wait
   }
-  
+
   qDebug() << "Windows: Force killing PID:" << beamPid;
-  
+
   // Use QProcess instance to suppress error output
   QProcess forceKill;
   forceKill.start("taskkill", {"/F", "/PID", QString::number(beamPid)});
   forceKill.waitForFinished(1000); // Add timeout
-  
+
   // Verify termination
   QProcess finalCheck;
   finalCheck.start("tasklist", {"/FI", QString("PID eq %1").arg(beamPid)});
   finalCheck.waitForFinished(500);
   QString finalOutput = finalCheck.readAllStandardOutput();
-  
+
   if (finalOutput.contains(QString::number(beamPid)))
   {
     qDebug() << "Process" << beamPid << "could not be terminated";
@@ -384,31 +386,31 @@ void Beam::killBeamProcess()
   {
     qDebug() << "Process" << beamPid << "successfully terminated";
   }
-  
+
 #else
   qDebug() << "Unix: Sending SIGTERM to PID:" << beamPid;
   int result = QProcess::execute("kill", {"-TERM", QString::number(beamPid)});
-  
+
   if (result != 0)
   {
     qDebug() << "Process" << beamPid << "not found or already terminated";
     return;
   }
-  
+
   for (int i = 5; i > 0; --i)
   {
     result = QProcess::execute("kill", {"-0", QString::number(beamPid)});
-    
+
     if (result != 0)
     {
       qDebug() << "Process" << beamPid << "terminated gracefully";
       return;
     }
-    
+
     qDebug() << "Process" << beamPid << "still running, waiting..." << i;
     QThread::msleep(1000);
   }
-  
+
   qDebug() << "Unix: Sending SIGKILL to PID:" << beamPid;
   QProcess::execute("kill", {"-9", QString::number(beamPid)});
 #endif
@@ -419,37 +421,37 @@ void Beam::killBeamProcess()
 void Beam::restart()
 {
   Logger::log(Logger::Info, "Restarting BEAM process...");
-  
+
   if (isRestarting)
   {
     Logger::log(Logger::Warning, "Restart already in progress");
     return;
   }
   isRestarting = true;
-  
+
   if (heartbeatTimer && heartbeatTimer->isActive())
   {
     heartbeatTimer->stop();
   }
-  
+
   serverReady = false;
   otpTreeReady = false;
-  
+
   if (process)
   {
     disconnect(process, &QProcess::readyReadStandardOutput, this, &Beam::handleStandardOutput);
     disconnect(process, &QProcess::readyReadStandardError, this, &Beam::handleStandardError);
   }
-  
+
   if (beamPid > 0)
   {
     Logger::log(Logger::Info, "Terminating BEAM process by PID (in background thread)...");
-    
+
     // Run killBeamProcess in a separate thread to avoid blocking the UI
     QFuture<void> future = QtConcurrent::run([this]() {
       killBeamProcess();
     });
-    
+
     // Use a QFutureWatcher to know when it's done
     QFutureWatcher<void> *watcher = new QFutureWatcher<void>(this);
     connect(watcher, &QFutureWatcher<void>::finished, this, [this, watcher]() {
@@ -472,15 +474,15 @@ void Beam::continueRestart()
     Logger::log(Logger::Warning, "continueRestart called but not restarting");
     return;
   }
-  
+
   Logger::log(Logger::Info, "Continuing BEAM restart...");
-  
+
   if (process)
   {
     process->deleteLater();
     process = nullptr;
   }
-  
+
   checkPortAndStartNewProcess();
 }
 
@@ -488,17 +490,17 @@ void Beam::checkPortAndStartNewProcess()
 {
   static int retryCount = 0;
   const int maxRetries = 20; // 10 seconds max (20 * 500ms)
-  
+
   if (!isRestarting)
   {
     retryCount = 0;
     return;
   }
-  
+
   QTcpServer testServer;
   bool portAvailable = testServer.listen(QHostAddress::LocalHost, appPort);
   testServer.close();
-  
+
   if (portAvailable)
   {
     Logger::log(Logger::Info, QString("Port %1 is now available, starting new BEAM process").arg(appPort));
@@ -530,14 +532,14 @@ void Beam::startNewBeamProcess()
     Logger::log(Logger::Warning, "startNewBeamProcess called but not restarting");
     return;
   }
-  
+
   process = new QProcess(this);
-  
+
   connect(process, &QProcess::readyReadStandardOutput,
           this, &Beam::handleStandardOutput);
   connect(process, &QProcess::readyReadStandardError,
           this, &Beam::handleStandardError);
-  
+
   // Add error handling for process startup
   connect(process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
     if (error == QProcess::FailedToStart)
@@ -547,10 +549,10 @@ void Beam::startNewBeamProcess()
       emit restartComplete(); // Emit even on failure to re-enable button
     }
   });
-  
+
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
   Logger::log(Logger::Debug, QString("Generated new session token: %1").arg(sessionToken));
-  
+
   Logger::log(Logger::Info, "Starting new BEAM process...");
   if (devMode)
   {
@@ -560,7 +562,7 @@ void Beam::startNewBeamProcess()
   {
     startElixirServerProd();
   }
-  
+
   // Set up a timeout to handle cases where OTP never becomes ready
   QTimer::singleShot(30000, this, [this]() { // 30 second timeout
     if (isRestarting)
@@ -570,7 +572,7 @@ void Beam::startNewBeamProcess()
       emit restartComplete(); // Emit to re-enable button
     }
   });
-  
+
   // Connect a one-shot timer to emit restartComplete when OTP is ready
   QObject *context = new QObject();
   connect(this, &Beam::otpReady, context, [this, context]() {
