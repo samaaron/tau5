@@ -372,6 +372,17 @@ int main(int argc, char *argv[])
   mainWindow.setWindowIcon(QIcon(":/images/app.ico"));
 #endif
 
+  // Connect aboutToQuit to ensure clean shutdown
+  QObject::connect(&app, &QApplication::aboutToQuit, [&beam]() {
+    Logger::log(Logger::Info, "Application is shutting down...");
+    // The beam destructor will handle process termination
+    beam.reset();
+  });
 
-  return app.exec();
+  int result = app.exec();
+  
+  // Final cleanup
+  Logger::log(Logger::Info, "Application terminated");
+  
+  return result;
 }

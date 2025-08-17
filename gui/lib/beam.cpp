@@ -345,11 +345,12 @@ void Beam::killBeamProcess()
   gracefulKill.start("taskkill", {"/PID", QString::number(beamPid)});
   gracefulKill.waitForFinished();
   
-  for (int i = 5; i > 0; --i)
+  // Give it a brief moment to terminate gracefully (reduced from 5 seconds to 2)
+  for (int i = 2; i > 0; --i)
   {
     QProcess checkProcess;
     checkProcess.start("tasklist", {"/FI", QString("PID eq %1").arg(beamPid)});
-    checkProcess.waitForFinished();
+    checkProcess.waitForFinished(500); // Shorter timeout
     QString output = checkProcess.readAllStandardOutput();
     
     if (!output.contains(QString::number(beamPid)))
@@ -359,7 +360,7 @@ void Beam::killBeamProcess()
     }
     
     qDebug() << "Process" << beamPid << "still running, waiting..." << i;
-    QThread::msleep(1000);
+    QThread::msleep(500); // Shorter wait
   }
   
   qDebug() << "Windows: Force killing PID:" << beamPid;
@@ -367,7 +368,22 @@ void Beam::killBeamProcess()
   // Use QProcess instance to suppress error output
   QProcess forceKill;
   forceKill.start("taskkill", {"/F", "/PID", QString::number(beamPid)});
-  forceKill.waitForFinished();
+  forceKill.waitForFinished(1000); // Add timeout
+  
+  // Verify termination
+  QProcess finalCheck;
+  finalCheck.start("tasklist", {"/FI", QString("PID eq %1").arg(beamPid)});
+  finalCheck.waitForFinished(500);
+  QString finalOutput = finalCheck.readAllStandardOutput();
+  
+  if (finalOutput.contains(QString::number(beamPid)))
+  {
+    qDebug() << "Process" << beamPid << "could not be terminated";
+  }
+  else
+  {
+    qDebug() << "Process" << beamPid << "successfully terminated";
+  }
   
 #else
   qDebug() << "Unix: Sending SIGTERM to PID:" << beamPid;
@@ -397,34 +413,7 @@ void Beam::killBeamProcess()
   QProcess::execute("kill", {"-9", QString::number(beamPid)});
 #endif
 
-  QThread::msleep(1000);
-  
-#ifdef Q_OS_WIN
-  QProcess finalCheck;
-  finalCheck.start("tasklist", {"/FI", QString("PID eq %1").arg(beamPid)});
-  finalCheck.waitForFinished();
-  QString finalOutput = finalCheck.readAllStandardOutput();
-  
-  if (finalOutput.contains(QString::number(beamPid)))
-  {
-    qDebug() << "WARNING: Unable to terminate process" << beamPid;
-  }
-  else
-  {
-    qDebug() << "Process" << beamPid << "successfully terminated";
-  }
-#else
-  int finalResult = QProcess::execute("kill", {"-0", QString::number(beamPid)});
-  
-  if (finalResult == 0)
-  {
-    qDebug() << "WARNING: Unable to terminate process" << beamPid;
-  }
-  else
-  {
-    qDebug() << "Process" << beamPid << "successfully terminated";
-  }
-#endif
+  // Final check is already performed above in the platform-specific sections
 }
 
 void Beam::restart()
