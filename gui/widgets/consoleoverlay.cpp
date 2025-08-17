@@ -157,17 +157,19 @@ void ConsoleOverlay::paintEvent(QPaintEvent *event)
     painter.setBrush(bgGradient);
     painter.drawRoundedRect(rect(), 5, 5);
     
+    // Use golden yellow (255, 215, 0) to match text color
     QRadialGradient glowGradient(rect().center(), rect().width() / 2);
-    glowGradient.setColorAt(0, QColor(255, 165, 0, 60));
-    glowGradient.setColorAt(0.5, QColor(255, 165, 0, 40));
-    glowGradient.setColorAt(1, QColor(255, 165, 0, 0));
+    glowGradient.setColorAt(0, QColor(255, 215, 0, 60));
+    glowGradient.setColorAt(0.5, QColor(255, 215, 0, 40));
+    glowGradient.setColorAt(1, QColor(255, 215, 0, 0));
     
     QPen borderPen(QBrush(glowGradient), 3);
     painter.setPen(borderPen);
     painter.setBrush(Qt::NoBrush);
     painter.drawRoundedRect(rect().adjusted(1.5, 1.5, -1.5, -1.5), 5, 5);
     
-    painter.setPen(QPen(QColor(255, 165, 0, 200), 2));
+    // Use golden yellow for inner border
+    painter.setPen(QPen(QColor(255, 215, 0, 200), 2));
     painter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 5, 5);
     
     QWidget::paintEvent(event);
