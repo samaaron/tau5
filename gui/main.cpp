@@ -37,8 +37,6 @@ namespace Config
       "--use-angle=d3d11 "
       "--use-cmd-decoder=passthrough "
       "--disable-gpu-driver-bug-workarounds "
-      "--disable-gpu-vsync "
-      "--disable-frame-rate-limit "
       "--disable-gpu-watchdog "
       "--enable-unsafe-webgpu "
       "--enable-features=CanvasOopRasterization "
@@ -65,8 +63,6 @@ namespace Config
       "--use-angle=d3d11 "
       "--use-cmd-decoder=passthrough "
       "--disable-gpu-driver-bug-workarounds "
-      "--disable-gpu-vsync "
-      "--disable-frame-rate-limit "
       "--disable-gpu-watchdog "
       "--enable-unsafe-webgpu "
       "--enable-features=CanvasOopRasterization "
@@ -207,10 +203,16 @@ bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool
   // Configure OpenGL surface format for proper double buffering
   QSurfaceFormat format;
   format.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
-  format.setSwapInterval(0); // Disable vsync for maximum performance
+  format.setSwapInterval(1); // Enable vsync to prevent tearing and buffer sync issues
   format.setRenderableType(QSurfaceFormat::OpenGL);
   format.setProfile(QSurfaceFormat::CoreProfile);
   format.setVersion(4, 3); // Use a modern OpenGL version
+  format.setRedBufferSize(8);
+  format.setGreenBufferSize(8);
+  format.setBlueBufferSize(8);
+  format.setAlphaBufferSize(8);
+  format.setDepthBufferSize(24);
+  format.setStencilBufferSize(8);
   QSurfaceFormat::setDefaultFormat(format);
 
   Q_INIT_RESOURCE(Tau5);
