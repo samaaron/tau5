@@ -152,7 +152,8 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool 
     transitionOverlay->activateWindow();
   }
   
-  QTimer::singleShot(200, [this]() {
+  // Keep black overlay for 1 second, then fade to transparent over 1 second
+  QTimer::singleShot(1000, [this]() {
     if (transitionOverlay) {
       transitionOverlay->fadeOut(1000);  // 1 second fade to transparent
     }
