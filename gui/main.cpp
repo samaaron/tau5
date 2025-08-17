@@ -52,6 +52,11 @@ namespace Config
       " --use-cmd-decoder=passthrough"
       " --disable-features=RendererCodeIntegrity"
 #endif
+#ifdef Q_OS_LINUX
+      " --use-cmd-decoder=passthrough"
+      " --enable-gpu-memory-buffer-video-frames"
+      " --max-active-webgl-contexts=16"
+#endif
       ;
   constexpr const char *CHROMIUM_FLAGS_DEV =
       "--disable-background-timer-throttling "
@@ -81,6 +86,11 @@ namespace Config
       " --use-angle=d3d11"
       " --use-cmd-decoder=passthrough"
       " --disable-features=RendererCodeIntegrity"
+#endif
+#ifdef Q_OS_LINUX
+      " --use-cmd-decoder=passthrough"
+      " --enable-gpu-memory-buffer-video-frames"
+      " --max-active-webgl-contexts=16"
 #endif
       ;
 }
@@ -199,12 +209,19 @@ bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool
     }
   }
   
-  QSurfaceFormat format = QSurfaceFormat::defaultFormat();
+  QSurfaceFormat format;
   format.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
-  format.setSwapInterval(1); // Enable vsync to prevent tearing and buffer sync issues
+  format.setSwapInterval(1);
   format.setRenderableType(QSurfaceFormat::OpenGL);
+  
+#ifdef Q_OS_LINUX
+  // Linux: Use NoProfile which lets Qt choose the best available
+  format.setProfile(QSurfaceFormat::NoProfile);
+#else
   format.setProfile(QSurfaceFormat::CoreProfile);
   format.setVersion(4, 3);
+#endif
+  
   format.setRedBufferSize(8);
   format.setGreenBufferSize(8);
   format.setBlueBufferSize(8);
