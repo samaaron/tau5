@@ -22,15 +22,46 @@ defmodule Tau5.Application do
     ]
 
     opts = [strategy: :one_for_one, name: Tau5.Supervisor]
-    
+
     case Supervisor.start_link(children, opts) do
       {:ok, pid} ->
         # Initialize MCP activity logger
         Tau5MCP.ActivityLogger.init()
-        
-        Logger.info("[TAU5_OTP_READY] OTP supervision tree is up and running")
+
+        # Print ASCII art directly to stdio without any formatting/prefixes
+        # Using explicit string concatenation to preserve exact spacing
+        ascii_art =
+          "\n" <>
+            "                           ╘\n" <>
+            "                    ─       ╛▒╛\n" <>
+            "                     ▐╫       ▄█├\n" <>
+            "              ─╟╛      █▄      ╪▓▀\n" <>
+            "    ╓┤┤┤┤┤┤┤┤┤  ╩▌      ██      ▀▓▌\n" <>
+            "     ▐▒   ╬▒     ╟▓╘    ─▓█      ▓▓├\n" <>
+            "     ▒╫   ▒╪      ▓█     ▓▓─     ▓▓▄\n" <>
+            "    ╒▒─  │▒       ▓█     ▓▓     ─▓▓─\n" <>
+            "    ╬▒   ▄▒ ╒    ╪▓═    ╬▓╬     ▌▓▄\n" <>
+            "    ╥╒   ╦╥     ╕█╒    ╙▓▐     ▄▓╫\n" <>
+            "               ▐╩     ▒▒      ▀▀\n" <>
+            "                    ╒╪      ▐▄\n" <>
+            "\n" <>
+            "        ______           ______\n" <>
+            "       /_  __/___  __  _/ ____/\n" <>
+            "        / / / __ `/ / / /___ \\\n" <>
+            "       / / / /_/ / /_/ /___/ /\n" <>
+            "      /_/  \\__,_/\\__,_/_____/\n" <>
+            "\n" <>
+            "     Collaborative Live Coding\n" <>
+            "           for Everyone\n\n"
+
+        :ok = :io.put_chars(:standard_io, ascii_art)
+
+        Logger.info(
+          "[TAU5 SERVER READY] - Elixir OTP supervision tree started with opts: #{inspect(opts)}"
+        )
+
         {:ok, pid}
-      
+
       error ->
         error
     end

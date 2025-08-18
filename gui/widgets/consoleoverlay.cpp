@@ -72,14 +72,17 @@ void ConsoleOverlay::setupStyles()
 
 void ConsoleOverlay::appendLog(const QString &message)
 {
-    QStringList lines = message.split('\n', Qt::SkipEmptyParts);
+    // Split lines but preserve empty lines for proper formatting
+    QStringList lines = message.split('\n', Qt::KeepEmptyParts);
     for (const QString &line : lines) {
-        QString trimmed = line.trimmed();
-        if (!trimmed.isEmpty()) {
-            m_logLines.append(trimmed);
-            while (m_logLines.size() > MAX_LOG_LINES) {
-                m_logLines.removeFirst();
-            }
+        // Don't trim - preserve original formatting including leading spaces
+        // Only skip completely empty messages (not lines)
+        if (lines.size() == 1 && line.isEmpty()) {
+            continue;
+        }
+        m_logLines.append(line);
+        while (m_logLines.size() > MAX_LOG_LINES) {
+            m_logLines.removeFirst();
         }
     }
     
