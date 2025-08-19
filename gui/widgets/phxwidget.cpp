@@ -11,7 +11,7 @@
 #include "phxwidget.h"
 #include "phxwebview.h"
 #include "StyleManager.h"
-#include "../logger.h"
+#include "../tau5logger.h"
 
 PhxWidget::PhxWidget(bool devMode, QWidget *parent)
     : QWidget(parent), m_devMode(devMode)
@@ -70,7 +70,7 @@ void PhxWidget::connectToTauPhx(QUrl url)
 {
   defaultUrl = url;
   retryCount = 0; // Reset retry count when connecting
-  Logger::log(Logger::Info, QString("[PHX] - connecting to: %1").arg(url.toString()));
+  Tau5Logger::instance().info( QString("[PHX] - connecting to: %1").arg(url.toString()));
   phxView->load(url);
 }
 
@@ -82,7 +82,7 @@ void PhxWidget::handleLoadFinished(bool ok)
     retryCount = 0;
     if (!phxAlive)
     {
-      Logger::log(Logger::Info, "[PHX] - initial load finished");
+      Tau5Logger::instance().info( "[PHX] - initial load finished");
       phxAlive = true;
       phxView->show();
       emit pageLoaded();
@@ -90,7 +90,7 @@ void PhxWidget::handleLoadFinished(bool ok)
     else
     {
       // This is a subsequent page load (like transitioning to app)
-      Logger::log(Logger::Info, "[PHX] - app page loaded");
+      Tau5Logger::instance().info( "[PHX] - app page loaded");
       emit appPageReady();
     }
   }
@@ -104,7 +104,7 @@ void PhxWidget::handleLoadFinished(bool ok)
       // Calculate exponential backoff delay
       int delayMs = INITIAL_RETRY_DELAY_MS * std::pow(2, retryCount - 1);
       
-      Logger::log(Logger::Warning, 
+      Tau5Logger::instance().warning( 
                   QString("[PHX] - load error, retrying in %1ms (attempt %2/%3)")
                   .arg(delayMs)
                   .arg(retryCount)
@@ -115,7 +115,7 @@ void PhxWidget::handleLoadFinished(bool ok)
     }
     else
     {
-      Logger::log(Logger::Error, 
+      Tau5Logger::instance().error( 
                   QString("[PHX] - load failed after %1 retries")
                   .arg(MAX_RETRIES));
       // Could emit a signal here to show an error UI
@@ -131,7 +131,7 @@ void PhxWidget::handleResetBrowser()
 
 void PhxWidget::performRetry()
 {
-  Logger::log(Logger::Info, QString("[PHX] - performing retry %1/%2")
+  Tau5Logger::instance().info( QString("[PHX] - performing retry %1/%2")
               .arg(retryCount)
               .arg(MAX_RETRIES));
   phxView->load(defaultUrl);

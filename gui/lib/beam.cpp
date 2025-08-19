@@ -13,7 +13,7 @@
 #include <QTcpServer>
 #include <QtConcurrent/QtConcurrent>
 #include <QStandardPaths>
-#include "../logger.h"
+#include "../tau5logger.h"
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp, bool enableRepl)
     : QObject(parent), appBasePath(basePath), process(new QProcess(this)),
@@ -22,7 +22,7 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
       enableMcp(enableMcp), enableRepl(enableRepl)
 {
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
-  Logger::log(Logger::Debug, QString("Generated session token: %1").arg(sessionToken));
+  Tau5Logger::instance().debug(QString("Generated session token: %1").arg(sessionToken));
   appPort = port;
 
   connect(process, &QProcess::readyReadStandardOutput,
@@ -108,12 +108,16 @@ void Beam::handleStandardOutput()
   QByteArray output = process->readAllStandardOutput();
   QString outputStr = QString::fromUtf8(output);
 
+  if (Tau5Logger::isInitialized() && !outputStr.trimmed().isEmpty()) {
+    Tau5Logger::instance().log(LogLevel::Info, "beam", outputStr.trimmed());
+  }
+
   QRegularExpression pidRegex("\\[TAU5_BEAM_PID:(\\d+)\\]");
   QRegularExpressionMatch pidMatch = pidRegex.match(outputStr);
   if (pidMatch.hasMatch())
   {
     beamPid = pidMatch.captured(1).toLongLong();
-    Logger::log(Logger::Debug, QString("Captured BEAM PID: %1").arg(beamPid));
+    Tau5Logger::instance().debug( QString("Captured BEAM PID: %1").arg(beamPid));
     serverReady = true;
     heartbeatTimer->start();
 
@@ -133,12 +137,16 @@ void Beam::handleStandardError()
   QByteArray error = process->readAllStandardError();
   QString errorStr = QString::fromUtf8(error);
 
+  if (Tau5Logger::isInitialized() && !errorStr.trimmed().isEmpty()) {
+    Tau5Logger::instance().log(LogLevel::Error, "beam", errorStr.trimmed());
+  }
+
   // Check for address in use error during restart
   if (isRestarting && (errorStr.contains("address already in use") ||
                        errorStr.contains("Address already in use") ||
                        errorStr.contains("EADDRINUSE")))
   {
-    Logger::log(Logger::Error, "Port is still in use, restart failed");
+    Tau5Logger::instance().error( "Port is still in use, restart failed");
     isRestarting = false;
     emit restartComplete(); // Re-enable the button
   }
@@ -148,7 +156,7 @@ void Beam::handleStandardError()
 
 void Beam::startElixirServerDev()
 {
-  Logger::log(Logger::Info, "Starting Elixir server in Development mode");
+  Tau5Logger::instance().info( "Starting Elixir server in Development mode");
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   env.insert("TAU5_MODE", "desktop");
   env.insert("TAU5_ENV", "dev");
@@ -160,24 +168,27 @@ void Beam::startElixirServerDev()
   env.insert("MIX_ENV", "dev");
   env.insert("RELEASE_DISTRIBUTION", "none");
 
-  // Set log directory path for the Elixir server
-  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-  QDir logsDir(logsPath);
-  if (!logsDir.exists("Tau5/logs")) {
-    logsDir.mkpath("Tau5/logs");
+  QString sessionPath;
+  if (Tau5Logger::isInitialized()) {
+    sessionPath = Tau5Logger::instance().currentSessionPath();
+    Tau5Logger::instance().log(LogLevel::Debug, "beam", QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
+  } else {
+    QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    QDir logsDir(logsPath);
+    logsDir.mkpath("Tau5/logs/gui");
+    sessionPath = logsDir.absoluteFilePath("Tau5/logs/gui");
   }
-  QString logsDirPath = logsDir.absoluteFilePath("Tau5/logs");
-  env.insert("TAU5_LOG_DIR", logsDirPath);
-  Logger::log(Logger::Debug, QString("Setting TAU5_LOG_DIR to: %1").arg(logsDirPath));
+  env.insert("TAU5_LOG_DIR", sessionPath);
+  Tau5Logger::instance().debug( QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
 
   // Set MCP and REPL flags based on constructor parameters
   if (enableMcp) {
     env.insert("TAU5_ENABLE_DEV_MCP", "1");
-    Logger::log(Logger::Debug, "MCP enabled for Elixir server");
+    Tau5Logger::instance().debug( "MCP enabled for Elixir server");
   }
   if (enableRepl) {
     env.insert("TAU5_ENABLE_DEV_REPL", "1");
-    Logger::log(Logger::Debug, "REPL enabled for Elixir server");
+    Tau5Logger::instance().debug( "REPL enabled for Elixir server");
   }
 
 #ifdef Q_OS_WIN
@@ -197,7 +208,7 @@ void Beam::startElixirServerDev()
 
 void Beam::startElixirServerProd()
 {
-  Logger::log(Logger::Info, "Starting Elixir server in Production mode");
+  Tau5Logger::instance().info( "Starting Elixir server in Production mode");
 
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   env.insert("TAU5_MODE", "desktop");
@@ -211,24 +222,27 @@ void Beam::startElixirServerProd()
   env.insert("RELEASE_DISTRIBUTION", "none");
   env.insert("PHX_SERVER", "1");
 
-  // Set log directory path for the Elixir server
-  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-  QDir logsDir(logsPath);
-  if (!logsDir.exists("Tau5/logs")) {
-    logsDir.mkpath("Tau5/logs");
+  QString sessionPath;
+  if (Tau5Logger::isInitialized()) {
+    sessionPath = Tau5Logger::instance().currentSessionPath();
+    Tau5Logger::instance().log(LogLevel::Debug, "beam", QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
+  } else {
+    QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    QDir logsDir(logsPath);
+    logsDir.mkpath("Tau5/logs/gui");
+    sessionPath = logsDir.absoluteFilePath("Tau5/logs/gui");
   }
-  QString logsDirPath = logsDir.absoluteFilePath("Tau5/logs");
-  env.insert("TAU5_LOG_DIR", logsDirPath);
-  Logger::log(Logger::Debug, QString("Setting TAU5_LOG_DIR to: %1").arg(logsDirPath));
+  env.insert("TAU5_LOG_DIR", sessionPath);
+  Tau5Logger::instance().debug( QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
 
   // Set MCP and REPL flags based on constructor parameters
   if (enableMcp) {
     env.insert("TAU5_ENABLE_DEV_MCP", "1");
-    Logger::log(Logger::Debug, "MCP enabled for Elixir server");
+    Tau5Logger::instance().debug( "MCP enabled for Elixir server");
   }
   if (enableRepl) {
     env.insert("TAU5_ENABLE_DEV_REPL", "1");
-    Logger::log(Logger::Debug, "REPL enabled for Elixir server");
+    Tau5Logger::instance().debug( "REPL enabled for Elixir server");
   }
 
   env.insert("RELEASE_SYS_CONFIG", releaseSysPath);
@@ -255,8 +269,8 @@ void Beam::startElixirServerProd()
 
 void Beam::startProcess(const QString &cmd, const QStringList &args)
 {
-  Logger::log(Logger::Debug, QString("Server process working directory: %1").arg(process->workingDirectory()));
-  Logger::log(Logger::Debug, QString("Starting process: %1 %2").arg(cmd).arg(args.join(" ")));
+  Tau5Logger::instance().debug( QString("Server process working directory: %1").arg(process->workingDirectory()));
+  Tau5Logger::instance().debug( QString("Starting process: %1 %2").arg(cmd).arg(args.join(" ")));
 
   connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
           this, [this](int exitCode, QProcess::ExitStatus status)
@@ -264,7 +278,7 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
             QString message = QString("Process finished with exit code: %1 status: %2")
                             .arg(exitCode)
                             .arg(status == QProcess::NormalExit ? "Normal" : "Crashed");
-            Logger::log(Logger::Info, message);
+            Tau5Logger::instance().info( message);
             emit standardOutput(message);
           });
 
@@ -293,7 +307,7 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
       errorMsg = "An unknown error occurred.";
       break;
     }
-    Logger::log(Logger::Error, errorMsg);
+    Tau5Logger::instance().error( errorMsg);
     emit standardError(errorMsg);
   });
 
@@ -305,7 +319,7 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
                       .arg(process->errorString())
                       .arg(cmd)
                       .arg(args.join(" "));
-    Logger::log(Logger::Error, errorMsg);
+    Tau5Logger::instance().error( errorMsg);
     emit standardError(errorMsg);
   }
 }
@@ -337,10 +351,10 @@ void Beam::killBeamProcess()
     return;
   }
 
-  qDebug() << "Attempting to kill BEAM process with PID:" << beamPid;
+  Tau5Logger::instance().debug(QString("Attempting to kill BEAM process with PID: %1").arg(beamPid));
 
 #ifdef Q_OS_WIN
-  qDebug() << "Windows: Sending graceful termination to PID:" << beamPid;
+  Tau5Logger::instance().debug(QString("Windows: Sending graceful termination to PID: %1").arg(beamPid));
 
   // Use QProcess instance to suppress error output
   QProcess gracefulKill;
@@ -357,15 +371,15 @@ void Beam::killBeamProcess()
 
     if (!output.contains(QString::number(beamPid)))
     {
-      qDebug() << "Process" << beamPid << "terminated gracefully";
+      Tau5Logger::instance().debug(QString("Process %1 terminated gracefully").arg(beamPid));
       return;
     }
 
-    qDebug() << "Process" << beamPid << "still running, waiting..." << i;
+    Tau5Logger::instance().debug(QString("Process %1 still running, waiting... %2").arg(beamPid).arg(i));
     QThread::msleep(500); // Shorter wait
   }
 
-  qDebug() << "Windows: Force killing PID:" << beamPid;
+  Tau5Logger::instance().debug(QString("Windows: Force killing PID: %1").arg(beamPid));
 
   // Use QProcess instance to suppress error output
   QProcess forceKill;
@@ -380,20 +394,20 @@ void Beam::killBeamProcess()
 
   if (finalOutput.contains(QString::number(beamPid)))
   {
-    qDebug() << "Process" << beamPid << "could not be terminated";
+    Tau5Logger::instance().error(QString("Process %1 could not be terminated").arg(beamPid));
   }
   else
   {
-    qDebug() << "Process" << beamPid << "successfully terminated";
+    Tau5Logger::instance().debug(QString("Process %1 successfully terminated").arg(beamPid));
   }
 
 #else
-  qDebug() << "Unix: Sending SIGTERM to PID:" << beamPid;
+  Tau5Logger::instance().debug(QString("Unix: Sending SIGTERM to PID: %1").arg(beamPid));
   int result = QProcess::execute("kill", {"-TERM", QString::number(beamPid)});
 
   if (result != 0)
   {
-    qDebug() << "Process" << beamPid << "not found or already terminated";
+    Tau5Logger::instance().debug(QString("Process %1 not found or already terminated").arg(beamPid));
     return;
   }
 
@@ -403,15 +417,15 @@ void Beam::killBeamProcess()
 
     if (result != 0)
     {
-      qDebug() << "Process" << beamPid << "terminated gracefully";
+      Tau5Logger::instance().debug(QString("Process %1 terminated gracefully").arg(beamPid));
       return;
     }
 
-    qDebug() << "Process" << beamPid << "still running, waiting..." << i;
+    Tau5Logger::instance().debug(QString("Process %1 still running, waiting... %2").arg(beamPid).arg(i));
     QThread::msleep(1000);
   }
 
-  qDebug() << "Unix: Sending SIGKILL to PID:" << beamPid;
+  Tau5Logger::instance().debug(QString("Unix: Sending SIGKILL to PID: %1").arg(beamPid));
   QProcess::execute("kill", {"-9", QString::number(beamPid)});
 #endif
 
@@ -420,11 +434,11 @@ void Beam::killBeamProcess()
 
 void Beam::restart()
 {
-  Logger::log(Logger::Info, "Restarting BEAM process...");
+  Tau5Logger::instance().info( "Restarting BEAM process...");
 
   if (isRestarting)
   {
-    Logger::log(Logger::Warning, "Restart already in progress");
+    Tau5Logger::instance().warning( "Restart already in progress");
     return;
   }
   isRestarting = true;
@@ -445,7 +459,7 @@ void Beam::restart()
 
   if (beamPid > 0)
   {
-    Logger::log(Logger::Info, "Terminating BEAM process by PID (in background thread)...");
+    Tau5Logger::instance().info( "Terminating BEAM process by PID (in background thread)...");
 
     // Run killBeamProcess in a separate thread to avoid blocking the UI
     QFuture<void> future = QtConcurrent::run([this]() {
@@ -471,11 +485,11 @@ void Beam::continueRestart()
 {
   if (!isRestarting)
   {
-    Logger::log(Logger::Warning, "continueRestart called but not restarting");
+    Tau5Logger::instance().warning( "continueRestart called but not restarting");
     return;
   }
 
-  Logger::log(Logger::Info, "Continuing BEAM restart...");
+  Tau5Logger::instance().info( "Continuing BEAM restart...");
 
   if (process)
   {
@@ -503,21 +517,21 @@ void Beam::checkPortAndStartNewProcess()
 
   if (portAvailable)
   {
-    Logger::log(Logger::Info, QString("Port %1 is now available, starting new BEAM process").arg(appPort));
+    Tau5Logger::instance().info( QString("Port %1 is now available, starting new BEAM process").arg(appPort));
     retryCount = 0;
     startNewBeamProcess();
   }
   else if (retryCount < maxRetries)
   {
     retryCount++;
-    Logger::log(Logger::Debug, QString("Port %1 still in use, checking again in 500ms... (attempt %2/%3)")
+    Tau5Logger::instance().debug( QString("Port %1 still in use, checking again in 500ms... (attempt %2/%3)")
                 .arg(appPort).arg(retryCount).arg(maxRetries));
     // Check again in 500ms
     QTimer::singleShot(500, this, &Beam::checkPortAndStartNewProcess);
   }
   else
   {
-    Logger::log(Logger::Error, QString("Port %1 still in use after %2 seconds, giving up")
+    Tau5Logger::instance().error( QString("Port %1 still in use after %2 seconds, giving up")
                 .arg(appPort).arg(maxRetries * 0.5));
     retryCount = 0;
     isRestarting = false;
@@ -529,7 +543,7 @@ void Beam::startNewBeamProcess()
 {
   if (!isRestarting)
   {
-    Logger::log(Logger::Warning, "startNewBeamProcess called but not restarting");
+    Tau5Logger::instance().warning( "startNewBeamProcess called but not restarting");
     return;
   }
 
@@ -544,16 +558,16 @@ void Beam::startNewBeamProcess()
   connect(process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
     if (error == QProcess::FailedToStart)
     {
-      Logger::log(Logger::Error, "Failed to start new BEAM process");
+      Tau5Logger::instance().error( "Failed to start new BEAM process");
       isRestarting = false;
       emit restartComplete(); // Emit even on failure to re-enable button
     }
   });
 
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
-  Logger::log(Logger::Debug, QString("Generated new session token: %1").arg(sessionToken));
+  Tau5Logger::instance().debug( QString("Generated new session token: %1").arg(sessionToken));
 
-  Logger::log(Logger::Info, "Starting new BEAM process...");
+  Tau5Logger::instance().info( "Starting new BEAM process...");
   if (devMode)
   {
     startElixirServerDev();
@@ -567,7 +581,7 @@ void Beam::startNewBeamProcess()
   QTimer::singleShot(30000, this, [this]() { // 30 second timeout
     if (isRestarting)
     {
-      Logger::log(Logger::Error, "BEAM restart timeout - OTP failed to start");
+      Tau5Logger::instance().error( "BEAM restart timeout - OTP failed to start");
       isRestarting = false;
       emit restartComplete(); // Emit to re-enable button
     }
@@ -576,7 +590,7 @@ void Beam::startNewBeamProcess()
   // Connect a one-shot timer to emit restartComplete when OTP is ready
   QObject *context = new QObject();
   connect(this, &Beam::otpReady, context, [this, context]() {
-    Logger::log(Logger::Info, "BEAM restart complete");
+    Tau5Logger::instance().info( "BEAM restart complete");
     isRestarting = false;  // Reset the flag
     emit restartComplete();
     context->deleteLater();

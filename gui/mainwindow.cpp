@@ -18,7 +18,7 @@
 #include "widgets/consoleoverlay.h"
 #include "widgets/transitionoverlay.h"
 #include "lib/beam.h"
-#include "logger.h"
+#include "tau5logger.h"
 #include "styles/StyleManager.h"
 
 #ifndef Q_OS_MACOS
@@ -125,7 +125,7 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool 
   connect(phxWidget.get(), &PhxWidget::pageLoaded, this, [this]() {
     if (!m_mainWindowLoaded) {
       m_mainWindowLoaded = true;
-      Logger::log(Logger::Info, "Shader page loaded and ready");
+      Tau5Logger::instance().info( "Shader page loaded and ready");
       checkAllComponentsLoaded();
     }
   });
@@ -211,7 +211,7 @@ void MainWindow::setBeamInstance(Beam *beam)
 bool MainWindow::connectToServer(quint16 port)
 {
   if (port == 0 || port > 65535) {
-    Logger::log(Logger::Error, QString("Invalid port number received: %1").arg(port));
+    Tau5Logger::instance().error( QString("Invalid port number received: %1").arg(port));
     QMessageBox::critical(this, tr("Server Error"),
                          tr("Invalid server port number: %1").arg(port));
     return false;
@@ -220,7 +220,7 @@ bool MainWindow::connectToServer(quint16 port)
   m_serverPort = port;
   
   m_beamReady = true;
-  Logger::log(Logger::Info, "BEAM server ready, port: " + QString::number(port));
+  Tau5Logger::instance().info( "BEAM server ready, port: " + QString::number(port));
   
   startTransitionToApp();
   
@@ -247,10 +247,10 @@ bool MainWindow::isElixirReplEnabled()
 
 void MainWindow::startTransitionToApp()
 {
-  Logger::log(Logger::Info, "BEAM ready, checking timing before transition");
+  Tau5Logger::instance().info( "BEAM ready, checking timing before transition");
   
   if (m_serverPort == 0) {
-    Logger::log(Logger::Error, "Invalid server port for transition");
+    Tau5Logger::instance().error( "Invalid server port for transition");
     return;
   }
   
@@ -258,10 +258,10 @@ void MainWindow::startTransitionToApp()
   qint64 minDisplayMs = 5000;
   qint64 remainingMs = qMax(0LL, minDisplayMs - elapsedMs);
   
-  Logger::log(Logger::Info, QString("Boot elapsed: %1ms, waiting %2ms before fade").arg(elapsedMs).arg(remainingMs));
+  Tau5Logger::instance().info( QString("Boot elapsed: %1ms, waiting %2ms before fade").arg(elapsedMs).arg(remainingMs));
   
   QTimer::singleShot(remainingMs, [this]() {
-    Logger::log(Logger::Info, "Starting fade to black transition");
+    Tau5Logger::instance().info( "Starting fade to black transition");
     
     if (transitionOverlay) {
       transitionOverlay->fadeIn(500);
@@ -274,7 +274,7 @@ void MainWindow::startTransitionToApp()
 
 void MainWindow::onFadeToBlackComplete()
 {
-  Logger::log(Logger::Info, "Fade to black complete, switching to app page");
+  Tau5Logger::instance().info( "Fade to black complete, switching to app page");
   
   QUrl phxUrl;
   phxUrl.setScheme("http");
@@ -297,13 +297,13 @@ void MainWindow::onFadeToBlackComplete()
 
 void MainWindow::onAppPageReady()
 {
-  Logger::log(Logger::Info, "App page ready, fading out overlay");
+  Tau5Logger::instance().info( "App page ready, fading out overlay");
   
   if (transitionOverlay) {
     transitionOverlay->fadeOut(600);
     
     connect(transitionOverlay.get(), &TransitionOverlay::fadeOutComplete, this, [this]() {
-      Logger::log(Logger::Info, "Transition complete, cleaning up overlay");
+      Tau5Logger::instance().info( "Transition complete, cleaning up overlay");
       if (transitionOverlay) {
         transitionOverlay->hide();
       }
@@ -550,28 +550,28 @@ void MainWindow::handleResetBrowser()
 void MainWindow::handleMainWindowLoaded()
 {
   m_mainWindowLoaded = true;
-  Logger::log(Logger::Info, "Main window loaded");
+  Tau5Logger::instance().info( "Main window loaded");
   checkAllComponentsLoaded();
 }
 
 void MainWindow::handleLiveDashboardLoaded()
 {
   m_liveDashboardLoaded = true;
-  Logger::log(Logger::Info, "LiveDashboard loaded");
+  Tau5Logger::instance().info( "LiveDashboard loaded");
   checkAllComponentsLoaded();
 }
 
 void MainWindow::handleElixirConsoleLoaded()
 {
   m_elixirConsoleLoaded = true;
-  Logger::log(Logger::Info, "Elixir Console loaded");
+  Tau5Logger::instance().info( "Elixir Console loaded");
   checkAllComponentsLoaded();
 }
 
 void MainWindow::handleWebDevToolsLoaded()
 {
   m_webDevToolsLoaded = true;
-  Logger::log(Logger::Info, "Web Dev Tools loaded");
+  Tau5Logger::instance().info( "Web Dev Tools loaded");
   checkAllComponentsLoaded();
 }
 
@@ -581,7 +581,7 @@ void MainWindow::checkAllComponentsLoaded()
     m_allComponentsSignalEmitted = true;
     emit allComponentsLoaded();
   } else {
-    Logger::log(Logger::Debug, QString("Waiting for components - Window: %1, BEAM: %2")
+    Tau5Logger::instance().debug( QString("Waiting for components - Window: %1, BEAM: %2")
                 .arg(m_mainWindowLoaded)
                 .arg(m_beamReady));
   }
@@ -592,11 +592,11 @@ void MainWindow::handleBeamRestart()
 #ifdef BUILD_WITH_DEBUG_PANE
   if (!beamInstance)
   {
-    Logger::log(Logger::Error, "Cannot restart BEAM: beamInstance is null");
+    Tau5Logger::instance().error( "Cannot restart BEAM: beamInstance is null");
     return;
   }
   
-  Logger::log(Logger::Info, "User requested BEAM restart");
+  Tau5Logger::instance().info( "User requested BEAM restart");
   
   if (debugPane)
   {
@@ -614,7 +614,7 @@ void MainWindow::handleBeamRestart()
   
   QObject *context = new QObject();
   connect(beamInstance, &Beam::restartComplete, context, [this, context]() {
-    Logger::log(Logger::Info, "BEAM restart complete, reconnecting to server...");
+    Tau5Logger::instance().info( "BEAM restart complete, reconnecting to server...");
     
     if (debugPane)
     {

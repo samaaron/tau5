@@ -1,6 +1,7 @@
 #include "themestyles.h"
 #include "../../styles/StyleManager.h"
 #include "../../lib/fontloader.h"
+#include "../../tau5logger.h"
 #include <QWebEngineView>
 #include <QWebEnginePage>
 #include <QWebEngineScript>
@@ -99,7 +100,7 @@ void DebugPaneThemeStyles::applyLiveDashboardTau5Theme(QWebEngineView *view)
         cssContent = stream.readAll();
         cssFile.close();
     } else {
-        qDebug() << "Failed to load tau5-dashboard-theme.css";
+        Tau5Logger::instance().debug("Failed to load tau5-dashboard-theme.css");
         return;
     }
     
@@ -237,11 +238,11 @@ void DebugPaneThemeStyles::injectDevToolsFontScript(QWebEngineView *view)
     // Get the CSS with embedded base64 font
     QString cascadiaCodeCss = FontLoader::getCascadiaCodeCss();
     if (cascadiaCodeCss.isEmpty()) {
-        qDebug() << "Failed to load Cascadia Code font for DevTools";
+        Tau5Logger::instance().debug("Failed to load Cascadia Code font for DevTools");
         return;
     }
     
-    qDebug() << QString("Cascadia Code CSS size: %1 characters").arg(cascadiaCodeCss.length());
+    Tau5Logger::instance().debug(QString("Cascadia Code CSS size: %1 characters").arg(cascadiaCodeCss.length()));
     
     // Escape the CSS for JavaScript template literal
     cascadiaCodeCss.replace("\\", "\\\\");

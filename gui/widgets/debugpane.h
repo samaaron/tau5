@@ -15,7 +15,6 @@
 
 class QPushButton;
 class LogWidget;
-class LogFileManager;
 class QLabel;
 class QPropertyAnimation;
 class QTextEdit;
@@ -164,8 +163,6 @@ private:
   QString m_liveDashboardUrl;
   QString m_elixirConsoleUrl;
   
-  // Log file manager for GUI logs
-  LogFileManager *m_guiLogFileManager;
   
   // Feature flags
   bool m_mcpEnabled;

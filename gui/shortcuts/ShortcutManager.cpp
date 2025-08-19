@@ -1,4 +1,5 @@
 #include "ShortcutManager.h"
+#include "../tau5logger.h"
 #include <QShortcut>
 #include <QAction>
 #include <QWidget>
@@ -72,9 +73,10 @@ void ShortcutManager::registerShortcut(ShortcutId id, const QKeySequence& keySeq
 {
     m_shortcuts[id] = {keySequence, description, category, true};
 
-    qDebug() << "Registered shortcut:" << description
-             << "Key sequence:" << keySequence.toString()
-             << "Native:" << keySequence.toString(QKeySequence::NativeText);
+    Tau5Logger::instance().debug(QString("Registered shortcut: %1 Key sequence: %2 Native: %3")
+                                  .arg(description)
+                                  .arg(keySequence.toString())
+                                  .arg(keySequence.toString(QKeySequence::NativeText)));
 }
 
 

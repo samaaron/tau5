@@ -1,5 +1,5 @@
 #include "cdpclient.h"
-#include "../logger.h"
+#include <iostream>
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QJsonDocument>
@@ -45,7 +45,7 @@ bool CDPClient::connect()
     
     m_isConnecting = true;
     m_connectionState = ConnectionState::Connecting;
-    Logger::log(Logger::Info, QString("Connecting to Chrome DevTools Protocol on port %1").arg(m_devToolsPort));
+    std::cerr << "# CDP: Connecting to Chrome DevTools Protocol on port " << m_devToolsPort << std::endl;
     
     fetchTargetList();
     
@@ -87,7 +87,7 @@ void CDPClient::fetchTargetList()
         
         if (reply->error() != QNetworkReply::NoError) {
             QString errorMsg = QString("Cannot connect to Chrome DevTools on port %1: %2").arg(m_devToolsPort).arg(reply->errorString());
-            Logger::log(Logger::Debug, errorMsg);
+            std::cerr << "# CDP Error: " << errorMsg.toStdString() << std::endl;
             m_isConnecting = false;
             m_isConnected = false;
             m_connectionState = ConnectionState::Failed;
@@ -101,7 +101,7 @@ void CDPClient::fetchTargetList()
         QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
         if (!doc.isArray()) {
             QString errorMsg = "Invalid DevTools target list format - Tau5 may not be running";
-            Logger::log(Logger::Debug, errorMsg);
+            std::cerr << "# CDP Error: " << errorMsg.toStdString() << std::endl;
             m_isConnecting = false;
             m_isConnected = false;
             m_connectionState = ConnectionState::Failed;
@@ -117,7 +117,7 @@ void CDPClient::fetchTargetList()
         
         if (targetId.isEmpty()) {
             QString errorMsg = "No suitable DevTools target found - check if Tau5 is running in dev mode";
-            Logger::log(Logger::Debug, errorMsg);
+            std::cerr << "# CDP Error: " << errorMsg.toStdString() << std::endl;
             m_isConnecting = false;
             m_isConnected = false;
             if (m_webSocket->state() != QAbstractSocket::UnconnectedState) {
@@ -137,7 +137,7 @@ void CDPClient::fetchTargetList()
         
         if (m_webSocketDebuggerUrl.isEmpty()) {
             QString errorMsg = "No WebSocket debugger URL found - ensure Tau5 is running with DevTools enabled";
-            Logger::log(Logger::Debug, errorMsg);
+            std::cerr << "# CDP Error: " << errorMsg.toStdString() << std::endl;
             m_isConnecting = false;
             m_isConnected = false;
             if (m_webSocket->state() != QAbstractSocket::UnconnectedState) {
@@ -159,7 +159,7 @@ QString CDPClient::findMainPageTarget(const QJsonArray& targets)
         QString url = target["url"].toString();
         
         if (type == "page" && !url.contains("devtools://")) {
-            Logger::log(Logger::Debug, QString("Found main page target: %1").arg(target["title"].toString()));
+            std::cerr << "# CDP: Found main page target: " << target["title"].toString().toStdString() << std::endl;
             return target["id"].toString();
         }
     }
@@ -178,14 +178,14 @@ void CDPClient::connectToTarget(const QString& targetId)
 {
     m_targetId = targetId;
     
-    Logger::log(Logger::Info, QString("Connecting to DevTools WebSocket: %1").arg(m_webSocketDebuggerUrl));
+    std::cerr << "# CDP: Connecting to DevTools WebSocket: " << m_webSocketDebuggerUrl.toStdString() << std::endl;
     
     m_webSocket->open(QUrl(m_webSocketDebuggerUrl));
 }
 
 void CDPClient::onConnected()
 {
-    Logger::log(Logger::Info, "Connected to Chrome DevTools Protocol");
+    std::cerr << "# CDP: Connected to Chrome DevTools Protocol" << std::endl;
     m_isConnected = true;
     m_isConnecting = false;
     m_connectionState = ConnectionState::Connected;
@@ -199,7 +199,7 @@ void CDPClient::onConnected()
 
 void CDPClient::onDisconnected()
 {
-    Logger::log(Logger::Info, "Disconnected from Chrome DevTools Protocol");
+    std::cerr << "# CDP: Disconnected from Chrome DevTools Protocol" << std::endl;
     m_isConnected = false;
     m_isConnecting = false;
     m_connectionState = ConnectionState::NotConnected;
@@ -218,7 +218,7 @@ void CDPClient::onTextMessageReceived(const QString& message)
 {
     QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8());
     if (!doc.isObject()) {
-        Logger::log(Logger::Warning, "Received invalid CDP message");
+        std::cerr << "# CDP Warning: Received invalid CDP message" << std::endl;
         return;
     }
     
@@ -276,19 +276,19 @@ void CDPClient::enableDomains()
 {
     sendCommand("DOM.enable", QJsonObject(), [](const QJsonObject&, const QString& error) {
         if (!error.isEmpty()) {
-            Logger::log(Logger::Warning, QString("Failed to enable DOM domain: %1").arg(error));
+            std::cerr << "# CDP Warning: Failed to enable DOM domain: " << error.toStdString() << std::endl;
         }
     });
     
     sendCommand("Runtime.enable", QJsonObject(), [](const QJsonObject&, const QString& error) {
         if (!error.isEmpty()) {
-            Logger::log(Logger::Warning, QString("Failed to enable Runtime domain: %1").arg(error));
+            std::cerr << "# CDP Warning: Failed to enable Runtime domain: " << error.toStdString() << std::endl;
         }
     });
     
     sendCommand("Page.enable", QJsonObject(), [](const QJsonObject&, const QString& error) {
         if (!error.isEmpty()) {
-            Logger::log(Logger::Warning, QString("Failed to enable Page domain: %1").arg(error));
+            std::cerr << "# CDP Warning: Failed to enable Page domain: " << error.toStdString() << std::endl;
         }
     });
 }
@@ -322,7 +322,8 @@ void CDPClient::sendRawCommand(const QJsonObject& command)
     QJsonDocument doc(command);
     QString message = doc.toJson(QJsonDocument::Compact);
     
-    Logger::log(Logger::Debug, QString("CDP -> %1").arg(message));
+    // Debug logging disabled for MCP server to avoid noise
+    // std::cerr << "# CDP -> " << message.toStdString() << std::endl;
     m_webSocket->sendTextMessage(message);
 }
 

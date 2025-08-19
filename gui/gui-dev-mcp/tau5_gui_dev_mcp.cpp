@@ -22,15 +22,13 @@ static void debugLog(const QString& message) {
 class MCPActivityLogger
 {
 public:
-    MCPActivityLogger() {
+    MCPActivityLogger(quint16 devToolsPort) {
         QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
         QString tau5DataPath = QDir(dataPath).absoluteFilePath("Tau5");
-        QString logsPath = QDir(tau5DataPath).absoluteFilePath("logs");
+        QString mcpLogsPath = QDir(tau5DataPath).absoluteFilePath("mcp-logs");
+        QDir().mkpath(mcpLogsPath);
         
-        // Ensure logs directory exists
-        QDir().mkpath(logsPath);
-        
-        m_logPath = QDir(logsPath).absoluteFilePath("mcp-gui-dev.log");
+        m_logPath = QDir(mcpLogsPath).absoluteFilePath(QString("mcp-gui-dev-%1.log").arg(devToolsPort));
         m_processId = QCoreApplication::applicationPid();
         
         // Generate a unique session ID for this connection
@@ -88,7 +86,7 @@ private:
             
             QDir logsDir = fileInfo.dir();
             QStringList filters;
-            filters << "mcp-gui-dev.log.*";
+            filters << fileInfo.fileName() + ".*";
             QFileInfoList rotatedFiles = logsDir.entryInfoList(filters, QDir::Files, QDir::Time);
             
             while (rotatedFiles.size() > 5) {
@@ -347,8 +345,6 @@ int main(int argc, char *argv[])
     app.setApplicationName("tau5-gui-dev-mcp");
     app.setOrganizationName("Tau5");
     
-    MCPActivityLogger activityLogger;
-    
     quint16 devToolsPort = 9223;
     bool debugMode = false;
     
@@ -377,6 +373,10 @@ int main(int argc, char *argv[])
             return 0;
         }
     }
+    
+    // Don't use Tau5Logger for mcp-gui-dev - it needs a fixed log location
+    // Initialize activity logger with the port number for unique log file
+    MCPActivityLogger activityLogger(devToolsPort);
     
     debugLog("Tau5 GUI Dev MCP Server v1.0.0");
     debugLog(QString("Connecting to Chrome DevTools on port %1").arg(devToolsPort));
@@ -1445,8 +1445,22 @@ int main(int argc, char *argv[])
             QString search = params.contains("search") ? params["search"].toString() : "";
             
             QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-            QString tau5DataPath = QDir(dataPath).absoluteFilePath("Tau5/Tau5");
-            QString logFilePath = QDir(tau5DataPath).absoluteFilePath("logs/gui.log");
+            QString tau5LogsPath = QDir(dataPath).absoluteFilePath("Tau5/logs/gui");
+            
+            // Find the most recent session folder
+            QDir logsDir(tau5LogsPath);
+            QStringList sessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Time);
+            
+            if (sessionDirs.isEmpty()) {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("No log sessions found in: %1").arg(tau5LogsPath)}
+                };
+            }
+            
+            // Use the most recent session
+            QString sessionPath = QDir(tau5LogsPath).absoluteFilePath(sessionDirs.first());
+            QString logFilePath = QDir(sessionPath).absoluteFilePath("gui.log");
             
             QFile logFile(logFilePath);
             if (!logFile.exists()) {
@@ -1521,8 +1535,22 @@ int main(int argc, char *argv[])
             Q_UNUSED(params);
             
             QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-            QString tau5DataPath = QDir(dataPath).absoluteFilePath("Tau5/Tau5");
-            QString logFilePath = QDir(tau5DataPath).absoluteFilePath("logs/gui.log");
+            QString tau5LogsPath = QDir(dataPath).absoluteFilePath("Tau5/logs/gui");
+            
+            // Find the most recent session folder
+            QDir logsDir(tau5LogsPath);
+            QStringList sessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Time);
+            
+            if (sessionDirs.isEmpty()) {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("No log sessions found in: %1").arg(tau5LogsPath)}
+                };
+            }
+            
+            // Use the most recent session
+            QString sessionPath = QDir(tau5LogsPath).absoluteFilePath(sessionDirs.first());
+            QString logFilePath = QDir(sessionPath).absoluteFilePath("gui.log");
             
             QFile logFile(logFilePath);
             if (!logFile.exists()) {

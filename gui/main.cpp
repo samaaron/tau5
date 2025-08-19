@@ -13,9 +13,10 @@
 #include <QMessageBox>
 #include <QFontDatabase>
 #include <QSurfaceFormat>
+#include <QStandardPaths>
 #include "mainwindow.h"
 #include "lib/beam.h"
-#include "logger.h"
+#include "tau5logger.h"
 #include "styles/StyleManager.h"
 
 namespace Config
@@ -139,7 +140,7 @@ quint16 getFreePort()
   }
   else
   {
-    Logger::log(Logger::Error, "Failed to find a free port.");
+    Tau5Logger::instance().error("Failed to find a free port.");
     return 0;
   }
 }
@@ -183,17 +184,17 @@ void tau5MessageHandler(QtMsgType type, const QMessageLogContext &context, const
   
   switch (type) {
   case QtDebugMsg:
-    Logger::log(Logger::Debug, QString("[Qt] %1").arg(msg));
+    Tau5Logger::instance().debug(QString("[Qt] %1").arg(msg));
     break;
   case QtInfoMsg:
-    Logger::log(Logger::Info, QString("[Qt] %1").arg(msg));
+    Tau5Logger::instance().info(QString("[Qt] %1").arg(msg));
     break;
   case QtWarningMsg:
-    Logger::log(Logger::Warning, QString("[Qt] %1").arg(msg));
+    Tau5Logger::instance().warning(QString("[Qt] %1").arg(msg));
     break;
   case QtCriticalMsg:
   case QtFatalMsg:
-    Logger::log(Logger::Error, QString("[Qt] %1").arg(msg));
+    Tau5Logger::instance().error(QString("[Qt] %1").arg(msg));
     break;
   }
 }
@@ -204,12 +205,12 @@ bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool
   
   if (devMode && enableMcp) {
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS_DEV);
-    Logger::log(Logger::Info, QString("Chrome DevTools Protocol enabled on port %1").arg(Config::DEVTOOLS_PORT));
-    Logger::log(Logger::Info, "MCP servers enabled (--enable-mcp flag set)");
+    Tau5Logger::instance().info(QString("Chrome DevTools Protocol enabled on port %1").arg(Config::DEVTOOLS_PORT));
+    Tau5Logger::instance().info("MCP servers enabled (--enable-mcp flag set)");
   } else {
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS);
     if (devMode && !enableMcp) {
-      Logger::log(Logger::Info, "Running in dev mode without MCP servers (use --enable-mcp to enable)");
+      Tau5Logger::instance().info("Running in dev mode without MCP servers (use --enable-mcp to enable)");
     }
   }
   
@@ -245,22 +246,22 @@ bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool
   int fontId = QFontDatabase::addApplicationFont(":/fonts/CascadiaCodePL.ttf");
   if (fontId != -1) {
     QStringList fontFamilies = QFontDatabase::applicationFontFamilies(fontId);
-    Logger::log(Logger::Info, QString("Loaded font families: %1").arg(fontFamilies.join(", ")));
+    Tau5Logger::instance().info(QString("Loaded font families: %1").arg(fontFamilies.join(", ")));
     
 #ifdef Q_OS_MACOS
-    Logger::log(Logger::Debug, "Available monospace fonts on macOS:");
+    Tau5Logger::instance().debug("Available monospace fonts on macOS:");
     QStringList families = QFontDatabase::families();
     for (const QString &family : families) {
       if (family.contains("Cascadia", Qt::CaseInsensitive) || 
           family.contains("Consolas", Qt::CaseInsensitive) ||
           family.contains("Monaco", Qt::CaseInsensitive) ||
           family.contains("Courier", Qt::CaseInsensitive)) {
-        Logger::log(Logger::Debug, QString("  - %1").arg(family));
+        Tau5Logger::instance().debug(QString("  - %1").arg(family));
       }
     }
 #endif
   } else {
-    Logger::log(Logger::Warning, "Failed to load Cascadia Code font from resources");
+    Tau5Logger::instance().warning("Failed to load Cascadia Code font from resources");
   }
 
   return true;
@@ -301,8 +302,25 @@ int main(int argc, char *argv[])
     setupConsoleOutput();
   }
 
+  Tau5LoggerConfig logConfig;
+  logConfig.appName = "gui";
+  logConfig.logFiles = {
+      {"gui.log", "gui", false},
+      {"beam.log", "beam", false}
+  };
+  logConfig.emitQtSignals = enableDebugPane;
+  logConfig.consoleEnabled = true;
+  logConfig.consoleColors = devMode;
+  logConfig.reuseRecentSession = false;
+  
+  QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+  logConfig.baseLogDir = QDir(dataPath).absoluteFilePath("Tau5/logs");
+  
+  Tau5Logger::initialize(logConfig);
+
   quint16 port = Config::DEFAULT_PORT;
-  Logger::log(Logger::Info, "Starting Tau5...");
+  
+  Tau5Logger::instance().info("Starting Tau5...");
 
   if (argc > 1 && std::strcmp(argv[1], "check") == 0)
   {
@@ -314,11 +332,11 @@ int main(int argc, char *argv[])
   }
   else if (argc > 1 && std::strcmp(argv[1], "dev") == 0)
   {
-    Logger::log(Logger::Info, "Development mode enabled.");
+    Tau5Logger::instance().info("Development mode enabled.");
   }
   else
   {
-    Logger::log(Logger::Info, "Production mode enabled.");
+    Tau5Logger::instance().info("Production mode enabled.");
     port = getFreePort();
 
     if (port == 0)
@@ -343,7 +361,7 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  Logger::log(Logger::Info, QString("Using port: %1").arg(port));
+  Tau5Logger::instance().info(QString("Using port: %1").arg(port));
 
   QString appDirPath = QCoreApplication::applicationDirPath();
   QDir dir(appDirPath);
@@ -357,7 +375,7 @@ int main(int argc, char *argv[])
 #endif
 
   QString basePath = dir.absolutePath();
-  Logger::log(Logger::Info, QString("Base path: %1").arg(basePath));
+  Tau5Logger::instance().info(QString("Base path: %1").arg(basePath));
 
   if (!QDir(basePath).exists())
   {
@@ -370,26 +388,44 @@ int main(int argc, char *argv[])
 
   MainWindow mainWindow(devMode, enableDebugPane, enableMcp, enableRepl);
   
-  QObject::connect(&Logger::instance(), &Logger::logMessage,
-                   &mainWindow, &MainWindow::handleGuiLog);
+  if (enableDebugPane) {
+    QObject::connect(&Tau5Logger::instance(), &Tau5Logger::logMessage,
+                     &mainWindow, [&mainWindow](LogLevel level, const QString& category, 
+                                               const QString& message, const QJsonObject&) {
+      bool isError = (level >= LogLevel::Warning);
+      QString levelStr;
+      switch(level) {
+        case LogLevel::Debug: levelStr = "[DEBUG]"; break;
+        case LogLevel::Info: levelStr = "[INFO]"; break;
+        case LogLevel::Warning: levelStr = "[WARN]"; break;
+        case LogLevel::Error: levelStr = "[ERROR]"; break;
+        case LogLevel::Critical: levelStr = "[CRITICAL]"; break;
+      }
+      QString formattedMessage = QString("%1 %2").arg(levelStr).arg(message);
+      
+      if (category == "gui" || category.isEmpty()) {
+        mainWindow.handleGuiLog(formattedMessage, isError);
+      }
+    });
+  }
   
   mainWindow.setBeamInstance(beam.get());
   
-  Logger::log(Logger::Info, getTau5Logo());
+  Tau5Logger::instance().info(getTau5Logo());
   
-  Logger::log(Logger::Info, "GUI Logger connected successfully");
+  Tau5Logger::instance().info("GUI Logger connected successfully");
 #ifdef BUILD_WITH_DEBUG_PANE
   if (!enableDebugPane) {
-    Logger::log(Logger::Info, "Debug pane disabled via command line");
+    Tau5Logger::instance().info("Debug pane disabled via command line");
   }
 #else
-  Logger::log(Logger::Info, "Debug pane not included in build");
+  Tau5Logger::instance().info("Debug pane not included in build");
 #endif
-  Logger::log(Logger::Info, "Waiting for OTP supervision tree to start...");
-  Logger::log(Logger::Debug, "Debug messages are enabled");
+  Tau5Logger::instance().info("Waiting for OTP supervision tree to start...");
+  Tau5Logger::instance().debug("Debug messages are enabled");
 
   QObject::connect(beam.get(), &Beam::otpReady, [&mainWindow, port]() {
-    Logger::log(Logger::Info, "OTP supervision tree ready, connecting to server...");
+    Tau5Logger::instance().info("OTP supervision tree ready, connecting to server...");
     if (!mainWindow.connectToServer(port))
     {
       QMessageBox::critical(nullptr, "Error", "Failed to connect to server");

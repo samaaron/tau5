@@ -1,5 +1,4 @@
 #include "mcpserver_stdio.h"
-#include "../logger.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>

@@ -15,8 +15,8 @@ add_executable(tau5-gui-dev-mcp
     mcpserver_stdio.cpp
     cdpclient.h
     cdpclient.cpp
-    ../logger.h
-    ../logger.cpp
+    ../tau5logger.h
+    ../tau5logger.cpp
 )
 
 target_include_directories(tau5-gui-dev-mcp PRIVATE

@@ -1,6 +1,6 @@
 #include "mainphxwidget.h"
 #include "shaderpage.h"
-#include "../logger.h"
+#include "../tau5logger.h"
 #include <QTimer>
 #include <QVariant>
 
@@ -11,7 +11,7 @@ MainPhxWidget::MainPhxWidget(bool devMode, QWidget *parent)
 
 void MainPhxWidget::loadShaderPage()
 {
-  Logger::log(Logger::Info, "[PHX] Loading shader page");
+  Tau5Logger::instance().info( "[PHX] Loading shader page");
   
   getWebView()->setHtml(ShaderPage::getHtml(), QUrl("qrc:/"));
   getWebView()->show();
@@ -27,9 +27,9 @@ void MainPhxWidget::loadShaderPage()
       )", [this](const QVariant &result) {
         QString status = result.toString();
         if (status == "failed") {
-          Logger::log(Logger::Warning, "[PHX] WebGL not supported, using fallback");
+          Tau5Logger::instance().warning( "[PHX] WebGL not supported, using fallback");
         } else {
-          Logger::log(Logger::Info, "[PHX] Shader page loaded with WebGL");
+          Tau5Logger::instance().info( "[PHX] Shader page loaded with WebGL");
         }
         emit pageLoaded();
       });
@@ -39,7 +39,7 @@ void MainPhxWidget::loadShaderPage()
 
 void MainPhxWidget::fadeShader(int durationMs)
 {
-  Logger::log(Logger::Info, QString("[PHX] Fading shader over %1ms").arg(durationMs));
+  Tau5Logger::instance().info( QString("[PHX] Fading shader over %1ms").arg(durationMs));
   
   QString fadeScript = QString(R"(
     (function() {
@@ -73,7 +73,7 @@ void MainPhxWidget::fadeShader(int durationMs)
 
 void MainPhxWidget::transitionToApp(const QUrl &url)
 {
-  Logger::log(Logger::Info, QString("[PHX] Transitioning to app at: %1").arg(url.toString()));
+  Tau5Logger::instance().info( QString("[PHX] Transitioning to app at: %1").arg(url.toString()));
   
   // Just load the new page directly - the overlay covers the transition
   connectToTauPhx(url);

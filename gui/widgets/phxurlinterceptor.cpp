@@ -3,6 +3,7 @@
 #include <QDesktopServices>
 #include <QDebug>
 #include "phxurlinterceptor.h"
+#include "../tau5logger.h"
 
 void PhxUrlInterceptor::interceptRequest(QWebEngineUrlRequestInfo &info)
 {
@@ -25,16 +26,19 @@ void PhxUrlInterceptor::interceptRequest(QWebEngineUrlRequestInfo &info)
   // This needs to be after the localhost check since DevTools might use different IPs
   if (m_devMode && (scheme == "ws" || scheme == "wss") && port == 9223)
   {
-    qDebug() << "Allowing DevTools WebSocket connection:" << info.requestUrl().toString();
+    Tau5Logger::instance().debug(QString("Allowing DevTools WebSocket connection: %1").arg(info.requestUrl().toString()));
     return;
   }
   
   // In dev mode, log what's being blocked to help debug
   if (m_devMode)
   {
-    qDebug() << "DevMode - Checking request:" << info.requestUrl().toString() 
-             << "Scheme:" << scheme << "Host:" << host << "Port:" << port
-             << "Type:" << info.resourceType();
+    Tau5Logger::instance().debug(QString("DevMode - Checking request: %1 Scheme: %2 Host: %3 Port: %4 Type: %5")
+                                  .arg(info.requestUrl().toString())
+                                  .arg(scheme)
+                                  .arg(host)
+                                  .arg(port)
+                                  .arg(info.resourceType()));
   }
   
   // For navigation requests, open in external browser
@@ -43,7 +47,7 @@ void PhxUrlInterceptor::interceptRequest(QWebEngineUrlRequestInfo &info)
   {
     if (scheme == "http" || scheme == "https")
     {
-      qDebug() << "Opening external URL in browser:" << info.requestUrl().toString();
+      Tau5Logger::instance().debug(QString("Opening external URL in browser: %1").arg(info.requestUrl().toString()));
       QDesktopServices::openUrl(info.requestUrl());
       info.block(true);
       return;
@@ -51,7 +55,8 @@ void PhxUrlInterceptor::interceptRequest(QWebEngineUrlRequestInfo &info)
   }
   
   // Block ALL external requests (images, scripts, stylesheets, etc.)
-  qDebug() << "Blocking external request:" << info.requestUrl().toString() 
-           << "Type:" << info.resourceType();
+  Tau5Logger::instance().debug(QString("Blocking external request: %1 Type: %2")
+                                .arg(info.requestUrl().toString())
+                                .arg(info.resourceType()));
   info.block(true);
 }

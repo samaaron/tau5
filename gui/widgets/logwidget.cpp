@@ -1,6 +1,6 @@
 #include "logwidget.h"
 #include "../styles/StyleManager.h"
-#include "../logger.h"
+#include "../tau5logger.h"
 #include <QDebug>
 #include <QTextEdit>
 #include <QVBoxLayout>
@@ -301,7 +301,7 @@ void LogWidget::setAutoScroll(bool enabled)
 
 void LogWidget::setFontSize(int size)
 {
-  qDebug() << "LogWidget::setFontSize() called with size:" << size;
+  Tau5Logger::instance().debug(QString("LogWidget::setFontSize() called with size: %1").arg(size));
   m_fontSize = size;
   applyFontSize();
 }
@@ -333,7 +333,7 @@ void LogWidget::applyFontSize()
   
   m_textEdit->setStyleSheet(currentStyle);
   
-  qDebug() << "LogWidget::applyFontSize() applied size:" << m_fontSize << "to stylesheet";
+  Tau5Logger::instance().debug(QString("LogWidget::applyFontSize() applied size: %1 to stylesheet").arg(m_fontSize));
 }
 
 void LogWidget::enforceMaxLines()
@@ -354,13 +354,13 @@ void LogWidget::enforceMaxLines()
 
 void LogWidget::zoomIn()
 {
-  qDebug() << "LogWidget::zoomIn() called, current fontSize:" << m_fontSize;
+  Tau5Logger::instance().debug(QString("LogWidget::zoomIn() called, current fontSize: %1").arg(m_fontSize));
   setFontSize(m_fontSize + 1);
 }
 
 void LogWidget::zoomOut()
 {
-  qDebug() << "LogWidget::zoomOut() called, current fontSize:" << m_fontSize;
+  Tau5Logger::instance().debug(QString("LogWidget::zoomOut() called, current fontSize: %1").arg(m_fontSize));
   if (m_fontSize > 8) {
     setFontSize(m_fontSize - 1);
   }
@@ -538,10 +538,10 @@ void LogWidget::startFileMonitoring(int intervalMs)
     if (logFile.exists() && logFile.open(QIODevice::ReadOnly)) {
       m_lastFilePosition = logFile.size();
       logFile.close();
-      qDebug() << "MCP log monitoring starting from position:" << m_lastFilePosition;
+      Tau5Logger::instance().debug(QString("MCP log monitoring starting from position: %1").arg(m_lastFilePosition));
     } else {
       m_lastFilePosition = 0;
-      qDebug() << "MCP log doesn't exist yet, will start from beginning";
+      Tau5Logger::instance().debug("MCP log doesn't exist yet, will start from beginning");
     }
   }
   

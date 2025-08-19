@@ -5,7 +5,7 @@
 #include <QRadialGradient>
 #include <QScrollBar>
 #include <QVBoxLayout>
-#include "../logger.h"
+#include "../tau5logger.h"
 #include "../styles/StyleManager.h"
 
 ConsoleOverlay::ConsoleOverlay(QWidget *parent)

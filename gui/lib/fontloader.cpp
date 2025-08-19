@@ -1,12 +1,13 @@
 #include "fontloader.h"
 #include <QFile>
 #include <QDebug>
+#include "../tau5logger.h"
 
 QString FontLoader::loadFontAsDataUri(const QString &resourcePath)
 {
     QByteArray fontData = loadResourceFile(resourcePath);
     if (fontData.isEmpty()) {
-        qWarning() << "Failed to load font from:" << resourcePath;
+        Tau5Logger::instance().warning(QString("Failed to load font from: %1").arg(resourcePath));
         return QString();
     }
     
@@ -50,11 +51,11 @@ QString FontLoader::getCascadiaCodeCss()
     QString fontFace = generateFontFaceCss("Cascadia Code PL", ":/fonts/CascadiaCodePL.ttf", "truetype");
     
     if (fontFace.isEmpty()) {
-        qWarning() << "Failed to generate Cascadia Code font-face CSS";
+        Tau5Logger::instance().warning("Failed to generate Cascadia Code font-face CSS");
         return QString();
     }
     
-    qDebug() << "Successfully generated Cascadia Code CSS with" << fontFace.length() << "characters";
+    Tau5Logger::instance().debug(QString("Successfully generated Cascadia Code CSS with %1 characters").arg(fontFace.length()));
     
     // Add CSS rules that use the font
     QString css = fontFace + R"CSS(
@@ -108,12 +109,12 @@ QByteArray FontLoader::loadResourceFile(const QString &resourcePath)
 {
     QFile file(resourcePath);
     if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "Could not open resource file:" << resourcePath;
+        Tau5Logger::instance().warning(QString("Could not open resource file: %1").arg(resourcePath));
         return QByteArray();
     }
     
     QByteArray data = file.readAll();
-    qDebug() << "Loaded" << data.size() << "bytes from" << resourcePath;
+    Tau5Logger::instance().debug(QString("Loaded %1 bytes from %2").arg(data.size()).arg(resourcePath));
     return data;
 }
 

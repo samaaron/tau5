@@ -60,8 +60,8 @@ set(SOURCES
   ${QTAPP_ROOT}/main.cpp
   ${QTAPP_ROOT}/mainwindow.cpp
   ${QTAPP_ROOT}/mainwindow.h
-  ${QTAPP_ROOT}/logger.h
-  ${QTAPP_ROOT}/logger.cpp
+  ${QTAPP_ROOT}/tau5logger.h
+  ${QTAPP_ROOT}/tau5logger.cpp
   ${QTAPP_ROOT}/widgets/phxwebview.h
   ${QTAPP_ROOT}/widgets/phxwebview.cpp
   ${QTAPP_ROOT}/widgets/phxwidget.h
@@ -106,8 +106,6 @@ if(BUILD_DEBUG_PANE)
     ${QTAPP_ROOT}/widgets/debugpane.cpp
     ${QTAPP_ROOT}/widgets/logwidget.h
     ${QTAPP_ROOT}/widgets/logwidget.cpp
-    ${QTAPP_ROOT}/widgets/logfilemanager.h
-    ${QTAPP_ROOT}/widgets/logfilemanager.cpp
     ${DEBUGPANE_SOURCES}
   )
 endif()

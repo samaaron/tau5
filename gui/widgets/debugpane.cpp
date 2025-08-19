@@ -3,7 +3,6 @@
 // Licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
 #include "debugpane.h"
 #include "logwidget.h"
-#include "logfilemanager.h"
 #include "debugpane/customsplitter.h"
 #include "debugpane/buttonutilities.h"
 #include "debugpane/themestyles.h"
@@ -14,7 +13,7 @@
 #include <QFontDatabase>
 #include "phxwebview.h"
 #include "sandboxedwebview.h"
-#include "../logger.h"
+#include "../tau5logger.h"
 #include "../lib/fontloader.h"
 #include <QDir>
 #include <QStandardPaths>
@@ -139,14 +138,14 @@ DebugPane::DebugPane(QWidget *parent, bool enableMcp, bool enableRepl)
       m_dragHandleWidget(nullptr), m_dragHandleAnimationTimer(nullptr), m_animationBar(nullptr),
       m_restartLabel(nullptr), m_restartButton(nullptr), m_resetButton(nullptr), m_closeButton(nullptr),
       m_newBeamLogWidget(nullptr), m_newGuiLogWidget(nullptr), m_newTau5MCPWidget(nullptr),
-      m_newGuiMCPWidget(nullptr), m_guiLogFileManager(nullptr),
+      m_newGuiMCPWidget(nullptr),
       m_mcpEnabled(enableMcp), m_replEnabled(enableRepl)
 {
   static bool codiconLoaded = false;
   if (!codiconLoaded) {
     int fontId = QFontDatabase::addApplicationFont(":/fonts/codicon.ttf");
     if (fontId != -1) {
-      Logger::log(Logger::Debug, "[DebugPane] Loaded codicon font");
+      Tau5Logger::instance().debug( "[DebugPane] Loaded codicon font");
       codiconLoaded = true;
     }
   }
@@ -157,13 +156,6 @@ DebugPane::DebugPane(QWidget *parent, bool enableMcp, bool enableRepl)
   setMouseTracking(true);
   setMinimumHeight(100);
 
-  // Initialize GUI log file manager
-  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-  LogFileManager::Config guiLogConfig;
-  guiLogConfig.filePath = QDir(logsPath).absoluteFilePath("Tau5/logs/gui.log");
-  guiLogConfig.maxSizeBytes = 10 * 1024 * 1024;  // 10MB
-  guiLogConfig.maxBackups = 1;
-  m_guiLogFileManager = new LogFileManager(guiLogConfig);
 
   setupUi();
   hide();
@@ -171,7 +163,6 @@ DebugPane::DebugPane(QWidget *parent, bool enableMcp, bool enableRepl)
 
 DebugPane::~DebugPane()
 {
-  delete m_guiLogFileManager;
   if (m_dragHandleAnimationTimer)
   {
     m_dragHandleAnimationTimer->stop();
@@ -351,9 +342,10 @@ void DebugPane::setupConsole()
   m_newTau5MCPWidget = new LogWidget(LogWidget::MCPLog, this);
   m_newGuiMCPWidget = new LogWidget(LogWidget::MCPLog, this);
 
-  QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-  QString tau5LogFilePath = QDir(logsPath).absoluteFilePath("Tau5/logs/mcp-tau5.log");
+  QString sessionPath = Tau5Logger::instance().currentSessionPath();
+  QString tau5LogFilePath = QDir(sessionPath).absoluteFilePath("mcp-tau5.log");
   m_newTau5MCPWidget->setLogFilePath(tau5LogFilePath);
+  Tau5Logger::instance().debug(QString("DebugPane: Setting Tau5 MCP log path to: %1").arg(tau5LogFilePath));
 
   // Add startup message for Tau5 MCP
   QString tau5MCPStartupMessage =
@@ -364,8 +356,12 @@ void DebugPane::setupConsole()
   m_newTau5MCPWidget->startFileMonitoring(500);
 
   if (enableDevMCP) {
-    QString guiMCPLogFilePath = QDir(logsPath).absoluteFilePath("Tau5/logs/mcp-gui-dev.log");
+    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    QString tau5DataPath = QDir(dataPath).absoluteFilePath("Tau5");
+    QString mcpLogsPath = QDir(tau5DataPath).absoluteFilePath("mcp-logs");
+    QString guiMCPLogFilePath = QDir(mcpLogsPath).absoluteFilePath("mcp-gui-dev-9223.log");
     m_newGuiMCPWidget->setLogFilePath(guiMCPLogFilePath);
+    Tau5Logger::instance().debug(QString("DebugPane: Setting GUI Dev MCP log path to: %1").arg(guiMCPLogFilePath));
 
     // Add startup message for GUI Dev MCP
     QString guiMCPStartupMessage =
@@ -865,13 +861,6 @@ void DebugPane::appendGuiLog(const QString &text, bool isError)
     m_newGuiLogWidget->appendLog(text, isError);
   }
 
-  // Also write to file for MCP server access (with automatic rotation)
-  if (m_guiLogFileManager) {
-    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz");
-    QString level = isError ? "ERROR" : "INFO";
-    QString logLine = QString("%1 [%2] %3").arg(timestamp).arg(level).arg(text);
-    m_guiLogFileManager->writeLine(logLine);
-  }
 }
 
 
@@ -910,7 +899,7 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
   if (enableDevREPL && m_elixirConsoleView && !url.isEmpty())
   {
     QUrl elixirConsoleUrl(url);
-    Logger::log(Logger::Debug, QString("DebugPane::setElixirConsoleUrl - Setting URL: %1").arg(url));
+    Tau5Logger::instance().debug( QString("DebugPane::setElixirConsoleUrl - Setting URL: %1").arg(url));
     m_elixirConsoleView->setFallbackUrl(elixirConsoleUrl);
     m_elixirConsoleView->load(elixirConsoleUrl);
 
@@ -923,11 +912,11 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
   }
   else if (!enableDevREPL)
   {
-    Logger::log(Logger::Info, "DebugPane::setElixirConsoleUrl - Elixir REPL is disabled (TAU5_ENABLE_DEV_REPL not set)");
+    Tau5Logger::instance().info( "DebugPane::setElixirConsoleUrl - Elixir REPL is disabled (TAU5_ENABLE_DEV_REPL not set)");
   }
   else
   {
-    Logger::log(Logger::Warning, "DebugPane::setElixirConsoleUrl - m_elixirConsoleView is null or url is empty");
+    Tau5Logger::instance().warning( "DebugPane::setElixirConsoleUrl - m_elixirConsoleView is null or url is empty");
   }
 }
 
@@ -1349,12 +1338,12 @@ void DebugPane::handleInspectElementRequested()
 
 void DebugPane::resetDevPaneBrowsers()
 {
-  Logger::log(Logger::Debug, "DebugPane::resetDevPaneBrowsers - Resetting dev pane browsers");
+  Tau5Logger::instance().debug( "DebugPane::resetDevPaneBrowsers - Resetting dev pane browsers");
 
   // Reset Live Dashboard
   if (m_liveDashboardView && !m_liveDashboardUrl.isEmpty())
   {
-    Logger::log(Logger::Debug, QString("Resetting Live Dashboard to: %1").arg(m_liveDashboardUrl));
+    Tau5Logger::instance().debug( QString("Resetting Live Dashboard to: %1").arg(m_liveDashboardUrl));
     QUrl dashboardUrl(m_liveDashboardUrl);
     m_liveDashboardView->setUrl(dashboardUrl);
   }
@@ -1363,7 +1352,7 @@ void DebugPane::resetDevPaneBrowsers()
   bool enableDevREPL = isElixirReplEnabled();
   if (enableDevREPL && m_elixirConsoleView && !m_elixirConsoleUrl.isEmpty())
   {
-    Logger::log(Logger::Debug, QString("Resetting Elixir Console to: %1").arg(m_elixirConsoleUrl));
+    Tau5Logger::instance().debug( QString("Resetting Elixir Console to: %1").arg(m_elixirConsoleUrl));
     QUrl consoleUrl(m_elixirConsoleUrl);
     m_elixirConsoleView->load(consoleUrl);
   }
@@ -1374,7 +1363,7 @@ void DebugPane::resetDevPaneBrowsers()
   // Instead, we need to trigger a reconnection
   if (m_targetWebView && m_devToolsView)
   {
-    Logger::log(Logger::Debug, "Resetting DevTools connection");
+    Tau5Logger::instance().debug( "Resetting DevTools connection");
     QWebEnginePage *targetPage = m_targetWebView->page();
     if (targetPage)
     {
@@ -1393,7 +1382,7 @@ void DebugPane::resetDevPaneBrowsers()
     }
   }
 
-  Logger::log(Logger::Info, "Dev pane browsers have been reset");
+  Tau5Logger::instance().info( "Dev pane browsers have been reset");
 }
 
 
