@@ -29,7 +29,7 @@ cd build
 
 cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=%CONFIG% -DBUILD_DEBUG_PANE=%BUILD_DEBUG_PANE% ..\
 
-cmake --build . --config %CONFIG%
+cmake --build . --config %CONFIG% --target tau5
 
 cd /d %WORKING_DIR%
 

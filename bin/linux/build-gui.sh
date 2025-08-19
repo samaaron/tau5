@@ -43,4 +43,4 @@ else
   cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="$CONFIG" -DBUILD_DEBUG_PANE=${BUILD_DEBUG_PANE} ..
 fi
 
-cmake --build .
+cmake --build . --target tau5
