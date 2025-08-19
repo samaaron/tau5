@@ -29,9 +29,7 @@ namespace Config
       "--disable-background-timer-throttling "
       "--disable-renderer-backgrounding "
       "--disable-backgrounding-occluded-windows "
-      "--disable-frame-rate-limit "
-      "--disable-features=AudioServiceOutOfProcess,CalculateNativeWinOcclusion,IntensiveWakeUpThrottling "
-      "--disable-blink-features=IntensiveWakeUpThrottling "
+      "--disable-features=AudioServiceOutOfProcess "
       "--autoplay-policy=no-user-gesture-required "
       "--ignore-gpu-blocklist "
       "--enable-gpu-rasterization "
@@ -51,23 +49,28 @@ namespace Config
       "--webgl-antialiasing-mode=none "
       "--disable-blink-features=LowLatencyCanvas2dImageChromium"
 #ifdef Q_OS_WIN
+      " --disable-frame-rate-limit"
+      " --disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling"
+      " --disable-blink-features=IntensiveWakeUpThrottling"
       " --use-angle=d3d11"
       " --use-cmd-decoder=passthrough"
       " --disable-features=RendererCodeIntegrity"
 #endif
 #ifdef Q_OS_LINUX
+      " --disable-blink-features=IntensiveWakeUpThrottling"
       " --use-cmd-decoder=passthrough"
       " --enable-gpu-memory-buffer-video-frames"
       " --max-active-webgl-contexts=16"
+#endif
+#ifdef Q_OS_MACOS
+      " --disable-blink-features=IntensiveWakeUpThrottling"
 #endif
       ;
   constexpr const char *CHROMIUM_FLAGS_DEV =
       "--disable-background-timer-throttling "
       "--disable-renderer-backgrounding "
       "--disable-backgrounding-occluded-windows "
-      "--disable-frame-rate-limit "
-      "--disable-features=AudioServiceOutOfProcess,CalculateNativeWinOcclusion,IntensiveWakeUpThrottling "
-      "--disable-blink-features=IntensiveWakeUpThrottling "
+      "--disable-features=AudioServiceOutOfProcess "
       "--autoplay-policy=no-user-gesture-required "
       "--ignore-gpu-blocklist "
       "--enable-gpu-rasterization "
@@ -88,14 +91,21 @@ namespace Config
       "--disable-blink-features=LowLatencyCanvas2dImageChromium "
       "--remote-debugging-port=9223"
 #ifdef Q_OS_WIN
+      " --disable-frame-rate-limit"
+      " --disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling"
+      " --disable-blink-features=IntensiveWakeUpThrottling"
       " --use-angle=d3d11"
       " --use-cmd-decoder=passthrough"
       " --disable-features=RendererCodeIntegrity"
 #endif
 #ifdef Q_OS_LINUX
+      " --disable-blink-features=IntensiveWakeUpThrottling"
       " --use-cmd-decoder=passthrough"
       " --enable-gpu-memory-buffer-video-frames"
       " --max-active-webgl-contexts=16"
+#endif
+#ifdef Q_OS_MACOS
+      " --disable-blink-features=IntensiveWakeUpThrottling"
 #endif
       ;
 }
