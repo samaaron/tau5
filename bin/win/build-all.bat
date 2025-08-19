@@ -21,9 +21,9 @@ if %errorlevel% neq 0 (
 )
 
 :: Call build-mcp.bat
-call build-mcp.bat
+call build-dev-mcp.bat
 if %errorlevel% neq 0 (
-    echo build-mcp.bat failed with exit code %errorlevel%
+    echo build-dev-mcp.bat failed with exit code %errorlevel%
     cd %BUILD_WORKING_DIR%
     exit /b %errorlevel%
 )
