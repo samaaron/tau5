@@ -354,6 +354,11 @@ int main(int argc, char *argv[])
     Tau5Logger::instance().info("Running Tau5 production mode check");
     Tau5Logger::instance().info("===============================================");
 
+    // Use offscreen platform for headless environments (CI)
+    if (!qEnvironmentVariableIsSet("DISPLAY")) {
+      qputenv("QT_QPA_PLATFORM", "offscreen");
+    }
+    
     QApplication tempApp(argc, argv);
     QString basePath = getServerBasePath();
 
