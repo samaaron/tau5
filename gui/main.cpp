@@ -15,6 +15,7 @@
 #include <QSurfaceFormat>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QThread>
 #include "mainwindow.h"
 #include "lib/beam.h"
 #include "tau5logger.h"
@@ -154,6 +155,20 @@ quint16 getFreePort()
     Tau5Logger::instance().error("Failed to find a free port.");
     return 0;
   }
+}
+
+QString getServerBasePath()
+{
+  QString appDirPath = QCoreApplication::applicationDirPath();
+  QDir dir(appDirPath);
+#if defined(Q_OS_WIN)
+  dir.cd("../../../server");
+#elif defined(Q_OS_MACOS)
+  dir.cd("../../../../../server");
+#else
+  dir.cd("../../server");
+#endif
+  return dir.absolutePath();
 }
 
 bool setupConsoleOutput()
@@ -298,7 +313,7 @@ int main(int argc, char *argv[])
       std::cout << "Usage: tau5 [options]\n"
                 << "Options:\n"
                 << "  dev              Run in development mode\n"
-                << "  check            Check if application can start\n"
+                << "  check            Verify production release and BEAM startup\n"
                 << "  --no-debug-pane  Disable debug pane\n"
                 << "  --enable-mcp     Enable MCP development servers\n"
                 << "  --enable-repl    Enable Elixir REPL console\n"
@@ -335,11 +350,52 @@ int main(int argc, char *argv[])
 
   if (argc > 1 && std::strcmp(argv[1], "check") == 0)
   {
-#if defined(Q_OS_WIN)
-    ExitProcess(EXIT_SUCCESS);
-#else
-    exit(EXIT_SUCCESS);
-#endif
+    Tau5Logger::instance().info("===============================================");
+    Tau5Logger::instance().info("Running Tau5 production mode check");
+    Tau5Logger::instance().info("===============================================");
+
+    QApplication tempApp(argc, argv);
+    QString basePath = getServerBasePath();
+
+    QString releaseDir = QString("%1/_build/prod/rel/%2").arg(basePath).arg(Config::APP_NAME);
+    Tau5Logger::instance().info(QString("Checking for production release at: %1").arg(releaseDir));
+
+    if (!QDir(releaseDir).exists()) {
+      Tau5Logger::instance().error(QString("Production release not found at: %1").arg(releaseDir));
+      Tau5Logger::instance().error(QString("Expected app name: %1").arg(Config::APP_NAME));
+      Tau5Logger::instance().error("CHECK FAILED: Missing production release");
+      return 1;
+    }
+
+    Tau5Logger::instance().info("Production release found, starting BEAM server...");
+
+    // Scope ensures Beam destructor is called before returning
+    {
+      Beam beam(&tempApp, basePath, Config::APP_NAME, Config::APP_VERSION,
+                getFreePort(), false, false, false);
+
+      Tau5Logger::instance().info("Waiting for BEAM server to start (timeout: 10 seconds)...");
+      int waitCount = 0;
+      while (beam.getSessionToken().isEmpty() && waitCount < 100) {
+        QThread::msleep(100);
+        QCoreApplication::processEvents();
+        waitCount++;
+      }
+
+      if (!beam.getSessionToken().isEmpty()) {
+        Tau5Logger::instance().info("BEAM server started successfully");
+        Tau5Logger::instance().info(QString("Session token: %1").arg(beam.getSessionToken()));
+        Tau5Logger::instance().info("Shutting down BEAM server...");
+        Tau5Logger::instance().info("===============================================");
+        Tau5Logger::instance().info("CHECK PASSED: Production mode is operational");
+        Tau5Logger::instance().info("===============================================");
+        return 0;
+      } else {
+        Tau5Logger::instance().error("Failed to start BEAM server within timeout");
+        Tau5Logger::instance().error("CHECK FAILED: Production mode startup failed");
+        return 1;
+      }
+    }
   }
   else if (argc > 1 && std::strcmp(argv[1], "dev") == 0)
   {
@@ -374,18 +430,7 @@ int main(int argc, char *argv[])
 
   Tau5Logger::instance().info(QString("Using port: %1").arg(port));
 
-  QString appDirPath = QCoreApplication::applicationDirPath();
-  QDir dir(appDirPath);
-
-#if defined(Q_OS_WIN)
-  dir.cd("../../../server");
-#elif defined(Q_OS_MACOS)
-  dir.cd("../../../../../server");
-#else
-  dir.cd("../../server");
-#endif
-
-  QString basePath = dir.absolutePath();
+  QString basePath = getServerBasePath();
   Tau5Logger::instance().info(QString("Base path: %1").arg(basePath));
 
   if (!QDir(basePath).exists())
