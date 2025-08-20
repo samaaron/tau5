@@ -351,7 +351,7 @@ void MainWindow::onAppPageReady()
 #ifdef BUILD_WITH_DEBUG_PANE
 void MainWindow::initializeDebugPane()
 {
-  debugPane = std::make_unique<DebugPane>(this, m_enableMcp, m_enableRepl);
+  debugPane = std::make_unique<DebugPane>(this, m_devMode, m_enableMcp, m_enableRepl);
 
   int defaultHeight = height() / 2;
   debugPane->resize(width(), defaultHeight);

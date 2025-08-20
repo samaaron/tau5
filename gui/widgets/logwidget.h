@@ -1,7 +1,7 @@
 #ifndef LOGWIDGET_H
 #define LOGWIDGET_H
 
-#include <QWidget>
+#include "debugwidget.h"
 #include <QString>
 #include <QTextCharFormat>
 #include <QMap>
@@ -16,7 +16,7 @@ class QShortcut;
 class QTimer;
 QT_END_NAMESPACE
 
-class LogWidget : public QWidget
+class LogWidget : public DebugWidget
 {
   Q_OBJECT
 
@@ -30,15 +30,10 @@ public:
   explicit LogWidget(LogType type, QWidget *parent = nullptr);
   ~LogWidget();
 
-  // Log operations
   void appendLog(const QString &text, bool isError = false);
   void appendLogWithTimestamp(const QString &timestamp, const QString &text, bool isError = false);
   void clear();
-  
-  // For MCP logs that need custom formatting
   void appendFormattedText(const std::function<void(QTextCursor&)> &formatter);
-  
-  // Settings
   void setAutoScroll(bool enabled);
   bool autoScroll() const { return m_autoScroll; }
   
@@ -47,13 +42,9 @@ public:
   
   void setFontSize(int size);
   int fontSize() const { return m_fontSize; }
-  
-  // File operations for MCP logs
   void setLogFilePath(const QString &path);
   void startFileMonitoring(int intervalMs = 500);
   void stopFileMonitoring();
-  
-  // Access to text edit for external operations if needed
   QTextEdit* textEdit() { return m_textEdit; }
 
 public slots:
@@ -70,8 +61,15 @@ private slots:
   void updateFromFile();
   void handleAutoScrollToggled(bool checked);
   
+protected:
+  void setupToolbar() override;
+  void setupContent() override;
+  
+public:
+  void onActivated() override;
+  void onDeactivated() override;
+  
 private:
-  void setupUI();
   void setupShortcuts();
   void applyFontSize();
   void highlightAllMatches(const QString &searchText, const QTextCursor &currentMatch);
@@ -79,10 +77,8 @@ private:
   
 private:
   LogType m_type;
-  QVBoxLayout *m_layout;
   QTextEdit *m_textEdit;
   
-  // Search functionality
   QWidget *m_searchWidget;
   QLineEdit *m_searchInput;
   QPushButton *m_searchCloseButton;
@@ -90,13 +86,9 @@ private:
   QShortcut *m_searchShortcut;
   QShortcut *m_findNextShortcut;
   QShortcut *m_findPrevShortcut;
-  
-  // Settings
   bool m_autoScroll;
   int m_maxLines;
   int m_fontSize;
-  
-  // File monitoring for MCP logs
   QString m_logFilePath;
   QTimer *m_fileMonitorTimer;
   qint64 m_lastFilePosition;

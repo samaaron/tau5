@@ -36,7 +36,7 @@ public:
     SideBySide
   };
 
-  explicit DebugPane(QWidget *parent = nullptr, bool enableMcp = false, bool enableRepl = false);
+  explicit DebugPane(QWidget *parent = nullptr, bool devMode = false, bool enableMcp = false, bool enableRepl = false);
   ~DebugPane();
 
   void appendOutput(const QString &text, bool isError = false);
@@ -110,6 +110,7 @@ private:
 
   QWidget *m_consoleContainer;
   QStackedWidget *m_consoleStack;
+  QStackedWidget *m_consoleToolbarStack;
   QPushButton *m_beamLogTabButton;
   QPushButton *m_guiLogTabButton;
   QPushButton *m_elixirConsoleTabButton;
@@ -153,24 +154,19 @@ private:
   QWidget *m_animationBar;
   QLabel *m_restartLabel;
 
-  // NEW: LogWidget instances for cleaner implementation
   LogWidget *m_newBeamLogWidget;
   LogWidget *m_newGuiLogWidget;
   LogWidget *m_newTau5MCPWidget;
   LogWidget *m_newGuiMCPWidget;
-
-  // Store original URLs for reset functionality
   QString m_liveDashboardUrl;
   QString m_elixirConsoleUrl;
-  
-  
-  // Feature flags
+  bool m_devMode;
   bool m_mcpEnabled;
   bool m_replEnabled;
 
 public:
-  static constexpr int RESIZE_HANDLE_HEIGHT = 10;       // Interaction area
-  static constexpr int RESIZE_HANDLE_VISUAL_HEIGHT = 4; // Visual line height
+  static constexpr int RESIZE_HANDLE_HEIGHT = 10;
+  static constexpr int RESIZE_HANDLE_VISUAL_HEIGHT = 4;
 };
 
 #endif // DEBUGPANE_H

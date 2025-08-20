@@ -26,7 +26,7 @@
 #include <QRegularExpression>
 
 LogWidget::LogWidget(LogType type, QWidget *parent)
-    : QWidget(parent)
+    : DebugWidget(parent)
     , m_type(type)
     , m_autoScroll(true)
     , m_maxLines(5000)
@@ -46,103 +46,39 @@ LogWidget::~LogWidget()
   }
 }
 
-void LogWidget::setupUI()
+void LogWidget::setupToolbar()
 {
-  m_layout = new QVBoxLayout(this);
-  m_layout->setContentsMargins(0, 0, 0, 0);
-  m_layout->setSpacing(0);
-  
-  // Create toolbar
-  QWidget *toolbar = new QWidget(this);
-  toolbar->setStyleSheet(QString(
-      "QWidget {"
-      "  background-color: %1;"
-      "  border-bottom: 1px solid %2;"
-      "}")
-      .arg(StyleManager::Colors::DARK_BACKGROUND)
-      .arg(StyleManager::Colors::primaryOrangeAlpha(100)));
-  toolbar->setMaximumHeight(28);
-  
-  QHBoxLayout *toolbarLayout = new QHBoxLayout(toolbar);
-  toolbarLayout->setContentsMargins(5, 2, 5, 2);
-  toolbarLayout->setSpacing(5);
-  
-  // Load codicon font for buttons
-  QFontDatabase::addApplicationFont(":/fonts/codicon.ttf");
-  
-  // Create toolbar buttons
-  auto createToolButton = [toolbar](const QString &text, const QString &tooltip, bool checkable = false) {
-    QPushButton *button = new QPushButton(text, toolbar);
-    button->setToolTip(tooltip);
-    button->setCheckable(checkable);
-    button->setFixedSize(20, 20);
-    
-    QString fontFamily = (text == "+" || text == "-") ? "Segoe UI, Arial" : "codicon";
-    QString fontSize = (text == "+" || text == "-") ? "16px" : "14px";
-    
-    button->setStyleSheet(QString(
-        "QPushButton {"
-        "  font-family: '%1';"
-        "  font-size: %2;"
-        "  font-weight: bold;"
-        "  color: %3;"
-        "  background: transparent;"
-        "  border: none;"
-        "  padding: 2px;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: %4;"
-        "  border-radius: 3px;"
-        "}"
-        "QPushButton:checked {"
-        "  color: %5;"
-        "  background-color: %4;"
-        "  border-radius: 3px;"
-        "}")
-        .arg(fontFamily)
-        .arg(fontSize)
-        .arg(StyleManager::Colors::TIMESTAMP_GRAY)
-        .arg(StyleManager::Colors::blackAlpha(50))
-        .arg(StyleManager::Colors::PRIMARY_ORANGE));
-    return button;
-  };
-  
-  // Search button (Ctrl+S)
+  DebugWidget::setupToolbar();
   QPushButton *searchButton = createToolButton(QChar(0xEA6D), "Search (Ctrl+S)", true);
   connect(searchButton, &QPushButton::clicked, this, &LogWidget::toggleSearch);
-  toolbarLayout->addWidget(searchButton);
-  
-  // Auto-scroll button
+  m_toolbarLayout->addWidget(searchButton);
   QPushButton *autoScrollButton = createToolButton(QChar(0xEA9A), "Auto-scroll", true);
   autoScrollButton->setChecked(m_autoScroll);
   connect(autoScrollButton, &QPushButton::toggled, this, &LogWidget::handleAutoScrollToggled);
-  toolbarLayout->addWidget(autoScrollButton);
+  m_toolbarLayout->addWidget(autoScrollButton);
   
-  toolbarLayout->addStretch();
-  
-  // Zoom buttons
+  m_toolbarLayout->addStretch();
   QPushButton *zoomOutButton = createToolButton("-", "Zoom Out");
   connect(zoomOutButton, &QPushButton::clicked, this, &LogWidget::zoomOut);
-  toolbarLayout->addWidget(zoomOutButton);
+  m_toolbarLayout->addWidget(zoomOutButton);
   
   QPushButton *zoomInButton = createToolButton("+", "Zoom In");
   connect(zoomInButton, &QPushButton::clicked, this, &LogWidget::zoomIn);
-  toolbarLayout->addWidget(zoomInButton);
-  
-  m_layout->addWidget(toolbar);
-  
-  // Create text browser (QTextBrowser supports clickable links)
-  m_textEdit = new QTextEdit(this);
+  m_toolbarLayout->addWidget(zoomInButton);
+}
+
+void LogWidget::setupContent()
+{
+  DebugWidget::setupContent();
+  m_textEdit = new QTextEdit(m_contentWidget);
   m_textEdit->setReadOnly(true);
   m_textEdit->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_textEdit->setStyleSheet(StyleManager::consoleOutput());
   
   applyFontSize();
   
-  m_layout->addWidget(m_textEdit);
-  
-  // Create search widget (hidden by default)
-  m_searchWidget = new QWidget(this);
+  m_contentLayout->addWidget(m_textEdit);
+  m_searchWidget = new QWidget(m_contentWidget);
   m_searchWidget->setStyleSheet(QString(
       "QWidget {"
       "  background-color: %1;"
@@ -196,38 +132,40 @@ void LogWidget::setupUI()
   connect(m_searchCloseButton, &QPushButton::clicked, this, &LogWidget::closeSearch);
   searchLayout->addWidget(m_searchCloseButton);
   
-  m_layout->addWidget(m_searchWidget);
+  m_contentLayout->addWidget(m_searchWidget);
+}
+
+void LogWidget::onActivated()
+{
+  if (!m_logFilePath.isEmpty() && m_fileMonitorTimer && !m_fileMonitorTimer->isActive()) {
+    m_fileMonitorTimer->start();
+  }
+}
+
+void LogWidget::onDeactivated()
+{
+  if (m_fileMonitorTimer && m_fileMonitorTimer->isActive()) {
+    m_fileMonitorTimer->stop();
+  }
 }
 
 void LogWidget::setupShortcuts()
 {
-  // Search shortcuts matching original DebugPane behavior
-  // Ctrl+S for search/find next (toggle search if hidden, find next if visible)
   m_searchShortcut = new QShortcut(QKeySequence("Ctrl+S"), this);
   m_searchShortcut->setContext(Qt::WidgetWithChildrenShortcut);
   connect(m_searchShortcut, &QShortcut::activated, this, &LogWidget::handleSearchShortcut);
-  
-  // Ctrl+R for find previous
   m_findPrevShortcut = new QShortcut(QKeySequence("Ctrl+R"), this);
   m_findPrevShortcut->setContext(Qt::WidgetWithChildrenShortcut);
   connect(m_findPrevShortcut, &QShortcut::activated, this, &LogWidget::findPrevious);
-  
-  // Note: F3 is typically FindNext, but we're using Ctrl+S for that
   m_findNextShortcut = new QShortcut(QKeySequence(Qt::Key_F3), this);
   m_findNextShortcut->setContext(Qt::WidgetWithChildrenShortcut);
   connect(m_findNextShortcut, &QShortcut::activated, this, &LogWidget::findNext);
-  
-  // Shift+F3 for find previous (additional shortcut)
   QShortcut *shiftF3Shortcut = new QShortcut(QKeySequence("Shift+F3"), this);
   shiftF3Shortcut->setContext(Qt::WidgetWithChildrenShortcut);
   connect(shiftF3Shortcut, &QShortcut::activated, this, &LogWidget::findPrevious);
-  
-  // Ctrl+G to close search
   QShortcut *closeSearchShortcut = new QShortcut(QKeySequence("Ctrl+G"), this);
   closeSearchShortcut->setContext(Qt::WidgetWithChildrenShortcut);
   connect(closeSearchShortcut, &QShortcut::activated, this, &LogWidget::closeSearch);
-  
-  // Escape also closes search when search widget has focus
   QShortcut *escapeShortcut = new QShortcut(QKeySequence(Qt::Key_Escape), m_searchWidget);
   connect(escapeShortcut, &QShortcut::activated, this, &LogWidget::closeSearch);
 }

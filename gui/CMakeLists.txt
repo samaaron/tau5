@@ -104,6 +104,8 @@ if(BUILD_DEBUG_PANE)
   list(APPEND SOURCES
     ${QTAPP_ROOT}/widgets/debugpane.h
     ${QTAPP_ROOT}/widgets/debugpane.cpp
+    ${QTAPP_ROOT}/widgets/debugwidget.h
+    ${QTAPP_ROOT}/widgets/debugwidget.cpp
     ${QTAPP_ROOT}/widgets/logwidget.h
     ${QTAPP_ROOT}/widgets/logwidget.cpp
     ${DEBUGPANE_SOURCES}
