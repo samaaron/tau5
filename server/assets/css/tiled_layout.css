@@ -76,6 +76,7 @@
 .codicon-layout:before { content: '\ebeb'; }
 .codicon-screen-full:before { content: '\eb61'; }
 .codicon-screen-normal:before { content: '\eb62'; }
+.codicon-terminal:before { content: '\ea85'; }
 
 .layout-controls button .codicon {
   font-size: 14px;

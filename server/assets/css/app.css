@@ -2,11 +2,20 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+/* Global theme variables */
+@import "./theme.css";
+
 /* Monaco editor CSS import required for esbuild */
 @import "../vendor/monaco-editor/min/vs/editor/editor.main.css";
 
+/* Codicon font for VS Code icons */
+@import "../vendor/monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon.css";
+
 /* Tiled layout styles */
 @import "./tiled_layout.css";
+
+/* Lua Shell Console styles */
+@import "./lua_shell.css";
 
 @font-face {
   font-family: 'CascadiaCode PL';

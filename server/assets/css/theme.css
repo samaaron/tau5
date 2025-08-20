@@ -1,0 +1,99 @@
+/* Tau5 Global Theme Variables - Based on Qt StyleManager */
+
+:root {
+  /* Primary Brand Colors */
+  --color-accent-primary: #ffd700;        /* Golden yellow - primary accent */
+  --color-accent-secondary: rgb(255, 20, 147);  /* Deep pink - secondary accent */
+  --color-accent-highlight: #1e90ff;      /* Blue - highlight color */
+  
+  /* Background Colors */
+  --color-background-primary: #000000;    /* Black - main background */
+  --color-background-secondary: #1e1e1e;  /* Dark gray - secondary background */
+  --color-background-tertiary: #1a1a1a;   /* Medium dark - tertiary background */
+  --color-background-console: #000000;    /* Console specific background */
+  --color-background-surface: #0a0a0a;    /* Surface/card background */
+  --color-background-surface-light: #333333;  /* Lighter surface background */
+  
+  /* Text Colors */
+  --color-text-primary: #ffffff;          /* White - primary text */
+  --color-text-secondary: #e0e0e0;        /* Light gray - secondary text */
+  --color-text-tertiary: #b0b0b0;         /* Medium gray - tertiary text */
+  --color-text-muted: #888888;            /* Dark gray - muted text */
+  --color-text-timestamp: #888888;        /* Timestamp specific text */
+  
+  /* Status Colors */
+  --color-status-error: #4169e1;          /* Royal blue - errors */
+  --color-status-warning: #ff6600;        /* Orange - warnings */
+  --color-status-success: #00ff00;        /* Bright green - success */
+  --color-status-info: #1e90ff;           /* Dodger blue - info */
+  
+  /* Interactive Elements */
+  --color-button-hover: #ffcc00;          /* Hover state for buttons */
+  --color-button-active: #daa520;         /* Active/pressed state */
+  --color-button-close-hover: #e81123;    /* Red - close button hover */
+  
+  /* Special Purpose */
+  --color-selection-background: rgb(255, 20, 147);  /* Text selection background */
+  --color-selection-text: #000000;        /* Text selection foreground */
+  --color-border-default: #ffd700;        /* Default border color (golden) */
+  
+  /* Light Console Mode - Overrides for light glassmorphic effect */
+  --console-background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.4),   /* More transparent at top */
+    rgba(255, 255, 255, 0.75)   /* Less transparent at bottom */
+  );
+  --console-text-primary: #2a2a4a;        /* Deep blue-gray for light mode */
+  --console-text-secondary: #1a1a3a;      /* Darker blue for light mode */
+  --console-text-success: #2a7a3a;        /* Forest green for light mode */
+  --console-text-error: #c03050;          /* Strong rose for light mode */
+  
+  /* Glass Effects */
+  --glass-blur: 20px;
+  --glass-background: var(--console-background);  /* Use the same gradient */
+  --glass-border: rgba(255, 255, 255, 0.8);
+  --glass-shadow: 0 -10px 30px rgba(0, 0, 0, 0.1);
+  
+  /* Typography */
+  --font-family-monospace: 'CascadiaCode PL', 'Cascadia Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+  --font-family-default: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-family-heading: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  
+  /* Border Radius */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+}
+
+/* Dark Mode Variables (for future use) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark mode overrides can go here */
+  }
+}
+
+/* Utility Classes */
+.glass-effect {
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  background: var(--glass-background);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}

@@ -1,0 +1,311 @@
+/*Lua Console */
+
+.lua-shell-container {
+  position: fixed;
+  top: -35vh;
+  left: 0;
+  right: 0;
+  height: 35vh;
+  z-index: 9999;
+  transition: top 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  font-family: var(--font-family-monospace);
+}
+
+.lua-shell-container.visible {
+  top: 0;
+}
+
+/* Resize Handle */
+.shell-resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: ns-resize;
+  background: linear-gradient(
+    to top,
+    transparent 0%,
+    rgba(100, 120, 180, 0.2) 50%,
+    transparent 100%
+  );
+  z-index: 10;
+}
+
+.shell-resize-handle:hover {
+  background: linear-gradient(
+    to top,
+    transparent 0%,
+    rgba(100, 120, 180, 0.4) 50%,
+    transparent 100%
+  );
+}
+
+.shell-resize-handle:active {
+  background: rgba(100, 120, 180, 0.3);
+}
+
+.lua-shell {
+  position: relative;
+  height: 100%;
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  background: var(--glass-background);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+}
+
+.shell-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.shell-title {
+  color: var(--console-text-primary);
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-bold);
+  font-size: 13px;
+  letter-spacing: 1px;
+  opacity: 1;
+}
+
+
+.shell-close {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(100, 100, 140, 0.3);
+  color: var(--console-text-primary);
+  font-family: var(--font-family-heading);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  transition: all var(--transition-normal);
+  border-radius: var(--radius-sm);
+}
+
+.shell-close:hover {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(200, 200, 220, 0.5);
+}
+
+.shell-output {
+  height: calc(100% - 90px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 12px;
+  padding-bottom: 50px;
+  font-size: 14px;
+  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.35);
+  margin: 5px;
+  border-radius: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 120, 180, 0.3) rgba(255, 255, 255, 0.3);
+}
+
+.shell-output::-webkit-scrollbar {
+  width: 8px;
+}
+
+.shell-output::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.shell-output::-webkit-scrollbar-thumb {
+  background: rgba(100, 120, 180, 0.3);
+  border-radius: 4px;
+}
+
+.shell-output::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 120, 180, 0.5);
+}
+
+.output-line {
+  margin: 2px 0;
+  word-wrap: break-word;
+  animation: fadeIn 0.2s ease-in;
+  position: relative;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.output-line .lua-number {
+  color: var(--color-accent-highlight);  /* Blue from theme */
+  font-weight: var(--font-weight-semibold);
+}
+
+.output-line .lua-string {
+  color: var(--console-text-success);  /* Green from theme */
+}
+
+.output-line .lua-keyword {
+  color: var(--color-accent-primary);  /* Golden yellow from theme */
+  font-weight: var(--font-weight-semibold);
+}
+
+.output-line .lua-boolean {
+  color: var(--color-accent-secondary);  /* Deep pink from theme */
+  font-weight: var(--font-weight-semibold);
+}
+
+.output-line .lua-nil {
+  color: var(--console-text-error);  /* Rose color from theme */
+  font-style: italic;
+}
+
+.output-line.input .prompt {
+  color: var(--console-text-primary);
+  font-weight: var(--font-weight-semibold);
+  font-size: 14px;
+  opacity: 1;
+  user-select: none;  /* Make prompt non-selectable */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  display: inline-block;
+  min-width: 35px;  /* Fixed width to accommodate both "> " and "...> " */
+  text-align: right;
+  margin-right: 5px;
+}
+
+.output-line.input .command {
+  color: var(--console-text-secondary);
+  font-weight: var(--font-weight-medium);
+  opacity: 1;
+  display: inline;  /* Stay inline with prompt */
+}
+
+.output-line.result .output-text {
+  color: var(--console-text-success);
+  font-weight: var(--font-weight-medium);
+  opacity: 1;
+  margin-left: 40px;  /* Same as prompt min-width + margin */
+  display: inline-block;
+}
+
+.output-line.print .output-text {
+  color: var(--color-accent-secondary);  /* Deep pink for messages */
+  opacity: 1;
+  margin-left: 40px;  /* Same as prompt min-width + margin */
+  display: inline-block;
+}
+
+.output-line.error .output-text {
+  color: var(--color-accent-secondary);  /* Deep pink for errors too */
+  font-weight: var(--font-weight-semibold);
+  font-style: italic;
+  opacity: 1;
+  margin-left: 40px;  /* Same as prompt min-width + margin */
+  display: inline-block;
+}
+
+.shell-input-container {
+  position: absolute;
+  bottom: 0;
+  left: 5px;  /* Match output area margin */
+  right: 5px;  /* Match output area margin */
+  display: flex;
+  align-items: center;
+  padding: 10px 12px; /* Same padding as output area */
+}
+
+.shell-input-container .prompt {
+  color: var(--console-text-primary);
+  font-weight: var(--font-weight-semibold);  /* Same as output prompt */
+  font-size: 14px;
+  opacity: 1;
+  display: inline-block;
+  min-width: 35px;  /* Same as output prompts */
+  text-align: right;
+  margin-right: 5px;
+  user-select: none;  /* Make prompt non-selectable */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+}
+
+.shell-input-form {
+  display: flex;
+  align-items: center;
+  width: calc(100% - 45px);  /* Account for prompt width */
+  height: 100%;
+}
+
+.shell-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--console-text-secondary);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: var(--font-weight-medium);
+  opacity: 1;
+  padding: 0;
+  margin: 0;
+  line-height: 1.4;  /* Match output line-height */
+}
+
+
+.shell-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.shell-input::selection {
+  background: rgba(100, 120, 180, 0.2);
+}
+
+.shell-scanlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 153, 0, 0.03) 2px,
+    rgba(255, 153, 0, 0.03) 4px
+  );
+  animation: scanlines 8s linear infinite;
+}
+
+@keyframes scanlines {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(4px);
+  }
+}
+
+/* Remove scanlines for cleaner look with blur */
+.shell-scanlines {
+  display: none;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}

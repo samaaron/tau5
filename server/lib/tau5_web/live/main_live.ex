@@ -12,7 +12,8 @@ defmodule Tau5Web.MainLive do
     {:ok,
      socket
      |> assign(:layout_state, TiledLayout.new())
-     |> assign(:show_controls, true)}
+     |> assign(:show_controls, true)
+     |> assign(:show_lua_console, false)}
   end
 
   @impl true
@@ -49,6 +50,12 @@ defmodule Tau5Web.MainLive do
           <button phx-click="zoom" phx-value-panel={to_string(@layout_state.active)} class={if @layout_state.zoom != nil, do: "active"} title={if @layout_state.zoom != nil, do: "Exit Zoom", else: "Zoom Panel"}>
             <i class={if @layout_state.zoom != nil, do: "codicon codicon-screen-normal", else: "codicon codicon-screen-full"}></i>
           </button>
+          
+          <div class="separator"></div>
+          
+          <button phx-click="toggle_lua_console" class={if @show_lua_console, do: "active"} title="Toggle Lua Console">
+            <i class="codicon codicon-terminal"></i>
+          </button>
         </div>
         
         <div class="layout-info">
@@ -66,6 +73,8 @@ defmodule Tau5Web.MainLive do
         <%= render_tree(assigns, @layout_state.tree, @layout_state) %>
       </div>
     </div>
+    
+    <.live_component module={Tau5Web.LuaShellLive} id="lua-shell" visible={@show_lua_console} />
     """
   end
 
@@ -179,6 +188,11 @@ defmodule Tau5Web.MainLive do
   def handle_event("layout_tiled", _, socket) do
     new_layout = TiledLayout.apply_tiled(socket.assigns.layout_state)
     {:noreply, assign(socket, :layout_state, new_layout)}
+  end
+
+  @impl true
+  def handle_event("toggle_lua_console", _, socket) do
+    {:noreply, assign(socket, :show_lua_console, !socket.assigns.show_lua_console)}
   end
 
   @impl true

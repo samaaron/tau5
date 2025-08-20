@@ -24,6 +24,115 @@ import topbar from "../vendor/topbar";
 import { Tau5Shader } from "./lib/tau5_shader.js";
 
 let Hooks = {
+  LuaShell: {
+    mounted() {
+      this.setupResize();
+      
+      // Focus input when console becomes visible
+      this.handleEvent("focus_input", () => {
+        const input = document.getElementById("lua-shell-input");
+        if (input) {
+          input.focus();
+        }
+      });
+      
+      // Scroll to bottom when new output is added
+      this.handleEvent("scroll_to_bottom", () => {
+        const output = document.getElementById("shell-output");
+        if (output) {
+          output.scrollTop = output.scrollHeight;
+        }
+      });
+      
+      // Handle console toggle
+      this.handleEvent("toggle_console", ({visible}) => {
+        if (visible) {
+          setTimeout(() => {
+            const input = document.getElementById("lua-shell-input");
+            if (input) input.focus();
+          }, 100);
+        }
+      });
+    },
+    
+    setupResize() {
+      const container = this.el;
+      const handle = document.getElementById("shell-resize-handle");
+      if (!handle) return;
+      
+      let isResizing = false;
+      let startY = 0;
+      let startHeight = 0;
+      
+      const startResize = (e) => {
+        isResizing = true;
+        startY = e.clientY;
+        startHeight = container.offsetHeight;
+        
+        // Prevent text selection while dragging
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'ns-resize';
+        
+        // Add overlay to prevent iframe interference
+        const overlay = document.createElement('div');
+        overlay.id = 'resize-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.right = '0';
+        overlay.style.bottom = '0';
+        overlay.style.zIndex = '9998';
+        overlay.style.cursor = 'ns-resize';
+        document.body.appendChild(overlay);
+      };
+      
+      const doResize = (e) => {
+        if (!isResizing) return;
+        
+        const deltaY = e.clientY - startY;
+        const newHeight = Math.min(
+          Math.max(startHeight + deltaY, 150), // Min height 150px
+          window.innerHeight * 0.8 // Max 80% of viewport
+        );
+        
+        container.style.height = newHeight + 'px';
+        
+        // Store the height for persistence (optional)
+        localStorage.setItem('tau5-console-height', newHeight);
+      };
+      
+      const stopResize = () => {
+        if (!isResizing) return;
+        
+        isResizing = false;
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        
+        // Remove overlay
+        const overlay = document.getElementById('resize-overlay');
+        if (overlay) overlay.remove();
+      };
+      
+      // Attach event listeners
+      handle.addEventListener('mousedown', startResize);
+      document.addEventListener('mousemove', doResize);
+      document.addEventListener('mouseup', stopResize);
+      
+      // Load saved height
+      const savedHeight = localStorage.getItem('tau5-console-height');
+      if (savedHeight) {
+        container.style.height = savedHeight + 'px';
+      }
+      
+      // Cleanup on unmount
+      this.destroyed = () => {
+        handle.removeEventListener('mousedown', startResize);
+        document.removeEventListener('mousemove', doResize);
+        document.removeEventListener('mouseup', stopResize);
+      };
+    }
+  },
+  
   Tau5ShaderCanvas: {
     mounted() {
       this.shader = new Tau5Shader(this.el);
