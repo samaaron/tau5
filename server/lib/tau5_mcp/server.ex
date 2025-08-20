@@ -5,8 +5,6 @@ defmodule Tau5MCP.Server do
   alias Tau5.LuaEvaluator
 
   require Logger
-  
-  import Hermes.Server, only: [send_log_message: 3]
 
   @impl true
   def server_info do
@@ -25,7 +23,7 @@ defmodule Tau5MCP.Server do
          code: {:required, :string, description: "Lua code to evaluate"}
        },
        annotations: %{read_only: false},
-       description: "Evaluates Lua code and returns the result. Print statements are sent as server events."
+       description: "Evaluates Lua code and returns the result."
      )}
   end
 
@@ -36,13 +34,8 @@ defmodule Tau5MCP.Server do
     request_id = frame.request.id
     start_time = System.monotonic_time(:millisecond)
     
-    print_callback = fn message ->
-      send_log_message(frame, :info, "[Lua] #{message}")
-      Logger.debug("[#{__MODULE__}] Lua print output: #{message}")
-    end
-    
     try do
-      case LuaEvaluator.evaluate(code, print_callback: print_callback) do
+      case LuaEvaluator.evaluate(code) do
         {:ok, result} ->
           duration = System.monotonic_time(:millisecond) - start_time
           Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :success, duration)

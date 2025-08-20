@@ -27,15 +27,46 @@ defmodule Tau5.LuaEvaluator do
 
   Returns `{:ok, result}` or `{:error, reason}`.
   """
-  def evaluate(code, opts \\ []) do
+  def evaluate(code) do
     parent = self()
-    {pid, ref} = spawn_lua_task(parent, code, opts)
+    {pid, ref} = spawn_lua_task(parent, code)
     await_lua_result(pid, ref)
   end
 
-  defp spawn_lua_task(parent, code, opts) do
+  @doc """
+  Checks Lua code syntax without executing it.
+  
+  Returns `:ok` if syntax is valid, `{:error, reason}` otherwise.
+  
+  Uses Lua.parse_chunk/1 which only parses without execution.
+  """
+  def check_syntax(code) do
+    # Try as expression first (with return), then as statement
+    case Lua.parse_chunk("return " <> code) do
+      {:ok, _chunk} -> 
+        :ok
+      {:error, _} ->
+        # Fall back to parsing as statement
+        case Lua.parse_chunk(code) do
+          {:ok, _chunk} -> 
+            :ok
+          {:error, errors} ->
+            {:error, "Syntax error: #{format_parse_errors(errors)}"}
+        end
+    end
+  end
+  
+  defp format_parse_errors(errors) when is_list(errors) do
+    errors
+    |> Enum.map(&to_string/1)
+    |> Enum.join("; ")
+  end
+  
+  defp format_parse_errors(error), do: to_string(error)
+
+  defp spawn_lua_task(parent, code) do
     pid =
-      spawn_opt(fn -> run_lua_eval(parent, code, opts) end, [
+      spawn_opt(fn -> run_lua_eval(parent, code) end, [
         {:message_queue_data, :off_heap},
         {:max_heap_size,
          %{
@@ -68,14 +99,14 @@ defmodule Tau5.LuaEvaluator do
     end
   end
 
-  defp run_lua_eval(parent, code, opts) do
+  defp run_lua_eval(parent, code) do
     Process.flag(:trap_exit, true)
 
     result =
       try do
         lua = setup_sandbox() 
               |> setup_memory_functions()
-              |> setup_print_function(opts[:print_callback])
+              |> disable_print()
               
         memory_checker = spawn(fn -> memory_check_loop(self(), @config.max_heap_size) end)
 
@@ -99,49 +130,11 @@ defmodule Tau5.LuaEvaluator do
     Lua.new(sandboxed: @lua_denylist)
   end
 
-  defp setup_print_function(lua, nil) do
-    # Even without a callback, replace print and eprint to prevent stdout output
+  defp disable_print(lua) do
+    # Replace print with no-op function since Lua has no stdout
     lua
     |> Lua.set!(["print"], fn _args ->
-      # Silently ignore prints when no callback is provided
-      []
-    end)
-    |> Lua.set!(["eprint"], fn _args ->
-      # Silently ignore eprints when no callback is provided
-      []
-    end)
-  end
-  
-  defp setup_print_function(lua, print_callback) do
-    # Helper function to format arguments
-    format_args = fn args ->
-      args 
-      |> Enum.map(fn arg ->
-        case arg do
-          nil -> "nil"
-          true -> "true"
-          false -> "false"
-          arg when is_binary(arg) -> arg
-          arg when is_number(arg) -> to_string(arg)
-          arg when is_list(arg) -> inspect(arg)
-          arg when is_tuple(arg) -> inspect(arg)
-          arg when is_map(arg) -> inspect(arg)
-          _ -> inspect(arg)
-        end
-      end)
-      |> Enum.join("\t")
-    end
-    
-    lua
-    |> Lua.set!(["print"], fn args ->
-      message = format_args.(args)
-      print_callback.(message)
-      []
-    end)
-    |> Lua.set!(["eprint"], fn args ->
-      message = format_args.(args)
-      # Prefix error prints to distinguish them
-      print_callback.("[ERROR] " <> message)
+      # Print does nothing - no stdout in embedded Lua
       []
     end)
   end
