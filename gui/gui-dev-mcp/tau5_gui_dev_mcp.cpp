@@ -1432,6 +1432,10 @@ int main(int argc, char *argv[])
                 {"search", QJsonObject{
                     {"type", "string"},
                     {"description", "Search term to filter logs"}
+                }},
+                {"sessionIndex", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Session index (0=latest, 1=next oldest, etc. Default: 0)"}
                 }}
             }},
             {"required", QJsonArray{}}
@@ -1443,13 +1447,14 @@ int main(int argc, char *argv[])
             int tail = params.contains("tail") ? params["tail"].toInt() : 100;
             QString level = params.contains("level") ? params["level"].toString() : "all";
             QString search = params.contains("search") ? params["search"].toString() : "";
+            int sessionIndex = params.contains("sessionIndex") ? params["sessionIndex"].toInt() : 0;
             
             QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
             QString tau5LogsPath = QDir(dataPath).absoluteFilePath("Tau5/logs/gui");
             
-            // Find the most recent session folder
+            // Find session folders - they're named YYYY-MM-DD_HHmmss_pPID
             QDir logsDir(tau5LogsPath);
-            QStringList sessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Time);
+            QStringList sessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed);
             
             if (sessionDirs.isEmpty()) {
                 return QJsonObject{
@@ -1458,8 +1463,16 @@ int main(int argc, char *argv[])
                 };
             }
             
-            // Use the most recent session
-            QString sessionPath = QDir(tau5LogsPath).absoluteFilePath(sessionDirs.first());
+            // Check if requested session index exists
+            if (sessionIndex >= sessionDirs.size()) {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("Session index %1 not found. Available sessions: 0-%2").arg(sessionIndex).arg(sessionDirs.size() - 1)}
+                };
+            }
+            
+            // Use the session at the specified index (0 = latest by alphabetical order)
+            QString sessionPath = QDir(tau5LogsPath).absoluteFilePath(sessionDirs.at(sessionIndex));
             QString logFilePath = QDir(sessionPath).absoluteFilePath("gui.log");
             
             QFile logFile(logFilePath);
@@ -1513,7 +1526,10 @@ int main(int argc, char *argv[])
             
             QString resultText = resultLines.join("\n");
             if (resultText.isEmpty()) {
-                resultText = "No logs match the specified criteria.";
+                resultText = QString("No logs match the specified criteria. (Session: %1)").arg(sessionDirs.at(sessionIndex));
+            } else {
+                // Add session info header
+                resultText = QString("Session: %1\n%2").arg(sessionDirs.at(sessionIndex)).arg(resultText);
             }
             
             return QJsonObject{
@@ -1528,18 +1544,23 @@ int main(int argc, char *argv[])
         "Get the total number of lines in the GUI log file",
         QJsonObject{
             {"type", "object"},
-            {"properties", QJsonObject{}},
+            {"properties", QJsonObject{
+                {"sessionIndex", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Session index (0=latest, 1=next oldest, etc. Default: 0)"}
+                }}
+            }},
             {"required", QJsonArray{}}
         },
         [&bridge](const QJsonObject& params) -> QJsonObject {
-            Q_UNUSED(params);
+            int sessionIndex = params.contains("sessionIndex") ? params["sessionIndex"].toInt() : 0;
             
             QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
             QString tau5LogsPath = QDir(dataPath).absoluteFilePath("Tau5/logs/gui");
             
-            // Find the most recent session folder
+            // Find session folders - they're named YYYY-MM-DD_HHmmss_pPID
             QDir logsDir(tau5LogsPath);
-            QStringList sessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Time);
+            QStringList sessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed);
             
             if (sessionDirs.isEmpty()) {
                 return QJsonObject{
@@ -1548,8 +1569,16 @@ int main(int argc, char *argv[])
                 };
             }
             
-            // Use the most recent session
-            QString sessionPath = QDir(tau5LogsPath).absoluteFilePath(sessionDirs.first());
+            // Check if requested session index exists
+            if (sessionIndex >= sessionDirs.size()) {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("Session index %1 not found. Available sessions: 0-%2").arg(sessionIndex).arg(sessionDirs.size() - 1)}
+                };
+            }
+            
+            // Use the session at the specified index
+            QString sessionPath = QDir(tau5LogsPath).absoluteFilePath(sessionDirs.at(sessionIndex));
             QString logFilePath = QDir(sessionPath).absoluteFilePath("gui.log");
             
             QFile logFile(logFilePath);
@@ -1577,7 +1606,7 @@ int main(int argc, char *argv[])
             
             return QJsonObject{
                 {"type", "text"},
-                {"text", QString("%1 lines").arg(lineCount)}
+                {"text", QString("%1 lines (Session: %2)").arg(lineCount).arg(sessionDirs.at(sessionIndex))}
             };
         }
     });
