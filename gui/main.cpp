@@ -24,7 +24,7 @@ namespace Config
 {
   constexpr quint16 DEFAULT_PORT = 5555;
   constexpr quint16 DEVTOOLS_PORT = 9223;
-  constexpr const char *APP_NAME = "Tau5";
+  constexpr const char *APP_NAME = "tau5";
   constexpr const char *APP_VERSION = "0.1.0";
   constexpr const char *CHROMIUM_FLAGS =
       "--disable-background-timer-throttling "
