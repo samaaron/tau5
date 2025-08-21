@@ -34,42 +34,87 @@ defmodule Tau5MCP.Server do
     request_id = frame.request.id
     start_time = System.monotonic_time(:millisecond)
     
-    try do
-      case LuaEvaluator.evaluate(code) do
-        {:ok, result} ->
-          duration = System.monotonic_time(:millisecond) - start_time
-          Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :success, duration)
-          
-          resp = Response.text(Response.tool(), result)
-          {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
-          
+    # Quick validation to fail fast on obviously bad input
+    cond do
+      byte_size(code) > 10_000 ->
+        resp = Response.text(Response.tool(), "Error: Code too large (max 10KB)")
+        {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
+      
+      true ->
+        try do
+      # Quick syntax check first to fail fast on invalid code
+      case LuaEvaluator.check_syntax(code) do
         {:error, reason} ->
           duration = System.monotonic_time(:millisecond) - start_time
-          Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :error, duration, reason)
           
-          resp = Response.text(Response.tool(), "Error: #{reason}")
+          resp = Response.text(Response.tool(), "Syntax error: #{reason}")
+          
+          # Log after sending response
+          spawn(fn ->
+            Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :syntax_error, duration, reason)
+          end)
+          
           {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
+        
+        :ok ->
+          # Syntax is valid, proceed with evaluation
+          case LuaEvaluator.evaluate(code) do
+            {:ok, result} ->
+              duration = System.monotonic_time(:millisecond) - start_time
+              
+              resp = Response.text(Response.tool(), result)
+              
+              # Log after sending response to avoid blocking
+              spawn(fn -> 
+                Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :success, duration)
+              end)
+              
+              {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
+              
+            {:error, reason} ->
+              duration = System.monotonic_time(:millisecond) - start_time
+              
+              resp = Response.text(Response.tool(), "Error: #{reason}")
+              
+              # Log after sending response
+              spawn(fn ->
+                Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :error, duration, reason)
+              end)
+              
+              {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
+          end
       end
     rescue
       exception ->
         duration = System.monotonic_time(:millisecond) - start_time
         error_msg = "Uncaught exception: #{Exception.message(exception)}"
-        Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :exception, duration, error_msg)
         
         Logger.error("[#{__MODULE__}] Uncaught exception in lua_eval: #{inspect(exception)}")
         
         resp = Response.text(Response.tool(), "Internal error: #{Exception.message(exception)}")
+        
+        # Log after sending response
+        spawn(fn ->
+          Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :exception, duration, error_msg)
+        end)
+        
         {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
     catch
       kind, reason ->
         duration = System.monotonic_time(:millisecond) - start_time
         error_msg = "Process #{kind}: #{inspect(reason)}"
-        Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :crash, duration, error_msg)
         
         Logger.error("[#{__MODULE__}] Process #{kind} in lua_eval: #{inspect(reason)}")
         
         resp = Response.text(Response.tool(), "Process error: #{kind}")
+        
+        # Log after sending response
+        spawn(fn ->
+          Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :crash, duration, error_msg)
+        end)
+        
         {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
     end
+    end  # End of cond
   end
 end

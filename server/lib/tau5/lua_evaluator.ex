@@ -99,13 +99,25 @@ defmodule Tau5.LuaEvaluator do
       {:DOWN, ^ref, :process, ^pid, :killed} ->
         {:error, "Memory limit exceeded (max #{@config.max_heap_size} bytes)"}
 
+      {:DOWN, ^ref, :process, ^pid, {:memory_exceeded, bytes}} ->
+        {:error, "Memory limit exceeded: #{bytes} bytes"}
+
       {:DOWN, ^ref, :process, ^pid, reason} ->
         {:error, "Process crashed: #{inspect(reason)}"}
     after
       @config.timeout_ms ->
         Process.exit(pid, :kill)
         Process.demonitor(ref, [:flush])
-        {:error, "Execution timed out after #{@config.timeout_ms / 1000}s"}
+        
+        # Flush any late messages
+        receive do
+          {:lua_result, _} -> :ok
+          {:DOWN, ^ref, :process, ^pid, _} -> :ok
+        after
+          0 -> :ok
+        end
+        
+        {:error, "Execution timed out after #{@config.timeout_ms}ms"}
     end
   end
 
@@ -136,6 +148,12 @@ defmodule Tau5.LuaEvaluator do
         e ->
           Logger.debug("Lua evaluation error: #{inspect(e)}")
           {:error, "Runtime error: execution failed"}
+      catch
+        :exit, {:memory_exceeded, bytes} ->
+          {:error, "Memory limit exceeded: #{bytes} bytes"}
+          
+        kind, reason ->
+          {:error, "Process #{kind}: #{inspect(reason)}"}
       end
 
     send(parent, {:lua_result, result})
@@ -155,7 +173,14 @@ defmodule Tau5.LuaEvaluator do
   end
 
   defp eval_code(lua, code) do
-    case Lua.eval!(lua, code) do
+    # Try as expression first (with return), then as statement if that fails to compile
+    {code_to_eval, is_expression} = 
+      case Lua.parse_chunk("return " <> code) do
+        {:ok, _} -> {"return " <> code, true}
+        {:error, _} -> {code, false}
+      end
+    
+    case Lua.eval!(lua, code_to_eval) do
       {values, _} ->
         formatted = format_result(values)
 
