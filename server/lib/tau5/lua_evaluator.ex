@@ -14,13 +14,25 @@ defmodule Tau5.LuaEvaluator do
   }
 
   @lua_denylist [
-    [:io], [:file], [:os], [:package], [:require], [:dofile],
-    [:load], [:loadfile], [:loadstring], [:debug],
-    [:getmetatable], [:setmetatable], [:rawget], [:rawset]
+    [:io],
+    [:file],
+    [:os],
+    [:package],
+    [:require],
+    [:dofile],
+    [:load],
+    [:loadfile],
+    [:loadstring],
+    [:debug],
+    [:getmetatable],
+    [:setmetatable],
+    [:rawget],
+    [:rawset]
   ]
 
   @max_output_size 10_000
-  @max_heap_size 10 * 1024 * 1024  # 10MB
+  # 10MB
+  @max_heap_size 10 * 1024 * 1024
 
   @doc """
   Evaluates Lua code in a sandboxed environment.
@@ -35,33 +47,35 @@ defmodule Tau5.LuaEvaluator do
 
   @doc """
   Checks Lua code syntax without executing it.
-  
+
   Returns `:ok` if syntax is valid, `{:error, reason}` otherwise.
-  
+
   Uses Lua.parse_chunk/1 which only parses without execution.
   """
   def check_syntax(code) do
     # Try as expression first (with return), then as statement
     case Lua.parse_chunk("return " <> code) do
-      {:ok, _chunk} -> 
+      {:ok, _chunk} ->
         :ok
+
       {:error, _} ->
         # Fall back to parsing as statement
         case Lua.parse_chunk(code) do
-          {:ok, _chunk} -> 
+          {:ok, _chunk} ->
             :ok
+
           {:error, errors} ->
             {:error, "Syntax error: #{format_parse_errors(errors)}"}
         end
     end
   end
-  
+
   defp format_parse_errors(errors) when is_list(errors) do
     errors
     |> Enum.map(&to_string/1)
     |> Enum.join("; ")
   end
-  
+
   defp format_parse_errors(error), do: to_string(error)
 
   defp spawn_lua_task(parent, code) do
@@ -104,10 +118,11 @@ defmodule Tau5.LuaEvaluator do
 
     result =
       try do
-        lua = setup_sandbox() 
-              |> setup_memory_functions()
-              |> disable_print()
-              
+        lua =
+          setup_sandbox()
+          |> setup_memory_functions()
+          |> disable_print()
+
         memory_checker = spawn(fn -> memory_check_loop(self(), @config.max_heap_size) end)
 
         try do
@@ -116,8 +131,12 @@ defmodule Tau5.LuaEvaluator do
           Process.exit(memory_checker, :normal)
         end
       rescue
-        e in Lua.CompilerException -> {:error, "Syntax error: #{sanitize_error(e.errors)}"}
-        e in Lua.RuntimeException -> {:error, "Runtime error: #{sanitize_error(e.message)}"}
+        e in Lua.CompilerException ->
+          {:error, "Syntax error: #{sanitize_error(e.errors)}"}
+
+        e in Lua.RuntimeException ->
+          {:error, "Runtime error: #{sanitize_error(e.message)}"}
+
         e ->
           Logger.debug("Lua evaluation error: #{inspect(e)}")
           {:error, "Runtime error: execution failed"}
