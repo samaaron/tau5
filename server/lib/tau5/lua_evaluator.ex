@@ -8,7 +8,7 @@ defmodule Tau5.LuaEvaluator do
   import :erlang, only: [spawn_opt: 2]
 
   @config %{
-    timeout_ms: 100,
+    timeout_ms: 10,
     max_heap_size: 1_000_000,
     max_output_size: 1_000_000
   }
