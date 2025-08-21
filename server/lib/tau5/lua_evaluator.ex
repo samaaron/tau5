@@ -102,10 +102,15 @@ defmodule Tau5.LuaEvaluator do
       {:DOWN, ^ref, :process, ^pid, {:memory_exceeded, bytes}} ->
         {:error, "Memory limit exceeded: #{bytes} bytes"}
 
+      {:DOWN, ^ref, :process, ^pid, {:execution_timeout, ms}} ->
+        {:error, "Execution timed out after #{ms}ms"}
+
       {:DOWN, ^ref, :process, ^pid, reason} ->
         {:error, "Process crashed: #{inspect(reason)}"}
     after
-      @config.timeout_ms ->
+      # Give reasonable time for VM setup + execution
+      # The actual Lua timeout is handled inside the process
+      1000 ->
         Process.exit(pid, :kill)
         Process.demonitor(ref, [:flush])
         
@@ -117,7 +122,7 @@ defmodule Tau5.LuaEvaluator do
           0 -> :ok
         end
         
-        {:error, "Execution timed out after #{@config.timeout_ms}ms"}
+        {:error, "Process setup timed out"}
     end
   end
 
@@ -174,14 +179,26 @@ defmodule Tau5.LuaEvaluator do
 
   defp eval_code(lua, code) do
     # Try as expression first (with return), then as statement if that fails to compile
-    {code_to_eval, is_expression} = 
+    {code_to_eval, _is_expression} = 
       case Lua.parse_chunk("return " <> code) do
         {:ok, _} -> {"return " <> code, true}
         {:error, _} -> {code, false}
       end
     
-    case Lua.eval!(lua, code_to_eval) do
-      {values, _} ->
+    # Time only the actual Lua execution
+    task = Task.async(fn ->
+      try do
+        {:ok, Lua.eval!(lua, code_to_eval)}
+      rescue
+        e in Lua.RuntimeException ->
+          {:error, {:runtime, e.message}}
+        e in Lua.CompilerException ->
+          {:error, {:compiler, e.errors}}
+      end
+    end)
+    
+    case Task.yield(task, @config.timeout_ms) || Task.shutdown(task, :brutal_kill) do
+      {:ok, {:ok, {values, _}}} ->
         formatted = format_result(values)
 
         if byte_size(formatted) > @config.max_output_size do
@@ -189,6 +206,17 @@ defmodule Tau5.LuaEvaluator do
         else
           {:ok, formatted}
         end
+      
+      {:ok, {:error, {:runtime, message}}} ->
+        {:error, "Runtime error: #{sanitize_error(message)}"}
+      
+      {:ok, {:error, {:compiler, errors}}} ->
+        {:error, "Syntax error: #{sanitize_error(errors)}"}
+      
+      nil ->
+        # Task timed out
+        Process.exit(self(), {:execution_timeout, @config.timeout_ms})
+        {:error, "Execution timed out after #{@config.timeout_ms}ms"}
     end
   end
 
