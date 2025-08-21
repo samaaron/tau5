@@ -9,8 +9,8 @@ defmodule Tau5.LuaEvaluator do
 
   @config %{
     timeout_ms: 10,
-    max_heap_size: 1_000_000,
-    max_output_size: 1_000_000
+    max_heap_size: 100_000,
+    max_output_size: 10_000
   }
 
   @lua_denylist [
