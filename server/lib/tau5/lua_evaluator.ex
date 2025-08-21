@@ -30,10 +30,6 @@ defmodule Tau5.LuaEvaluator do
     [:rawset]
   ]
 
-  @max_output_size 10_000
-  # 10MB
-  @max_heap_size 10 * 1024 * 1024
-
   @doc """
   Evaluates Lua code in a sandboxed environment.
 
@@ -186,8 +182,8 @@ defmodule Tau5.LuaEvaluator do
           |> Enum.join(", ")
       end
 
-    if byte_size(result) > @max_output_size do
-      String.slice(result, 0, @max_output_size) <> "... (truncated)"
+    if byte_size(result) > @config.max_output_size do
+      String.slice(result, 0, @config.max_output_size) <> "... (truncated)"
     else
       result
     end
@@ -195,7 +191,7 @@ defmodule Tau5.LuaEvaluator do
 
   defp setup_memory_functions(lua_state) do
     Lua.set!(lua_state, ["check_memory"], fn _ ->
-      case check_memory(@max_heap_size) do
+      case check_memory(@config.max_heap_size) do
         {:error, used} ->
           [false, "Memory limit exceeded: #{used} bytes used"]
 
