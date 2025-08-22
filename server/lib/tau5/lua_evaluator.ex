@@ -10,8 +10,13 @@ defmodule Tau5.LuaEvaluator do
   @config %{
     timeout_ms: 10,
     max_heap_size: 100_000,
-    max_output_size: 10_000
+    max_output_size: 10_000,
+    check_interval_ms: 20
   }
+  
+  # Approximate BEAM reductions per millisecond (based on benchmarking)
+  # Used to translate timeout_ms into a reduction-based work budget
+  @reductions_per_ms 380_000
 
   @lua_denylist [
     [:io],
@@ -49,13 +54,11 @@ defmodule Tau5.LuaEvaluator do
   Uses Lua.parse_chunk/1 which only parses without execution.
   """
   def check_syntax(code) do
-    # Try as expression first (with return), then as statement
     case Lua.parse_chunk("return " <> code) do
       {:ok, _chunk} ->
         :ok
 
       {:error, _} ->
-        # Fall back to parsing as statement
         case Lua.parse_chunk(code) do
           {:ok, _chunk} ->
             :ok
@@ -114,7 +117,6 @@ defmodule Tau5.LuaEvaluator do
         Process.exit(pid, :kill)
         Process.demonitor(ref, [:flush])
         
-        # Flush any late messages
         receive do
           {:lua_result, _} -> :ok
           {:DOWN, ^ref, :process, ^pid, _} -> :ok
@@ -169,54 +171,84 @@ defmodule Tau5.LuaEvaluator do
   end
 
   defp disable_print(lua) do
-    # Replace print with no-op function since Lua has no stdout
+    # Replace print with no-op since embedded Lua has no stdout
     lua
-    |> Lua.set!(["print"], fn _args ->
-      # Print does nothing - no stdout in embedded Lua
-      []
-    end)
+    |> Lua.set!(["print"], fn _args -> [] end)
   end
 
   defp eval_code(lua, code) do
-    # Try as expression first (with return), then as statement if that fails to compile
+    # Try as expression first, then as statement
     {code_to_eval, _is_expression} = 
       case Lua.parse_chunk("return " <> code) do
         {:ok, _} -> {"return " <> code, true}
         {:error, _} -> {code, false}
       end
     
-    # Time only the actual Lua execution
-    task = Task.async(fn ->
+    parent = self()
+    
+    {pid, ref} = spawn_monitor(fn ->
       try do
-        {:ok, Lua.eval!(lua, code_to_eval)}
+        result = Lua.eval!(lua, code_to_eval)
+        send(parent, {:lua_result_internal, {:ok, result}})
       rescue
         e in Lua.RuntimeException ->
-          {:error, {:runtime, e.message}}
+          send(parent, {:lua_result_internal, {:error, {:runtime, e.message}}})
         e in Lua.CompilerException ->
-          {:error, {:compiler, e.errors}}
+          send(parent, {:lua_result_internal, {:error, {:compiler, e.errors}}})
       end
     end)
     
-    case Task.yield(task, @config.timeout_ms) || Task.shutdown(task, :brutal_kill) do
-      {:ok, {:ok, {values, _}}} ->
+    monitor_reductions(pid, ref)
+  end
+  
+  defp monitor_reductions(pid, ref, max_reductions \\ nil) do
+    max_reductions = max_reductions || @reductions_per_ms * @config.timeout_ms
+    
+    receive do
+      {:lua_result_internal, {:ok, {values, _}}} ->
+        Process.demonitor(ref, [:flush])
         formatted = format_result(values)
-
+        
         if byte_size(formatted) > @config.max_output_size do
           {:error, "Output too large (max #{@config.max_output_size} bytes)"}
         else
           {:ok, formatted}
         end
       
-      {:ok, {:error, {:runtime, message}}} ->
+      {:lua_result_internal, {:error, {:runtime, message}}} ->
+        Process.demonitor(ref, [:flush])
         {:error, "Runtime error: #{sanitize_error(message)}"}
       
-      {:ok, {:error, {:compiler, errors}}} ->
+      {:lua_result_internal, {:error, {:compiler, errors}}} ->
+        Process.demonitor(ref, [:flush])
         {:error, "Syntax error: #{sanitize_error(errors)}"}
-      
-      nil ->
-        # Task timed out
-        Process.exit(self(), {:execution_timeout, @config.timeout_ms})
-        {:error, "Execution timed out after #{@config.timeout_ms}ms"}
+        
+      {:DOWN, ^ref, :process, ^pid, reason} ->
+        {:error, "Process crashed: #{inspect(reason)}"}
+    after
+      @config.check_interval_ms ->
+        case Process.info(pid, :reductions) do
+          {:reductions, reductions} when reductions > max_reductions ->
+            Process.exit(pid, :kill)
+            Process.demonitor(ref, [:flush])
+            flush_lua_messages()
+            {:error, "Execution timed out after #{@config.timeout_ms}ms"}
+            
+          {:reductions, _} ->
+            monitor_reductions(pid, ref, max_reductions)
+            
+          nil ->
+            flush_lua_messages()
+            {:error, "Process terminated unexpectedly"}
+        end
+    end
+  end
+  
+  defp flush_lua_messages do
+    receive do
+      {:lua_result_internal, _} -> flush_lua_messages()
+    after
+      0 -> :ok
     end
   end
 
