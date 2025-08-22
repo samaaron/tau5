@@ -113,7 +113,7 @@ defmodule Tau5.LuaEvaluator do
     after
       # Give reasonable time for VM setup + execution
       # The actual Lua timeout is handled inside the process
-      1000 ->
+      100 ->
         Process.exit(pid, :kill)
         Process.demonitor(ref, [:flush])
         
@@ -198,11 +198,12 @@ defmodule Tau5.LuaEvaluator do
       end
     end)
     
-    monitor_reductions(pid, ref)
+    monitor_reductions(pid, ref, nil, 0)
   end
   
-  defp monitor_reductions(pid, ref, max_reductions \\ nil) do
+  defp monitor_reductions(pid, ref, max_reductions \\ nil, iterations \\ 0) do
     max_reductions = max_reductions || @reductions_per_ms * @config.timeout_ms
+    max_iterations = 3  # Maximum 3 iterations * 20ms = 60ms total wall-clock time
     
     receive do
       {:lua_result_internal, {:ok, {values, _}}} ->
@@ -227,19 +228,27 @@ defmodule Tau5.LuaEvaluator do
         {:error, "Process crashed: #{inspect(reason)}"}
     after
       @config.check_interval_ms ->
-        case Process.info(pid, :reductions) do
-          {:reductions, reductions} when reductions > max_reductions ->
-            Process.exit(pid, :kill)
-            Process.demonitor(ref, [:flush])
-            flush_lua_messages()
-            {:error, "Execution timed out after #{@config.timeout_ms}ms"}
-            
-          {:reductions, _} ->
-            monitor_reductions(pid, ref, max_reductions)
-            
-          nil ->
-            flush_lua_messages()
-            {:error, "Process terminated unexpectedly"}
+        # Check if we've exceeded maximum iterations
+        if iterations >= max_iterations do
+          Process.exit(pid, :kill)
+          Process.demonitor(ref, [:flush])
+          flush_lua_messages()
+          {:error, "Execution timed out (max monitoring time exceeded)"}
+        else
+          case Process.info(pid, :reductions) do
+            {:reductions, reductions} when reductions > max_reductions ->
+              Process.exit(pid, :kill)
+              Process.demonitor(ref, [:flush])
+              flush_lua_messages()
+              {:error, "Execution timed out after #{@config.timeout_ms}ms"}
+              
+            {:reductions, _} ->
+              monitor_reductions(pid, ref, max_reductions, iterations + 1)
+              
+            nil ->
+              flush_lua_messages()
+              {:error, "Process terminated unexpectedly"}
+          end
         end
     end
   end
