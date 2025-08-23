@@ -184,82 +184,17 @@ defmodule Tau5.LuaEvaluator do
         {:error, _} -> {code, false}
       end
     
-    parent = self()
+    # Direct evaluation - timeout is handled by await_lua_result
+    {values, _state} = Lua.eval!(lua, code_to_eval)
+    formatted = format_result(values)
     
-    {pid, ref} = spawn_monitor(fn ->
-      try do
-        result = Lua.eval!(lua, code_to_eval)
-        send(parent, {:lua_result_internal, {:ok, result}})
-      rescue
-        e in Lua.RuntimeException ->
-          send(parent, {:lua_result_internal, {:error, {:runtime, e.message}}})
-        e in Lua.CompilerException ->
-          send(parent, {:lua_result_internal, {:error, {:compiler, e.errors}}})
-      end
-    end)
-    
-    monitor_reductions(pid, ref, nil, 0)
-  end
-  
-  defp monitor_reductions(pid, ref, max_reductions \\ nil, iterations \\ 0) do
-    max_reductions = max_reductions || @reductions_per_ms * @config.timeout_ms
-    max_iterations = 3  # Maximum 3 iterations * 20ms = 60ms total wall-clock time
-    
-    receive do
-      {:lua_result_internal, {:ok, {values, _}}} ->
-        Process.demonitor(ref, [:flush])
-        formatted = format_result(values)
-        
-        if byte_size(formatted) > @config.max_output_size do
-          {:error, "Output too large (max #{@config.max_output_size} bytes)"}
-        else
-          {:ok, formatted}
-        end
-      
-      {:lua_result_internal, {:error, {:runtime, message}}} ->
-        Process.demonitor(ref, [:flush])
-        {:error, "Runtime error: #{sanitize_error(message)}"}
-      
-      {:lua_result_internal, {:error, {:compiler, errors}}} ->
-        Process.demonitor(ref, [:flush])
-        {:error, "Syntax error: #{sanitize_error(errors)}"}
-        
-      {:DOWN, ^ref, :process, ^pid, reason} ->
-        {:error, "Process crashed: #{inspect(reason)}"}
-    after
-      @config.check_interval_ms ->
-        # Check if we've exceeded maximum iterations
-        if iterations >= max_iterations do
-          Process.exit(pid, :kill)
-          Process.demonitor(ref, [:flush])
-          flush_lua_messages()
-          {:error, "Execution timed out (max monitoring time exceeded)"}
-        else
-          case Process.info(pid, :reductions) do
-            {:reductions, reductions} when reductions > max_reductions ->
-              Process.exit(pid, :kill)
-              Process.demonitor(ref, [:flush])
-              flush_lua_messages()
-              {:error, "Execution timed out after #{@config.timeout_ms}ms"}
-              
-            {:reductions, _} ->
-              monitor_reductions(pid, ref, max_reductions, iterations + 1)
-              
-            nil ->
-              flush_lua_messages()
-              {:error, "Process terminated unexpectedly"}
-          end
-        end
+    if byte_size(formatted) > @config.max_output_size do
+      {:error, "Output too large (max #{@config.max_output_size} bytes)"}
+    else
+      {:ok, formatted}
     end
   end
   
-  defp flush_lua_messages do
-    receive do
-      {:lua_result_internal, _} -> flush_lua_messages()
-    after
-      0 -> :ok
-    end
-  end
 
   defp format_result(values) do
     result =
