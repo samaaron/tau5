@@ -48,7 +48,7 @@ if(NOT APPLE)
   set(QWINDOWKIT_INSTALL OFF CACHE BOOL "" FORCE)
   set(QWINDOWKIT_ENABLE_WINDOWS_SYSTEM_BORDERS ON CACHE BOOL "" FORCE)
   set(QWINDOWKIT_ENABLE_STYLE_AGENT ON CACHE BOOL "" FORCE)
-  
+
   add_subdirectory(external/qwindowkit-1.4.0)
 endif()
 
@@ -100,7 +100,7 @@ endif()
 
 if(BUILD_DEBUG_PANE)
   include(${QTAPP_ROOT}/widgets/debugpane/CMakeLists.txt)
-  
+
   list(APPEND SOURCES
     ${QTAPP_ROOT}/widgets/debugpane.h
     ${QTAPP_ROOT}/widgets/debugpane.cpp
@@ -222,5 +222,5 @@ option(BUILD_DEBUG_PANE "Include debug pane in the build" ON)
 
 # Build DevTools MCP server as a separate executable (optional)
 if(BUILD_MCP_SERVER)
-  add_subdirectory(gui-dev-mcp)
+  add_subdirectory(gui-dev-mcp-server)
 endif()

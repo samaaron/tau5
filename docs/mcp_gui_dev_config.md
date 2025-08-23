@@ -6,7 +6,7 @@ The Tau5 GUI Dev MCP server provides Model Context Protocol access to Chrome Dev
 ## Prerequisites
 1. Tau5 must be running in dev mode (`tau5 dev`)
 2. Chrome DevTools Protocol is enabled on port 9223 (default)
-3. The `tau5-gui-dev-mcp` executable must be built
+3. The `tau5-dev-gui-mcp-server` executable must be built
 
 ## Building the MCP Server
 ```bash
@@ -19,7 +19,7 @@ cd tau5
 ./bin/mac/build-gui.sh  # or ./bin/linux/build-gui.sh
 ```
 
-This will build both Tau5 and the tau5-gui-dev-mcp executable.
+This will build both Tau5 and the tau5-dev-gui-mcp-server executable.
 
 ## Claude Code Configuration
 
@@ -29,17 +29,17 @@ The easiest way to add the MCP server is using the Claude Code CLI:
 
 #### Windows
 ```bash
-claude mcp add tau5-gui-dev cmd.exe /c "C:\path\to\tau5\bin\win\tau5-gui-dev-mcp.bat"
+claude mcp add tau5-gui-dev cmd.exe /c "C:\path\to\tau5\bin\win\start-tau5-dev-gui-mcp-server.bat"
 ```
 
 #### macOS
 ```bash
-claude mcp add tau5-gui-dev /path/to/tau5/bin/mac/tau5-gui-dev-mcp.sh
+claude mcp add tau5-gui-dev /path/to/tau5/bin/mac/start-tau5-dev-gui-mcp-server.sh
 ```
 
 #### Linux
 ```bash
-claude mcp add tau5-gui-dev /path/to/tau5/bin/linux/tau5-gui-dev-mcp.sh
+claude mcp add tau5-gui-dev /path/to/tau5/bin/linux/start-tau5-dev-gui-mcp-server.sh
 ```
 
 ### Manual Configuration (Alternative)
@@ -51,7 +51,7 @@ You can also manually edit your Claude Code MCP settings:
 {
   "mcpServers": {
     "tau5-gui-dev": {
-      "command": "C:\\path\\to\\tau5\\bin\\win\\tau5-gui-dev-mcp.bat",
+      "command": "C:\\path\\to\\tau5\\bin\\win\\start-tau5-dev-gui-mcp-server.bat",
       "args": []
     }
   }
@@ -63,7 +63,7 @@ You can also manually edit your Claude Code MCP settings:
 {
   "mcpServers": {
     "tau5-gui-dev": {
-      "command": "/path/to/tau5/bin/mac/tau5-gui-dev-mcp.sh",
+      "command": "/path/to/tau5/bin/mac/start-tau5-dev-gui-mcp-server.sh",
       "args": []
     }
   }
@@ -75,7 +75,7 @@ You can also manually edit your Claude Code MCP settings:
 {
   "mcpServers": {
     "tau5-gui-dev": {
-      "command": "/path/to/tau5/bin/linux/tau5-gui-dev-mcp.sh",
+      "command": "/path/to/tau5/bin/linux/start-tau5-dev-gui-mcp-server.sh",
       "args": []
     }
   }
@@ -89,7 +89,7 @@ If Tau5 is configured to use a different DevTools port, specify it in the args:
 {
   "mcpServers": {
     "tau5-gui-dev": {
-      "command": "path/to/tau5-gui-dev-mcp",
+      "command": "path/to/tau5-dev-gui-mcp-server",
       "args": ["--devtools-port", "9999"]
     }
   }
@@ -164,7 +164,7 @@ Here's a complete example with both Tidewave (backend) and DevTools (frontend) M
       "transport": "sse"
     },
     "tau5-gui-dev": {
-      "command": "C:\\tau5\\bin\\win\\tau5-gui-dev-mcp.bat",
+      "command": "C:\\tau5\\bin\\win\\start-tau5-dev-gui-mcp-server.bat",
       "args": []
     }
   }

@@ -19,7 +19,7 @@ if %HAS_DEBUG%==1 (
     echo.
 )
 
-gui\build\Release\tau5-gui-dev-mcp.exe %*
+gui\build\Release\tau5-dev-gui-mcp-server.exe %*
 
 cd /d "%WORKING_DIR%"
 endlocal
