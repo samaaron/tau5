@@ -69,8 +69,6 @@ defmodule Tau5Web.LuaShellLive do
               value={@input}
               class="shell-input"
               phx-target={@myself}
-              phx-keydown="handle_keydown" 
-              phx-change="update_input"
               autocomplete="off"
               spellcheck="false"
               phx-mounted={@visible && JS.focus()}
@@ -101,16 +99,6 @@ defmodule Tau5Web.LuaShellLive do
   end
 
   @impl true
-  def handle_event("update_input", %{"command" => input}, socket) do
-    {:noreply, assign(socket, :input, input)}
-  end
-  
-  @impl true
-  def handle_event("handle_keydown", _params, socket) do
-    {:noreply, socket}
-  end
-
-  @impl true
   def handle_event("execute", %{"command" => ""}, socket) do
     {:noreply, socket}
   end
@@ -129,6 +117,7 @@ defmodule Tau5Web.LuaShellLive do
         |> assign(:history_index, -1)
         |> assign(:input, "")
         |> execute_lua(command)
+        |> push_event("clear_input", %{})
       
       {:noreply, push_event(socket, "scroll_to_bottom", %{})}
     end

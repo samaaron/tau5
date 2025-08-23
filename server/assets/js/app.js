@@ -27,8 +27,8 @@ let Hooks = {
   LuaShell: {
     mounted() {
       this.setupResize();
+      this.setupHistory();
       
-      // Focus input when console becomes visible
       this.handleEvent("focus_input", () => {
         const input = document.getElementById("lua-shell-input");
         if (input) {
@@ -44,6 +44,14 @@ let Hooks = {
         }
       });
       
+      // Clear input after command execution
+      this.handleEvent("clear_input", () => {
+        const input = document.getElementById("lua-shell-input");
+        if (input) {
+          input.value = "";
+        }
+      });
+      
       // Handle console toggle
       this.handleEvent("toggle_console", ({visible}) => {
         if (visible) {
@@ -53,6 +61,104 @@ let Hooks = {
           }, 100);
         }
       });
+    },
+    
+    setupHistory() {
+      const MAX_HISTORY = 100;
+      const STORAGE_KEY = 'tau5-lua-history';
+      
+      this.history = [];
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          this.history = JSON.parse(stored);
+          if (!Array.isArray(this.history)) {
+            this.history = [];
+          } else {
+            this.history = this.history.slice(0, MAX_HISTORY);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load command history:', e);
+        this.history = [];
+      }
+      
+      this.historyIndex = -1;
+      this.tempInput = "";
+      
+      const input = document.getElementById("lua-shell-input");
+      if (!input) return;
+      
+      this.historyKeydownHandler = (e) => {
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          this.navigateHistory(1);
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          this.navigateHistory(-1);
+        } else if (e.key === 'Enter') {
+          const command = input.value.trim();
+          if (command) {
+            this.addToHistory(command);
+          }
+        }
+      };
+      
+      this.historyInputHandler = () => {
+        if (this.historyIndex === -1) {
+          this.tempInput = input.value;
+        }
+      };
+      
+      input.addEventListener('keydown', this.historyKeydownHandler);
+      input.addEventListener('input', this.historyInputHandler);
+    },
+    
+    navigateHistory(direction) {
+      const input = document.getElementById("lua-shell-input");
+      if (!input || this.history.length === 0) return;
+      
+      if (this.historyIndex === -1 && direction > 0) {
+        this.tempInput = input.value;
+      }
+      
+      const newIndex = this.historyIndex + direction;
+      
+      if (newIndex < -1) return;
+      if (newIndex >= this.history.length) return;
+      
+      this.historyIndex = newIndex;
+      
+      if (this.historyIndex === -1) {
+        input.value = this.tempInput;
+      } else {
+        input.value = this.history[this.historyIndex];
+      }
+      
+      input.setSelectionRange(input.value.length, input.value.length);
+    },
+    
+    addToHistory(command) {
+      if (this.history.length > 0 && this.history[0] === command) {
+        this.historyIndex = -1;
+        return;
+      }
+      
+      this.history.unshift(command);
+      
+      const MAX_HISTORY = 100;
+      if (this.history.length > MAX_HISTORY) {
+        this.history = this.history.slice(0, MAX_HISTORY);
+      }
+      
+      try {
+        localStorage.setItem('tau5-lua-history', JSON.stringify(this.history));
+      } catch (e) {
+        console.warn('Failed to save command history:', e);
+      }
+      
+      this.historyIndex = -1;
+      this.tempInput = "";
     },
     
     setupResize() {
@@ -124,12 +230,26 @@ let Hooks = {
         container.style.height = savedHeight + 'px';
       }
       
-      // Cleanup on unmount
-      this.destroyed = () => {
+      // Store cleanup function for unmount
+      this.resizeCleanup = () => {
         handle.removeEventListener('mousedown', startResize);
         document.removeEventListener('mousemove', doResize);
         document.removeEventListener('mouseup', stopResize);
       };
+    },
+    
+    destroyed() {
+      // Clean up resize handlers
+      if (this.resizeCleanup) {
+        this.resizeCleanup();
+      }
+      
+      // Clean up history event listeners
+      const input = document.getElementById("lua-shell-input");
+      if (input && this.historyKeydownHandler) {
+        input.removeEventListener('keydown', this.historyKeydownHandler);
+        input.removeEventListener('input', this.historyInputHandler);
+      }
     }
   },
   
