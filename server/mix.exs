@@ -9,7 +9,8 @@ defmodule Tau5.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      listeners: [Phoenix.CodeReloader]
     ]
   end
 
@@ -74,7 +75,7 @@ defmodule Tau5.MixProject do
        ref: "f1a15212007e12a50f6fa703f62079ac82e75b17",
        app: false,
        compile: false},
-      {:tidewave, "~> 0.2", only: :dev},
+      {:tidewave, "~> 0.4.1", only: :dev},
       {:lua, "~> 0.3.0"},
       {:hermes_mcp, "~> 0.14.1"}
     ]

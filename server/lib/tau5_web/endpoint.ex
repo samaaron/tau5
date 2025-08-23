@@ -25,6 +25,16 @@ defmodule Tau5Web.Endpoint do
     gzip: false,
     only: Tau5Web.static_paths()
 
+  # Tidewave MCP integration (only in dev when enabled)
+  if System.get_env("TAU5_ENABLE_DEV_MCP", "false") in ["1", "true", "yes"] do
+    if Code.ensure_loaded?(Tidewave) do
+      plug Tidewave,
+        allow_remote_access: false,
+        allowed_origins: ["//localhost:5555", "//localhost:4000"],
+        autoformat: true
+    end
+  end
+
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
   if code_reloading? do
@@ -36,8 +46,6 @@ defmodule Tau5Web.Endpoint do
   plug Phoenix.LiveDashboard.RequestLogger,
     param_key: "request_logger",
     cookie_key: "request_logger"
-
-  plug :maybe_plug_tidewave
 
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
@@ -51,14 +59,4 @@ defmodule Tau5Web.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
   plug Tau5Web.Router
-
-  defp maybe_plug_tidewave(conn, _opts) do
-    mcp_enabled = System.get_env("TAU5_ENABLE_DEV_MCP", "false") in ["1", "true", "yes"]
-    
-    if mcp_enabled && Code.ensure_loaded?(Tidewave) do
-      Tidewave.call(conn, Tidewave.init([]))
-    else
-      conn
-    end
-  end
 end
