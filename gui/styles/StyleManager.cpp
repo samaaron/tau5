@@ -328,7 +328,6 @@ QString StyleManager::invertedButton()
              "  font-weight: %2; "
              "  padding: %3 %4; "
              "  border-radius: 4px; "  // Slightly rounded corners
-             "  text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.8); "  // Subtle text shadow
              "}"
              "QPushButton:hover { "
              "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "

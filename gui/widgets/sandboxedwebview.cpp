@@ -69,6 +69,11 @@ void SandboxedWebView::handleDownloadRequested(QWebEngineDownloadRequest *downlo
 
 void SandboxedWebView::setScrollbarColours(QColor foreground, QColor background, QColor hover)
 {
+    // Colors are unused since we're hiding the scrollbar entirely on Linux
+    Q_UNUSED(foreground);
+    Q_UNUSED(background);
+    Q_UNUSED(hover);
+    
     insertStyleSheet("scrollbar",
                      QString("/* Hide scrollbar entirely to fix Linux border issue */"
                              "::-webkit-scrollbar {"
@@ -82,10 +87,7 @@ void SandboxedWebView::setScrollbarColours(QColor foreground, QColor background,
                              "  min-width: 100% !important;"
                              "  overflow-y: auto;"
                              "  overflow-x: hidden;"
-                             "}")
-                         .arg(background.name())
-                         .arg(foreground.name())
-                         .arg(hover.name()));
+                             "}"));
 }
 
 void SandboxedWebView::insertStyleSheet(const QString &name, const QString &source)

@@ -59,7 +59,6 @@ void ConsoleOverlay::setupStyles()
             font-weight: 600;
             padding: 12px;
             border: none;
-            text-shadow: 0 0 3px rgba(255, 165, 0, 0.5);
         }
         QTextEdit::selection {
             background-color: %2;
