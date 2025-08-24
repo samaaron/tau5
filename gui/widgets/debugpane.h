@@ -78,13 +78,10 @@ private slots:
   void showDevToolsTab();
   void showLiveDashboardTab();
   void handleInspectElementRequested();
-  void checkForLogActivity();
   void updateAllLogs();
   void toggleActivityIndicators();
-  void checkLogWidgetActivity(LogWidget* widget, ActivityTabButton* button);
-  void startActivityMonitoring();
-  void stopActivityMonitoring();
   void updateActivityToggleButtonStyle();
+  void handleLogActivity(LogWidget *widget, ActivityTabButton *button);
 
 protected:
   bool eventFilter(QObject *obj, QEvent *event) override;
@@ -167,7 +164,6 @@ private:
   LogWidget *m_newGuiLogWidget;
   LogWidget *m_newTau5MCPWidget;
   LogWidget *m_newGuiMCPWidget;
-  QTimer *m_activityCheckTimer;
   bool m_activityIndicatorsEnabled = true;
   QPushButton *m_activityToggleButton;
   QString m_liveDashboardUrl;

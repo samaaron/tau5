@@ -6,6 +6,7 @@
 #include <QTextCharFormat>
 #include <QMap>
 #include <QUrl>
+#include <QMutex>
 
 QT_BEGIN_NAMESPACE
 class QTextEdit;
@@ -13,7 +14,7 @@ class QVBoxLayout;
 class QPushButton;
 class QLineEdit;
 class QShortcut;
-class QTimer;
+class QFileSystemWatcher;
 QT_END_NAMESPACE
 
 class LogWidget : public DebugWidget
@@ -43,12 +44,11 @@ public:
   void setFontSize(int size);
   int fontSize() const { return m_fontSize; }
   void setLogFilePath(const QString &path);
-  void startFileMonitoring(int intervalMs = 500);
   void stopFileMonitoring();
   QTextEdit* textEdit() { return m_textEdit; }
   void markAsRead() { m_hasUnreadContent = false; }
   bool hasUnreadContent() const { return m_hasUnreadContent; }
-  bool checkForNewContent();
+  bool hasNewContent() const { return m_hasUnreadContent; }
   void updateIfNeeded();
 
 signals:
@@ -67,6 +67,8 @@ private slots:
   void closeSearch();
   void updateFromFile();
   void handleAutoScrollToggled(bool checked);
+  void onFileChanged(const QString &path);
+  void onDirectoryChanged(const QString &path);
   
 protected:
   void setupToolbar() override;
@@ -81,6 +83,9 @@ private:
   void applyFontSize();
   void highlightAllMatches(const QString &searchText, const QTextCursor &currentMatch);
   void enforceMaxLines();
+  void initializeFilePosition();
+  void watchForFileCreation();
+  void switchFromDirectoryToFileWatch();
   
 private:
   LogType m_type;
@@ -97,10 +102,12 @@ private:
   int m_maxLines;
   int m_fontSize;
   QString m_logFilePath;
-  QTimer *m_fileMonitorTimer;
-  qint64 m_lastFilePosition;
-  qint64 m_lastActivityCheckPosition;
-  bool m_hasUnreadContent;
+  QFileSystemWatcher *m_fileWatcher;
+  QMutex m_filePositionMutex;  // Protects: m_lastFilePosition, m_lastActivityCheckPosition, m_hasUnreadContent
+  bool m_isWatchingDirectory;
+  qint64 m_lastFilePosition;     // Protected by m_filePositionMutex
+  qint64 m_lastActivityCheckPosition;  // Protected by m_filePositionMutex
+  bool m_hasUnreadContent;       // Protected by m_filePositionMutex
   
 };
 

@@ -10,8 +10,11 @@
 #include <QShortcut>
 #include <QScrollBar>
 #include <QTextCursor>
-#include <QTimer>
+#include <QFileSystemWatcher>
+#include <QMutexLocker>
 #include <QFile>
+#include <QThread>
+#include <QPointer>
 #include <QTextStream>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -31,7 +34,8 @@ LogWidget::LogWidget(LogType type, QWidget *parent)
     , m_autoScroll(true)
     , m_maxLines(5000)
     , m_fontSize(12)
-    , m_fileMonitorTimer(nullptr)
+    , m_fileWatcher(nullptr)
+    , m_isWatchingDirectory(false)
     , m_lastFilePosition(0)
     , m_lastActivityCheckPosition(0)
     , m_hasUnreadContent(false)
@@ -42,9 +46,8 @@ LogWidget::LogWidget(LogType type, QWidget *parent)
 
 LogWidget::~LogWidget()
 {
-  if (m_fileMonitorTimer) {
-    m_fileMonitorTimer->stop();
-    delete m_fileMonitorTimer;
+  if (m_fileWatcher) {
+    m_fileWatcher->deleteLater();
   }
 }
 
@@ -139,18 +142,12 @@ void LogWidget::setupContent()
 
 void LogWidget::onActivated()
 {
-  if (!m_logFilePath.isEmpty() && m_fileMonitorTimer && !m_fileMonitorTimer->isActive()) {
-    m_fileMonitorTimer->start();
-  }
   m_hasUnreadContent = false;
   m_lastActivityCheckPosition = m_lastFilePosition;
 }
 
 void LogWidget::onDeactivated()
 {
-  if (m_fileMonitorTimer && m_fileMonitorTimer->isActive()) {
-    m_fileMonitorTimer->stop();
-  }
 }
 
 void LogWidget::setupShortcuts()
@@ -185,13 +182,11 @@ void LogWidget::appendLogWithTimestamp(const QString &timestamp, const QString &
   QTextCursor cursor(m_textEdit->document());
   cursor.movePosition(QTextCursor::End);
   
-  // Timestamp formatting
   QTextCharFormat timestampFormat;
   timestampFormat.setForeground(QColor(StyleManager::Colors::TIMESTAMP_GRAY));
   cursor.setCharFormat(timestampFormat);
   cursor.insertText(timestamp);
   
-  // Text formatting
   QTextCharFormat textFormat;
   textFormat.setForeground(isError ? 
     QColor(StyleManager::Colors::ERROR_BLUE) : 
@@ -260,20 +255,14 @@ void LogWidget::setFontSize(int size)
 
 void LogWidget::applyFontSize()
 {
-  // We need to override the stylesheet's font-size
-  // Get the current stylesheet and update only the font-size
   QString currentStyle = m_textEdit->styleSheet();
   
-  // Use a regular expression to replace or add font-size
-  // This preserves all other styling from StyleManager::textEdit()
   QString fontSizeRule = QString("font-size: %1px;").arg(m_fontSize);
   
-  // First, try to replace existing font-size
   if (currentStyle.contains("font-size:")) {
     QRegularExpression re("font-size:\\s*[^;]+;");
     currentStyle.replace(re, fontSizeRule);
   } else {
-    // If no font-size exists, add it to QTextEdit block
     int qtextEditPos = currentStyle.indexOf("QTextEdit {");
     if (qtextEditPos >= 0) {
       int openBrace = currentStyle.indexOf("{", qtextEditPos);
@@ -343,14 +332,12 @@ void LogWidget::performSearch()
   QString searchText = m_searchInput->text();
   
   if (searchText.isEmpty()) {
-    // Clear all selections when search is empty
     QTextCursor cursor = m_textEdit->textCursor();
     cursor.clearSelection();
     m_textEdit->setTextCursor(cursor);
     return;
   }
   
-  // If search text changed, reset cursor to start
   if (searchText != m_lastSearchText) {
     QTextCursor cursor = m_textEdit->textCursor();
     cursor.movePosition(QTextCursor::Start);
@@ -358,10 +345,8 @@ void LogWidget::performSearch()
     m_lastSearchText = searchText;
   }
   
-  // Find next occurrence
   bool found = m_textEdit->find(searchText);
   
-  // If not found, wrap around to beginning
   if (!found) {
     QTextCursor cursor = m_textEdit->textCursor();
     cursor.movePosition(QTextCursor::Start);
@@ -369,7 +354,6 @@ void LogWidget::performSearch()
     found = m_textEdit->find(searchText);
   }
   
-  // Highlight all matches if we found at least one
   if (found) {
     QTextCursor currentMatchCursor = m_textEdit->textCursor();
     highlightAllMatches(searchText, currentMatchCursor);
@@ -383,10 +367,8 @@ void LogWidget::findNext()
     return;
   }
   
-  // Find next occurrence
   bool found = m_textEdit->find(searchText);
   
-  // If not found, wrap around to beginning
   if (!found) {
     QTextCursor cursor = m_textEdit->textCursor();
     cursor.movePosition(QTextCursor::Start);
@@ -394,7 +376,6 @@ void LogWidget::findNext()
     found = m_textEdit->find(searchText);
   }
   
-  // Update highlighting if we found something
   if (found) {
     QTextCursor currentMatchCursor = m_textEdit->textCursor();
     highlightAllMatches(searchText, currentMatchCursor);
@@ -408,10 +389,8 @@ void LogWidget::findPrevious()
     return;
   }
   
-  // Find previous occurrence
   bool found = m_textEdit->find(searchText, QTextDocument::FindBackward);
   
-  // If not found, wrap around to end
   if (!found) {
     QTextCursor cursor = m_textEdit->textCursor();
     cursor.movePosition(QTextCursor::End);
@@ -419,7 +398,6 @@ void LogWidget::findPrevious()
     found = m_textEdit->find(searchText, QTextDocument::FindBackward);
   }
   
-  // Update highlighting if we found something
   if (found) {
     QTextCursor currentMatchCursor = m_textEdit->textCursor();
     highlightAllMatches(searchText, currentMatchCursor);
@@ -432,17 +410,14 @@ void LogWidget::highlightAllMatches(const QString &searchText, const QTextCursor
   QTextDocument *document = m_textEdit->document();
   QTextCursor highlightCursor(document);
   
-  // Setup the format for other occurrences (orange background)
   QTextEdit::ExtraSelection extraSelection;
   QTextCharFormat format;
   format.setBackground(QColor(StyleManager::Colors::PRIMARY_ORANGE));
   format.setForeground(QColor(StyleManager::Colors::BLACK));
   
-  // Find all occurrences and highlight them (except the current one)
   while (!highlightCursor.isNull() && !highlightCursor.atEnd()) {
     highlightCursor = document->find(searchText, highlightCursor);
     if (!highlightCursor.isNull()) {
-      // Only add if it's not the current selection
       if (!currentMatch.isNull() && 
           (highlightCursor.position() != currentMatch.position() || 
            highlightCursor.anchor() != currentMatch.anchor())) {
@@ -453,7 +428,6 @@ void LogWidget::highlightAllMatches(const QString &searchText, const QTextCursor
     }
   }
   
-  // Apply all selections
   m_textEdit->setExtraSelections(extraSelections);
 }
 
@@ -463,7 +437,6 @@ void LogWidget::closeSearch()
   m_searchInput->clear();
   m_lastSearchText.clear();
   
-  // Clear selection and extra selections (highlights)
   QTextCursor cursor = m_textEdit->textCursor();
   cursor.clearSelection();
   m_textEdit->setTextCursor(cursor);
@@ -473,45 +446,60 @@ void LogWidget::closeSearch()
 
 void LogWidget::setLogFilePath(const QString &path)
 {
-  m_logFilePath = path;
-  m_lastFilePosition = 0;
-  m_lastActivityCheckPosition = 0;
+  if (m_fileWatcher) {
+    disconnect(m_fileWatcher, nullptr, this, nullptr);
+    m_fileWatcher->deleteLater();
+    m_fileWatcher = nullptr;
+  }
+  
+  {
+    QMutexLocker locker(&m_filePositionMutex);
+    m_logFilePath = path;
+    m_lastFilePosition = 0;
+    m_lastActivityCheckPosition = 0;
+    m_hasUnreadContent = false;
+  }
+  
+  if (path.isEmpty()) {
+    return;
+  }
+  
+  m_fileWatcher = new QFileSystemWatcher(this);
+  
+  connect(m_fileWatcher, &QFileSystemWatcher::fileChanged,
+          this, &LogWidget::onFileChanged);
+  connect(m_fileWatcher, &QFileSystemWatcher::directoryChanged,
+          this, &LogWidget::onDirectoryChanged);
+  
+  QFileInfo fileInfo(m_logFilePath);
+  
+  if (fileInfo.exists()) {
+    bool added = m_fileWatcher->addPath(m_logFilePath);
+    
+    if (fileInfo.isSymLink()) {
+      QString targetPath = fileInfo.canonicalFilePath();
+      if (!targetPath.isEmpty() && targetPath != m_logFilePath) {
+        m_fileWatcher->addPath(targetPath);
+        Tau5Logger::instance().debug(QString("Watching symlink %1 and target %2").arg(m_logFilePath).arg(targetPath));
+      }
+    }
+    
+    if (!added) {
+      Tau5Logger::instance().warning(QString("Failed to add file watcher for: %1").arg(m_logFilePath));
+    }
+    m_isWatchingDirectory = false;
+    initializeFilePosition();
+  } else {
+    watchForFileCreation();
+  }
 }
 
-void LogWidget::startFileMonitoring(int intervalMs)
-{
-  if (!m_fileMonitorTimer) {
-    m_fileMonitorTimer = new QTimer(this);
-    connect(m_fileMonitorTimer, &QTimer::timeout, this, &LogWidget::updateFromFile);
-  }
-  
-  if (m_type == MCPLog && !m_logFilePath.isEmpty()) {
-    QFile logFile(m_logFilePath);
-    
-    if (logFile.exists() && logFile.open(QIODevice::ReadOnly)) {
-      m_lastFilePosition = logFile.size();
-      m_lastActivityCheckPosition = m_lastFilePosition;
-      logFile.close();
-      Tau5Logger::instance().debug(QString("MCP log monitoring starting from position: %1").arg(m_lastFilePosition));
-    } else {
-      m_lastFilePosition = 0;
-      m_lastActivityCheckPosition = 0;
-      Tau5Logger::instance().debug("MCP log doesn't exist yet, will start from beginning");
-    }
-  }
-  
-  m_fileMonitorTimer->setInterval(intervalMs);
-  m_fileMonitorTimer->start();
-  
-  if (m_type != MCPLog) {
-    updateFromFile();
-  }
-}
 
 void LogWidget::stopFileMonitoring()
 {
-  if (m_fileMonitorTimer) {
-    m_fileMonitorTimer->stop();
+  if (m_fileWatcher) {
+    m_fileWatcher->deleteLater();
+    m_fileWatcher = nullptr;
   }
 }
 
@@ -521,42 +509,47 @@ void LogWidget::updateFromFile()
     return;
   }
   
+  qint64 readPosition;
+  bool shouldClear = false;
+  {
+    QMutexLocker locker(&m_filePositionMutex);
+    readPosition = m_lastFilePosition;
+  }
+  
   QFile logFile(m_logFilePath);
   if (!logFile.exists()) {
     return;
   }
   
   if (!logFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    Tau5Logger::instance().warning(QString("Failed to open log file for reading: %1").arg(m_logFilePath));
     return;
   }
   
-  // Check if file has changed
   qint64 currentSize = logFile.size();
-  if (currentSize == m_lastFilePosition) {
+  if (currentSize == readPosition) {
     logFile.close();
     return;
   }
   
-  // Read from last position
-  if (m_lastFilePosition > 0 && m_lastFilePosition < currentSize) {
-    logFile.seek(m_lastFilePosition);
-  } else if (m_lastFilePosition > currentSize) {
-    // File was truncated or replaced (e.g., server restart)
-    // Reset to beginning and re-read entire file
-    m_lastFilePosition = 0;
+  if (readPosition > 0 && readPosition < currentSize) {
+    logFile.seek(readPosition);
+  } else if (readPosition > currentSize) {
+    readPosition = 0;
     logFile.seek(0);
-    clear();
+    shouldClear = true;
   } else {
-    // First read
+    shouldClear = true;
+  }
+  
+  if (shouldClear) {
     clear();
   }
   
   QTextStream stream(&logFile);
   
-  // For MCP logs, parse JSON and format
   if (m_type == MCPLog) {
     appendFormattedText([this, &stream](QTextCursor &cursor) {
-      // Set up text formats
       QTextCharFormat timestampFormat;
       timestampFormat.setForeground(QColor(StyleManager::Colors::TIMESTAMP_GRAY));
       
@@ -573,26 +566,22 @@ void LogWidget::updateFromFile()
         QString line = stream.readLine();
         if (line.isEmpty()) continue;
         
-        // Parse JSON log entry
         QJsonParseError parseError;
         QJsonDocument doc = QJsonDocument::fromJson(line.toUtf8(), &parseError);
         
         if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
           QJsonObject entry = doc.object();
           
-          // Extract fields
           QString timestamp = entry["timestamp"].toString();
           QString tool = entry["tool"].toString();
           QString status = entry["status"].toString();
           int duration = entry["duration_ms"].toInt(-1);
           QJsonObject params = entry["params"].toObject();
           
-          // Format timestamp
           if (timestamp.contains("T")) {
             timestamp = timestamp.mid(timestamp.indexOf("T") + 1, 12);
           }
           
-          // Handle session markers specially
           if (tool == "_session") {
             QTextCharFormat sessionFormat;
             sessionFormat.setForeground(QColor(StyleManager::Colors::ACCENT_HIGHLIGHT));
@@ -611,8 +600,6 @@ void LogWidget::updateFromFile()
             cursor.insertText("════════════════════════════════════════════════════════════\n");
             cursor.insertText("\n");
           } else {
-            // Regular tool entry
-            // Determine format based on status (use error color for error/exception/crash)
             QTextCharFormat lineFormat = (status == "error" || status == "exception" || status == "crash") 
                 ? errorFormat : normalFormat;
             
@@ -622,7 +609,6 @@ void LogWidget::updateFromFile()
             cursor.setCharFormat(lineFormat);
             cursor.insertText(QString("%1 ").arg(tool));
             
-            // Status indicator
             QString statusStr;
             if (status == "started") {
               statusStr = "→";
@@ -642,7 +628,6 @@ void LogWidget::updateFromFile()
               cursor.insertText(QString(" (%1ms)").arg(duration));
             }
             
-            // Parameters (only show for 'started' status or when there's no error)
             if (!params.isEmpty() && status != "error" && status != "exception" && status != "crash") {
               QJsonDocument paramsDoc(params);
               QString paramsStr = paramsDoc.toJson(QJsonDocument::Compact);
@@ -655,7 +640,6 @@ void LogWidget::updateFromFile()
               }
             }
             
-            // Response data (for successful calls)
             if (status == "success" && entry.contains("response")) {
               QJsonValue response = entry["response"];
               QString responseStr;
@@ -682,7 +666,6 @@ void LogWidget::updateFromFile()
               responseFormat.setForeground(QColor(StyleManager::Colors::STATUS_SUCCESS));
               cursor.setCharFormat(responseFormat);
               
-              // Truncate response if too long
               if (responseStr.length() > 300) {
                 QString truncated = responseStr.left(297) + "...";
                 cursor.insertText(QString("\n  → %1").arg(truncated));
@@ -691,14 +674,11 @@ void LogWidget::updateFromFile()
               }
             }
             
-            // Error details (for error/exception/crash statuses)
             QString errorMsg = entry["error"].toString();
             if (!errorMsg.isEmpty() && (status == "error" || status == "exception" || status == "crash")) {
               cursor.setCharFormat(lineFormat);  // Use same color as rest of error line
-              // Replace newlines with spaces for compact display
               errorMsg = errorMsg.replace('\n', ' ');
               
-              // Truncate error message if too long
               if (errorMsg.length() > 200) {
                 QString truncated = errorMsg.left(197) + "...";
                 cursor.insertText(QString("\n  Error: %1").arg(truncated));
@@ -710,22 +690,26 @@ void LogWidget::updateFromFile()
             cursor.insertText("\n");
           }
         } else {
-          // Raw line if not JSON
           cursor.setCharFormat(normalFormat);
           cursor.insertText(line + "\n");
         }
       }
     });
   } else {
-    // For regular logs, just append the text
     while (!stream.atEnd()) {
       QString line = stream.readLine();
       appendLog(line, false);
     }
   }
   
-  m_lastFilePosition = logFile.pos();
+  qint64 newPosition = logFile.pos();
   logFile.close();
+  
+  {
+    QMutexLocker locker(&m_filePositionMutex);
+    m_lastFilePosition = newPosition;
+    m_hasUnreadContent = false;
+  }
 }
 
 void LogWidget::handleAutoScrollToggled(bool checked)
@@ -733,31 +717,171 @@ void LogWidget::handleAutoScrollToggled(bool checked)
   setAutoScroll(checked);
 }
 
-bool LogWidget::checkForNewContent()
-{
-  if (m_logFilePath.isEmpty()) {
-    return false;
-  }
-  
-  QFile logFile(m_logFilePath);
-  if (!logFile.exists()) {
-    return false;
-  }
-  
-  qint64 currentSize = logFile.size();
-  if (currentSize != m_lastActivityCheckPosition) {
-    m_lastActivityCheckPosition = currentSize;
-    m_hasUnreadContent = true;
-    emit logActivity();
-    return true;
-  }
-  
-  return false;
-}
-
 void LogWidget::updateIfNeeded()
 {
-  if (checkForNewContent()) {
+  if (m_hasUnreadContent) {
     updateFromFile();
   }
+}
+
+void LogWidget::onFileChanged(const QString &path)
+{
+  bool shouldEmitActivity = false;
+  bool shouldUpdateDisplay = false;
+  bool fileReplaced = false;
+  
+  {
+    QMutexLocker locker(&m_filePositionMutex);
+    
+    QFileInfo fileInfo(path);
+    QString actualPath = fileInfo.canonicalFilePath();
+    if (actualPath.isEmpty()) {
+      actualPath = path;
+    }
+    
+    if (actualPath == m_logFilePath || path == m_logFilePath) {
+      QFile file(m_logFilePath);
+      if (file.open(QIODevice::ReadOnly)) {
+        qint64 newSize = file.size();
+        
+        if (newSize < m_lastActivityCheckPosition && m_lastActivityCheckPosition > 0) {
+          Tau5Logger::instance().debug(QString("File replaced detected: %1 (old size: %2, new size: %3)")
+            .arg(path)
+            .arg(m_lastActivityCheckPosition)
+            .arg(newSize));
+          
+          m_lastFilePosition = 0;
+          m_lastActivityCheckPosition = newSize;
+          fileReplaced = true;
+          m_hasUnreadContent = true;
+          shouldEmitActivity = true;
+        } else if (newSize > m_lastActivityCheckPosition) {
+          
+          m_lastActivityCheckPosition = newSize;
+          m_hasUnreadContent = true;
+          shouldEmitActivity = true;
+        }
+        
+        if (m_hasUnreadContent) {
+          shouldUpdateDisplay = true;
+        }
+        
+        file.close();
+      } else {
+        Tau5Logger::instance().debug(QString("Failed to open file, might be recreated: %1").arg(path));
+      }
+    }
+  }
+  QPointer<LogWidget> safeThis(this);
+  if (shouldEmitActivity && safeThis) {
+    emit logActivity();
+  }
+  
+  if (shouldUpdateDisplay && safeThis) {
+    QMetaObject::invokeMethod(this, "updateFromFile", Qt::QueuedConnection);
+  }
+  
+  if (m_fileWatcher && !m_fileWatcher->files().contains(path)) {
+    int retryCount = 0;
+    const int maxRetries = 3;
+    while (retryCount < maxRetries) {
+      bool added = m_fileWatcher->addPath(path);
+      if (added) {
+        if (retryCount > 0) {
+          Tau5Logger::instance().debug(QString("Successfully re-added file watcher for %1 after %2 retries")
+            .arg(path).arg(retryCount));
+        }
+        break;
+      }
+      retryCount++;
+      if (retryCount < maxRetries && QFile::exists(path)) {
+        QThread::msleep(10);
+      }
+    }
+    if (retryCount == maxRetries && QFile::exists(path)) {
+      Tau5Logger::instance().warning(QString("Failed to re-add file watcher for %1 after %2 retries")
+        .arg(path).arg(maxRetries));
+    }
+  }
+}
+
+void LogWidget::onDirectoryChanged(const QString &path)
+{
+  if (!m_isWatchingDirectory) {
+    return;
+  }
+  
+  QFileInfo fileInfo(m_logFilePath);
+  if (fileInfo.exists()) {
+    Tau5Logger::instance().debug(QString("Target log file created: %1").arg(m_logFilePath));
+    switchFromDirectoryToFileWatch();
+  } else {
+    QFileInfo dirInfo(path);
+    if (dirInfo.exists()) {
+      Tau5Logger::instance().debug(QString("Directory changed but target file not yet created: %1")
+        .arg(fileInfo.fileName()));
+    }
+  }
+}
+
+void LogWidget::initializeFilePosition()
+{
+  QMutexLocker locker(&m_filePositionMutex);
+  
+  QFile logFile(m_logFilePath);
+  if (logFile.exists() && logFile.open(QIODevice::ReadOnly)) {
+    m_lastFilePosition = logFile.size();
+    m_lastActivityCheckPosition = m_lastFilePosition;
+    logFile.close();
+  } else {
+    m_lastFilePosition = 0;
+    m_lastActivityCheckPosition = 0;
+  }
+}
+
+void LogWidget::watchForFileCreation()
+{
+  if (!m_fileWatcher) {
+    Tau5Logger::instance().warning("Cannot watch for file creation: file watcher is null");
+    return;
+  }
+  
+  QFileInfo fileInfo(m_logFilePath);
+  QString dirPath = fileInfo.absolutePath();
+  
+  if (QDir(dirPath).exists()) {
+    bool added = m_fileWatcher->addPath(dirPath);
+    if (added) {
+      m_isWatchingDirectory = true;
+      Tau5Logger::instance().debug(QString("Watching directory for file creation: %1").arg(dirPath));
+    } else {
+      Tau5Logger::instance().warning(QString("Failed to watch directory: %1").arg(dirPath));
+    }
+  } else {
+    Tau5Logger::instance().warning(QString("Cannot watch for file creation: directory does not exist: %1").arg(dirPath));
+  }
+}
+
+void LogWidget::switchFromDirectoryToFileWatch()
+{
+  if (!m_fileWatcher) return;
+  
+  QFileInfo fileInfo(m_logFilePath);
+  QString dirPath = fileInfo.absolutePath();
+  bool removed = m_fileWatcher->removePath(dirPath);
+  if (!removed) {
+    Tau5Logger::instance().debug(QString("Directory was not being watched: %1").arg(dirPath));
+  }
+  
+  bool added = m_fileWatcher->addPath(m_logFilePath);
+  if (added) {
+    m_isWatchingDirectory = false;
+    Tau5Logger::instance().debug(QString("Switched to watching file: %1").arg(m_logFilePath));
+  } else {
+    Tau5Logger::instance().warning(QString("Failed to watch file after creation: %1").arg(m_logFilePath));
+  }
+  
+  initializeFilePosition();
+  
+  QMetaObject::invokeMethod(this, "updateFromFile", Qt::QueuedConnection);
 }

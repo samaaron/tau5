@@ -25,6 +25,7 @@
 #include <QShortcut>
 #include <QTextEdit>
 #include <QPushButton>
+#include <QPointer>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -77,14 +78,12 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 
-// Helper function to create buttons with codicon font
 static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, const QString &tooltip,
                                         bool checkable = false, bool checked = false)
 {
   QPushButton *button = new QPushButton(icon, parent);
   button->setToolTip(tooltip);
 
-  // Use different font for + and - buttons
   QString fontFamily = (icon == '+' || icon == '-') ? "Segoe UI, Arial" : "codicon";
   QString fontSize = (icon == '+' || icon == '-') ? "16px" : "14px";
 
@@ -115,9 +114,9 @@ static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, cons
    .arg(StyleManager::Colors::ACCENT_PRIMARY)
    .arg(StyleManager::Colors::TEXT_PRIMARY)
    .arg(StyleManager::Colors::STATUS_ERROR)
-   .arg(StyleManager::Colors::textPrimaryAlpha(25))  // ~10% opacity (0.1 * 255)
-   .arg(StyleManager::Colors::textPrimaryAlpha(51))  // ~20% opacity (0.2 * 255)
-   .arg(StyleManager::Colors::accentPrimaryAlpha(51)));  // ~20% opacity (0.2 * 255)
+   .arg(StyleManager::Colors::textPrimaryAlpha(25))
+   .arg(StyleManager::Colors::textPrimaryAlpha(51))
+   .arg(StyleManager::Colors::accentPrimaryAlpha(51)));
 
   if (checkable) {
     button->setCheckable(true);
@@ -140,7 +139,7 @@ DebugPane::DebugPane(QWidget *parent, bool devMode, bool enableMcp, bool enableR
       m_dragHandleWidget(nullptr), m_dragHandleAnimationTimer(nullptr), m_animationBar(nullptr),
       m_restartLabel(nullptr), m_restartButton(nullptr), m_resetButton(nullptr), m_closeButton(nullptr),
       m_newBeamLogWidget(nullptr), m_newGuiLogWidget(nullptr), m_newTau5MCPWidget(nullptr),
-      m_newGuiMCPWidget(nullptr), m_activityCheckTimer(nullptr), m_consoleToolbarStack(nullptr),
+      m_newGuiMCPWidget(nullptr), m_consoleToolbarStack(nullptr),
       m_devMode(devMode), m_mcpEnabled(enableMcp), m_replEnabled(enableRepl)
 {
   static bool codiconLoaded = false;
@@ -247,11 +246,11 @@ void DebugPane::setupViewControls()
   m_headerWidget = new QWidget(this);
   m_headerWidget->setMouseTracking(true);
   m_headerWidget->setStyleSheet(StyleManager::consoleHeader());
-  m_headerWidget->setMinimumHeight(30);  // Maintain height when buttons are hidden
+  m_headerWidget->setMinimumHeight(30);
 
   m_animationBar = new QWidget(m_headerWidget);
   m_animationBar->hide();
-  m_animationBar->setStyleSheet("background: transparent;"); // Start transparent
+  m_animationBar->setStyleSheet("background: transparent;");
   m_animationBar->setAttribute(Qt::WA_TransparentForMouseEvents);
 
   m_restartLabel = new QLabel("Tau5 Server Rebooting", m_headerWidget);
@@ -269,8 +268,6 @@ void DebugPane::setupViewControls()
   m_devToolsButton = createCodiconButton(m_headerWidget, QChar(0xEAAF), "DevTools Only", true);
   m_sideBySideButton = createCodiconButton(m_headerWidget, QChar(0xEB56), "Side by Side View", true);
   m_closeButton = createCodiconButton(m_headerWidget, QChar(0xEA76), "Close Debug Pane");
-  
-  // Hide dev-only buttons in production mode
   if (!m_devMode) {
     m_restartButton->setVisible(false);
     m_resetButton->setVisible(false);
@@ -314,14 +311,12 @@ void DebugPane::setupConsole()
   consoleMainLayout->setContentsMargins(0, 0, 0, 0);
   consoleMainLayout->setSpacing(0);
 
-  // Create container for tab buttons and widget-specific toolbar
   QWidget *consoleHeaderContainer = new QWidget(m_consoleContainer);
-  consoleHeaderContainer->setMaximumHeight(56);  // Constrain height: 28px for each toolbar
+  consoleHeaderContainer->setMaximumHeight(56);
   QVBoxLayout *headerLayout = new QVBoxLayout(consoleHeaderContainer);
   headerLayout->setContentsMargins(0, 0, 0, 0);
   headerLayout->setSpacing(0);
 
-  // Tab buttons toolbar
   QWidget *consoleToolbar = ButtonUtilities::createTabToolbar(consoleHeaderContainer);
   QHBoxLayout *toolbarLayout = new QHBoxLayout(consoleToolbar);
   toolbarLayout->setContentsMargins(5, 2, 10, 2);
@@ -339,8 +334,6 @@ void DebugPane::setupConsole()
   if (!enableDevMCP) {
     m_guiMCPTabButton->setToolTip("GUI Dev MCP disabled - click for more information");
   }
-  
-  // Hide GUI MCP tab in production mode
   if (!m_devMode) {
     m_guiMCPTabButton->setVisible(false);
   }
@@ -352,8 +345,6 @@ void DebugPane::setupConsole()
     toolbarLayout->addWidget(m_guiMCPTabButton);
   }
   toolbarLayout->addStretch();
-  
-  // Add activity indicators toggle button
   m_activityToggleButton = new QPushButton(consoleToolbar);
   m_activityToggleButton->setCheckable(true);
   m_activityToggleButton->setChecked(m_activityIndicatorsEnabled);
@@ -368,14 +359,12 @@ void DebugPane::setupConsole()
   
   headerLayout->addWidget(consoleToolbar);
   
-  // Container for widget-specific toolbars (will be managed dynamically)
   m_consoleToolbarStack = new QStackedWidget(consoleHeaderContainer);
-  m_consoleToolbarStack->setMaximumHeight(28);  // Match toolbar height
+  m_consoleToolbarStack->setMaximumHeight(28);
   headerLayout->addWidget(m_consoleToolbarStack);
 
   m_consoleStack = new QStackedWidget(m_consoleContainer);
 
-  // Elixir console moved to dev tools section
 
   m_newBeamLogWidget = new LogWidget(LogWidget::BeamLog, nullptr);
   m_newGuiLogWidget = new LogWidget(LogWidget::GuiLog, nullptr);
@@ -394,7 +383,6 @@ void DebugPane::setupConsole()
     "(All commands are executed in a secure sandboxed environment.)\n\n";
   m_newTau5MCPWidget->appendLog(tau5MCPStartupMessage, false);
 
-  m_newTau5MCPWidget->startFileMonitoring(500);
 
   if (enableDevMCP) {
     QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
@@ -419,9 +407,6 @@ void DebugPane::setupConsole()
       "────────────────────────────────────────\n";
     m_newGuiMCPWidget->appendLog(guiMCPStartupMessage, false);
 
-    if (m_devMode) {
-      m_newGuiMCPWidget->startFileMonitoring(500);
-    }
   } else {
     QString disabledMessage =
       "\nTau5 Dev MCP Services - DISABLED\n"
@@ -444,7 +429,6 @@ void DebugPane::setupConsole()
 
   m_consoleStack->setCurrentIndex(0);
   
-  // Add the toolbars from each LogWidget to the toolbar stack
   if (m_newBeamLogWidget && m_newBeamLogWidget->getToolbar()) {
     m_consoleToolbarStack->addWidget(m_newBeamLogWidget->getToolbar());
   }
@@ -467,37 +451,29 @@ void DebugPane::setupConsole()
   connect(m_tau5MCPTabButton, &QPushButton::clicked, this, &DebugPane::showTau5MCPLog);
   connect(m_guiMCPTabButton, &QPushButton::clicked, this, &DebugPane::showGuiMCPLog);
   
-  connect(m_newBeamLogWidget, &LogWidget::logActivity, [this]() {
-    m_beamLogTabButton->pulseActivity();
-    if (m_consoleStack->currentWidget() != m_newBeamLogWidget) {
-      m_beamLogTabButton->setHasUnread(true);
-    }
-  });
+  connect(m_newBeamLogWidget, &LogWidget::logActivity, 
+          [this, widget = QPointer<LogWidget>(m_newBeamLogWidget), 
+           button = QPointer<ActivityTabButton>(m_beamLogTabButton)]() { 
+            if (widget && button) handleLogActivity(widget, button); 
+          });
   
-  connect(m_newGuiLogWidget, &LogWidget::logActivity, [this]() {
-    m_guiLogTabButton->pulseActivity();
-    if (m_consoleStack->currentWidget() != m_newGuiLogWidget) {
-      m_guiLogTabButton->setHasUnread(true);
-    }
-  });
+  connect(m_newGuiLogWidget, &LogWidget::logActivity,
+          [this, widget = QPointer<LogWidget>(m_newGuiLogWidget),
+           button = QPointer<ActivityTabButton>(m_guiLogTabButton)]() {
+            if (widget && button) handleLogActivity(widget, button);
+          });
   
-  connect(m_newTau5MCPWidget, &LogWidget::logActivity, [this]() {
-    m_tau5MCPTabButton->pulseActivity();
-    if (m_consoleStack->currentWidget() != m_newTau5MCPWidget) {
-      m_tau5MCPTabButton->setHasUnread(true);
-    }
-  });
+  connect(m_newTau5MCPWidget, &LogWidget::logActivity,
+          [this, widget = QPointer<LogWidget>(m_newTau5MCPWidget),
+           button = QPointer<ActivityTabButton>(m_tau5MCPTabButton)]() {
+            if (widget && button) handleLogActivity(widget, button);
+          });
   
-  connect(m_newGuiMCPWidget, &LogWidget::logActivity, [this]() {
-    m_guiMCPTabButton->pulseActivity();
-    if (m_consoleStack->currentWidget() != m_newGuiMCPWidget) {
-      m_guiMCPTabButton->setHasUnread(true);
-    }
-  });
-  
-  m_activityCheckTimer = new QTimer(this);
-  m_activityCheckTimer->setInterval(250);
-  connect(m_activityCheckTimer, &QTimer::timeout, this, &DebugPane::checkForLogActivity);
+  connect(m_newGuiMCPWidget, &LogWidget::logActivity,
+          [this, widget = QPointer<LogWidget>(m_newGuiMCPWidget),
+           button = QPointer<ActivityTabButton>(m_guiMCPTabButton)]() {
+            if (widget && button) handleLogActivity(widget, button);
+          });
 }
 
 void DebugPane::setupDevTools()
@@ -518,10 +494,7 @@ void DebugPane::setupDevTools()
 
   m_liveDashboardTabButton = ButtonUtilities::createTabButton("Live Dashboard", devToolsToolbar);
 
-  // Move Elixir console to dev tools section
   m_elixirConsoleTabButton = ButtonUtilities::createTabButton("Elixir", devToolsToolbar);
-  
-  // Hide dev-only tabs in production mode
   if (!m_devMode) {
     m_liveDashboardTabButton->setVisible(false);
     m_elixirConsoleTabButton->setVisible(false);
@@ -567,7 +540,6 @@ void DebugPane::setupDevTools()
   m_liveDashboardView->page()->setBackgroundColor(QColor(StyleManager::Colors::DARK_BACKGROUND));
   liveDashboardLayout->addWidget(m_liveDashboardView);
 
-  // Check if Elixir REPL is enabled and create Elixir console container
   bool enableDevREPL = isElixirReplEnabled();
   QWidget *elixirWidget = nullptr;
   
@@ -584,7 +556,6 @@ void DebugPane::setupDevTools()
     
     elixirWidget = m_elixirConsoleContainer;
   } else {
-    // Create a LogWidget to show the disabled message
     LogWidget *elixirDisabledWidget = new LogWidget(LogWidget::GuiLog, nullptr);
     QString disabledMessage =
       "\nTau5 Elixir REPL Console - DISABLED\n"
@@ -601,7 +572,6 @@ void DebugPane::setupDevTools()
     elixirDisabledWidget->appendLog(disabledMessage, false);
     elixirWidget = elixirDisabledWidget;
     
-    // Set tooltip on the tab button
     m_elixirConsoleTabButton->setToolTip("Elixir REPL disabled - click for more information");
   }
 
@@ -619,7 +589,6 @@ void DebugPane::setupDevTools()
   connect(m_liveDashboardTabButton, &QPushButton::clicked, this, &DebugPane::showLiveDashboardTab);
   connect(m_elixirConsoleTabButton, &QPushButton::clicked, this, &DebugPane::showElixirConsole);
 
-  // Zoom controls can be handled internally by the web views
 }
 
 void DebugPane::setWebView(PhxWebView *webView)
@@ -696,14 +665,12 @@ void DebugPane::updateViewMode()
     m_consoleContainer->show();
     m_splitter->hide();
     updateAllLogs();
-    startActivityMonitoring();
     break;
 
   case DevToolsOnly:
     fullViewLayout->addWidget(m_devToolsMainContainer);
     m_devToolsMainContainer->show();
     m_splitter->hide();
-    stopActivityMonitoring();
     break;
 
   case SideBySide:
@@ -715,7 +682,6 @@ void DebugPane::updateViewMode()
     m_devToolsMainContainer->show();
     m_splitter->show();
     updateAllLogs();
-    startActivityMonitoring();
     break;
   }
 }
@@ -740,7 +706,6 @@ void DebugPane::appendOutput(const QString &text, bool isError)
   if (text.isEmpty())
     return;
 
-  // Append to NEW LogWidget ONLY
   if (m_newBeamLogWidget) {
     m_newBeamLogWidget->appendLog(text, isError);
   }
@@ -934,7 +899,6 @@ void DebugPane::resizeEvent(QResizeEvent *event)
     m_restartLabel->move(0, 0);
   }
 
-  // Old search widget positioning removed - new LogWidget handles its own search
 }
 
 int DebugPane::constrainHeight(int requestedHeight) const
@@ -958,7 +922,6 @@ void DebugPane::appendGuiLog(const QString &text, bool isError)
   if (text.isEmpty())
     return;
 
-  // Append to NEW LogWidget for display
   if (m_newGuiLogWidget) {
     m_newGuiLogWidget->appendLog(text, isError);
   }
@@ -968,14 +931,13 @@ void DebugPane::appendGuiLog(const QString &text, bool isError)
 
 void DebugPane::setLiveDashboardUrl(const QString &url)
 {
-  // Only set Live Dashboard URL in dev mode
   if (!m_devMode) {
     return;
   }
   
   if (!url.isEmpty())
   {
-    m_liveDashboardUrl = url;  // Store for reset functionality
+    m_liveDashboardUrl = url;
   }
 
   if (m_liveDashboardView && !url.isEmpty())
@@ -995,17 +957,15 @@ void DebugPane::setLiveDashboardUrl(const QString &url)
 
 void DebugPane::setElixirConsoleUrl(const QString &url)
 {
-  // Only set Elixir Console URL in dev mode
   if (!m_devMode) {
     return;
   }
   
   if (!url.isEmpty())
   {
-    m_elixirConsoleUrl = url;  // Store for reset functionality
+    m_elixirConsoleUrl = url;
   }
 
-  // Only load the URL if the REPL is enabled and the view exists
   bool enableDevREPL = isElixirReplEnabled();
 
   if (enableDevREPL && m_elixirConsoleView && !url.isEmpty())
@@ -1035,18 +995,15 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
 
 void DebugPane::showBeamLog()
 {
-  // Deactivate previous widget
   if (m_consoleStack->currentWidget()) {
     if (auto* debugWidget = qobject_cast<DebugWidget*>(m_consoleStack->currentWidget())) {
       debugWidget->onDeactivated();
     }
   }
-  // Switch to new LogWidget at index 0
   m_consoleStack->setCurrentIndex(0);
   if (m_consoleToolbarStack) {
     m_consoleToolbarStack->setCurrentIndex(0);
   }
-  // Update tab button states
   m_beamLogTabButton->setChecked(true);
   m_beamLogTabButton->setHasUnread(false);
   m_guiLogTabButton->setChecked(false);
@@ -1060,7 +1017,6 @@ void DebugPane::showBeamLog()
 
 void DebugPane::showGuiLog()
 {
-  // Deactivate previous widget
   if (m_consoleStack->currentWidget()) {
     if (auto* debugWidget = qobject_cast<DebugWidget*>(m_consoleStack->currentWidget())) {
       debugWidget->onDeactivated();
@@ -1071,7 +1027,6 @@ void DebugPane::showGuiLog()
   if (m_consoleToolbarStack) {
     m_consoleToolbarStack->setCurrentIndex(1);
   }
-  // Update tab button states
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(true);
   m_guiLogTabButton->setHasUnread(false);
@@ -1085,9 +1040,7 @@ void DebugPane::showGuiLog()
 
 void DebugPane::showElixirConsole()
 {
-  // Elixir console is now at index 2 in dev tools stack
   m_devToolsStack->setCurrentIndex(2);
-  // Update tab button states
   m_devToolsTabButton->setChecked(false);
   m_liveDashboardTabButton->setChecked(false);
   m_elixirConsoleTabButton->setChecked(true);
@@ -1095,7 +1048,6 @@ void DebugPane::showElixirConsole()
 
 void DebugPane::showTau5MCPLog()
 {
-  // Deactivate previous widget
   if (m_consoleStack->currentWidget()) {
     if (auto* debugWidget = qobject_cast<DebugWidget*>(m_consoleStack->currentWidget())) {
       debugWidget->onDeactivated();
@@ -1106,7 +1058,6 @@ void DebugPane::showTau5MCPLog()
   if (m_consoleToolbarStack) {
     m_consoleToolbarStack->setCurrentIndex(2);
   }
-  // Update tab button states
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(true);
@@ -1120,7 +1071,6 @@ void DebugPane::showTau5MCPLog()
 
 void DebugPane::showGuiMCPLog()
 {
-  // Deactivate previous widget
   if (m_consoleStack->currentWidget()) {
     if (auto* debugWidget = qobject_cast<DebugWidget*>(m_consoleStack->currentWidget())) {
       debugWidget->onDeactivated();
@@ -1131,7 +1081,6 @@ void DebugPane::showGuiMCPLog()
   if (m_consoleToolbarStack) {
     m_consoleToolbarStack->setCurrentIndex(3);
   }
-  // Update tab button states
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(false);
@@ -1169,7 +1118,6 @@ void DebugPane::showLiveDashboardTab()
 
 void DebugPane::switchDevToolsTab(int index)
 {
-  // Simple tab switching for dev tools
   if (m_devToolsTabButton) m_devToolsTabButton->setChecked(index == 0);
   if (m_liveDashboardTabButton) m_liveDashboardTabButton->setChecked(index == 1);
   if (m_elixirConsoleTabButton) m_elixirConsoleTabButton->setChecked(index == 2);
@@ -1196,7 +1144,7 @@ void DebugPane::saveSettings()
   settings.setValue("devToolsTabIndex", m_devToolsStack->currentIndex());
 
   settings.endGroup();
-  settings.sync();  // Force write to disk
+  settings.sync();
 }
 
 void DebugPane::restoreSettings()
@@ -1492,7 +1440,6 @@ void DebugPane::resetDevPaneBrowsers()
 {
   Tau5Logger::instance().debug( "DebugPane::resetDevPaneBrowsers - Resetting dev pane browsers");
 
-  // Reset Live Dashboard
   if (m_liveDashboardView && !m_liveDashboardUrl.isEmpty())
   {
     Tau5Logger::instance().debug( QString("Resetting Live Dashboard to: %1").arg(m_liveDashboardUrl));
@@ -1500,7 +1447,6 @@ void DebugPane::resetDevPaneBrowsers()
     m_liveDashboardView->setUrl(dashboardUrl);
   }
 
-  // Reset Elixir Console (only if enabled)
   bool enableDevREPL = isElixirReplEnabled();
   if (enableDevREPL && m_elixirConsoleView && !m_elixirConsoleUrl.isEmpty())
   {
@@ -1509,72 +1455,26 @@ void DebugPane::resetDevPaneBrowsers()
     m_elixirConsoleView->load(consoleUrl);
   }
 
-  // For DevTools, we need to reconnect it to the target page
-  // DevTools is special - it's connected via setDevToolsPage
-  // When navigated away, we can't simply navigate back
-  // Instead, we need to trigger a reconnection
   if (m_targetWebView && m_devToolsView)
   {
     Tau5Logger::instance().debug( "Resetting DevTools connection");
     QWebEnginePage *targetPage = m_targetWebView->page();
     if (targetPage)
     {
-      // Re-set the DevTools page to force a refresh
       targetPage->setDevToolsPage(nullptr);
       targetPage->setDevToolsPage(m_devToolsView->page());
 
-      // Ensure the theme is reapplied after reconnection
       connect(m_devToolsView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok)
       {
         if (ok) {
           DebugPaneThemeStyles::applyDevToolsDarkTheme(m_devToolsView);
           DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
         }
-      }, Qt::SingleShotConnection);  // Use SingleShotConnection to avoid multiple connections
+      }, Qt::SingleShotConnection);
     }
   }
 
   Tau5Logger::instance().info( "Dev pane browsers have been reset");
-}
-
-void DebugPane::checkForLogActivity()
-{
-  if (!m_activityIndicatorsEnabled) {
-    return;
-  }
-  
-  checkLogWidgetActivity(m_newBeamLogWidget, m_beamLogTabButton);
-  checkLogWidgetActivity(m_newGuiLogWidget, m_guiLogTabButton);
-  checkLogWidgetActivity(m_newTau5MCPWidget, m_tau5MCPTabButton);
-  checkLogWidgetActivity(m_newGuiMCPWidget, m_guiMCPTabButton);
-}
-
-void DebugPane::checkLogWidgetActivity(LogWidget* widget, ActivityTabButton* button)
-{
-  if (!widget || !button) {
-    return;
-  }
-  
-  if (widget->checkForNewContent()) {
-    button->pulseActivity();
-    if (m_consoleStack->currentWidget() != widget) {
-      button->setHasUnread(true);
-    }
-  }
-}
-
-void DebugPane::startActivityMonitoring()
-{
-  if (m_activityIndicatorsEnabled && m_activityCheckTimer && !m_activityCheckTimer->isActive()) {
-    m_activityCheckTimer->start();
-  }
-}
-
-void DebugPane::stopActivityMonitoring()
-{
-  if (m_activityCheckTimer && m_activityCheckTimer->isActive()) {
-    m_activityCheckTimer->stop();
-  }
 }
 
 void DebugPane::updateAllLogs()
@@ -1636,14 +1536,20 @@ void DebugPane::toggleActivityIndicators()
     updateActivityToggleButtonStyle();
   }
   
-  if (m_activityIndicatorsEnabled && isVisible()) {
-    startActivityMonitoring();
-  } else {
-    stopActivityMonitoring();
-  }
-  
   Tau5Logger::instance().info(QString("Activity indicators %1")
     .arg(m_activityIndicatorsEnabled ? "enabled" : "disabled"));
+}
+
+void DebugPane::handleLogActivity(LogWidget *widget, ActivityTabButton *button)
+{
+  if (!m_activityIndicatorsEnabled || !widget || !button) {
+    return;
+  }
+  
+  button->pulseActivity();
+  if (m_consoleStack->currentWidget() != widget) {
+    button->setHasUnread(true);
+  }
 }
 
 void DebugPane::updateActivityToggleButtonStyle()
@@ -1652,8 +1558,6 @@ void DebugPane::updateActivityToggleButtonStyle()
     return;
   }
   
-  // Use pulse/wave icon to represent activity monitoring
-  // No border normally, only show visual feedback on hover/checked
   QString style = QString(
     "QPushButton { "
     "  background: transparent; "
@@ -1673,20 +1577,17 @@ void DebugPane::updateActivityToggleButtonStyle()
     "  border-radius: 3px; "
     "}")
     .arg(m_activityIndicatorsEnabled 
-      ? StyleManager::Colors::PRIMARY_ORANGE  // Gold when enabled
-      : StyleManager::Colors::TEXT_MUTED)     // Muted gray when disabled
+      ? StyleManager::Colors::PRIMARY_ORANGE
+      : StyleManager::Colors::TEXT_MUTED)
     .arg(m_activityIndicatorsEnabled 
-      ? StyleManager::Colors::primaryOrangeAlpha(25)   // Light gold hover
-      : "rgba(128, 128, 128, 0.1)")                    // Light gray hover
-    .arg(StyleManager::Colors::PRIMARY_ORANGE)         // Always gold when pressed
+      ? StyleManager::Colors::primaryOrangeAlpha(25)
+      : "rgba(128, 128, 128, 0.1)")
+    .arg(StyleManager::Colors::PRIMARY_ORANGE)
     .arg(m_activityIndicatorsEnabled 
-      ? StyleManager::Colors::primaryOrangeAlpha(40)   // Gold background when checked
-      : "rgba(128, 128, 128, 0.2)");                   // Gray background when checked
+      ? StyleManager::Colors::primaryOrangeAlpha(40)
+      : "rgba(128, 128, 128, 0.2)");
   
   m_activityToggleButton->setStyleSheet(style);
-  // Use wave/pulse symbols: ◈ (diamond with dot) or ▣ (filled square) or ◉◎ (circles)
-  // Or use signal bars: ▁▃▅▇ or pulse wave: ∿ or activity: ⦿ ⦾
-  // Using radar/pulse icon to represent activity monitoring
   m_activityToggleButton->setText(m_activityIndicatorsEnabled ? "⦿" : "⦾");
 }
 
