@@ -46,6 +46,13 @@ public:
   void startFileMonitoring(int intervalMs = 500);
   void stopFileMonitoring();
   QTextEdit* textEdit() { return m_textEdit; }
+  void markAsRead() { m_hasUnreadContent = false; }
+  bool hasUnreadContent() const { return m_hasUnreadContent; }
+  bool checkForNewContent();
+  void updateIfNeeded();
+
+signals:
+  void logActivity();
 
 public slots:
   void zoomIn();
@@ -92,6 +99,8 @@ private:
   QString m_logFilePath;
   QTimer *m_fileMonitorTimer;
   qint64 m_lastFilePosition;
+  qint64 m_lastActivityCheckPosition;
+  bool m_hasUnreadContent;
   
 };
 

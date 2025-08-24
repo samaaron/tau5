@@ -1440,7 +1440,11 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{}}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+            
             bool hasOffset = params.contains("offset");
             int offset = hasOffset ? params["offset"].toInt() : 0;
             int limit = params.contains("limit") ? params["limit"].toInt() : 100;
@@ -1532,6 +1536,11 @@ int main(int argc, char *argv[])
                 resultText = QString("Session: %1\n%2").arg(sessionDirs.at(sessionIndex)).arg(resultText);
             }
             
+            qint64 duration = timer.elapsed();
+            
+            // Log the activity
+            activityLogger.logActivity("chromium_devtools_getGuiLogs", requestId, params, "success", duration, QString(), resultText);
+            
             return QJsonObject{
                 {"type", "text"},
                 {"text", resultText}
@@ -1552,7 +1561,11 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{}}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+            
             int sessionIndex = params.contains("sessionIndex") ? params["sessionIndex"].toInt() : 0;
             
             QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
@@ -1604,9 +1617,15 @@ int main(int argc, char *argv[])
             }
             logFile.close();
             
+            qint64 duration = timer.elapsed();
+            QString resultText = QString("%1 lines (Session: %2)").arg(lineCount).arg(sessionDirs.at(sessionIndex));
+            
+            // Log the activity
+            activityLogger.logActivity("chromium_devtools_getGuiLogLineCount", requestId, params, "success", duration, QString(), resultText);
+            
             return QJsonObject{
                 {"type", "text"},
-                {"text", QString("%1 lines (Session: %2)").arg(lineCount).arg(sessionDirs.at(sessionIndex))}
+                {"text", resultText}
             };
         }
     });

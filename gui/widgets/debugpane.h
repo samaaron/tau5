@@ -14,10 +14,12 @@
 #include <QList>
 
 class QPushButton;
+class ActivityTabButton;
 class LogWidget;
 class QLabel;
 class QPropertyAnimation;
 class QTextEdit;
+class QTimer;
 class ConsoleWidget;
 class PhxWebView;
 class SandboxedWebView;
@@ -76,6 +78,13 @@ private slots:
   void showDevToolsTab();
   void showLiveDashboardTab();
   void handleInspectElementRequested();
+  void checkForLogActivity();
+  void updateAllLogs();
+  void toggleActivityIndicators();
+  void checkLogWidgetActivity(LogWidget* widget, ActivityTabButton* button);
+  void startActivityMonitoring();
+  void stopActivityMonitoring();
+  void updateActivityToggleButtonStyle();
 
 protected:
   bool eventFilter(QObject *obj, QEvent *event) override;
@@ -111,11 +120,11 @@ private:
   QWidget *m_consoleContainer;
   QStackedWidget *m_consoleStack;
   QStackedWidget *m_consoleToolbarStack;
-  QPushButton *m_beamLogTabButton;
-  QPushButton *m_guiLogTabButton;
+  ActivityTabButton *m_beamLogTabButton;
+  ActivityTabButton *m_guiLogTabButton;
   QPushButton *m_elixirConsoleTabButton;
-  QPushButton *m_tau5MCPTabButton;
-  QPushButton *m_guiMCPTabButton;
+  ActivityTabButton *m_tau5MCPTabButton;
+  ActivityTabButton *m_guiMCPTabButton;
   QWidget *m_elixirConsoleContainer;
   SandboxedWebView *m_elixirConsoleView;
   QTabWidget *m_devToolsTabs;
@@ -158,6 +167,9 @@ private:
   LogWidget *m_newGuiLogWidget;
   LogWidget *m_newTau5MCPWidget;
   LogWidget *m_newGuiMCPWidget;
+  QTimer *m_activityCheckTimer;
+  bool m_activityIndicatorsEnabled = true;
+  QPushButton *m_activityToggleButton;
   QString m_liveDashboardUrl;
   QString m_elixirConsoleUrl;
   bool m_devMode;

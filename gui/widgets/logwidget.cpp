@@ -33,6 +33,8 @@ LogWidget::LogWidget(LogType type, QWidget *parent)
     , m_fontSize(12)
     , m_fileMonitorTimer(nullptr)
     , m_lastFilePosition(0)
+    , m_lastActivityCheckPosition(0)
+    , m_hasUnreadContent(false)
 {
   setupUI();
   setupShortcuts();
@@ -140,6 +142,8 @@ void LogWidget::onActivated()
   if (!m_logFilePath.isEmpty() && m_fileMonitorTimer && !m_fileMonitorTimer->isActive()) {
     m_fileMonitorTimer->start();
   }
+  m_hasUnreadContent = false;
+  m_lastActivityCheckPosition = m_lastFilePosition;
 }
 
 void LogWidget::onDeactivated()
@@ -205,6 +209,11 @@ void LogWidget::appendLogWithTimestamp(const QString &timestamp, const QString &
     QScrollBar *scrollBar = m_textEdit->verticalScrollBar();
     scrollBar->setValue(scrollBar->maximum());
   }
+  
+  if (!isVisible()) {
+    m_hasUnreadContent = true;
+  }
+  emit logActivity();
 }
 
 void LogWidget::appendFormattedText(const std::function<void(QTextCursor&)> &formatter)
@@ -220,6 +229,11 @@ void LogWidget::appendFormattedText(const std::function<void(QTextCursor&)> &for
     QScrollBar *scrollBar = m_textEdit->verticalScrollBar();
     scrollBar->setValue(scrollBar->maximum());
   }
+  
+  if (!isVisible()) {
+    m_hasUnreadContent = true;
+  }
+  emit logActivity();
 }
 
 void LogWidget::clear()
@@ -461,6 +475,7 @@ void LogWidget::setLogFilePath(const QString &path)
 {
   m_logFilePath = path;
   m_lastFilePosition = 0;
+  m_lastActivityCheckPosition = 0;
 }
 
 void LogWidget::startFileMonitoring(int intervalMs)
@@ -475,10 +490,12 @@ void LogWidget::startFileMonitoring(int intervalMs)
     
     if (logFile.exists() && logFile.open(QIODevice::ReadOnly)) {
       m_lastFilePosition = logFile.size();
+      m_lastActivityCheckPosition = m_lastFilePosition;
       logFile.close();
       Tau5Logger::instance().debug(QString("MCP log monitoring starting from position: %1").arg(m_lastFilePosition));
     } else {
       m_lastFilePosition = 0;
+      m_lastActivityCheckPosition = 0;
       Tau5Logger::instance().debug("MCP log doesn't exist yet, will start from beginning");
     }
   }
@@ -714,4 +731,33 @@ void LogWidget::updateFromFile()
 void LogWidget::handleAutoScrollToggled(bool checked)
 {
   setAutoScroll(checked);
+}
+
+bool LogWidget::checkForNewContent()
+{
+  if (m_logFilePath.isEmpty()) {
+    return false;
+  }
+  
+  QFile logFile(m_logFilePath);
+  if (!logFile.exists()) {
+    return false;
+  }
+  
+  qint64 currentSize = logFile.size();
+  if (currentSize != m_lastActivityCheckPosition) {
+    m_lastActivityCheckPosition = currentSize;
+    m_hasUnreadContent = true;
+    emit logActivity();
+    return true;
+  }
+  
+  return false;
+}
+
+void LogWidget::updateIfNeeded()
+{
+  if (checkForNewContent()) {
+    updateFromFile();
+  }
 }

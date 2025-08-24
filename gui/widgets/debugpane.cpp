@@ -6,6 +6,7 @@
 #include "debugwidget.h"
 #include "debugpane/customsplitter.h"
 #include "debugpane/buttonutilities.h"
+#include "debugpane/activitytabbutton.h"
 #include "debugpane/themestyles.h"
 #include "debugpane/zoomcontrol.h"
 #include "debugpane/tabswitcher.h"
@@ -139,7 +140,7 @@ DebugPane::DebugPane(QWidget *parent, bool devMode, bool enableMcp, bool enableR
       m_dragHandleWidget(nullptr), m_dragHandleAnimationTimer(nullptr), m_animationBar(nullptr),
       m_restartLabel(nullptr), m_restartButton(nullptr), m_resetButton(nullptr), m_closeButton(nullptr),
       m_newBeamLogWidget(nullptr), m_newGuiLogWidget(nullptr), m_newTau5MCPWidget(nullptr),
-      m_newGuiMCPWidget(nullptr), m_consoleToolbarStack(nullptr),
+      m_newGuiMCPWidget(nullptr), m_activityCheckTimer(nullptr), m_consoleToolbarStack(nullptr),
       m_devMode(devMode), m_mcpEnabled(enableMcp), m_replEnabled(enableRepl)
 {
   static bool codiconLoaded = false;
@@ -326,14 +327,14 @@ void DebugPane::setupConsole()
   toolbarLayout->setContentsMargins(5, 2, 10, 2);
   toolbarLayout->setSpacing(2);
 
-  m_beamLogTabButton = ButtonUtilities::createTabButton("BEAM Log", consoleToolbar);
+  m_beamLogTabButton = new ActivityTabButton("BEAM Log", consoleToolbar);
   m_beamLogTabButton->setChecked(true);
 
-  m_guiLogTabButton = ButtonUtilities::createTabButton("GUI Log", consoleToolbar);
+  m_guiLogTabButton = new ActivityTabButton("GUI Log", consoleToolbar);
 
   bool enableDevMCP = isMcpEnabled();
-  m_tau5MCPTabButton = ButtonUtilities::createTabButton("Tau5 MCP", consoleToolbar);
-  m_guiMCPTabButton = ButtonUtilities::createTabButton("GUI MCP", consoleToolbar);
+  m_tau5MCPTabButton = new ActivityTabButton("Tau5 MCP", consoleToolbar);
+  m_guiMCPTabButton = new ActivityTabButton("GUI MCP", consoleToolbar);
 
   if (!enableDevMCP) {
     m_guiMCPTabButton->setToolTip("GUI Dev MCP disabled - click for more information");
@@ -351,6 +352,19 @@ void DebugPane::setupConsole()
     toolbarLayout->addWidget(m_guiMCPTabButton);
   }
   toolbarLayout->addStretch();
+  
+  // Add activity indicators toggle button
+  m_activityToggleButton = new QPushButton(consoleToolbar);
+  m_activityToggleButton->setCheckable(true);
+  m_activityToggleButton->setChecked(m_activityIndicatorsEnabled);
+  m_activityToggleButton->setToolTip(m_activityIndicatorsEnabled 
+    ? "Activity indicators enabled (click to disable)"
+    : "Activity indicators disabled (click to enable)");
+  updateActivityToggleButtonStyle();
+  m_activityToggleButton->setFixedSize(24, 24);
+  m_activityToggleButton->setFocusPolicy(Qt::NoFocus);
+  connect(m_activityToggleButton, &QPushButton::clicked, this, &DebugPane::toggleActivityIndicators);
+  toolbarLayout->addWidget(m_activityToggleButton);
   
   headerLayout->addWidget(consoleToolbar);
   
@@ -452,6 +466,38 @@ void DebugPane::setupConsole()
   connect(m_guiLogTabButton, &QPushButton::clicked, this, &DebugPane::showGuiLog);
   connect(m_tau5MCPTabButton, &QPushButton::clicked, this, &DebugPane::showTau5MCPLog);
   connect(m_guiMCPTabButton, &QPushButton::clicked, this, &DebugPane::showGuiMCPLog);
+  
+  connect(m_newBeamLogWidget, &LogWidget::logActivity, [this]() {
+    m_beamLogTabButton->pulseActivity();
+    if (m_consoleStack->currentWidget() != m_newBeamLogWidget) {
+      m_beamLogTabButton->setHasUnread(true);
+    }
+  });
+  
+  connect(m_newGuiLogWidget, &LogWidget::logActivity, [this]() {
+    m_guiLogTabButton->pulseActivity();
+    if (m_consoleStack->currentWidget() != m_newGuiLogWidget) {
+      m_guiLogTabButton->setHasUnread(true);
+    }
+  });
+  
+  connect(m_newTau5MCPWidget, &LogWidget::logActivity, [this]() {
+    m_tau5MCPTabButton->pulseActivity();
+    if (m_consoleStack->currentWidget() != m_newTau5MCPWidget) {
+      m_tau5MCPTabButton->setHasUnread(true);
+    }
+  });
+  
+  connect(m_newGuiMCPWidget, &LogWidget::logActivity, [this]() {
+    m_guiMCPTabButton->pulseActivity();
+    if (m_consoleStack->currentWidget() != m_newGuiMCPWidget) {
+      m_guiMCPTabButton->setHasUnread(true);
+    }
+  });
+  
+  m_activityCheckTimer = new QTimer(this);
+  m_activityCheckTimer->setInterval(250);
+  connect(m_activityCheckTimer, &QTimer::timeout, this, &DebugPane::checkForLogActivity);
 }
 
 void DebugPane::setupDevTools()
@@ -649,15 +695,15 @@ void DebugPane::updateViewMode()
     fullViewLayout->addWidget(m_consoleContainer);
     m_consoleContainer->show();
     m_splitter->hide();
-    // OLD WIDGETS REMOVED - Using new LogWidget instances
-    // DebugPaneZoomControl::applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
-    // DebugPaneZoomControl::applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
+    updateAllLogs();
+    startActivityMonitoring();
     break;
 
   case DevToolsOnly:
     fullViewLayout->addWidget(m_devToolsMainContainer);
     m_devToolsMainContainer->show();
     m_splitter->hide();
+    stopActivityMonitoring();
     break;
 
   case SideBySide:
@@ -668,9 +714,8 @@ void DebugPane::updateViewMode()
     fullViewLayout->addWidget(m_splitter);
     m_devToolsMainContainer->show();
     m_splitter->show();
-    // OLD WIDGETS REMOVED - Using new LogWidget instances
-    // DebugPaneZoomControl::applyFontToTextEdit(m_outputDisplay, m_currentFontSize);
-    // DebugPaneZoomControl::applyFontToTextEdit(m_guiLogDisplay, m_guiLogFontSize);
+    updateAllLogs();
+    startActivityMonitoring();
     break;
   }
 }
@@ -1003,6 +1048,7 @@ void DebugPane::showBeamLog()
   }
   // Update tab button states
   m_beamLogTabButton->setChecked(true);
+  m_beamLogTabButton->setHasUnread(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(false);
@@ -1028,6 +1074,7 @@ void DebugPane::showGuiLog()
   // Update tab button states
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(true);
+  m_guiLogTabButton->setHasUnread(false);
   m_tau5MCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(false);
   if (m_newGuiLogWidget) {
@@ -1063,6 +1110,7 @@ void DebugPane::showTau5MCPLog()
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(true);
+  m_tau5MCPTabButton->setHasUnread(false);
   m_guiMCPTabButton->setChecked(false);
   if (m_newTau5MCPWidget) {
     m_newTau5MCPWidget->onActivated();
@@ -1088,6 +1136,7 @@ void DebugPane::showGuiMCPLog()
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(true);
+  m_guiMCPTabButton->setHasUnread(false);
   if (m_newGuiMCPWidget) {
     m_newGuiMCPWidget->onActivated();
     m_newGuiMCPWidget->setFocus();
@@ -1486,6 +1535,159 @@ void DebugPane::resetDevPaneBrowsers()
   }
 
   Tau5Logger::instance().info( "Dev pane browsers have been reset");
+}
+
+void DebugPane::checkForLogActivity()
+{
+  if (!m_activityIndicatorsEnabled) {
+    return;
+  }
+  
+  checkLogWidgetActivity(m_newBeamLogWidget, m_beamLogTabButton);
+  checkLogWidgetActivity(m_newGuiLogWidget, m_guiLogTabButton);
+  checkLogWidgetActivity(m_newTau5MCPWidget, m_tau5MCPTabButton);
+  checkLogWidgetActivity(m_newGuiMCPWidget, m_guiMCPTabButton);
+}
+
+void DebugPane::checkLogWidgetActivity(LogWidget* widget, ActivityTabButton* button)
+{
+  if (!widget || !button) {
+    return;
+  }
+  
+  if (widget->checkForNewContent()) {
+    button->pulseActivity();
+    if (m_consoleStack->currentWidget() != widget) {
+      button->setHasUnread(true);
+    }
+  }
+}
+
+void DebugPane::startActivityMonitoring()
+{
+  if (m_activityIndicatorsEnabled && m_activityCheckTimer && !m_activityCheckTimer->isActive()) {
+    m_activityCheckTimer->start();
+  }
+}
+
+void DebugPane::stopActivityMonitoring()
+{
+  if (m_activityCheckTimer && m_activityCheckTimer->isActive()) {
+    m_activityCheckTimer->stop();
+  }
+}
+
+void DebugPane::updateAllLogs()
+{
+  if (m_newBeamLogWidget) {
+    m_newBeamLogWidget->updateIfNeeded();
+  }
+  
+  if (m_newGuiLogWidget) {
+    m_newGuiLogWidget->updateIfNeeded();
+  }
+  
+  if (m_newTau5MCPWidget) {
+    m_newTau5MCPWidget->updateIfNeeded();
+  }
+  
+  if (m_newGuiMCPWidget) {
+    m_newGuiMCPWidget->updateIfNeeded();
+  }
+}
+
+void DebugPane::toggleActivityIndicators()
+{
+  m_activityIndicatorsEnabled = !m_activityIndicatorsEnabled;
+  
+  if (m_beamLogTabButton) {
+    m_beamLogTabButton->setActivityIndicatorsEnabled(m_activityIndicatorsEnabled);
+    if (!m_activityIndicatorsEnabled) {
+      m_beamLogTabButton->setHasUnread(false);
+    }
+  }
+  
+  if (m_guiLogTabButton) {
+    m_guiLogTabButton->setActivityIndicatorsEnabled(m_activityIndicatorsEnabled);
+    if (!m_activityIndicatorsEnabled) {
+      m_guiLogTabButton->setHasUnread(false);
+    }
+  }
+  
+  if (m_tau5MCPTabButton) {
+    m_tau5MCPTabButton->setActivityIndicatorsEnabled(m_activityIndicatorsEnabled);
+    if (!m_activityIndicatorsEnabled) {
+      m_tau5MCPTabButton->setHasUnread(false);
+    }
+  }
+  
+  if (m_guiMCPTabButton) {
+    m_guiMCPTabButton->setActivityIndicatorsEnabled(m_activityIndicatorsEnabled);
+    if (!m_activityIndicatorsEnabled) {
+      m_guiMCPTabButton->setHasUnread(false);
+    }
+  }
+  
+  if (m_activityToggleButton) {
+    m_activityToggleButton->setChecked(m_activityIndicatorsEnabled);
+    m_activityToggleButton->setToolTip(m_activityIndicatorsEnabled 
+      ? "Activity indicators enabled (click to disable)"
+      : "Activity indicators disabled (click to enable)");
+    updateActivityToggleButtonStyle();
+  }
+  
+  if (m_activityIndicatorsEnabled && isVisible()) {
+    startActivityMonitoring();
+  } else {
+    stopActivityMonitoring();
+  }
+  
+  Tau5Logger::instance().info(QString("Activity indicators %1")
+    .arg(m_activityIndicatorsEnabled ? "enabled" : "disabled"));
+}
+
+void DebugPane::updateActivityToggleButtonStyle()
+{
+  if (!m_activityToggleButton) {
+    return;
+  }
+  
+  // Use pulse/wave icon to represent activity monitoring
+  // No border normally, only show visual feedback on hover/checked
+  QString style = QString(
+    "QPushButton { "
+    "  background: transparent; "
+    "  border: none; "
+    "  color: %1; "
+    "  font-size: 14px; "
+    "  font-weight: normal; "
+    "  padding: 2px; "
+    "} "
+    "QPushButton:hover { "
+    "  background: %2; "
+    "  border-radius: 3px; "
+    "} "
+    "QPushButton:checked { "
+    "  color: %3; "
+    "  background: %4; "
+    "  border-radius: 3px; "
+    "}")
+    .arg(m_activityIndicatorsEnabled 
+      ? StyleManager::Colors::PRIMARY_ORANGE  // Gold when enabled
+      : StyleManager::Colors::TEXT_MUTED)     // Muted gray when disabled
+    .arg(m_activityIndicatorsEnabled 
+      ? StyleManager::Colors::primaryOrangeAlpha(25)   // Light gold hover
+      : "rgba(128, 128, 128, 0.1)")                    // Light gray hover
+    .arg(StyleManager::Colors::PRIMARY_ORANGE)         // Always gold when pressed
+    .arg(m_activityIndicatorsEnabled 
+      ? StyleManager::Colors::primaryOrangeAlpha(40)   // Gold background when checked
+      : "rgba(128, 128, 128, 0.2)");                   // Gray background when checked
+  
+  m_activityToggleButton->setStyleSheet(style);
+  // Use wave/pulse symbols: ◈ (diamond with dot) or ▣ (filled square) or ◉◎ (circles)
+  // Or use signal bars: ▁▃▅▇ or pulse wave: ∿ or activity: ⦿ ⦾
+  // Using radar/pulse icon to represent activity monitoring
+  m_activityToggleButton->setText(m_activityIndicatorsEnabled ? "⦿" : "⦾");
 }
 
 
