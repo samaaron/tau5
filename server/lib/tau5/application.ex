@@ -15,6 +15,12 @@ defmodule Tau5.Application do
       Hermes.Server.Registry,
       {Tau5MCP.Server, transport: :streamable_http},
       Tau5Web.Endpoint,
+      # Kill switch must be temporary - ensures system dies if kill switch fails
+      %{
+        id: Tau5.KillSwitch,
+        start: {Tau5.KillSwitch, :start_link, [[]]},
+        restart: :temporary
+      },
       Tau5.Heartbeat,
       Tau5.Link,
       Tau5.MIDI,

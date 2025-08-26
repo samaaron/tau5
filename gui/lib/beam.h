@@ -5,6 +5,7 @@
 #include <QString>
 #include <QProcess>
 #include <QTimer>
+#include <QUdpSocket>
 
 class Beam : public QObject
 {
@@ -45,6 +46,9 @@ private:
   QProcess *process;
   qint64 beamPid;
   QTimer *heartbeatTimer;
+  QUdpSocket *heartbeatSocket;
+  quint16 heartbeatPort;
+  QString heartbeatToken;
   bool serverReady;
   bool otpTreeReady;
   QString sessionToken;

@@ -10,20 +10,48 @@
 #include <QRegularExpression>
 #include <QThread>
 #include <QUuid>
+#include <QHostAddress>
 #include <QTcpServer>
+#include <QRandomGenerator>
 #include <QtConcurrent/QtConcurrent>
 #include <QStandardPaths>
 #include "../tau5logger.h"
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp, bool enableRepl)
     : QObject(parent), appBasePath(basePath), process(new QProcess(this)),
-      beamPid(0), serverReady(false), otpTreeReady(false), devMode(devMode),
+      beamPid(0), heartbeatPort(0), serverReady(false), otpTreeReady(false), devMode(devMode),
       appName(appName), appVersion(version), isRestarting(false),
       enableMcp(enableMcp), enableRepl(enableRepl)
 {
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
   Tau5Logger::instance().debug(QString("Generated session token: %1").arg(sessionToken));
   appPort = port;
+  
+  heartbeatToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  heartbeatSocket = new QUdpSocket(this);
+  
+  // Find an available port for the server to bind to
+  // Try binding to verify it's free, then immediately release it
+  QUdpSocket portTest;
+  for (int attempts = 0; attempts < 100; attempts++) {
+    quint16 testPort = QRandomGenerator::global()->bounded(49152, 65535);
+    if (portTest.bind(QHostAddress::LocalHost, testPort)) {
+      heartbeatPort = testPort;
+      portTest.close();
+      break;
+    }
+  }
+  
+  if (heartbeatPort == 0) {
+    // Failed to find free port after 100 attempts
+    Tau5Logger::instance().error("Failed to find available UDP port for heartbeat");
+    emit standardError("Failed to initialize heartbeat system - no available ports");
+    QCoreApplication::exit(1);
+    return;
+  }
+  
+  Tau5Logger::instance().debug(QString("UDP heartbeat: Server will listen on port %1, GUI will send to it")
+                              .arg(heartbeatPort));
 
   connect(process, &QProcess::readyReadStandardOutput,
           this, &Beam::handleStandardOutput);
@@ -31,7 +59,11 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
           this, &Beam::handleStandardError);
 
   heartbeatTimer = new QTimer(this);
-  heartbeatTimer->setInterval(5000);
+  QString intervalStr = qEnvironmentVariable("TAU5_HB_GUI_INTERVAL_MS");
+  int interval = intervalStr.isEmpty() ? 5000 : intervalStr.toInt();
+  if (interval < 1000) interval = 5000; // Minimum 1 second to prevent busy loop
+  heartbeatTimer->setInterval(interval);
+  Tau5Logger::instance().debug(QString("Heartbeat timer interval set to %1ms").arg(interval));
   connect(heartbeatTimer, &QTimer::timeout, this, &Beam::sendHeartbeat);
 
   if (devMode)
@@ -79,6 +111,11 @@ Beam::~Beam()
   if (heartbeatTimer && heartbeatTimer->isActive())
   {
     heartbeatTimer->stop();
+  }
+  
+  // Clean up UDP socket
+  if (heartbeatSocket) {
+    heartbeatSocket->deleteLater();
   }
 
   if (beamPid > 0)
@@ -162,6 +199,8 @@ void Beam::startElixirServerDev()
   env.insert("TAU5_ENV", "dev");
   env.insert("TAU5_SESSION_TOKEN", sessionToken);
   env.insert("TAU5_HEARTBEAT_ENABLED", "true");
+  env.insert("TAU5_HEARTBEAT_PORT", QString::number(heartbeatPort));
+  env.insert("TAU5_HEARTBEAT_TOKEN", heartbeatToken);
   QString portStr = QString::number(appPort);
   env.insert("PORT", portStr);
   env.insert("PHX_HOST", "127.0.0.1");
@@ -215,6 +254,8 @@ void Beam::startElixirServerProd()
   env.insert("TAU5_ENV", "prod");
   env.insert("TAU5_SESSION_TOKEN", sessionToken);
   env.insert("TAU5_HEARTBEAT_ENABLED", "true");
+  env.insert("TAU5_HEARTBEAT_PORT", QString::number(heartbeatPort));
+  env.insert("TAU5_HEARTBEAT_TOKEN", heartbeatToken);
   QString portStr = QString::number(appPort);
   env.insert("PORT", portStr);
   env.insert("PHX_HOST", "127.0.0.1");
@@ -340,8 +381,24 @@ void Beam::sendHeartbeat()
   {
     return;
   }
+  
+  if (!heartbeatSocket)
+  {
+    Tau5Logger::instance().warning("Cannot send heartbeat - UDP socket not created");
+    return;
+  }
 
-  process->write("TAU5_HEARTBEAT\n");
+  QString heartbeatMsg = QString("HEARTBEAT:%1\n").arg(heartbeatToken);
+  QByteArray datagram = heartbeatMsg.toUtf8();
+  
+  qint64 sent = heartbeatSocket->writeDatagram(datagram, QHostAddress::LocalHost, heartbeatPort);
+  
+  if (sent == -1) {
+    Tau5Logger::instance().warning(QString("Failed to send UDP heartbeat: %1")
+                                  .arg(heartbeatSocket->errorString()));
+  } else {
+    Tau5Logger::instance().debug(QString("Sent UDP heartbeat to port %1").arg(heartbeatPort));
+  }
 }
 
 void Beam::killBeamProcess()
