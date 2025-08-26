@@ -20,10 +20,10 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-:: Call build-mcp.bat
-call build-dev-mcp.bat
+:: Build the dev GUI MCP server
+call build-dev-gui-mcp-server.bat
 if %errorlevel% neq 0 (
-    echo build-dev-mcp.bat failed with exit code %errorlevel%
+    echo build-dev-gui-mcp-server.bat failed with exit code %errorlevel%
     cd %BUILD_WORKING_DIR%
     exit /b %errorlevel%
 )
