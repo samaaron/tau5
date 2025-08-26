@@ -4,6 +4,26 @@ defmodule Tau5.Application do
 
   @impl true
   def start(_type, _args) do
+    if System.get_env("TAU5_USE_STDIN_CONFIG") == "true" do
+      case Tau5.SecureConfig.read_stdin_config() do
+        {:ok, secrets} when map_size(secrets) > 0 -> 
+          Application.put_env(:tau5, :session_token, secrets.session_token)
+          Application.put_env(:tau5, :heartbeat_token, secrets.heartbeat_token)
+          Application.put_env(:tau5, :heartbeat_port, secrets.heartbeat_port)
+          
+          endpoint_config = Application.get_env(:tau5, Tau5Web.Endpoint)
+          new_endpoint_config = Keyword.put(endpoint_config, :secret_key_base, secrets.secret_key_base)
+          Application.put_env(:tau5, Tau5Web.Endpoint, new_endpoint_config)
+          
+        {:ok, _} ->
+          :ok
+          
+        :error ->
+          Logger.error("Failed to read secure config from stdin, halting")
+          System.halt(1)
+      end
+    end
+    
     http_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
 
     children = [

@@ -54,7 +54,7 @@ defmodule Tau5Web.Plugs.ConsoleSecurity do
   end
   
   defp check_token(conn) do
-    expected_token = System.get_env("TAU5_SESSION_TOKEN")
+    expected_token = Application.get_env(:tau5, :session_token) || System.get_env("TAU5_SESSION_TOKEN")
     provided_token = conn.query_params["token"]
     
     cond do

@@ -15,7 +15,7 @@ defmodule Tau5.Heartbeat do
     if heartbeat_enabled?() do
       case open_udp_socket() do
         {:ok, socket} ->
-          token = System.get_env("TAU5_HEARTBEAT_TOKEN", "")
+          token = Application.get_env(:tau5, :heartbeat_token) || System.get_env("TAU5_HEARTBEAT_TOKEN", "")
           if token == "" do
             Logger.error("FATAL: TAU5_HEARTBEAT_TOKEN missing or empty - refusing to start")
             Logger.error("Heartbeat security requires a valid token")
@@ -73,7 +73,7 @@ defmodule Tau5.Heartbeat do
   end
 
   defp open_udp_socket do
-    port_str = System.get_env("TAU5_HEARTBEAT_PORT")
+    port_str = Application.get_env(:tau5, :heartbeat_port) || System.get_env("TAU5_HEARTBEAT_PORT")
     
     if port_str do
       case Integer.parse(port_str) do

@@ -15,19 +15,23 @@
 #include <QRandomGenerator>
 #include <QtConcurrent/QtConcurrent>
 #include <QStandardPaths>
+#include <QCryptographicHash>
 #include "../tau5logger.h"
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp, bool enableRepl)
     : QObject(parent), appBasePath(basePath), process(new QProcess(this)),
       beamPid(0), heartbeatPort(0), serverReady(false), otpTreeReady(false), devMode(devMode),
       appName(appName), appVersion(version), isRestarting(false),
-      enableMcp(enableMcp), enableRepl(enableRepl)
+      enableMcp(enableMcp), enableRepl(enableRepl), useStdinConfig(true)
 {
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
-  Tau5Logger::instance().debug(QString("Generated session token: %1").arg(sessionToken));
-  appPort = port;
-  
   heartbeatToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  appPort = port;
+  QByteArray randomBytes(64, 0);
+  for (int i = 0; i < 64; ++i) {
+    randomBytes[i] = QRandomGenerator::global()->generate();
+  }
+  secretKeyBase = randomBytes.toBase64();
   heartbeatSocket = new QUdpSocket(this);
   
   // Find an available port for the server to bind to
@@ -197,12 +201,19 @@ void Beam::startElixirServerDev()
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   env.insert("TAU5_MODE", "desktop");
   env.insert("TAU5_ENV", "dev");
-  env.insert("TAU5_SESSION_TOKEN", sessionToken);
-  env.insert("TAU5_HEARTBEAT_ENABLED", "true");
-  env.insert("TAU5_HEARTBEAT_PORT", QString::number(heartbeatPort));
-  env.insert("TAU5_HEARTBEAT_TOKEN", heartbeatToken);
-  QString portStr = QString::number(appPort);
-  env.insert("PORT", portStr);
+  
+  if (useStdinConfig) {
+    env.insert("TAU5_USE_STDIN_CONFIG", "true");
+    env.insert("TAU5_HEARTBEAT_ENABLED", "true");
+    env.insert("PORT", QString::number(appPort));
+  } else {
+    env.insert("TAU5_SESSION_TOKEN", sessionToken);
+    env.insert("TAU5_HEARTBEAT_ENABLED", "true");
+    env.insert("TAU5_HEARTBEAT_PORT", QString::number(heartbeatPort));
+    env.insert("TAU5_HEARTBEAT_TOKEN", heartbeatToken);
+    env.insert("PORT", QString::number(appPort));
+  }
+  
   env.insert("PHX_HOST", "127.0.0.1");
   env.insert("MIX_ENV", "dev");
   env.insert("RELEASE_DISTRIBUTION", "none");
@@ -252,16 +263,24 @@ void Beam::startElixirServerProd()
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   env.insert("TAU5_MODE", "desktop");
   env.insert("TAU5_ENV", "prod");
-  env.insert("TAU5_SESSION_TOKEN", sessionToken);
-  env.insert("TAU5_HEARTBEAT_ENABLED", "true");
-  env.insert("TAU5_HEARTBEAT_PORT", QString::number(heartbeatPort));
-  env.insert("TAU5_HEARTBEAT_TOKEN", heartbeatToken);
-  QString portStr = QString::number(appPort);
-  env.insert("PORT", portStr);
+  
+  if (useStdinConfig) {
+    env.insert("TAU5_USE_STDIN_CONFIG", "true");
+    env.insert("TAU5_HEARTBEAT_ENABLED", "true");
+    env.insert("PORT", QString::number(appPort));
+    env.insert("PHX_SERVER", "1");
+  } else {
+    env.insert("TAU5_SESSION_TOKEN", sessionToken);
+    env.insert("TAU5_HEARTBEAT_ENABLED", "true");
+    env.insert("TAU5_HEARTBEAT_PORT", QString::number(heartbeatPort));
+    env.insert("TAU5_HEARTBEAT_TOKEN", heartbeatToken);
+    env.insert("PORT", QString::number(appPort));
+    env.insert("PHX_SERVER", "1");
+  }
+  
   env.insert("PHX_HOST", "127.0.0.1");
   env.insert("MIX_ENV", "prod");
   env.insert("RELEASE_DISTRIBUTION", "none");
-  env.insert("PHX_SERVER", "1");
 
   QString sessionPath;
   if (Tau5Logger::isInitialized()) {
@@ -289,7 +308,12 @@ void Beam::startElixirServerProd()
   env.insert("RELEASE_SYS_CONFIG", releaseSysPath);
   env.insert("RELEASE_ROOT", releaseRoot);
   env.insert("RELEASE_DISTRIBUTION", "none");
-  env.insert("SECRET_KEY_BASE", "plksdjflsdjflsdjaflaskdjflsdkfjlsdkfjlsdakfjldskafjdlaskfjdaslkfjdslkfjsdlkafjsldakfj");
+  
+  if (!useStdinConfig) {
+    env.insert("SECRET_KEY_BASE", secretKeyBase.isEmpty() ? 
+      "plksdjflsdjflsdjaflaskdjflsdkfjlsdkfjlsdakfjldskafjdlaskfjdaslkfjdslkfjsdlkafjsldakfj" : 
+      secretKeyBase);
+  }
 
   process->setWorkingDirectory(appBasePath);
   process->setProcessEnvironment(env); // Use setEnvironment instead of setProcessEnvironment
@@ -306,6 +330,27 @@ void Beam::startElixirServerProd()
       "-extra", "--no-halt"};
 
   startProcess(cmd, args);
+}
+
+void Beam::writeSecretsToStdin()
+{
+  if (!process || !useStdinConfig) {
+    return;
+  }
+  
+  Tau5Logger::instance().debug("Writing secure configuration to process stdin");
+  
+  QString config;
+  config += sessionToken + "\n";
+  config += heartbeatToken + "\n";
+  config += QString::number(heartbeatPort) + "\n";
+  config += secretKeyBase + "\n";
+  
+  process->write(config.toUtf8());
+  process->closeWriteChannel();
+  
+  Tau5Logger::instance().debug(QString("Secure configuration written (%1 bytes) and stdin closed")
+                              .arg(config.toUtf8().size()));
 }
 
 void Beam::startProcess(const QString &cmd, const QStringList &args)
@@ -354,7 +399,7 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
 
   process->start(cmd, args);
 
-  if (!process->waitForStarted())
+  if (!process->waitForStarted(5000))  // 5 second timeout
   {
     QString errorMsg = QString("Error starting BEAM: %1\nCommand: %2\nArgs: %3")
                       .arg(process->errorString())
@@ -362,6 +407,8 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
                       .arg(args.join(" "));
     Tau5Logger::instance().error( errorMsg);
     emit standardError(errorMsg);
+  } else if (useStdinConfig) {
+    writeSecretsToStdin();
   }
 }
 
@@ -622,7 +669,15 @@ void Beam::startNewBeamProcess()
   });
 
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
-  Tau5Logger::instance().debug( QString("Generated new session token: %1").arg(sessionToken));
+  heartbeatToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  
+  QByteArray randomBytes(64, 0);
+  for (int i = 0; i < 64; ++i) {
+    randomBytes[i] = QRandomGenerator::global()->generate();
+  }
+  secretKeyBase = randomBytes.toBase64();
+  
+  Tau5Logger::instance().debug("Generated new secure tokens");
 
   Tau5Logger::instance().info( "Starting new BEAM process...");
   if (devMode)

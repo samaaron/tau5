@@ -389,7 +389,7 @@ int main(int argc, char *argv[])
 
       if (!beam.getSessionToken().isEmpty()) {
         Tau5Logger::instance().info("BEAM server started successfully");
-        Tau5Logger::instance().info(QString("Session token: %1").arg(beam.getSessionToken()));
+        Tau5Logger::instance().info("Session token generated");
         Tau5Logger::instance().info("Shutting down BEAM server...");
         Tau5Logger::instance().info("===============================================");
         Tau5Logger::instance().info("CHECK PASSED: Production mode is operational");

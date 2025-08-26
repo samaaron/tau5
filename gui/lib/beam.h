@@ -58,8 +58,11 @@ private:
   bool isRestarting;
   bool enableMcp;
   bool enableRepl;
+  bool useStdinConfig;
+  QString secretKeyBase;
 
   void startProcess(const QString &cmd, const QStringList &args);
+  void writeSecretsToStdin();
   bool isWindows() const;
   bool isMacOS() const;
   void killBeamProcess();
