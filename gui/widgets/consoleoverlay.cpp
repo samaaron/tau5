@@ -54,9 +54,9 @@ void ConsoleOverlay::setupStyles()
         QTextEdit {
             background-color: transparent;
             color: %1;
-            font-family: 'Cascadia Code', 'Cascadia Mono', 'Consolas', monospace;
-            font-size: 9px;
-            font-weight: 600;
+            font-family: 'Cascadia Code PL', 'Cascadia Mono', 'Consolas', monospace;
+            font-size: 10px;
+            font-weight: 400;
             padding: 12px;
             border: none;
         }
