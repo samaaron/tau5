@@ -20,6 +20,14 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
+:: Call build-node.bat
+call build-node.bat
+if %errorlevel% neq 0 (
+    echo build-node.bat failed with exit code %errorlevel%
+    cd %BUILD_WORKING_DIR%
+    exit /b %errorlevel%
+)
+
 :: Build the dev GUI MCP server
 call build-dev-gui-mcp-server.bat
 if %errorlevel% neq 0 (
