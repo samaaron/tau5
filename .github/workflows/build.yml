@@ -128,16 +128,22 @@ jobs:
         shell: cmd
         working-directory: ${{github.workspace}}/gui/build/Release/
         run: tau5.exe check
+        env:
+          TAU5_SERVER_PATH: ${{github.workspace}}/server
         if: startsWith(matrix.os, 'windows')
 
       # GUI Production Mode Check - macOS
       - name: GUI Production Mode Check (macOS)
         working-directory: ${{github.workspace}}/gui/build/Tau5.app/Contents/MacOS/
         run: ./Tau5 check
+        env:
+          TAU5_SERVER_PATH: ${{github.workspace}}/server
         if: startsWith(matrix.os, 'macos')
 
       # GUI Production Mode Check - Linux
       - name: GUI Production Mode Check (Linux)
         working-directory: ${{github.workspace}}/gui/build/
         run: ./tau5 check
+        env:
+          TAU5_SERVER_PATH: ${{github.workspace}}/server
         if: startsWith(matrix.os, 'ubuntu')
