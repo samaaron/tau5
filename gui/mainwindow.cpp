@@ -17,8 +17,8 @@
 #include "widgets/controllayer.h"
 #include "widgets/consoleoverlay.h"
 #include "widgets/transitionoverlay.h"
-#include "lib/beam.h"
-#include "tau5logger.h"
+#include "shared/beam.h"
+#include "shared/tau5logger.h"
 #include "styles/StyleManager.h"
 
 #ifndef Q_OS_MACOS
@@ -152,10 +152,9 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool 
     transitionOverlay->activateWindow();
   }
   
-  // Keep black overlay for 1 second, then fade to transparent over 1 second
   QTimer::singleShot(1000, [this]() {
     if (transitionOverlay) {
-      transitionOverlay->fadeOut(1000);  // 1 second fade to transparent
+      transitionOverlay->fadeOut(1000);
     }
   });
 
@@ -361,23 +360,18 @@ void MainWindow::initializeDebugPane()
 
   debugPane->restoreSettings();
 
-  // Store the visibility preference but don't show immediately
   QSettings settings;
   settings.beginGroup("DebugPane");
   m_debugPaneShouldBeVisible = settings.value("visible", false).toBool();
   settings.endGroup();
-  
-  // Don't auto-show during boot - wait until after transition completes
 
   connect(debugPane.get(), &DebugPane::visibilityChanged,
           this, [this](bool visible) {
             if (controlLayer) {
               controlLayer->setConsoleVisible(visible);
               if (!visible) {
-                // Only raise control layer when debug pane is hidden
                 controlLayer->raise();
               } else {
-                // When debug pane is visible, ensure it's above control layer
                 debugPane->raise();
               }
             }
@@ -505,7 +499,6 @@ void MainWindow::closeEvent(QCloseEvent *event)
   }
 #endif
 
-  // Post a quit message to ensure clean app termination
   QTimer::singleShot(0, []() {
     QApplication::quit();
   });

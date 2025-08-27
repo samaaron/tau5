@@ -1,5 +1,5 @@
 #include "ShortcutManager.h"
-#include "../tau5logger.h"
+#include "../shared/tau5logger.h"
 #include <QShortcut>
 #include <QAction>
 #include <QWidget>

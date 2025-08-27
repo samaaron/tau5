@@ -1,7 +1,7 @@
 #include "fontloader.h"
 #include <QFile>
 #include <QDebug>
-#include "../tau5logger.h"
+#include "../shared/tau5logger.h"
 
 QString FontLoader::loadFontAsDataUri(const QString &resourcePath)
 {

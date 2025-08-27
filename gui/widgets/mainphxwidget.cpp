@@ -1,6 +1,6 @@
 #include "mainphxwidget.h"
 #include "shaderpage.h"
-#include "../tau5logger.h"
+#include "../shared/tau5logger.h"
 #include <QTimer>
 #include <QVariant>
 

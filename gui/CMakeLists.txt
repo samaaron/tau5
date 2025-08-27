@@ -37,7 +37,7 @@ set_property(GLOBAL PROPERTY AUTOMOC_FOLDER Automoc)
 set_property(GLOBAL PROPERTY AUTOGEN_TARGETS_FOLDER Automoc)
 
 find_package(Qt6 QUIET)
-find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg SvgWidgets LinguistTools WebEngineWidgets WebSockets REQUIRED)
+find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg SvgWidgets LinguistTools WebEngineWidgets WebSockets Concurrent REQUIRED)
 
 if(NOT APPLE)
   set(QWINDOWKIT_BUILD_STATIC ON CACHE BOOL "" FORCE)
@@ -55,13 +55,16 @@ endif()
 
 set(APP_NAME tau5)
 set(MACOS_APP_NAME "Tau5")
+set(NODE_APP_NAME tau5-node)
 
-set(SOURCES
+# Add the shared library subdirectory
+add_subdirectory(shared)
+
+# GUI-specific sources
+set(GUI_SOURCES
   ${QTAPP_ROOT}/main.cpp
   ${QTAPP_ROOT}/mainwindow.cpp
   ${QTAPP_ROOT}/mainwindow.h
-  ${QTAPP_ROOT}/tau5logger.h
-  ${QTAPP_ROOT}/tau5logger.cpp
   ${QTAPP_ROOT}/widgets/phxwebview.h
   ${QTAPP_ROOT}/widgets/phxwebview.cpp
   ${QTAPP_ROOT}/widgets/phxwidget.h
@@ -81,8 +84,6 @@ set(SOURCES
   ${QTAPP_ROOT}/widgets/consoleoverlay.cpp
   ${QTAPP_ROOT}/widgets/transitionoverlay.h
   ${QTAPP_ROOT}/widgets/transitionoverlay.cpp
-  ${QTAPP_ROOT}/lib/beam.h
-  ${QTAPP_ROOT}/lib/beam.cpp
   ${QTAPP_ROOT}/lib/fontloader.h
   ${QTAPP_ROOT}/lib/fontloader.cpp
   ${QTAPP_ROOT}/styles/StyleManager.h
@@ -90,6 +91,14 @@ set(SOURCES
   ${QTAPP_ROOT}/shortcuts/ShortcutManager.h
   ${QTAPP_ROOT}/shortcuts/ShortcutManager.cpp
 )
+
+# CLI-specific sources
+set(NODE_SOURCES
+  ${QTAPP_ROOT}/tau5-node.cpp
+)
+
+# GUI sources only (shared components come from tau5_core library)
+set(SOURCES ${GUI_SOURCES})
 
 if(NOT APPLE)
   list(APPEND SOURCES
@@ -182,6 +191,7 @@ target_include_directories(${APP_NAME}
 
 target_link_libraries(${APP_NAME}
   PRIVATE
+  tau5_core  # Link to our static library
   Qt::Core
   Qt::Gui
   Qt::Widgets
@@ -202,6 +212,24 @@ endif()
 if(BUILD_DEBUG_PANE)
   target_compile_definitions(${APP_NAME} PRIVATE BUILD_WITH_DEBUG_PANE)
 endif()
+
+# Build tau5-node CLI executable
+add_executable(${NODE_APP_NAME} ${NODE_SOURCES})
+
+set_property(TARGET ${NODE_APP_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(${NODE_APP_NAME}
+  PRIVATE
+  ${QTAPP_ROOT}
+  ${QTAPP_ROOT}/shared
+  ${CMAKE_BINARY_DIR}
+  include)
+
+target_link_libraries(${NODE_APP_NAME}
+  PRIVATE
+  tau5_core  # Link to our static library  
+  Qt::Core
+  Qt::Network)
 
 # Deploy Qt binaries to the output on windows, and copy the CRT to the release folder
 if(WIN32)

@@ -5,7 +5,7 @@
 #include <QDebug>
 #include <QSysInfo>
 #include <QOperatingSystemVersion>
-#include <QApplication>
+#include <QCoreApplication>
 #include <QTimer>
 #include <QRegularExpression>
 #include <QThread>
@@ -16,7 +16,10 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QStandardPaths>
 #include <QCryptographicHash>
-#include "../tau5logger.h"
+#include "tau5logger.h"
+#include "error_codes.h"
+
+using namespace Tau5Common;
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp, bool enableRepl)
     : QObject(parent), appBasePath(basePath), process(new QProcess(this)),
@@ -50,7 +53,7 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
     // Failed to find free port after 100 attempts
     Tau5Logger::instance().error("Failed to find available UDP port for heartbeat");
     emit standardError("Failed to initialize heartbeat system - no available ports");
-    QCoreApplication::exit(1);
+    QCoreApplication::exit(static_cast<int>(ExitCode::HEARTBEAT_PORT_FAILED));
     return;
   }
   
@@ -105,7 +108,7 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
     else
     {
       qCritical() << "BEAM.cpp - Exiting. No Elixir _build release folder found:" << releaseDir.absolutePath();
-      QCoreApplication::exit(1); // Exit with non-zero status to indicate an error
+      QCoreApplication::exit(static_cast<int>(ExitCode::SERVER_DIR_NOT_FOUND)); // Exit with specific error code
     }
   }
 }

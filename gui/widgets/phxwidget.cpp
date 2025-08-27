@@ -11,7 +11,7 @@
 #include "phxwidget.h"
 #include "phxwebview.h"
 #include "StyleManager.h"
-#include "../tau5logger.h"
+#include "../shared/tau5logger.h"
 
 PhxWidget::PhxWidget(bool devMode, QWidget *parent)
     : QWidget(parent), m_devMode(devMode)

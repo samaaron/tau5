@@ -1,7 +1,7 @@
 #include "themestyles.h"
 #include "../../styles/StyleManager.h"
 #include "../../lib/fontloader.h"
-#include "../../tau5logger.h"
+#include "../../shared/tau5logger.h"
 #include <QWebEngineView>
 #include <QWebEnginePage>
 #include <QWebEngineScript>

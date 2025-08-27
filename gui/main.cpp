@@ -17,16 +17,16 @@
 #include <QTimer>
 #include <QThread>
 #include "mainwindow.h"
-#include "lib/beam.h"
-#include "tau5logger.h"
+#include "shared/beam.h"
+#include "shared/tau5logger.h"
+#include "shared/common.h"
 #include "styles/StyleManager.h"
 
-namespace Config
+using namespace Tau5Common;
+
+namespace GuiConfig
 {
-  constexpr quint16 DEFAULT_PORT = 5555;
   constexpr quint16 DEVTOOLS_PORT = 9223;
-  constexpr const char *APP_NAME = "tau5";
-  constexpr const char *APP_VERSION = "0.1.0";
   constexpr const char *CHROMIUM_FLAGS =
       "--disable-background-timer-throttling "
       "--disable-renderer-backgrounding "
@@ -112,94 +112,6 @@ namespace Config
       ;
 }
 
-
-QString getTau5Logo()
-{
-  return R"(                            ╘
-                    ─       ╛▒╛
-                     ▐╫       ▄█├
-              ─╟╛      █▄      ╪▓▀
-    ╓┤┤┤┤┤┤┤┤┤  ╩▌      ██      ▀▓▌
-     ▐▒   ╬▒     ╟▓╘    ─▓█      ▓▓├
-     ▒╫   ▒╪      ▓█     ▓▓─     ▓▓▄
-    ╒▒─  │▒       ▓█     ▓▓     ─▓▓─
-    ╬▒   ▄▒ ╒    ╪▓═    ╬▓╬     ▌▓▄
-    ╥╒   ╦╥     ╕█╒    ╙▓▐     ▄▓╫
-               ▐╩     ▒▒      ▀▀
-                    ╒╪      ▐▄
-
-        ______           ______
-       /_  __/___  __  _/ ____/
-        / / / __ `/ / / /___ \
-       / / / /_/ / /_/ /___/ /
-      /_/  \__,_/\__,_/_____/
-
-     Collaborative Live Coding
-           for Everyone
-
-)";
-}
-
-
-quint16 getFreePort()
-{
-  QTcpServer server;
-  if (server.listen(QHostAddress::Any, 0))
-  {
-    quint16 freePort = server.serverPort();
-    server.close();
-    return freePort;
-  }
-  else
-  {
-    Tau5Logger::instance().error("Failed to find a free port.");
-    return 0;
-  }
-}
-
-QString getServerBasePath()
-{
-  QString appDirPath = QCoreApplication::applicationDirPath();
-  QDir dir(appDirPath);
-#if defined(Q_OS_WIN)
-  dir.cd("../../../server");
-#elif defined(Q_OS_MACOS)
-  dir.cd("../../../../../server");
-#else
-  dir.cd("../../server");
-#endif
-  return dir.absolutePath();
-}
-
-bool setupConsoleOutput()
-{
-#if defined(Q_OS_WIN)
-  if (AttachConsole(ATTACH_PARENT_PROCESS))
-  {
-    FILE *stream;
-    freopen_s(&stream, "CONOUT$", "w", stdout);
-    freopen_s(&stream, "CONOUT$", "w", stderr);
-    freopen_s(&stream, "CONIN$", "r", stdin);
-
-    std::ios::sync_with_stdio();
-    return true;
-  }
-  else if (AttachConsole(-1))
-  {
-    FILE *stream;
-    freopen_s(&stream, "CONOUT$", "w", stdout);
-    freopen_s(&stream, "CONOUT$", "w", stderr);
-    freopen_s(&stream, "CONIN$", "r", stdin);
-
-    std::ios::sync_with_stdio();
-    return true;
-  }
-  return false;
-#else
-  return true;
-#endif
-}
-
 static QtMessageHandler originalMessageHandler = nullptr;
 
 void tau5MessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
@@ -230,11 +142,11 @@ bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool
   originalMessageHandler = qInstallMessageHandler(tau5MessageHandler);
 
   if (devMode && enableMcp) {
-    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS_DEV);
-    Tau5Logger::instance().info(QString("Chrome DevTools Protocol enabled on port %1").arg(Config::DEVTOOLS_PORT));
+    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", GuiConfig::CHROMIUM_FLAGS_DEV);
+    Tau5Logger::instance().info(QString("Chrome DevTools Protocol enabled on port %1").arg(GuiConfig::DEVTOOLS_PORT));
     Tau5Logger::instance().info("MCP servers enabled (--enable-mcp flag set)");
   } else {
-    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", Config::CHROMIUM_FLAGS);
+    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", GuiConfig::CHROMIUM_FLAGS);
     if (devMode && !enableMcp) {
       Tau5Logger::instance().info("Running in dev mode without MCP servers (use --enable-mcp to enable)");
     }
@@ -246,7 +158,6 @@ bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool
   format.setRenderableType(QSurfaceFormat::OpenGL);
 
 #ifdef Q_OS_LINUX
-  // Linux: Use NoProfile which lets Qt choose the best available
   format.setProfile(QSurfaceFormat::NoProfile);
 #else
   format.setProfile(QSurfaceFormat::CoreProfile);
@@ -263,10 +174,9 @@ bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool
   QSurfaceFormat::setDefaultFormat(format);
 
   Q_INIT_RESOURCE(Tau5);
-  app.setApplicationName(Config::APP_NAME);
+  app.setApplicationName(Tau5Common::Config::APP_NAME);
   app.setStyle("gtk");
 
-  // Set global tooltip style
   app.setStyleSheet(StyleManager::tooltip());
 
   int fontId = QFontDatabase::addApplicationFont(":/fonts/CascadiaCodePL.ttf");
@@ -344,7 +254,7 @@ int main(int argc, char *argv[])
 
   Tau5Logger::initialize(logConfig);
 
-  quint16 port = Config::DEFAULT_PORT;
+  quint16 port = Tau5Common::Config::DEFAULT_PORT;
 
   Tau5Logger::instance().info("Starting Tau5...");
 
@@ -354,7 +264,6 @@ int main(int argc, char *argv[])
     Tau5Logger::instance().info("Running Tau5 production mode check");
     Tau5Logger::instance().info("===============================================");
 
-    // Use offscreen platform for headless environments (CI)
     if (!qEnvironmentVariableIsSet("DISPLAY")) {
       qputenv("QT_QPA_PLATFORM", "offscreen");
     }
@@ -362,21 +271,20 @@ int main(int argc, char *argv[])
     QApplication tempApp(argc, argv);
     QString basePath = getServerBasePath();
 
-    QString releaseDir = QString("%1/_build/prod/rel/%2").arg(basePath).arg(Config::APP_NAME);
+    QString releaseDir = QString("%1/_build/prod/rel/%2").arg(basePath).arg(Tau5Common::Config::APP_NAME);
     Tau5Logger::instance().info(QString("Checking for production release at: %1").arg(releaseDir));
 
     if (!QDir(releaseDir).exists()) {
       Tau5Logger::instance().error(QString("Production release not found at: %1").arg(releaseDir));
-      Tau5Logger::instance().error(QString("Expected app name: %1").arg(Config::APP_NAME));
+      Tau5Logger::instance().error(QString("Expected app name: %1").arg(Tau5Common::Config::APP_NAME));
       Tau5Logger::instance().error("CHECK FAILED: Missing production release");
       return 1;
     }
 
     Tau5Logger::instance().info("Production release found, starting BEAM server...");
 
-    // Scope ensures Beam destructor is called before returning
     {
-      Beam beam(&tempApp, basePath, Config::APP_NAME, Config::APP_VERSION,
+      Beam beam(&tempApp, basePath, Tau5Common::Config::APP_NAME, Tau5Common::Config::APP_VERSION,
                 getFreePort(), false, false, false);
 
       Tau5Logger::instance().info("Waiting for BEAM server to start (timeout: 10 seconds)...");
@@ -444,7 +352,6 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  // Create MainWindow first (needed for connections)
   MainWindow mainWindow(devMode, enableDebugPane, enableMcp, enableRepl);
 
   if (enableDebugPane) {
@@ -478,16 +385,14 @@ int main(int argc, char *argv[])
   Tau5Logger::instance().info("Debug pane not included in build");
 #endif
 
-  // Create a shared pointer for Beam to manage its lifetime
   std::shared_ptr<Beam> beam;
 
   Tau5Logger::instance().info("Delaying BEAM server startup by 1 second...");
 
-  // Use QTimer for non-blocking delay
   QTimer::singleShot(2000, [&app, &beam, &mainWindow, basePath, port, devMode, enableMcp, enableRepl]() {
     Tau5Logger::instance().info("Starting BEAM server...");
-    beam = std::make_shared<Beam>(&app, basePath, Config::APP_NAME,
-                                  Config::APP_VERSION, port, devMode, enableMcp, enableRepl);
+    beam = std::make_shared<Beam>(&app, basePath, Tau5Common::Config::APP_NAME,
+                                  Tau5Common::Config::APP_VERSION, port, devMode, enableMcp, enableRepl);
 
     mainWindow.setBeamInstance(beam.get());
 
@@ -508,10 +413,9 @@ int main(int argc, char *argv[])
   mainWindow.setWindowIcon(QIcon(":/images/app.ico"));
 #endif
 
-  // Ensure BEAM is terminated before the app fully exits
   QObject::connect(&app, &QApplication::aboutToQuit, [&beam]() {
     if (beam) {
-      beam.reset(); // Explicitly destroy beam while Qt is still running
+      beam.reset();
     }
   });
 

@@ -1,6 +1,6 @@
 #include "logwidget.h"
 #include "../styles/StyleManager.h"
-#include "../tau5logger.h"
+#include "../shared/tau5logger.h"
 #include <QDebug>
 #include <QTextEdit>
 #include <QVBoxLayout>

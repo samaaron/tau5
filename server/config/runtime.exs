@@ -61,12 +61,18 @@ if config_env() == :prod do
   # want to use a different value for prod and you most likely don't want
   # to check this value into version control, so we use an environment
   # variable instead.
+  # When using stdin config, the secret will be set later in Application.start
   secret_key_base =
-    System.get_env("SECRET_KEY_BASE") ||
-      raise """
-      environment variable SECRET_KEY_BASE is missing.
-      You can generate one by calling: mix phx.gen.secret
-      """
+    if System.get_env("TAU5_USE_STDIN_CONFIG") == "true" do
+      # Use a placeholder that will be replaced when SecureConfig reads stdin
+      "placeholder_will_be_replaced_by_stdin_config"
+    else
+      System.get_env("SECRET_KEY_BASE") ||
+        raise """
+        environment variable SECRET_KEY_BASE is missing.
+        You can generate one by calling: mix phx.gen.secret
+        """
+    end
 
   host = System.get_env("PHX_HOST") || "127.0.0.1"
   port = String.to_integer(System.get_env("PORT") || "4000")

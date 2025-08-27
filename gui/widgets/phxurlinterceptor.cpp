@@ -3,7 +3,7 @@
 #include <QDesktopServices>
 #include <QDebug>
 #include "phxurlinterceptor.h"
-#include "../tau5logger.h"
+#include "../shared/tau5logger.h"
 
 void PhxUrlInterceptor::interceptRequest(QWebEngineUrlRequestInfo &info)
 {

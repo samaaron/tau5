@@ -1,6 +1,3 @@
-// Icons used in this file are from Microsoft VS Code Icons
-// https://github.com/microsoft/vscode-icons
-// Licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
 #include "debugpane.h"
 #include "logwidget.h"
 #include "debugwidget.h"
@@ -15,7 +12,7 @@
 #include <QFontDatabase>
 #include "phxwebview.h"
 #include "sandboxedwebview.h"
-#include "../tau5logger.h"
+#include "../shared/tau5logger.h"
 #include "../lib/fontloader.h"
 #include <QDir>
 #include <QStandardPaths>

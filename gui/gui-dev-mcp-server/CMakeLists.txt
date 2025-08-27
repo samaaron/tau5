@@ -15,8 +15,6 @@ add_executable(tau5-dev-gui-mcp-server
     mcpserver_stdio.cpp
     cdpclient.h
     cdpclient.cpp
-    ../tau5logger.h
-    ../tau5logger.cpp
 )
 
 target_include_directories(tau5-dev-gui-mcp-server PRIVATE
@@ -24,6 +22,7 @@ target_include_directories(tau5-dev-gui-mcp-server PRIVATE
 )
 
 target_link_libraries(tau5-dev-gui-mcp-server
+    tau5_core  # Link to our static library for tau5logger
     Qt6::Core
     Qt6::Network
     Qt6::WebSockets

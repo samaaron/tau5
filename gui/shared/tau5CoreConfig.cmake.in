@@ -1,0 +1,9 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/tau5CoreTargets.cmake")
+
+# Provide the library
+set(tau5_core_FOUND TRUE)
+
+# Optional: Check for required components
+check_required_components(tau5_core)
