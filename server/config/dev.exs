@@ -1,6 +1,5 @@
 import Config
 
-
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #
@@ -23,10 +22,6 @@ config :tau5, Tau5Web.Endpoint,
     tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]},
     tailwind_console: {Tailwind, :install_and_run, [:console, ~w(--watch)]}
   ]
-
-config :tau5, :midi_enabled, true
-config :tau5, :link_enabled, true
-config :tau5, :discovery_enabled, true
 
 # ## SSL Support
 #

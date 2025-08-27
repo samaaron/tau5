@@ -55,6 +55,17 @@ else
   config :tau5, console_enabled: repl_enabled in ["1", "true", "yes"]
 end
 
+# Configure NIF services
+# These can be disabled via environment variables
+config :tau5, :midi_enabled,
+  System.get_env("TAU5_MIDI_ENABLED", "true") != "false"
+
+config :tau5, :link_enabled,
+  System.get_env("TAU5_LINK_ENABLED", "true") != "false"
+
+config :tau5, :discovery_enabled,
+  System.get_env("TAU5_DISCOVERY_ENABLED", "true") != "false"
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
