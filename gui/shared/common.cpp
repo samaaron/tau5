@@ -40,7 +40,7 @@ std::unique_ptr<QTcpServer> allocatePort(quint16& outPort, const QHostAddress& a
 }
 
 QString getServerBasePath() {
-    // Always use environment variable if set
+    // Always use environment variable - it should be set by launch scripts
     QString serverPath = qEnvironmentVariable("TAU5_SERVER_PATH");
     if (!serverPath.isEmpty()) {
         if (!QDir(serverPath).exists()) {
@@ -49,23 +49,12 @@ QString getServerBasePath() {
         return QDir(serverPath).absolutePath();
     }
     
-    // Fallback if running without launch scripts (should rarely happen)
-    qWarning() << "TAU5_SERVER_PATH not set - using fallback path detection";
-    QString appDirPath = QCoreApplication::applicationDirPath();
+    // Environment variable not set - this shouldn't happen in normal usage
+    qCritical() << "TAU5_SERVER_PATH environment variable not set!";
+    qCritical() << "Please use the launch scripts in bin/ or set TAU5_SERVER_PATH manually.";
     
-    // Simple fallback: assume server is at ../server relative to repo structure
-    QDir dir(appDirPath);
-    while (!dir.isRoot() && dir.dirName() != "tau5") {
-        if (!dir.cdUp()) break;
-    }
-    
-    if (dir.dirName() == "tau5" && dir.cd("server")) {
-        return dir.absolutePath();
-    }
-    
-    // Last resort - return current directory
-    qCritical() << "Could not find server directory. Set TAU5_SERVER_PATH environment variable.";
-    return appDirPath;
+    // Return current directory as last resort (will likely fail)
+    return QCoreApplication::applicationDirPath();
 }
 
 bool setupConsoleOutput() {
