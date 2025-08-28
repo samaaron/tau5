@@ -17,6 +17,7 @@ public:
   
   QString getSessionToken() const { return sessionToken; }
   quint16 getPort() const { return appPort; }
+  qint64 getBeamPid() const { return beamPid; }
 
   void startElixirServerDev();
   void startElixirServerProd();

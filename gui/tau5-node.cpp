@@ -7,6 +7,12 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <QThread>
+#ifndef Q_OS_WIN
+#include <unistd.h>
+#else
+#include <windows.h>
+#include <process.h>
+#endif
 #include "shared/beam.h"
 #include "shared/tau5logger.h"
 #include "shared/common.h"
@@ -206,6 +212,9 @@ int main(int argc, char *argv[]) {
         bool otpReady = false;
         quint16 serverPort = 0;
         QString mode;
+        qint64 nodePid = 0;
+        qint64 beamPid = 0;
+        QString logPath;
     } serverInfo;
     
     serverInfo.midiDisabled = disableMidi;
@@ -237,6 +246,16 @@ int main(int argc, char *argv[]) {
     serverInfo.serverPort = port;
     serverInfo.mode = devMode ? "development" : "production";
     
+    // Get Node PID
+    #ifndef Q_OS_WIN
+    serverInfo.nodePid = getpid();
+    #else
+    serverInfo.nodePid = _getpid();
+    #endif
+    
+    // Get log path from logger
+    serverInfo.logPath = Tau5Logger::instance().currentSessionPath();
+    
     // Small delay to ensure everything is initialized
     QTimer::singleShot(500, [&app, &beam, basePath, port, devMode, enableMcp, enableRepl, verboseMode, disableMidi, disableLink, disableDiscovery, &serverInfo]() {
         if (verboseMode) {
@@ -259,8 +278,13 @@ int main(int argc, char *argv[]) {
                                      enableMcp, enableRepl);
         
         // Connect to OTP ready signal
-        QObject::connect(beam.get(), &Beam::otpReady, [verboseMode, enableMcp, &serverInfo]() {
+        QObject::connect(beam.get(), &Beam::otpReady, [verboseMode, enableMcp, &serverInfo, &beam]() {
             serverInfo.otpReady = true;
+            
+            // Get BEAM PID when it's ready
+            if (beam) {
+                serverInfo.beamPid = beam->getBeamPid();
+            }
             
             if (verboseMode) {
                 Tau5Logger::instance().info("OTP supervision tree ready");
@@ -273,6 +297,11 @@ int main(int argc, char *argv[]) {
                 std::cout << "  Mode:      " << serverInfo.mode.toStdString() << "\n";
                 std::cout << "  Port:      " << serverInfo.serverPort << "\n";
                 std::cout << "  URL:       http://localhost:" << serverInfo.serverPort << "\n";
+                std::cout << "  Node PID:  " << serverInfo.nodePid << "\n";
+                if (serverInfo.beamPid > 0) {
+                    std::cout << "  BEAM PID:  " << serverInfo.beamPid << "\n";
+                }
+                std::cout << "  Logs:      " << serverInfo.logPath.toStdString() << "\n";
                 
                 if (enableMcp) {
                     std::cout << "  MCP:       " << (serverInfo.mode == "development" ? "tidewave" : "hermes") << "\n";
