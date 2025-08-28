@@ -252,7 +252,13 @@ void Beam::startElixirServerDev()
   QString cmd = QDir(dir.absolutePath()).filePath("win-start-server.bat");
   QStringList args = {};
 #else
-  process->setWorkingDirectory(appBasePath);
+  QString serverPath = qEnvironmentVariable("TAU5_SERVER_PATH");
+  if (serverPath.isEmpty()) {
+    Tau5Logger::instance().error("TAU5_SERVER_PATH not set - cannot start dev server");
+    Tau5Logger::instance().error("Please set TAU5_SERVER_PATH environment variable to the server directory path");
+    return;
+  }
+  process->setWorkingDirectory(serverPath);
   QString cmd = "mix";
   QStringList args = {"phx.server"};
 #endif
