@@ -48,10 +48,9 @@ defmodule Tau5.Heartbeat do
       "HEARTBEAT:" <> token when token == state.token ->
         Tau5.KillSwitch.reset()
         
+        # Only log the first heartbeat, not subsequent ones
         if state.valid_count == 0 do
           Logger.info("First heartbeat received - kill switch reset")
-        else
-          Logger.debug("Heartbeat #{state.valid_count + 1} - kill switch reset")
         end
         
         {:noreply, %{state | valid_count: state.valid_count + 1}}
@@ -78,14 +77,14 @@ defmodule Tau5.Heartbeat do
     if port_str do
       case Integer.parse(port_str) do
         {port, ""} ->
-          Logger.info("Opening UDP heartbeat listener on port #{port}")
+          Logger.debug("Opening UDP heartbeat listener on port #{port}")
           
           # Bind to IPv4 loopback only for security
           case :gen_udp.open(port, [:binary, {:active, true}, {:reuseaddr, true}, {:ip, {127,0,0,1}}]) do
             {:ok, socket} ->
               case :inet.port(socket) do
                 {:ok, actual_port} ->
-                  Logger.info("UDP socket successfully bound to port #{actual_port}")
+                  Logger.debug("UDP socket successfully bound to port #{actual_port}")
                   {:ok, socket}
                 {:error, reason} ->
                   Logger.error("Failed to verify UDP socket port: #{inspect(reason)}")
@@ -110,7 +109,7 @@ defmodule Tau5.Heartbeat do
   defp send_pid_to_gui do
     pid = System.pid()
     IO.puts("[TAU5_BEAM_PID:#{pid}]")
-    Logger.info("Sent BEAM PID #{pid} to GUI")
+    Logger.debug("Sent BEAM PID #{pid} to GUI")
   end
 
   defp heartbeat_enabled? do

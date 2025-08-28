@@ -23,7 +23,7 @@ defmodule Tau5.KillSwitch do
       check_interval = max(1000, get_env_int("TAU5_HB_INTERVAL_MS", @default_check_interval))
       max_missed = max(1, get_env_int("TAU5_HB_MAX_MISSES", @default_max_missed_checks))
       
-      Logger.info("Kill switch armed - will activate in #{grace_period}ms")
+      Logger.debug("Kill switch armed - will activate in #{grace_period}ms")
       Logger.debug("Kill switch config: interval=#{check_interval}ms, max_misses=#{max_missed}")
       
       Process.send_after(self(), :start_monitoring, grace_period)
@@ -75,7 +75,8 @@ defmodule Tau5.KillSwitch do
       missed_checks: 0
     }
     
-    if state[:missed_checks] && state.missed_checks > 0 do
+    # Only log recovery from missed checks in warning situations
+    if state[:missed_checks] && state.missed_checks > 1 do
       Logger.info("Kill switch: normal operation restored after #{state.missed_checks} missed checks")
     end
     
@@ -83,7 +84,7 @@ defmodule Tau5.KillSwitch do
   end
 
   def handle_info(:start_monitoring, state) do
-    Logger.info("Kill switch activated - monitoring started")
+    Logger.debug("Kill switch activated - monitoring started")
     Process.send_after(self(), :check, state.check_interval)
     {:noreply, %{state | monitoring: true}}
   end

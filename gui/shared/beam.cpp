@@ -57,8 +57,8 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
     return;
   }
   
-  Tau5Logger::instance().debug(QString("UDP heartbeat: Server will listen on port %1, GUI will send to it")
-                              .arg(heartbeatPort));
+  // Only log heartbeat setup errors, not normal operation
+  // Tau5Logger::instance().debug(QString("UDP heartbeat: Server will listen on port %1").arg(heartbeatPort));
 
   connect(process, &QProcess::readyReadStandardOutput,
           this, &Beam::handleStandardOutput);
@@ -70,7 +70,8 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
   int interval = intervalStr.isEmpty() ? 5000 : intervalStr.toInt();
   if (interval < 1000) interval = 5000; // Minimum 1 second to prevent busy loop
   heartbeatTimer->setInterval(interval);
-  Tau5Logger::instance().debug(QString("Heartbeat timer interval set to %1ms").arg(interval));
+  // Don't log the timer interval in normal operation
+  // Tau5Logger::instance().debug(QString("Heartbeat timer interval set to %1ms").arg(interval));
   connect(heartbeatTimer, &QTimer::timeout, this, &Beam::sendHeartbeat);
 
   if (devMode)
@@ -447,7 +448,8 @@ void Beam::sendHeartbeat()
     Tau5Logger::instance().warning(QString("Failed to send UDP heartbeat: %1")
                                   .arg(heartbeatSocket->errorString()));
   } else {
-    Tau5Logger::instance().debug(QString("Sent UDP heartbeat to port %1").arg(heartbeatPort));
+    // Successfully sent - no need to log every heartbeat
+    // Tau5Logger::instance().debug(QString("Sent UDP heartbeat to port %1").arg(heartbeatPort));
   }
 }
 
