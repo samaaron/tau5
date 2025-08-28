@@ -1,6 +1,8 @@
 #include "common.h"
 #include <QTcpServer>
 #include <QDir>
+#include <QThread>
+#include <QMetaObject>
 #include <iostream>
 #include <csignal>
 
@@ -125,15 +127,18 @@ QString getTau5Logo() {
 static volatile std::sig_atomic_t g_signalReceived = 0;
 
 static void signalHandler(int signal) {
+    // Signal handlers must only set flags - calling Qt functions directly can cause segfaults
     g_signalReceived = signal;
-    // On Windows, we need to be more careful about exiting
+    
 #ifdef Q_OS_WIN
-    // Generate a quit event for the Qt event loop
     if (qApp) {
-        QCoreApplication::quit();
+        PostQuitMessage(0);
     }
 #else
-    QCoreApplication::quit();
+    if (qApp && qApp->thread() == QThread::currentThread()) {
+        // Use queued connection to safely trigger quit from signal context
+        QMetaObject::invokeMethod(qApp, "quit", Qt::QueuedConnection);
+    }
 #endif
 }
 
