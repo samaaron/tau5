@@ -104,38 +104,31 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    // Setup console output (especially important on Windows)
     setupConsoleOutput();
-    
-    // Setup signal handlers for graceful shutdown
     setupSignalHandlers();
     
-    // Create Qt Core application (no GUI)
     QCoreApplication app(argc, argv);
     app.setApplicationName(Config::APP_NAME);
+    Tau5Common::setupSignalNotifier();
     
-    // Configure logging
     Tau5LoggerConfig logConfig;
-    logConfig.appName = "node";  // Different from GUI
+    logConfig.appName = "node";
     logConfig.logFiles = {
         {"node.log", "node", false},
         {"beam.log", "beam", false}
     };
-    logConfig.emitQtSignals = false;  // No GUI to connect to
-    logConfig.consoleEnabled = verboseMode;  // Only enable console output in verbose mode
-    logConfig.consoleColors = true;  // Always use colors in CLI mode
+    logConfig.emitQtSignals = false;
+    logConfig.consoleEnabled = verboseMode;
+    logConfig.consoleColors = true;
     logConfig.reuseRecentSession = false;
     
     QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
     logConfig.baseLogDir = QDir(dataPath).absoluteFilePath("Tau5/logs");
     
-    // Initialize logger
     Tau5Logger::initialize(logConfig);
     
-    // Install Qt message handler
     originalMessageHandler = qInstallMessageHandler(tau5NodeMessageHandler);
     
-    // In quiet mode, print to stdout; in verbose mode, use logger
     if (!verboseMode) {
         std::cout << getTau5Logo().toStdString();
         std::cout << "Starting Tau5 Node (Headless Mode)...\n";
@@ -336,7 +329,7 @@ int main(int argc, char *argv[]) {
                     
                     // Check for disabled services
                     if (serverInfo.midiDisabled || serverInfo.linkDisabled || serverInfo.discoveryDisabled) {
-                        std::cout << "💡 To enable disabled services, restart without:\n";
+                        std::cout << "To enable disabled services, restart without:\n";
                         if (serverInfo.midiDisabled) std::cout << "   --disable-midi\n";
                         if (serverInfo.linkDisabled) std::cout << "   --disable-link\n";
                         if (serverInfo.discoveryDisabled) std::cout << "   --disable-discovery\n";
@@ -348,7 +341,7 @@ int main(int argc, char *argv[]) {
                                      (!serverInfo.discoveryDisabled && !serverInfo.discoveryAvailable);
                     
                     if (anyMissing) {
-                        std::cout << "💡 Missing modules require rebuilding with NIFs:\n";
+                        std::cout << "Missing modules require rebuilding with NIFs:\n";
                         #ifdef Q_OS_WIN
                         std::cout << "   .\\bin\\win\\build-server.bat\n";
                         #elif defined(Q_OS_MAC)
@@ -393,17 +386,16 @@ int main(int argc, char *argv[]) {
             std::cout << "\nShutting down Tau5 Node...\n";
         }
         if (beam) {
-            beam.reset(); // Explicitly destroy beam while Qt is still running
+            beam.reset();
         }
+        Tau5Common::cleanupSignalHandlers();
         if (verboseMode) {
             Tau5Logger::instance().info("Tau5 Node stopped");
         }
     });
     
-    // Run the event loop
     int result = app.exec();
     
-    // Clean shutdown message
     if (result == 0) {
         std::cout << "\nTau5 Node shutdown complete\n";
     }

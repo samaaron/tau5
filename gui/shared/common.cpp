@@ -3,8 +3,16 @@
 #include <QDir>
 #include <QThread>
 #include <QMetaObject>
+#include <QSocketNotifier>
+#include <QCoreApplication>
 #include <iostream>
 #include <csignal>
+#ifndef Q_OS_WIN
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <cstring>
+#endif
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -123,47 +131,116 @@ QString getTau5Logo() {
 )";
 }
 
-// Global flag for signal handling
 static volatile std::sig_atomic_t g_signalReceived = 0;
 
+#ifndef Q_OS_WIN
+static int signalPipeFd[2] = {-1, -1};
+static QSocketNotifier* signalNotifier = nullptr;
+
 static void signalHandler(int signal) {
-    // Signal handlers must only set flags - calling Qt functions directly can cause segfaults
     g_signalReceived = signal;
-    
-#ifdef Q_OS_WIN
-    if (qApp) {
-        PostQuitMessage(0);
+    char a = 1;
+    if (signalPipeFd[1] != -1) {
+        ssize_t result = ::write(signalPipeFd[1], &a, sizeof(a));
+        (void)result;
     }
+}
 #else
-    if (qApp && qApp->thread() == QThread::currentThread()) {
-        // Use queued connection to safely trigger quit from signal context
-        QMetaObject::invokeMethod(qApp, "quit", Qt::QueuedConnection);
+static BOOL WINAPI consoleCtrlHandler(DWORD dwCtrlType) {
+    switch (dwCtrlType) {
+        case CTRL_C_EVENT:
+        case CTRL_BREAK_EVENT:
+        case CTRL_CLOSE_EVENT:
+        case CTRL_LOGOFF_EVENT:
+        case CTRL_SHUTDOWN_EVENT:
+            g_signalReceived = SIGINT;
+            if (qApp) {
+                QMetaObject::invokeMethod(qApp, "quit", Qt::QueuedConnection);
+            }
+            return TRUE;
     }
+    return FALSE;
+}
+
+static void signalHandler(int signal) {
+    g_signalReceived = signal;
+}
+#endif
+
+void setupSignalHandlers() {
+#ifndef Q_OS_WIN
+    if (::pipe(signalPipeFd) == -1) {
+        std::cerr << "Failed to create signal pipe: " << strerror(errno) << std::endl;
+        return;
+    }
+    
+    auto set_nb_cloexec = [](int fd) {
+        int flags = ::fcntl(fd, F_GETFL);
+        if (flags != -1) {
+            ::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+        }
+        int fdflags = ::fcntl(fd, F_GETFD);
+        if (fdflags != -1) {
+            ::fcntl(fd, F_SETFD, fdflags | FD_CLOEXEC);
+        }
+    };
+    
+    set_nb_cloexec(signalPipeFd[0]);
+    set_nb_cloexec(signalPipeFd[1]);
+    
+    std::signal(SIGINT, signalHandler);
+    std::signal(SIGTERM, signalHandler);
+    std::signal(SIGHUP, signalHandler);
+#else
+    SetConsoleCtrlHandler(consoleCtrlHandler, TRUE);
+    std::signal(SIGTERM, signalHandler);
 #endif
 }
 
-void setupSignalHandlers() {
-    // Install signal handlers for graceful shutdown
-    std::signal(SIGINT, signalHandler);   // Ctrl+C
-    std::signal(SIGTERM, signalHandler);  // Termination signal
-
-#ifdef Q_OS_WIN
-    // Windows-specific: Handle console events
-    SetConsoleCtrlHandler([](DWORD dwCtrlType) -> BOOL {
-        switch (dwCtrlType) {
-            case CTRL_C_EVENT:
-            case CTRL_BREAK_EVENT:
-            case CTRL_CLOSE_EVENT:
-            case CTRL_LOGOFF_EVENT:
-            case CTRL_SHUTDOWN_EVENT:
-                signalHandler(SIGINT);
-                return TRUE;
+void setupSignalNotifier() {
+#ifndef Q_OS_WIN
+    if (!qApp) {
+        std::cerr << "setupSignalNotifier called before QCoreApplication creation!" << std::endl;
+        return;
+    }
+    
+    if (signalPipeFd[0] == -1) {
+        std::cerr << "setupSignalNotifier called before setupSignalHandlers!" << std::endl;
+        return;
+    }
+    
+    signalNotifier = new QSocketNotifier(signalPipeFd[0], QSocketNotifier::Read, qApp);
+    QObject::connect(signalNotifier, &QSocketNotifier::activated, [](int) {
+        char tmp;
+        while (::read(signalPipeFd[0], &tmp, sizeof(tmp)) > 0) {}
+        
+        if (g_signalReceived != 0 && qApp) {
+            qApp->quit();
         }
-        return FALSE;
-    }, TRUE);
-#else
-    // Unix-like systems: Also handle SIGHUP (terminal hangup)
-    std::signal(SIGHUP, signalHandler);
+    });
+#endif
+}
+
+bool isTerminationRequested() {
+    return g_signalReceived != 0;
+}
+
+void cleanupSignalHandlers() {
+#ifndef Q_OS_WIN
+    if (signalNotifier) {
+        delete signalNotifier;
+        signalNotifier = nullptr;
+    }
+    
+    if (signalPipeFd[0] != -1) {
+        ::close(signalPipeFd[0]);
+        signalPipeFd[0] = -1;
+    }
+    
+    if (signalPipeFd[1] != -1) {
+        ::close(signalPipeFd[1]);
+        signalPipeFd[1] = -1;
+    }
 #endif
 }
 

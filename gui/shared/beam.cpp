@@ -19,6 +19,14 @@
 #include "tau5logger.h"
 #include "error_codes.h"
 
+#ifndef Q_OS_WIN
+#include <signal.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <errno.h>
+#include <cstring>
+#endif
+
 using namespace Tau5Common;
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp, bool enableRepl)
@@ -471,37 +479,42 @@ void Beam::killBeamProcess()
 #ifdef Q_OS_WIN
   Tau5Logger::instance().debug(QString("Windows: Sending graceful termination to PID: %1").arg(beamPid));
 
-  // Use QProcess instance to suppress error output
   QProcess gracefulKill;
-  gracefulKill.start("taskkill", {"/PID", QString::number(beamPid)});
-  gracefulKill.waitForFinished();
+  gracefulKill.start("taskkill", {"/PID", QString::number(beamPid), "/T"});
+  gracefulKill.waitForFinished(1000);
+  
+  if (gracefulKill.exitCode() != 0) {
+    Tau5Logger::instance().debug(QString("taskkill graceful failed with exit code %1").arg(gracefulKill.exitCode()));
+  }
 
-  // Give it a brief moment to terminate gracefully (reduced from 5 seconds to 2)
   for (int i = 2; i > 0; --i)
   {
     QProcess checkProcess;
     checkProcess.start("tasklist", {"/FI", QString("PID eq %1").arg(beamPid)});
-    checkProcess.waitForFinished(500); // Shorter timeout
+    checkProcess.waitForFinished(500);
     QString output = checkProcess.readAllStandardOutput();
 
     if (!output.contains(QString::number(beamPid)))
     {
       Tau5Logger::instance().debug(QString("Process %1 terminated gracefully").arg(beamPid));
+      beamPid = 0;
       return;
     }
 
     Tau5Logger::instance().debug(QString("Process %1 still running, waiting... %2").arg(beamPid).arg(i));
-    QThread::msleep(500); // Shorter wait
+    QThread::msleep(500);
   }
 
   Tau5Logger::instance().debug(QString("Windows: Force killing PID: %1").arg(beamPid));
 
-  // Use QProcess instance to suppress error output
   QProcess forceKill;
-  forceKill.start("taskkill", {"/F", "/PID", QString::number(beamPid)});
-  forceKill.waitForFinished(1000); // Add timeout
+  forceKill.start("taskkill", {"/F", "/PID", QString::number(beamPid), "/T"});
+  forceKill.waitForFinished(1000);
+  
+  if (forceKill.exitCode() != 0) {
+    Tau5Logger::instance().debug(QString("taskkill force failed with exit code %1").arg(forceKill.exitCode()));
+  }
 
-  // Verify termination
   QProcess finalCheck;
   finalCheck.start("tasklist", {"/FI", QString("PID eq %1").arg(beamPid)});
   finalCheck.waitForFinished(500);
@@ -514,37 +527,56 @@ void Beam::killBeamProcess()
   else
   {
     Tau5Logger::instance().debug(QString("Process %1 successfully terminated").arg(beamPid));
+    beamPid = 0;
   }
 
 #else
+  auto still_running = [](pid_t pid) {
+    if (::kill(pid, 0) == 0) return true;
+    return errno == EPERM;
+  };
+
+  auto pid = static_cast<pid_t>(beamPid);
+  
   Tau5Logger::instance().debug(QString("Unix: Sending SIGTERM to PID: %1").arg(beamPid));
-  int result = QProcess::execute("kill", {"-TERM", QString::number(beamPid)});
-
-  if (result != 0)
-  {
-    Tau5Logger::instance().debug(QString("Process %1 not found or already terminated").arg(beamPid));
-    return;
-  }
-
-  for (int i = 5; i > 0; --i)
-  {
-    result = QProcess::execute("kill", {"-0", QString::number(beamPid)});
-
-    if (result != 0)
-    {
-      Tau5Logger::instance().debug(QString("Process %1 terminated gracefully").arg(beamPid));
+  if (::kill(pid, SIGTERM) == -1) {
+    if (errno == ESRCH) {
+      Tau5Logger::instance().debug(QString("Process %1 not found").arg(beamPid));
+      beamPid = 0;
       return;
+    } else if (errno == EPERM) {
+      Tau5Logger::instance().debug(QString("Permission denied sending SIGTERM to %1").arg(beamPid));
+    } else {
+      Tau5Logger::instance().debug(QString("Failed to send SIGTERM to %1: %2")
+        .arg(beamPid).arg(QString::fromLocal8Bit(std::strerror(errno))));
     }
-
-    Tau5Logger::instance().debug(QString("Process %1 still running, waiting... %2").arg(beamPid).arg(i));
-    QThread::msleep(1000);
   }
 
-  Tau5Logger::instance().debug(QString("Unix: Sending SIGKILL to PID: %1").arg(beamPid));
-  QProcess::execute("kill", {"-9", QString::number(beamPid)});
-#endif
+  for (int i = 0; i < 50 && still_running(pid); ++i) {
+    QThread::msleep(100);
+  }
 
-  // Final check is already performed above in the platform-specific sections
+  if (still_running(pid)) {
+    Tau5Logger::instance().debug(QString("Unix: Sending SIGKILL to PID: %1").arg(beamPid));
+    if (::kill(pid, SIGKILL) == -1 && errno != ESRCH) {
+      Tau5Logger::instance().debug(QString("Failed to send SIGKILL to %1: %2")
+        .arg(beamPid).arg(QString::fromLocal8Bit(std::strerror(errno))));
+    }
+    
+    for (int i = 0; i < 20 && still_running(pid); ++i) {
+      QThread::msleep(50);
+    }
+  }
+
+  if (!still_running(pid)) {
+    Tau5Logger::instance().debug(QString("Process %1 terminated").arg(beamPid));
+    beamPid = 0;
+  } else {
+    (void)::kill(pid, 0);
+    Tau5Logger::instance().warning(QString("Process %1 still running after SIGKILL (errno=%2: %3)")
+      .arg(beamPid).arg(errno).arg(QString::fromLocal8Bit(std::strerror(errno))));
+  }
+#endif
 }
 
 void Beam::restart()

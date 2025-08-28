@@ -34,6 +34,15 @@ namespace Tau5Common {
 
     // Setup console signal handling for graceful shutdown
     void setupSignalHandlers();
+    
+    // Setup Qt-dependent signal handling components (must be called after QCoreApplication creation)
+    void setupSignalNotifier();
+    
+    // Check if a termination signal has been received
+    bool isTerminationRequested();
+    
+    // Cleanup signal handling resources
+    void cleanupSignalHandlers();
 }
 
 #endif // COMMON_H
