@@ -64,9 +64,11 @@ void ConsoleOverlay::setupStyles()
             background-color: %2;
             color: %3;
         }
+        %4
     )").arg(StyleManager::Colors::ACCENT_PRIMARY)
        .arg(StyleManager::Colors::accentPrimaryAlpha(0.4))
-       .arg(StyleManager::Colors::TEXT_PRIMARY));
+       .arg(StyleManager::Colors::TEXT_PRIMARY)
+       .arg(StyleManager::contextMenu()));
 }
 
 void ConsoleOverlay::appendLog(const QString &message)
