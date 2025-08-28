@@ -57,14 +57,17 @@ end
 
 # Configure NIF services
 # These can be disabled via environment variables
-config :tau5, :midi_enabled,
-  System.get_env("TAU5_MIDI_ENABLED", "true") != "false"
+# Skip these configurations in test environment where they're already set
+if config_env() != :test do
+  config :tau5, :midi_enabled,
+    System.get_env("TAU5_MIDI_ENABLED", "true") != "false"
 
-config :tau5, :link_enabled,
-  System.get_env("TAU5_LINK_ENABLED", "true") != "false"
+  config :tau5, :link_enabled,
+    System.get_env("TAU5_LINK_ENABLED", "true") != "false"
 
-config :tau5, :discovery_enabled,
-  System.get_env("TAU5_DISCOVERY_ENABLED", "true") != "false"
+  config :tau5, :discovery_enabled,
+    System.get_env("TAU5_DISCOVERY_ENABLED", "true") != "false"
+end
 
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
