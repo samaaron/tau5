@@ -203,12 +203,6 @@ int main(int argc, char *argv[]) {
     
     // Track service availability for summary
     struct {
-        bool midiAvailable = false;
-        bool linkAvailable = false;
-        bool discoveryAvailable = false;
-        bool midiDisabled = false;
-        bool linkDisabled = false;
-        bool discoveryDisabled = false;
         bool otpReady = false;
         quint16 serverPort = 0;
         QString mode;
@@ -216,32 +210,6 @@ int main(int argc, char *argv[]) {
         qint64 beamPid = 0;
         QString logPath;
     } serverInfo;
-    
-    serverInfo.midiDisabled = disableMidi;
-    serverInfo.linkDisabled = disableLink;
-    serverInfo.discoveryDisabled = disableDiscovery;
-    
-    // Check if NIFs are compiled by looking for the shared libraries
-    QString nifPath;
-    if (devMode) {
-        nifPath = QDir(basePath).absoluteFilePath("_build/dev/lib/tau5/priv/nifs");
-    } else {
-        nifPath = QDir(basePath).absoluteFilePath("_build/prod/rel/tau5/lib/tau5-0.1.0/priv/nifs");
-    }
-    
-    // Check for NIF files
-    QDir nifDir(nifPath);
-    if (nifDir.exists()) {
-        #ifdef Q_OS_WIN
-        serverInfo.midiAvailable = nifDir.exists("sp_midi.dll");
-        serverInfo.linkAvailable = nifDir.exists("sp_link.dll");
-        serverInfo.discoveryAvailable = nifDir.exists("tau5_discovery.dll");
-        #else
-        serverInfo.midiAvailable = nifDir.exists("libsp_midi.so");
-        serverInfo.linkAvailable = nifDir.exists("libsp_link.so");
-        serverInfo.discoveryAvailable = nifDir.exists("libtau5_discovery.so");
-        #endif
-    }
     
     serverInfo.serverPort = port;
     serverInfo.mode = devMode ? "development" : "production";
@@ -291,9 +259,9 @@ int main(int argc, char *argv[]) {
                 Tau5Logger::instance().info("Server is running. Press Ctrl+C to stop.");
             } else {
                 // Print concise summary in quiet mode
-                std::cout << "\n═══════════════════════════════════════════════════════\n";
+                std::cout << "\n========================================================\n";
                 std::cout << "Tau5 Server Started\n";
-                std::cout << "───────────────────────────────────────────────────────\n";
+                std::cout << "--------------------------------------------------------\n";
                 std::cout << "  Mode:      " << serverInfo.mode.toStdString() << "\n";
                 std::cout << "  Port:      " << serverInfo.serverPort << "\n";
                 std::cout << "  URL:       http://localhost:" << serverInfo.serverPort << "\n";
@@ -307,82 +275,8 @@ int main(int argc, char *argv[]) {
                     std::cout << "  MCP:       " << (serverInfo.mode == "development" ? "tidewave" : "hermes") << "\n";
                 }
                 
-                std::cout << "───────────────────────────────────────────────────────\n";
-                std::cout << "Services:\n";
-                
-                // Track if we need to show hints
-                bool showHints = false;
-                
-                // MIDI status
-                std::cout << "  MIDI:      ";
-                if (serverInfo.midiDisabled) {
-                    std::cout << "✗ Disabled";
-                    showHints = true;
-                } else if (serverInfo.midiAvailable) {
-                    std::cout << "✓ Enabled";
-                } else {
-                    std::cout << "✗ Module Missing";
-                    showHints = true;
-                }
-                std::cout << "\n";
-                
-                // Link status
-                std::cout << "  Link:      ";
-                if (serverInfo.linkDisabled) {
-                    std::cout << "✗ Disabled";
-                    showHints = true;
-                } else if (serverInfo.linkAvailable) {
-                    std::cout << "✓ Enabled";
-                } else {
-                    std::cout << "✗ Module Missing";
-                    showHints = true;
-                }
-                std::cout << "\n";
-                
-                // Discovery status
-                std::cout << "  Discovery: ";
-                if (serverInfo.discoveryDisabled) {
-                    std::cout << "✗ Disabled";
-                    showHints = true;
-                } else if (serverInfo.discoveryAvailable) {
-                    std::cout << "✓ Enabled";
-                } else {
-                    std::cout << "✗ Module Missing";
-                    showHints = true;
-                }
-                std::cout << "\n";
-                
-                // Show hints if any service is disabled or missing
-                if (showHints) {
-                    std::cout << "───────────────────────────────────────────────────────\n";
-                    
-                    // Check for disabled services
-                    if (serverInfo.midiDisabled || serverInfo.linkDisabled || serverInfo.discoveryDisabled) {
-                        std::cout << "To enable disabled services, restart without:\n";
-                        if (serverInfo.midiDisabled) std::cout << "   --disable-midi\n";
-                        if (serverInfo.linkDisabled) std::cout << "   --disable-link\n";
-                        if (serverInfo.discoveryDisabled) std::cout << "   --disable-discovery\n";
-                    }
-                    
-                    // Check for missing modules
-                    bool anyMissing = (!serverInfo.midiDisabled && !serverInfo.midiAvailable) ||
-                                     (!serverInfo.linkDisabled && !serverInfo.linkAvailable) ||
-                                     (!serverInfo.discoveryDisabled && !serverInfo.discoveryAvailable);
-                    
-                    if (anyMissing) {
-                        std::cout << "Missing modules require rebuilding with NIFs:\n";
-                        #ifdef Q_OS_WIN
-                        std::cout << "   .\\bin\\win\\build-server.bat\n";
-                        #elif defined(Q_OS_MAC)
-                        std::cout << "   ./bin/mac/build-server.sh\n";
-                        #else
-                        std::cout << "   ./bin/linux/build-server.sh\n";
-                        #endif
-                    }
-                }
-                
-                std::cout << "═══════════════════════════════════════════════════════\n";
-                std::cout << "Press Ctrl+C to stop\n\n";
+                std::cout << "========================================================\n";
+                std::cout << "Press Ctrl+C to stop\n\n" << std::flush;
             }
         });
         
