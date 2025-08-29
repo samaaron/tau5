@@ -15,7 +15,6 @@
 #include "../shared/tau5logger.h"
 #include "../lib/fontloader.h"
 #include <QDir>
-#include <QStandardPaths>
 #include <QFile>
 #include <QTextStream>
 #include <QFileInfo>
@@ -379,8 +378,7 @@ void DebugPane::setupConsole()
   m_newTidewaveMCPWidget = new LogWidget(LogWidget::MCPLog, nullptr);
   m_newGuiMCPWidget = new LogWidget(LogWidget::MCPLog, nullptr);
 
-  QString sessionPath = Tau5Logger::instance().currentSessionPath();
-  QString tau5LogFilePath = QDir(sessionPath).absoluteFilePath("mcp-tau5.log");
+  QString tau5LogFilePath = Tau5Logger::instance().getMCPLogPath("tau5");
   m_newTau5MCPWidget->setLogFilePath(tau5LogFilePath);
   Tau5Logger::instance().debug(QString("DebugPane: Setting Tau5 MCP log path to: %1").arg(tau5LogFilePath));
 
@@ -403,10 +401,7 @@ void DebugPane::setupConsole()
 
   if (enableDevMCP)
   {
-    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-    QString tau5DataPath = QDir(dataPath).absoluteFilePath("Tau5");
-    QString mcpLogsPath = QDir(tau5DataPath).absoluteFilePath("mcp-logs");
-    QString guiMCPLogFilePath = QDir(mcpLogsPath).absoluteFilePath("mcp-gui-dev-9223.log");
+    QString guiMCPLogFilePath = Tau5Logger::getGlobalMCPLogPath("gui-dev-9223");
     m_newGuiMCPWidget->setLogFilePath(guiMCPLogFilePath);
     Tau5Logger::instance().debug(QString("DebugPane: Setting GUI Dev MCP log path to: %1").arg(guiMCPLogFilePath));
 
@@ -421,7 +416,7 @@ void DebugPane::setupConsole()
     m_newGuiMCPWidget->appendLog(guiMCPStartupMessage, false);
 
     // Set up Tidewave MCP log
-    QString tidewaveLogFilePath = QDir(sessionPath).absoluteFilePath("mcp-tidewave.log");
+    QString tidewaveLogFilePath = Tau5Logger::instance().getMCPLogPath("tidewave");
     m_newTidewaveMCPWidget->setLogFilePath(tidewaveLogFilePath);
     Tau5Logger::instance().debug(QString("DebugPane: Setting Tidewave MCP log path to: %1").arg(tidewaveLogFilePath));
 

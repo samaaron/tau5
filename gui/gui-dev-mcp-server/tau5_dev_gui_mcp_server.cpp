@@ -2,7 +2,6 @@
 #include <QTimer>
 #include <QEventLoop>
 #include <QThread>
-#include <QStandardPaths>
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
@@ -13,6 +12,7 @@
 #include <iostream>
 #include <memory>
 #include "mcpserver_stdio.h"
+#include "../shared/tau5logger.h"
 #include "cdpclient.h"
 
 static void debugLog(const QString& message) {
@@ -23,12 +23,7 @@ class MCPActivityLogger
 {
 public:
     MCPActivityLogger(quint16 devToolsPort) {
-        QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-        QString tau5DataPath = QDir(dataPath).absoluteFilePath("Tau5");
-        QString mcpLogsPath = QDir(tau5DataPath).absoluteFilePath("mcp-logs");
-        QDir().mkpath(mcpLogsPath);
-        
-        m_logPath = QDir(mcpLogsPath).absoluteFilePath(QString("mcp-gui-dev-%1.log").arg(devToolsPort));
+        m_logPath = Tau5Logger::getGlobalMCPLogPath(QString("gui-dev-%1").arg(devToolsPort));
         m_processId = QCoreApplication::applicationPid();
         
         // Generate a unique session ID for this connection
@@ -1453,8 +1448,8 @@ int main(int argc, char *argv[])
             QString search = params.contains("search") ? params["search"].toString() : "";
             int sessionIndex = params.contains("sessionIndex") ? params["sessionIndex"].toInt() : 0;
             
-            QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-            QString tau5LogsPath = QDir(dataPath).absoluteFilePath("Tau5/logs/gui");
+            QString tau5DataPath = Tau5Logger::getTau5DataPath();
+            QString tau5LogsPath = QDir(tau5DataPath).absoluteFilePath("logs/gui");
             
             // Find session folders - they're named YYYY-MM-DD_HHmmss_pPID
             QDir logsDir(tau5LogsPath);
@@ -1568,8 +1563,8 @@ int main(int argc, char *argv[])
             
             int sessionIndex = params.contains("sessionIndex") ? params["sessionIndex"].toInt() : 0;
             
-            QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-            QString tau5LogsPath = QDir(dataPath).absoluteFilePath("Tau5/logs/gui");
+            QString tau5DataPath = Tau5Logger::getTau5DataPath();
+            QString tau5LogsPath = QDir(tau5DataPath).absoluteFilePath("logs/gui");
             
             // Find session folders - they're named YYYY-MM-DD_HHmmss_pPID
             QDir logsDir(tau5LogsPath);

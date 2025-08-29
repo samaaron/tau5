@@ -73,6 +73,18 @@ public:
     // Get current session path
     QString currentSessionPath() const { return m_sessionPath; }
     
+    // Get path for MCP log file in current session
+    QString getMCPLogPath(const QString& mcpName) const;
+    
+    // Get path for global MCP log file (outside session folders)
+    static QString getGlobalMCPLogPath(const QString& mcpName);
+    
+    // Get the base Tau5 data directory
+    static QString getTau5DataPath();
+    
+    // Get the base log directory (Tau5/logs)
+    static QString getBaseLogDir();
+    
     // Flush all file buffers
     void flush();
     

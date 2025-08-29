@@ -126,8 +126,7 @@ int main(int argc, char *argv[]) {
     logConfig.consoleColors = true;
     logConfig.reuseRecentSession = false;
     
-    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-    logConfig.baseLogDir = QDir(dataPath).absoluteFilePath("Tau5/logs");
+    logConfig.baseLogDir = Tau5Logger::getBaseLogDir();
     
     Tau5Logger::initialize(logConfig);
     

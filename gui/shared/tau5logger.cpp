@@ -39,8 +39,7 @@ void Tau5Logger::initialize(const QString& appName) {
         };
     }
     
-    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-    config.baseLogDir = QDir(dataPath).absoluteFilePath("Tau5/logs");
+    config.baseLogDir = getBaseLogDir();
     
     initialize(config);
 }
@@ -175,6 +174,29 @@ void Tau5Logger::startNewSession() {
     
     log(LogLevel::Info, m_defaultCategory, 
         QString("Started new session: %1").arg(m_sessionPath));
+}
+
+QString Tau5Logger::getMCPLogPath(const QString& mcpName) const {
+    return QDir(m_sessionPath).absoluteFilePath(QString("mcp-%1.log").arg(mcpName));
+}
+
+QString Tau5Logger::getGlobalMCPLogPath(const QString& mcpName) {
+    QString dataPath = getTau5DataPath();
+    QString mcpLogsPath = QDir(dataPath).absoluteFilePath("mcp-logs");
+    
+    // Ensure the mcp-logs directory exists
+    QDir().mkpath(mcpLogsPath);
+    
+    return QDir(mcpLogsPath).absoluteFilePath(QString("mcp-%1.log").arg(mcpName));
+}
+
+QString Tau5Logger::getTau5DataPath() {
+    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    return QDir(dataPath).absoluteFilePath("Tau5");
+}
+
+QString Tau5Logger::getBaseLogDir() {
+    return QDir(getTau5DataPath()).absoluteFilePath("logs");
 }
 
 void Tau5Logger::log(LogLevel level, const QString& category, const QString& message) {

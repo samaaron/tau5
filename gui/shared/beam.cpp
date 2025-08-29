@@ -35,6 +35,12 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
       appName(appName), appVersion(version), isRestarting(false),
       enableMcp(enableMcp), enableRepl(enableRepl), useStdinConfig(true), deploymentMode(deploymentMode)
 {
+  // Tau5Logger MUST be initialized before creating Beam instances
+  // as we need the session path for TAU5_LOG_DIR environment variable
+  if (!Tau5Logger::isInitialized()) {
+    qFatal("Beam: Tau5Logger must be initialized before creating Beam instances");
+  }
+  
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
   heartbeatToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
   appPort = port;
@@ -244,18 +250,10 @@ void Beam::startElixirServerDev()
   env.insert("MIX_ENV", "dev");
   env.insert("RELEASE_DISTRIBUTION", "none");
 
-  QString sessionPath;
-  if (Tau5Logger::isInitialized()) {
-    sessionPath = Tau5Logger::instance().currentSessionPath();
-    Tau5Logger::instance().log(LogLevel::Debug, "beam", QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
-  } else {
-    QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-    QDir logsDir(logsPath);
-    logsDir.mkpath("Tau5/logs/gui");
-    sessionPath = logsDir.absoluteFilePath("Tau5/logs/gui");
-  }
+  // Tau5Logger must be initialized before creating Beam instances
+  QString sessionPath = Tau5Logger::instance().currentSessionPath();
   env.insert("TAU5_LOG_DIR", sessionPath);
-  Tau5Logger::instance().debug( QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
+  Tau5Logger::instance().debug(QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
 
   // Set MCP and REPL flags based on constructor parameters
   if (enableMcp) {
@@ -328,18 +326,10 @@ void Beam::startElixirServerProd()
   env.insert("MIX_ENV", "prod");
   env.insert("RELEASE_DISTRIBUTION", "none");
 
-  QString sessionPath;
-  if (Tau5Logger::isInitialized()) {
-    sessionPath = Tau5Logger::instance().currentSessionPath();
-    Tau5Logger::instance().log(LogLevel::Debug, "beam", QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
-  } else {
-    QString logsPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-    QDir logsDir(logsPath);
-    logsDir.mkpath("Tau5/logs/gui");
-    sessionPath = logsDir.absoluteFilePath("Tau5/logs/gui");
-  }
+  // Tau5Logger must be initialized before creating Beam instances
+  QString sessionPath = Tau5Logger::instance().currentSessionPath();
   env.insert("TAU5_LOG_DIR", sessionPath);
-  Tau5Logger::instance().debug( QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
+  Tau5Logger::instance().debug(QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
 
   // Set MCP and REPL flags based on constructor parameters
   if (enableMcp) {
