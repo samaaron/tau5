@@ -18,8 +18,8 @@
             / / / /_/ / /_/ /___/ /
            /_/  \__,_/\__,_/_____/
 
-          Collaborative Live Coding
-                for Everyone
+            Code. Art. Together.
+
 
 # Tau5
 

@@ -74,12 +74,12 @@ bool setupConsoleOutput() {
         // Store original code page
         UINT originalCP = GetConsoleCP();
         UINT originalOutputCP = GetConsoleOutputCP();
-        
+
         // Try to set console to UTF-8 mode
         // Note: This may not work properly with all console fonts
         SetConsoleOutputCP(CP_UTF8);
         SetConsoleCP(CP_UTF8);
-        
+
         FILE* stream;
         freopen_s(&stream, "CONOUT$", "w", stdout);
         freopen_s(&stream, "CONOUT$", "w", stderr);
@@ -93,7 +93,7 @@ bool setupConsoleOutput() {
         // Set console to UTF-8 mode
         SetConsoleOutputCP(CP_UTF8);
         SetConsoleCP(CP_UTF8);
-        
+
         FILE* stream;
         freopen_s(&stream, "CONOUT$", "w", stdout);
         freopen_s(&stream, "CONOUT$", "w", stderr);
@@ -139,7 +139,7 @@ QString getTau5Logo() {
        / / / /_/ / /_/ /___/ /
       /_/  \__,_/\__,_/_____/
 
-       Code. Music. Together.
+       Code. Art. Together.
 
 )";
 }
@@ -186,7 +186,7 @@ void setupSignalHandlers() {
         std::cerr << "Failed to create signal pipe: " << strerror(errno) << std::endl;
         return;
     }
-    
+
     auto set_nb_cloexec = [](int fd) {
         int flags = ::fcntl(fd, F_GETFL);
         if (flags != -1) {
@@ -197,10 +197,10 @@ void setupSignalHandlers() {
             ::fcntl(fd, F_SETFD, fdflags | FD_CLOEXEC);
         }
     };
-    
+
     set_nb_cloexec(signalPipeFd[0]);
     set_nb_cloexec(signalPipeFd[1]);
-    
+
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
     std::signal(SIGHUP, signalHandler);
@@ -216,17 +216,17 @@ void setupSignalNotifier() {
         std::cerr << "setupSignalNotifier called before QCoreApplication creation!" << std::endl;
         return;
     }
-    
+
     if (signalPipeFd[0] == -1) {
         std::cerr << "setupSignalNotifier called before setupSignalHandlers!" << std::endl;
         return;
     }
-    
+
     signalNotifier = new QSocketNotifier(signalPipeFd[0], QSocketNotifier::Read, qApp);
     QObject::connect(signalNotifier, &QSocketNotifier::activated, [](int) {
         char tmp;
         while (::read(signalPipeFd[0], &tmp, sizeof(tmp)) > 0) {}
-        
+
         if (g_signalReceived != 0 && qApp) {
             qApp->quit();
         }
@@ -244,12 +244,12 @@ void cleanupSignalHandlers() {
         delete signalNotifier;
         signalNotifier = nullptr;
     }
-    
+
     if (signalPipeFd[0] != -1) {
         ::close(signalPipeFd[0]);
         signalPipeFd[0] = -1;
     }
-    
+
     if (signalPipeFd[1] != -1) {
         ::close(signalPipeFd[1]);
         signalPipeFd[1] = -1;
