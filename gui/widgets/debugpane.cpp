@@ -75,7 +75,7 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 
-static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, const QString &tooltip,
+static QPushButton *createCodiconButton(QWidget *parent, const QChar &icon, const QString &tooltip,
                                         bool checkable = false, bool checked = false)
 {
   QPushButton *button = new QPushButton(icon, parent);
@@ -85,37 +85,38 @@ static QPushButton* createCodiconButton(QWidget *parent, const QChar &icon, cons
   QString fontSize = (icon == '+' || icon == '-') ? "16px" : "14px";
 
   button->setStyleSheet(QString(
-    "QPushButton {"
-    "  font-family: '%1';"
-    "  font-size: %2;"
-    "  font-weight: bold;"
-    "  color: %3;"
-    "  background: transparent;"
-    "  border: none;"
-    "  padding: 2px;"
-    "}"
-    "QPushButton:hover {"
-    "  color: %4;"
-    "  background-color: %6;"
-    "  border-radius: 3px;"
-    "}"
-    "QPushButton:pressed {"
-    "  background-color: %7;"
-    "}"
-    "QPushButton:checked {"
-    "  color: %5;"
-    "  background-color: %8;"
-    "}"
-  ).arg(fontFamily)
-   .arg(fontSize)
-   .arg(StyleManager::Colors::ACCENT_PRIMARY)
-   .arg(StyleManager::Colors::TEXT_PRIMARY)
-   .arg(StyleManager::Colors::STATUS_ERROR)
-   .arg(StyleManager::Colors::textPrimaryAlpha(25))
-   .arg(StyleManager::Colors::textPrimaryAlpha(51))
-   .arg(StyleManager::Colors::accentPrimaryAlpha(51)));
+                            "QPushButton {"
+                            "  font-family: '%1';"
+                            "  font-size: %2;"
+                            "  font-weight: bold;"
+                            "  color: %3;"
+                            "  background: transparent;"
+                            "  border: none;"
+                            "  padding: 2px;"
+                            "}"
+                            "QPushButton:hover {"
+                            "  color: %4;"
+                            "  background-color: %6;"
+                            "  border-radius: 3px;"
+                            "}"
+                            "QPushButton:pressed {"
+                            "  background-color: %7;"
+                            "}"
+                            "QPushButton:checked {"
+                            "  color: %5;"
+                            "  background-color: %8;"
+                            "}")
+                            .arg(fontFamily)
+                            .arg(fontSize)
+                            .arg(StyleManager::Colors::ACCENT_PRIMARY)
+                            .arg(StyleManager::Colors::TEXT_PRIMARY)
+                            .arg(StyleManager::Colors::STATUS_ERROR)
+                            .arg(StyleManager::Colors::textPrimaryAlpha(25))
+                            .arg(StyleManager::Colors::textPrimaryAlpha(51))
+                            .arg(StyleManager::Colors::accentPrimaryAlpha(51)));
 
-  if (checkable) {
+  if (checkable)
+  {
     button->setCheckable(true);
     button->setChecked(checked);
   }
@@ -141,20 +142,20 @@ DebugPane::DebugPane(QWidget *parent, bool devMode, bool enableMcp, bool enableR
       m_devMode(devMode), m_mcpEnabled(enableMcp), m_replEnabled(enableRepl)
 {
   static bool codiconLoaded = false;
-  if (!codiconLoaded) {
+  if (!codiconLoaded)
+  {
     int fontId = QFontDatabase::addApplicationFont(":/fonts/codicon.ttf");
-    if (fontId != -1) {
-      Tau5Logger::instance().debug( "[DebugPane] Loaded codicon font");
+    if (fontId != -1)
+    {
+      Tau5Logger::instance().debug("[DebugPane] Loaded codicon font");
       codiconLoaded = true;
     }
   }
-
 
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowFlags(Qt::FramelessWindowHint);
   setMouseTracking(true);
   setMinimumHeight(100);
-
 
   setupUi();
   hide();
@@ -266,7 +267,8 @@ void DebugPane::setupViewControls()
   m_devToolsButton = createCodiconButton(m_headerWidget, QChar(0xEAAF), "DevTools Only", true);
   m_sideBySideButton = createCodiconButton(m_headerWidget, QChar(0xEB56), "Side by Side View", true);
   m_closeButton = createCodiconButton(m_headerWidget, QChar(0xEA76), "Close Debug Pane");
-  if (!m_devMode) {
+  if (!m_devMode)
+  {
     m_restartButton->setVisible(false);
     m_resetButton->setVisible(false);
   }
@@ -278,7 +280,8 @@ void DebugPane::setupViewControls()
   m_sideBySideButton->setFocusPolicy(Qt::NoFocus);
   m_closeButton->setFocusPolicy(Qt::NoFocus);
 
-  if (m_devMode) {
+  if (m_devMode)
+  {
     m_headerLayout->addWidget(m_restartButton);
     m_headerLayout->addSpacing(8);
     m_headerLayout->addWidget(m_resetButton);
@@ -330,10 +333,12 @@ void DebugPane::setupConsole()
   m_tidewaveMCPTabButton = new ActivityTabButton("Tidewave MCP", consoleToolbar);
   m_guiMCPTabButton = new ActivityTabButton("GUI MCP", consoleToolbar);
 
-  if (!enableDevMCP) {
+  if (!enableDevMCP)
+  {
     m_guiMCPTabButton->setToolTip("GUI Dev MCP disabled - click for more information");
   }
-  if (!m_devMode) {
+  if (!m_devMode)
+  {
     m_tidewaveMCPTabButton->setVisible(false);
     m_guiMCPTabButton->setVisible(false);
   }
@@ -341,7 +346,8 @@ void DebugPane::setupConsole()
   toolbarLayout->addWidget(m_beamLogTabButton);
   toolbarLayout->addWidget(m_guiLogTabButton);
   toolbarLayout->addWidget(m_tau5MCPTabButton);
-  if (m_devMode) {
+  if (m_devMode)
+  {
     toolbarLayout->addWidget(m_tidewaveMCPTabButton);
     toolbarLayout->addWidget(m_guiMCPTabButton);
   }
@@ -349,23 +355,22 @@ void DebugPane::setupConsole()
   m_activityToggleButton = new QPushButton(consoleToolbar);
   m_activityToggleButton->setCheckable(true);
   m_activityToggleButton->setChecked(m_activityIndicatorsEnabled);
-  m_activityToggleButton->setToolTip(m_activityIndicatorsEnabled 
-    ? "Activity indicators enabled (click to disable)"
-    : "Activity indicators disabled (click to enable)");
+  m_activityToggleButton->setToolTip(m_activityIndicatorsEnabled
+                                         ? "Activity indicators enabled (click to disable)"
+                                         : "Activity indicators disabled (click to enable)");
   updateActivityToggleButtonStyle();
   m_activityToggleButton->setFixedSize(24, 24);
   m_activityToggleButton->setFocusPolicy(Qt::NoFocus);
   connect(m_activityToggleButton, &QPushButton::clicked, this, &DebugPane::toggleActivityIndicators);
   toolbarLayout->addWidget(m_activityToggleButton);
-  
+
   headerLayout->addWidget(consoleToolbar);
-  
+
   m_consoleToolbarStack = new QStackedWidget(consoleHeaderContainer);
   m_consoleToolbarStack->setMaximumHeight(28);
   headerLayout->addWidget(m_consoleToolbarStack);
 
   m_consoleStack = new QStackedWidget(m_consoleContainer);
-
 
   m_newBeamLogWidget = new LogWidget(LogWidget::BeamLog, nullptr);
   m_newGuiLogWidget = new LogWidget(LogWidget::GuiLog, nullptr);
@@ -507,35 +512,45 @@ void DebugPane::setupConsole()
   connect(m_tau5MCPTabButton, &QPushButton::clicked, this, &DebugPane::showTau5MCPLog);
   connect(m_tidewaveMCPTabButton, &QPushButton::clicked, this, &DebugPane::showTidewaveMCPLog);
   connect(m_guiMCPTabButton, &QPushButton::clicked, this, &DebugPane::showGuiMCPLog);
-  
-  connect(m_newBeamLogWidget, &LogWidget::logActivity, 
-          [this, widget = QPointer<LogWidget>(m_newBeamLogWidget), 
-           button = QPointer<ActivityTabButton>(m_beamLogTabButton)]() { 
-            if (widget && button) handleLogActivity(widget, button); 
+
+  connect(m_newBeamLogWidget, &LogWidget::logActivity,
+          [this, widget = QPointer<LogWidget>(m_newBeamLogWidget),
+           button = QPointer<ActivityTabButton>(m_beamLogTabButton)]()
+          {
+            if (widget && button)
+              handleLogActivity(widget, button);
           });
-  
+
   connect(m_newGuiLogWidget, &LogWidget::logActivity,
           [this, widget = QPointer<LogWidget>(m_newGuiLogWidget),
-           button = QPointer<ActivityTabButton>(m_guiLogTabButton)]() {
-            if (widget && button) handleLogActivity(widget, button);
+           button = QPointer<ActivityTabButton>(m_guiLogTabButton)]()
+          {
+            if (widget && button)
+              handleLogActivity(widget, button);
           });
-  
+
   connect(m_newTau5MCPWidget, &LogWidget::logActivity,
           [this, widget = QPointer<LogWidget>(m_newTau5MCPWidget),
-           button = QPointer<ActivityTabButton>(m_tau5MCPTabButton)]() {
-            if (widget && button) handleLogActivity(widget, button);
+           button = QPointer<ActivityTabButton>(m_tau5MCPTabButton)]()
+          {
+            if (widget && button)
+              handleLogActivity(widget, button);
           });
-  
+
   connect(m_newTidewaveMCPWidget, &LogWidget::logActivity,
           [this, widget = QPointer<LogWidget>(m_newTidewaveMCPWidget),
-           button = QPointer<ActivityTabButton>(m_tidewaveMCPTabButton)]() {
-            if (widget && button) handleLogActivity(widget, button);
+           button = QPointer<ActivityTabButton>(m_tidewaveMCPTabButton)]()
+          {
+            if (widget && button)
+              handleLogActivity(widget, button);
           });
-  
+
   connect(m_newGuiMCPWidget, &LogWidget::logActivity,
           [this, widget = QPointer<LogWidget>(m_newGuiMCPWidget),
-           button = QPointer<ActivityTabButton>(m_guiMCPTabButton)]() {
-            if (widget && button) handleLogActivity(widget, button);
+           button = QPointer<ActivityTabButton>(m_guiMCPTabButton)]()
+          {
+            if (widget && button)
+              handleLogActivity(widget, button);
           });
 }
 
@@ -558,13 +573,15 @@ void DebugPane::setupDevTools()
   m_liveDashboardTabButton = ButtonUtilities::createTabButton("Live Dashboard", devToolsToolbar);
 
   m_elixirConsoleTabButton = ButtonUtilities::createTabButton("Elixir", devToolsToolbar);
-  if (!m_devMode) {
+  if (!m_devMode)
+  {
     m_liveDashboardTabButton->setVisible(false);
     m_elixirConsoleTabButton->setVisible(false);
   }
 
   toolbarLayout->addWidget(m_devToolsTabButton);
-  if (m_devMode) {
+  if (m_devMode)
+  {
     toolbarLayout->addWidget(m_liveDashboardTabButton);
     toolbarLayout->addWidget(m_elixirConsoleTabButton);
   }
@@ -605,8 +622,9 @@ void DebugPane::setupDevTools()
 
   bool enableDevREPL = isElixirReplEnabled();
   QWidget *elixirWidget = nullptr;
-  
-  if (enableDevREPL) {
+
+  if (enableDevREPL)
+  {
     m_elixirConsoleContainer = new QWidget();
     m_elixirConsoleContainer->setObjectName("debugwidget");
     QVBoxLayout *elixirConsoleLayout = new QVBoxLayout(m_elixirConsoleContainer);
@@ -616,30 +634,33 @@ void DebugPane::setupDevTools()
     m_elixirConsoleView = new SandboxedWebView(m_elixirConsoleContainer);
     m_elixirConsoleView->page()->setBackgroundColor(QColor(StyleManager::Colors::CONSOLE_BACKGROUND));
     elixirConsoleLayout->addWidget(m_elixirConsoleView);
-    
+
     elixirWidget = m_elixirConsoleContainer;
-  } else {
+  }
+  else
+  {
     LogWidget *elixirDisabledWidget = new LogWidget(LogWidget::GuiLog, nullptr);
     QString disabledMessage =
-      "\nTau5 Elixir REPL Console - DISABLED\n"
-      "═══════════════════════════════════\n\n"
-      "The Tau5 Elixir REPL console is disabled for security.\n\n\n"
-      "To enable the console, set TAU5_ENABLE_DEV_REPL=1 before starting Tau5.\n\n\n"
-      "When enabled, you will have access to:\n\n"
-      "• Interactive Elixir console\n"
-      "• Direct server code execution\n"
-      "• Runtime debugging capabilities\n"
-      "• Access to all server modules and functions\n\n\n"
-      "This feature should only be enabled in trusted development environments.\n";
+        "\nTau5 Elixir REPL Console - DISABLED\n"
+        "═══════════════════════════════════\n\n"
+        "The Tau5 Elixir REPL console is disabled for security.\n\n\n"
+        "To enable the console, set TAU5_ENABLE_DEV_REPL=1 before starting Tau5.\n\n\n"
+        "When enabled, you will have access to:\n\n"
+        "• Interactive Elixir console\n"
+        "• Direct server code execution\n"
+        "• Runtime debugging capabilities\n"
+        "• Access to all server modules and functions\n\n\n"
+        "This feature should only be enabled in trusted development environments.\n";
 
     elixirDisabledWidget->appendLog(disabledMessage, false);
     elixirWidget = elixirDisabledWidget;
-    
+
     m_elixirConsoleTabButton->setToolTip("Elixir REPL disabled - click for more information");
   }
 
   m_devToolsStack->addWidget(m_devToolsContainer);
-  if (m_devMode) {
+  if (m_devMode)
+  {
     m_devToolsStack->addWidget(m_liveDashboardContainer);
     m_devToolsStack->addWidget(elixirWidget);
   }
@@ -651,7 +672,6 @@ void DebugPane::setupDevTools()
   connect(m_devToolsTabButton, &QPushButton::clicked, this, &DebugPane::showDevToolsTab);
   connect(m_liveDashboardTabButton, &QPushButton::clicked, this, &DebugPane::showLiveDashboardTab);
   connect(m_elixirConsoleTabButton, &QPushButton::clicked, this, &DebugPane::showElixirConsole);
-
 }
 
 void DebugPane::setWebView(PhxWebView *webView)
@@ -769,7 +789,8 @@ void DebugPane::appendOutput(const QString &text, bool isError)
   if (text.isEmpty())
     return;
 
-  if (m_newBeamLogWidget) {
+  if (m_newBeamLogWidget)
+  {
     m_newBeamLogWidget->appendLog(text, isError);
   }
 }
@@ -806,9 +827,6 @@ void DebugPane::slide(bool show)
   AnimationControl::performSlide(m_slideAnimation.get(), show, parentHeight, paneHeight, height());
   m_isVisible = show;
 }
-
-
-
 
 void DebugPane::animationFinished()
 {
@@ -961,7 +979,6 @@ void DebugPane::resizeEvent(QResizeEvent *event)
     m_restartLabel->resize(m_headerWidget->width(), m_headerWidget->height());
     m_restartLabel->move(0, 0);
   }
-
 }
 
 int DebugPane::constrainHeight(int requestedHeight) const
@@ -985,19 +1002,19 @@ void DebugPane::appendGuiLog(const QString &text, bool isError)
   if (text.isEmpty())
     return;
 
-  if (m_newGuiLogWidget) {
+  if (m_newGuiLogWidget)
+  {
     m_newGuiLogWidget->appendLog(text, isError);
   }
-
 }
-
 
 void DebugPane::setLiveDashboardUrl(const QString &url)
 {
-  if (!m_devMode) {
+  if (!m_devMode)
+  {
     return;
   }
-  
+
   if (!url.isEmpty())
   {
     m_liveDashboardUrl = url;
@@ -1020,10 +1037,11 @@ void DebugPane::setLiveDashboardUrl(const QString &url)
 
 void DebugPane::setElixirConsoleUrl(const QString &url)
 {
-  if (!m_devMode) {
+  if (!m_devMode)
+  {
     return;
   }
-  
+
   if (!url.isEmpty())
   {
     m_elixirConsoleUrl = url;
@@ -1034,7 +1052,7 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
   if (enableDevREPL && m_elixirConsoleView && !url.isEmpty())
   {
     QUrl elixirConsoleUrl(url);
-    Tau5Logger::instance().debug( QString("DebugPane::setElixirConsoleUrl - Setting URL: %1").arg(url));
+    Tau5Logger::instance().debug(QString("DebugPane::setElixirConsoleUrl - Setting URL: %1").arg(url));
     m_elixirConsoleView->setFallbackUrl(elixirConsoleUrl);
     m_elixirConsoleView->load(elixirConsoleUrl);
 
@@ -1047,24 +1065,26 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
   }
   else if (!enableDevREPL)
   {
-    Tau5Logger::instance().info( "DebugPane::setElixirConsoleUrl - Elixir REPL is disabled (TAU5_ENABLE_DEV_REPL not set)");
+    Tau5Logger::instance().info("DebugPane::setElixirConsoleUrl - Elixir REPL is disabled (TAU5_ENABLE_DEV_REPL not set)");
   }
   else
   {
-    Tau5Logger::instance().warning( "DebugPane::setElixirConsoleUrl - m_elixirConsoleView is null or url is empty");
+    Tau5Logger::instance().warning("DebugPane::setElixirConsoleUrl - m_elixirConsoleView is null or url is empty");
   }
 }
 
-
 void DebugPane::showBeamLog()
 {
-  if (m_consoleStack->currentWidget()) {
-    if (auto* debugWidget = qobject_cast<DebugWidget*>(m_consoleStack->currentWidget())) {
+  if (m_consoleStack->currentWidget())
+  {
+    if (auto *debugWidget = qobject_cast<DebugWidget *>(m_consoleStack->currentWidget()))
+    {
       debugWidget->onDeactivated();
     }
   }
   m_consoleStack->setCurrentIndex(0);
-  if (m_consoleToolbarStack) {
+  if (m_consoleToolbarStack)
+  {
     m_consoleToolbarStack->setCurrentIndex(0);
   }
   m_beamLogTabButton->setChecked(true);
@@ -1073,7 +1093,8 @@ void DebugPane::showBeamLog()
   m_tau5MCPTabButton->setChecked(false);
   m_tidewaveMCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(false);
-  if (m_newBeamLogWidget) {
+  if (m_newBeamLogWidget)
+  {
     m_newBeamLogWidget->onActivated();
     m_newBeamLogWidget->setFocus();
   }
@@ -1081,14 +1102,17 @@ void DebugPane::showBeamLog()
 
 void DebugPane::showGuiLog()
 {
-  if (m_consoleStack->currentWidget()) {
-    if (auto* debugWidget = qobject_cast<DebugWidget*>(m_consoleStack->currentWidget())) {
+  if (m_consoleStack->currentWidget())
+  {
+    if (auto *debugWidget = qobject_cast<DebugWidget *>(m_consoleStack->currentWidget()))
+    {
       debugWidget->onDeactivated();
     }
   }
   // Switch to new LogWidget at index 1
   m_consoleStack->setCurrentIndex(1);
-  if (m_consoleToolbarStack) {
+  if (m_consoleToolbarStack)
+  {
     m_consoleToolbarStack->setCurrentIndex(1);
   }
   m_beamLogTabButton->setChecked(false);
@@ -1097,7 +1121,8 @@ void DebugPane::showGuiLog()
   m_tau5MCPTabButton->setChecked(false);
   m_tidewaveMCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(false);
-  if (m_newGuiLogWidget) {
+  if (m_newGuiLogWidget)
+  {
     m_newGuiLogWidget->onActivated();
     m_newGuiLogWidget->setFocus();
   }
@@ -1113,14 +1138,17 @@ void DebugPane::showElixirConsole()
 
 void DebugPane::showTau5MCPLog()
 {
-  if (m_consoleStack->currentWidget()) {
-    if (auto* debugWidget = qobject_cast<DebugWidget*>(m_consoleStack->currentWidget())) {
+  if (m_consoleStack->currentWidget())
+  {
+    if (auto *debugWidget = qobject_cast<DebugWidget *>(m_consoleStack->currentWidget()))
+    {
       debugWidget->onDeactivated();
     }
   }
   // Switch to new LogWidget at index 2
   m_consoleStack->setCurrentIndex(2);
-  if (m_consoleToolbarStack) {
+  if (m_consoleToolbarStack)
+  {
     m_consoleToolbarStack->setCurrentIndex(2);
   }
   m_beamLogTabButton->setChecked(false);
@@ -1129,22 +1157,26 @@ void DebugPane::showTau5MCPLog()
   m_tau5MCPTabButton->setHasUnread(false);
   m_tidewaveMCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(false);
-  if (m_newTau5MCPWidget) {
+  if (m_newTau5MCPWidget)
+  {
     m_newTau5MCPWidget->onActivated();
-    m_newTau5MCPWidget->setFocus();  // Give focus for keyboard shortcuts
+    m_newTau5MCPWidget->setFocus(); // Give focus for keyboard shortcuts
   }
 }
 
 void DebugPane::showTidewaveMCPLog()
 {
-  if (m_consoleStack->currentWidget()) {
-    if (auto* debugWidget = qobject_cast<DebugWidget*>(m_consoleStack->currentWidget())) {
+  if (m_consoleStack->currentWidget())
+  {
+    if (auto *debugWidget = qobject_cast<DebugWidget *>(m_consoleStack->currentWidget()))
+    {
       debugWidget->onDeactivated();
     }
   }
   // Switch to new LogWidget at index 3
   m_consoleStack->setCurrentIndex(3);
-  if (m_consoleToolbarStack) {
+  if (m_consoleToolbarStack)
+  {
     m_consoleToolbarStack->setCurrentIndex(3);
   }
   m_beamLogTabButton->setChecked(false);
@@ -1153,7 +1185,8 @@ void DebugPane::showTidewaveMCPLog()
   m_tidewaveMCPTabButton->setChecked(true);
   m_tidewaveMCPTabButton->setHasUnread(false);
   m_guiMCPTabButton->setChecked(false);
-  if (m_newTidewaveMCPWidget) {
+  if (m_newTidewaveMCPWidget)
+  {
     m_newTidewaveMCPWidget->onActivated();
     m_newTidewaveMCPWidget->setFocus();
   }
@@ -1161,14 +1194,17 @@ void DebugPane::showTidewaveMCPLog()
 
 void DebugPane::showGuiMCPLog()
 {
-  if (m_consoleStack->currentWidget()) {
-    if (auto* debugWidget = qobject_cast<DebugWidget*>(m_consoleStack->currentWidget())) {
+  if (m_consoleStack->currentWidget())
+  {
+    if (auto *debugWidget = qobject_cast<DebugWidget *>(m_consoleStack->currentWidget()))
+    {
       debugWidget->onDeactivated();
     }
   }
   // Switch to new LogWidget at index 4
   m_consoleStack->setCurrentIndex(4);
-  if (m_consoleToolbarStack) {
+  if (m_consoleToolbarStack)
+  {
     m_consoleToolbarStack->setCurrentIndex(4);
   }
   m_beamLogTabButton->setChecked(false);
@@ -1177,7 +1213,8 @@ void DebugPane::showGuiMCPLog()
   m_tidewaveMCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(true);
   m_guiMCPTabButton->setHasUnread(false);
-  if (m_newGuiMCPWidget) {
+  if (m_newGuiMCPWidget)
+  {
     m_newGuiMCPWidget->onActivated();
     m_newGuiMCPWidget->setFocus();
   }
@@ -1185,10 +1222,12 @@ void DebugPane::showGuiMCPLog()
 
 void DebugPane::switchConsoleTab(int index, const QList<QPushButton *> &tabButtons)
 {
-  for (int i = 0; i < tabButtons.size(); ++i) {
+  for (int i = 0; i < tabButtons.size(); ++i)
+  {
     tabButtons[i]->setChecked(i == index);
   }
-  if (m_consoleStack) {
+  if (m_consoleStack)
+  {
     m_consoleStack->setCurrentIndex(index);
   }
 }
@@ -1209,10 +1248,14 @@ void DebugPane::showLiveDashboardTab()
 
 void DebugPane::switchDevToolsTab(int index)
 {
-  if (m_devToolsTabButton) m_devToolsTabButton->setChecked(index == 0);
-  if (m_liveDashboardTabButton) m_liveDashboardTabButton->setChecked(index == 1);
-  if (m_elixirConsoleTabButton) m_elixirConsoleTabButton->setChecked(index == 2);
-  if (m_devToolsStack) m_devToolsStack->setCurrentIndex(index);
+  if (m_devToolsTabButton)
+    m_devToolsTabButton->setChecked(index == 0);
+  if (m_liveDashboardTabButton)
+    m_liveDashboardTabButton->setChecked(index == 1);
+  if (m_elixirConsoleTabButton)
+    m_elixirConsoleTabButton->setChecked(index == 2);
+  if (m_devToolsStack)
+    m_devToolsStack->setCurrentIndex(index);
 }
 
 void DebugPane::saveSettings()
@@ -1268,7 +1311,8 @@ void DebugPane::restoreSettings()
   if (settings.contains("beamLogFontSize"))
   {
     m_currentFontSize = settings.value("beamLogFontSize", 12).toInt();
-    if (m_newBeamLogWidget) {
+    if (m_newBeamLogWidget)
+    {
       m_newBeamLogWidget->setFontSize(m_currentFontSize);
     }
   }
@@ -1276,7 +1320,8 @@ void DebugPane::restoreSettings()
   if (settings.contains("guiLogFontSize"))
   {
     m_guiLogFontSize = settings.value("guiLogFontSize", 12).toInt();
-    if (m_newGuiLogWidget) {
+    if (m_newGuiLogWidget)
+    {
       m_newGuiLogWidget->setFontSize(m_guiLogFontSize);
     }
   }
@@ -1322,20 +1367,33 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
   m_restartButton->setEnabled(enabled);
   m_restartButton->setVisible(enabled);
 
-  if (m_resetButton) m_resetButton->setVisible(enabled);
-  if (m_beamLogButton) m_beamLogButton->setVisible(enabled);
-  if (m_devToolsButton) m_devToolsButton->setVisible(enabled);
-  if (m_sideBySideButton) m_sideBySideButton->setVisible(enabled);
-  if (m_closeButton) m_closeButton->setVisible(enabled);
+  if (m_resetButton)
+    m_resetButton->setVisible(enabled);
+  if (m_beamLogButton)
+    m_beamLogButton->setVisible(enabled);
+  if (m_devToolsButton)
+    m_devToolsButton->setVisible(enabled);
+  if (m_sideBySideButton)
+    m_sideBySideButton->setVisible(enabled);
+  if (m_closeButton)
+    m_closeButton->setVisible(enabled);
 
-  if (m_beamLogTabButton) m_beamLogTabButton->setVisible(enabled);
-  if (m_guiLogTabButton) m_guiLogTabButton->setVisible(enabled);
-  if (m_tau5MCPTabButton) m_tau5MCPTabButton->setVisible(enabled);
-  if (m_tidewaveMCPTabButton) m_tidewaveMCPTabButton->setVisible(enabled && m_devMode);
-  if (m_guiMCPTabButton) m_guiMCPTabButton->setVisible(enabled && m_devMode);
-  if (m_devToolsTabButton) m_devToolsTabButton->setVisible(enabled);
-  if (m_liveDashboardTabButton) m_liveDashboardTabButton->setVisible(enabled);
-  if (m_elixirConsoleTabButton) m_elixirConsoleTabButton->setVisible(enabled);
+  if (m_beamLogTabButton)
+    m_beamLogTabButton->setVisible(enabled);
+  if (m_guiLogTabButton)
+    m_guiLogTabButton->setVisible(enabled);
+  if (m_tau5MCPTabButton)
+    m_tau5MCPTabButton->setVisible(enabled);
+  if (m_tidewaveMCPTabButton)
+    m_tidewaveMCPTabButton->setVisible(enabled && m_devMode);
+  if (m_guiMCPTabButton)
+    m_guiMCPTabButton->setVisible(enabled && m_devMode);
+  if (m_devToolsTabButton)
+    m_devToolsTabButton->setVisible(enabled);
+  if (m_liveDashboardTabButton)
+    m_liveDashboardTabButton->setVisible(enabled);
+  if (m_elixirConsoleTabButton)
+    m_elixirConsoleTabButton->setVisible(enabled);
 
   if (enabled)
   {
@@ -1370,18 +1428,21 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
       }
       m_animationBar->show();
 
-      class ChevronWidget : public QWidget {
+      class ChevronWidget : public QWidget
+      {
       public:
         float scrollOffset = 0.0;
         float growthProgress = 0.0;
 
-        ChevronWidget(QWidget *parent) : QWidget(parent) {
+        ChevronWidget(QWidget *parent) : QWidget(parent)
+        {
           setAttribute(Qt::WA_TranslucentBackground);
           setAttribute(Qt::WA_TransparentForMouseEvents);
         }
 
       protected:
-        void paintEvent(QPaintEvent *) override {
+        void paintEvent(QPaintEvent *) override
+        {
           QPainter painter(this);
           painter.setRenderHint(QPainter::Antialiasing, false);
 
@@ -1396,24 +1457,30 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
           int triangleHeight = widgetHeight / 2;
           int triangleWidth = triangleHeight;
 
-          if (leadingEdge <= triangleWidth) {
+          if (leadingEdge <= triangleWidth)
+          {
             float ratio = float(leadingEdge) / float(triangleWidth);
-            clipShape << QPoint(0, widgetHeight/2)
-                      << QPoint(leadingEdge, widgetHeight/2 - (triangleHeight * ratio))
-                      << QPoint(leadingEdge, widgetHeight/2 + (triangleHeight * ratio))
-                      << QPoint(0, widgetHeight/2);
-          } else {
+            clipShape << QPoint(0, widgetHeight / 2)
+                      << QPoint(leadingEdge, widgetHeight / 2 - (triangleHeight * ratio))
+                      << QPoint(leadingEdge, widgetHeight / 2 + (triangleHeight * ratio))
+                      << QPoint(0, widgetHeight / 2);
+          }
+          else
+          {
             int rectEnd = leadingEdge - triangleWidth;
 
-            if (rectEnd > widgetWidth) {
+            if (rectEnd > widgetWidth)
+            {
               clipShape << QPoint(0, 0)
                         << QPoint(widgetWidth, 0)
                         << QPoint(widgetWidth, widgetHeight)
                         << QPoint(0, widgetHeight);
-            } else {
+            }
+            else
+            {
               clipShape << QPoint(0, 0)
                         << QPoint(rectEnd, 0)
-                        << QPoint(leadingEdge, widgetHeight/2)
+                        << QPoint(leadingEdge, widgetHeight / 2)
                         << QPoint(rectEnd, widgetHeight)
                         << QPoint(0, widgetHeight);
             }
@@ -1434,20 +1501,24 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
           const int chevronHeight = widgetHeight;
           const int chevronWidth = chevronHeight;
 
-          for (int x = -chevronWidth * 2 - scrollPixels; x < widgetWidth + chevronWidth * 2; x += stripeWidth) {
+          for (int x = -chevronWidth * 2 - scrollPixels; x < widgetWidth + chevronWidth * 2; x += stripeWidth)
+          {
             int stripeIndex = (x + scrollPixels + 10000) / stripeWidth;
             bool isPink = (stripeIndex % 2) == 0;
 
             QPolygon stripe;
 
-            if ((stripeIndex / 2) % 2 == 0) {
-              stripe << QPoint(x + chevronHeight/2, chevronHeight/2)
-                     << QPoint(x + stripeWidth + chevronHeight/2, chevronHeight/2)
+            if ((stripeIndex / 2) % 2 == 0)
+            {
+              stripe << QPoint(x + chevronHeight / 2, chevronHeight / 2)
+                     << QPoint(x + stripeWidth + chevronHeight / 2, chevronHeight / 2)
                      << QPoint(x + stripeWidth, 0)
                      << QPoint(x, 0);
-            } else {
-              stripe << QPoint(x + chevronHeight/2, chevronHeight/2)
-                     << QPoint(x + stripeWidth + chevronHeight/2, chevronHeight/2)
+            }
+            else
+            {
+              stripe << QPoint(x + chevronHeight / 2, chevronHeight / 2)
+                     << QPoint(x + stripeWidth + chevronHeight / 2, chevronHeight / 2)
                      << QPoint(x + stripeWidth, chevronHeight)
                      << QPoint(x, chevronHeight);
             }
@@ -1459,7 +1530,8 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
         }
       };
 
-      if (m_animationBar) {
+      if (m_animationBar)
+      {
         m_animationBar->deleteLater();
       }
 
@@ -1472,7 +1544,8 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
       m_dragHandleAnimationTimer = new QTimer(this);
       m_dragHandleAnimationTimer->setInterval(33);
 
-      connect(m_dragHandleAnimationTimer, &QTimer::timeout, [this, chevronBar]() {
+      connect(m_dragHandleAnimationTimer, &QTimer::timeout, [this, chevronBar]()
+              {
         if (!m_animationBar) return;
 
         chevronBar->scrollOffset += 0.005;
@@ -1480,12 +1553,10 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
 
         chevronBar->growthProgress = qMin(1.0f, chevronBar->growthProgress + 0.00333f);
 
-        chevronBar->update();
-      });
+        chevronBar->update(); });
 
       m_dragHandleAnimationTimer->start();
     }
-
   }
 }
 
@@ -1503,9 +1574,6 @@ void DebugPane::focusOutEvent(QFocusEvent *event)
 {
   QWidget::focusOutEvent(event);
 }
-
-
-
 
 void DebugPane::handleInspectElementRequested()
 {
@@ -1530,11 +1598,11 @@ void DebugPane::handleInspectElementRequested()
 
 void DebugPane::resetDevPaneBrowsers()
 {
-  Tau5Logger::instance().debug( "DebugPane::resetDevPaneBrowsers - Resetting dev pane browsers");
+  Tau5Logger::instance().debug("DebugPane::resetDevPaneBrowsers - Resetting dev pane browsers");
 
   if (m_liveDashboardView && !m_liveDashboardUrl.isEmpty())
   {
-    Tau5Logger::instance().debug( QString("Resetting Live Dashboard to: %1").arg(m_liveDashboardUrl));
+    Tau5Logger::instance().debug(QString("Resetting Live Dashboard to: %1").arg(m_liveDashboardUrl));
     QUrl dashboardUrl(m_liveDashboardUrl);
     m_liveDashboardView->setUrl(dashboardUrl);
   }
@@ -1542,14 +1610,14 @@ void DebugPane::resetDevPaneBrowsers()
   bool enableDevREPL = isElixirReplEnabled();
   if (enableDevREPL && m_elixirConsoleView && !m_elixirConsoleUrl.isEmpty())
   {
-    Tau5Logger::instance().debug( QString("Resetting Elixir Console to: %1").arg(m_elixirConsoleUrl));
+    Tau5Logger::instance().debug(QString("Resetting Elixir Console to: %1").arg(m_elixirConsoleUrl));
     QUrl consoleUrl(m_elixirConsoleUrl);
     m_elixirConsoleView->load(consoleUrl);
   }
 
   if (m_targetWebView && m_devToolsView)
   {
-    Tau5Logger::instance().debug( "Resetting DevTools connection");
+    Tau5Logger::instance().debug("Resetting DevTools connection");
     QWebEnginePage *targetPage = m_targetWebView->page();
     if (targetPage)
     {
@@ -1557,37 +1625,41 @@ void DebugPane::resetDevPaneBrowsers()
       targetPage->setDevToolsPage(m_devToolsView->page());
 
       connect(m_devToolsView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok)
-      {
+              {
         if (ok) {
           DebugPaneThemeStyles::applyDevToolsDarkTheme(m_devToolsView);
           DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
-        }
-      }, Qt::SingleShotConnection);
+        } }, Qt::SingleShotConnection);
     }
   }
 
-  Tau5Logger::instance().info( "Dev pane browsers have been reset");
+  Tau5Logger::instance().info("Dev pane browsers have been reset");
 }
 
 void DebugPane::updateAllLogs()
 {
-  if (m_newBeamLogWidget) {
+  if (m_newBeamLogWidget)
+  {
     m_newBeamLogWidget->updateIfNeeded();
   }
-  
-  if (m_newGuiLogWidget) {
+
+  if (m_newGuiLogWidget)
+  {
     m_newGuiLogWidget->updateIfNeeded();
   }
-  
-  if (m_newTau5MCPWidget) {
+
+  if (m_newTau5MCPWidget)
+  {
     m_newTau5MCPWidget->updateIfNeeded();
   }
-  
-  if (m_newTidewaveMCPWidget) {
+
+  if (m_newTidewaveMCPWidget)
+  {
     m_newTidewaveMCPWidget->updateIfNeeded();
   }
-  
-  if (m_newGuiMCPWidget) {
+
+  if (m_newGuiMCPWidget)
+  {
     m_newGuiMCPWidget->updateIfNeeded();
   }
 }
@@ -1595,105 +1667,117 @@ void DebugPane::updateAllLogs()
 void DebugPane::toggleActivityIndicators()
 {
   m_activityIndicatorsEnabled = !m_activityIndicatorsEnabled;
-  
-  if (m_beamLogTabButton) {
+
+  if (m_beamLogTabButton)
+  {
     m_beamLogTabButton->setActivityIndicatorsEnabled(m_activityIndicatorsEnabled);
-    if (!m_activityIndicatorsEnabled) {
+    if (!m_activityIndicatorsEnabled)
+    {
       m_beamLogTabButton->setHasUnread(false);
     }
   }
-  
-  if (m_guiLogTabButton) {
+
+  if (m_guiLogTabButton)
+  {
     m_guiLogTabButton->setActivityIndicatorsEnabled(m_activityIndicatorsEnabled);
-    if (!m_activityIndicatorsEnabled) {
+    if (!m_activityIndicatorsEnabled)
+    {
       m_guiLogTabButton->setHasUnread(false);
     }
   }
-  
-  if (m_tau5MCPTabButton) {
+
+  if (m_tau5MCPTabButton)
+  {
     m_tau5MCPTabButton->setActivityIndicatorsEnabled(m_activityIndicatorsEnabled);
-    if (!m_activityIndicatorsEnabled) {
+    if (!m_activityIndicatorsEnabled)
+    {
       m_tau5MCPTabButton->setHasUnread(false);
     }
   }
-  
-  if (m_tidewaveMCPTabButton) {
+
+  if (m_tidewaveMCPTabButton)
+  {
     m_tidewaveMCPTabButton->setActivityIndicatorsEnabled(m_activityIndicatorsEnabled);
-    if (!m_activityIndicatorsEnabled) {
+    if (!m_activityIndicatorsEnabled)
+    {
       m_tidewaveMCPTabButton->setHasUnread(false);
     }
   }
-  
-  if (m_guiMCPTabButton) {
+
+  if (m_guiMCPTabButton)
+  {
     m_guiMCPTabButton->setActivityIndicatorsEnabled(m_activityIndicatorsEnabled);
-    if (!m_activityIndicatorsEnabled) {
+    if (!m_activityIndicatorsEnabled)
+    {
       m_guiMCPTabButton->setHasUnread(false);
     }
   }
-  
-  if (m_activityToggleButton) {
+
+  if (m_activityToggleButton)
+  {
     m_activityToggleButton->setChecked(m_activityIndicatorsEnabled);
-    m_activityToggleButton->setToolTip(m_activityIndicatorsEnabled 
-      ? "Activity indicators enabled (click to disable)"
-      : "Activity indicators disabled (click to enable)");
+    m_activityToggleButton->setToolTip(m_activityIndicatorsEnabled
+                                           ? "Activity indicators enabled (click to disable)"
+                                           : "Activity indicators disabled (click to enable)");
     updateActivityToggleButtonStyle();
   }
-  
+
   Tau5Logger::instance().info(QString("Activity indicators %1")
-    .arg(m_activityIndicatorsEnabled ? "enabled" : "disabled"));
+                                  .arg(m_activityIndicatorsEnabled ? "enabled" : "disabled"));
 }
 
 void DebugPane::handleLogActivity(LogWidget *widget, ActivityTabButton *button)
 {
-  if (!m_activityIndicatorsEnabled || !widget || !button) {
+  if (!m_activityIndicatorsEnabled || !widget || !button)
+  {
     return;
   }
-  
+
   button->pulseActivity();
-  if (m_consoleStack->currentWidget() != widget) {
+  if (m_consoleStack->currentWidget() != widget)
+  {
     button->setHasUnread(true);
   }
 }
 
 void DebugPane::updateActivityToggleButtonStyle()
 {
-  if (!m_activityToggleButton) {
+  if (!m_activityToggleButton)
+  {
     return;
   }
-  
+
   QString style = QString(
-    "QPushButton { "
-    "  background: transparent; "
-    "  border: none; "
-    "  color: %1; "
-    "  font-size: 14px; "
-    "  font-weight: normal; "
-    "  padding: 2px; "
-    "} "
-    "QPushButton:hover { "
-    "  background: %2; "
-    "  border-radius: 3px; "
-    "} "
-    "QPushButton:checked { "
-    "  color: %3; "
-    "  background: %4; "
-    "  border-radius: 3px; "
-    "}")
-    .arg(m_activityIndicatorsEnabled 
-      ? StyleManager::Colors::PRIMARY_ORANGE
-      : StyleManager::Colors::TEXT_MUTED)
-    .arg(m_activityIndicatorsEnabled 
-      ? StyleManager::Colors::primaryOrangeAlpha(25)
-      : "rgba(128, 128, 128, 0.1)")
-    .arg(StyleManager::Colors::PRIMARY_ORANGE)
-    .arg(m_activityIndicatorsEnabled 
-      ? StyleManager::Colors::primaryOrangeAlpha(40)
-      : "rgba(128, 128, 128, 0.2)");
-  
+                      "QPushButton { "
+                      "  background: transparent; "
+                      "  border: none; "
+                      "  color: %1; "
+                      "  font-size: 14px; "
+                      "  font-weight: normal; "
+                      "  padding: 2px; "
+                      "} "
+                      "QPushButton:hover { "
+                      "  background: %2; "
+                      "  border-radius: 3px; "
+                      "} "
+                      "QPushButton:checked { "
+                      "  color: %3; "
+                      "  background: %4; "
+                      "  border-radius: 3px; "
+                      "}")
+                      .arg(m_activityIndicatorsEnabled
+                               ? StyleManager::Colors::PRIMARY_ORANGE
+                               : StyleManager::Colors::TEXT_MUTED)
+                      .arg(m_activityIndicatorsEnabled
+                               ? StyleManager::Colors::primaryOrangeAlpha(25)
+                               : "rgba(128, 128, 128, 0.1)")
+                      .arg(StyleManager::Colors::PRIMARY_ORANGE)
+                      .arg(m_activityIndicatorsEnabled
+                               ? StyleManager::Colors::primaryOrangeAlpha(40)
+                               : "rgba(128, 128, 128, 0.2)");
+
   m_activityToggleButton->setStyleSheet(style);
   m_activityToggleButton->setText(m_activityIndicatorsEnabled ? "⦿" : "⦾");
 }
-
-
 
 #include "moc_debugpane.cpp"
