@@ -18,6 +18,7 @@
 #include "shared/beam.h"
 #include "shared/tau5logger.h"
 #include "shared/common.h"
+#include "shared/cli_args.h"
 
 using namespace Tau5Common;
 
@@ -82,39 +83,21 @@ int main(int argc, char *argv[]) {
 #endif
     
     // Parse command line arguments
-    bool devMode = false;
-    bool enableMcp = false;
-    bool enableRepl = false;
-    bool verboseMode = false;
-    bool disableMidi = false;
-    bool disableLink = false;
-    bool disableDiscovery = false;
-    quint16 port = 0;
+    Tau5CLI::CommonArgs args;
     
     for (int i = 1; i < argc; ++i) {
-        if (std::strcmp(argv[i], "dev") == 0) {
-            devMode = true;
-        } else if (std::strcmp(argv[i], "--enable-mcp") == 0) {
-            enableMcp = true;
-        } else if (std::strcmp(argv[i], "--enable-repl") == 0) {
-            enableRepl = true;
-        } else if (std::strcmp(argv[i], "--verbose") == 0) {
-            verboseMode = true;
-        } else if (std::strcmp(argv[i], "--disable-midi") == 0) {
-            disableMidi = true;
-        } else if (std::strcmp(argv[i], "--disable-link") == 0) {
-            disableLink = true;
-        } else if (std::strcmp(argv[i], "--disable-discovery") == 0) {
-            disableDiscovery = true;
-        } else if (std::strcmp(argv[i], "--disable-all") == 0) {
-            disableMidi = true;
-            disableLink = true;
-            disableDiscovery = true;
-        } else if (std::strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
-            port = static_cast<quint16>(std::atoi(argv[++i]));
-        } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
-            printUsage(argv[0]);
-            return 0;
+        const char* nextArg = (i + 1 < argc) ? argv[i + 1] : nullptr;
+        
+        if (Tau5CLI::parseSharedArg(argv[i], nextArg, i, args)) {
+            if (args.hasError) {
+                std::cerr << "Error: " << args.errorMessage << "\n";
+                printUsage(argv[0]);
+                return static_cast<int>(ExitCode::INVALID_ARGUMENTS);
+            }
+            if (args.showHelp) {
+                printUsage(argv[0]);
+                return 0;
+            }
         } else {
             std::cerr << "Unknown option: " << argv[i] << "\n";
             printUsage(argv[0]);
@@ -124,6 +107,9 @@ int main(int argc, char *argv[]) {
     
     setupConsoleOutput();
     setupSignalHandlers();
+    
+    // Apply service disable settings before starting
+    Tau5CLI::applyServiceDisables(args);
     
     QCoreApplication app(argc, argv);
     app.setApplicationName(Config::APP_NAME);
@@ -136,7 +122,7 @@ int main(int argc, char *argv[]) {
         {"beam.log", "beam", false}
     };
     logConfig.emitQtSignals = false;
-    logConfig.consoleEnabled = verboseMode;
+    logConfig.consoleEnabled = args.verboseLogging;
     logConfig.consoleColors = true;
     logConfig.reuseRecentSession = false;
     
@@ -147,7 +133,7 @@ int main(int argc, char *argv[]) {
     
     originalMessageHandler = qInstallMessageHandler(tau5NodeMessageHandler);
     
-    if (!verboseMode) {
+    if (!args.verboseLogging) {
         std::cout << getTau5Logo().toUtf8().constData();
         std::cout << "Starting Tau5 Node (Headless Mode)...\n" << std::flush;
     } else {
@@ -156,17 +142,18 @@ int main(int argc, char *argv[]) {
     }
     
     // Determine port
+    quint16 port = args.customPort;
     if (port == 0) {
-        if (devMode) {
+        if (args.devMode) {
             port = Config::DEFAULT_PORT;
-            if (verboseMode) {
+            if (args.verboseLogging) {
                 Tau5Logger::instance().info("Development mode enabled");
             }
         } else {
             quint16 allocatedPort = 0;
             auto portHolder = allocatePort(allocatedPort);
             if (!portHolder || allocatedPort == 0) {
-                if (verboseMode) {
+                if (args.verboseLogging) {
                     Tau5Logger::instance().error("Failed to allocate port");
                 } else {
                     std::cerr << "Error: Failed to allocate port\n";
@@ -176,33 +163,33 @@ int main(int argc, char *argv[]) {
             port = allocatedPort;
             // Close the server to release the port for the BEAM process
             portHolder->close();
-            if (verboseMode) {
+            if (args.verboseLogging) {
                 Tau5Logger::instance().info("Production mode enabled");
             }
         }
     }
     
-    if (verboseMode) {
+    if (args.verboseLogging) {
         Tau5Logger::instance().info(QString("Using port: %1").arg(port));
         
-        if (enableMcp) {
+        if (args.enableMcp) {
             Tau5Logger::instance().info(QString("MCP servers enabled (%1)").arg(
-                devMode ? "tidewave for development" : "hermes for production"));
+                args.devMode ? "tidewave for development" : "hermes for production"));
         }
         
-        if (enableRepl) {
+        if (args.enableRepl) {
             Tau5Logger::instance().info("Elixir REPL console enabled");
         }
     }
     
     // Get server base path
     QString basePath = getServerBasePath();
-    if (verboseMode) {
+    if (args.verboseLogging) {
         Tau5Logger::instance().info(QString("Server base path: %1").arg(basePath));
     }
     
     if (!QDir(basePath).exists()) {
-        if (verboseMode) {
+        if (args.verboseLogging) {
             Tau5Logger::instance().error("Server directory not found at: " + basePath);
         } else {
             std::cerr << "Error: Server directory not found at: " << basePath.toStdString() << "\n";
@@ -224,7 +211,7 @@ int main(int argc, char *argv[]) {
     } serverInfo;
     
     serverInfo.serverPort = port;
-    serverInfo.mode = devMode ? "development" : "production";
+    serverInfo.mode = args.devMode ? "development" : "production";
     
     // Get Node PID
     #ifndef Q_OS_WIN
@@ -237,29 +224,18 @@ int main(int argc, char *argv[]) {
     serverInfo.logPath = Tau5Logger::instance().currentSessionPath();
     
     // Small delay to ensure everything is initialized
-    QTimer::singleShot(500, [&app, &beam, basePath, port, devMode, enableMcp, enableRepl, verboseMode, disableMidi, disableLink, disableDiscovery, &serverInfo]() {
-        if (verboseMode) {
+    QTimer::singleShot(Tau5Common::Config::NODE_STARTUP_DELAY_MS, [&app, &beam, basePath, port, &args, &serverInfo]() {
+        if (args.verboseLogging) {
             Tau5Logger::instance().info("Starting BEAM server...");
-        }
-        
-        // Set environment variables for service control
-        if (disableMidi) {
-            qputenv("TAU5_MIDI_ENABLED", "false");
-        }
-        if (disableLink) {
-            qputenv("TAU5_LINK_ENABLED", "false");
-        }
-        if (disableDiscovery) {
-            qputenv("TAU5_DISCOVERY_ENABLED", "false");
         }
         
         // Create Beam instance with deploymentMode = Node for tau5-node
         beam = std::make_shared<Beam>(&app, basePath, Config::APP_NAME,
-                                     Config::APP_VERSION, port, devMode, 
-                                     enableMcp, enableRepl, Beam::DeploymentMode::Node);
+                                     Config::APP_VERSION, port, args.devMode, 
+                                     args.enableMcp, args.enableRepl, Beam::DeploymentMode::Node);
         
         // Connect to OTP ready signal
-        QObject::connect(beam.get(), &Beam::otpReady, [verboseMode, enableMcp, &serverInfo, &beam]() {
+        QObject::connect(beam.get(), &Beam::otpReady, [&args, &serverInfo, &beam]() {
             serverInfo.otpReady = true;
             
             // Get BEAM PID when it's ready
@@ -267,7 +243,7 @@ int main(int argc, char *argv[]) {
                 serverInfo.beamPid = beam->getBeamPid();
             }
             
-            if (verboseMode) {
+            if (args.verboseLogging) {
                 Tau5Logger::instance().info("OTP supervision tree ready");
                 Tau5Logger::instance().info("Server is running. Press Ctrl+C to stop.");
             } else {
@@ -284,7 +260,7 @@ int main(int argc, char *argv[]) {
                 }
                 std::cout << "  Logs:      " << serverInfo.logPath.toStdString() << "\n";
                 
-                if (enableMcp) {
+                if (args.enableMcp) {
                     std::cout << "  MCP:       " << (serverInfo.mode == "development" ? "tidewave" : "hermes") << "\n";
                 }
                 
@@ -294,16 +270,16 @@ int main(int argc, char *argv[]) {
         });
         
         // Connect standard output/error for visibility
-        QObject::connect(beam.get(), &Beam::standardOutput, [verboseMode](const QString& output) {
+        QObject::connect(beam.get(), &Beam::standardOutput, [&args](const QString& output) {
             // Log BEAM output to the beam category only in verbose mode
-            if (verboseMode) {
+            if (args.verboseLogging) {
                 Tau5Logger::instance().log(LogLevel::Info, "beam", output);
             }
         });
         
-        QObject::connect(beam.get(), &Beam::standardError, [verboseMode](const QString& error) {
+        QObject::connect(beam.get(), &Beam::standardError, [&args](const QString& error) {
             // Log BEAM errors to the beam category only in verbose mode
-            if (verboseMode) {
+            if (args.verboseLogging) {
                 Tau5Logger::instance().log(LogLevel::Error, "beam", error);
             } else {
                 // In quiet mode, still show critical errors to stderr
@@ -315,8 +291,8 @@ int main(int argc, char *argv[]) {
     });
     
     // Ensure BEAM is terminated before the app fully exits
-    QObject::connect(&app, &QCoreApplication::aboutToQuit, [&beam, verboseMode]() {
-        if (verboseMode) {
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, [&beam, &args]() {
+        if (args.verboseLogging) {
             Tau5Logger::instance().info("Shutting down Tau5 Node...");
         } else {
             std::cout << "\nShutting down Tau5 Node...\n";
@@ -325,7 +301,7 @@ int main(int argc, char *argv[]) {
             beam.reset();
         }
         Tau5Common::cleanupSignalHandlers();
-        if (verboseMode) {
+        if (args.verboseLogging) {
             Tau5Logger::instance().info("Tau5 Node stopped");
         }
     });

@@ -20,6 +20,7 @@
 #include "shared/beam.h"
 #include "shared/tau5logger.h"
 #include "shared/common.h"
+#include "shared/cli_args.h"
 #include "styles/StyleManager.h"
 
 using namespace Tau5Common;
@@ -137,7 +138,7 @@ void tau5MessageHandler(QtMsgType type, const QMessageLogContext &context, const
   }
 }
 
-bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool enableRepl)
+bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool enableRepl, bool verboseLogging)
 {
   originalMessageHandler = qInstallMessageHandler(tau5MessageHandler);
 
@@ -150,6 +151,10 @@ bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool
     if (devMode && !enableMcp) {
       Tau5Logger::instance().info("Running in dev mode without MCP servers (use --enable-mcp to enable)");
     }
+  }
+
+  if (verboseLogging) {
+    Tau5Logger::instance().info("Verbose logging enabled");
   }
 
   QSurfaceFormat format;
@@ -205,38 +210,71 @@ bool initializeApplication(QApplication &app, bool devMode, bool enableMcp, bool
 
 int main(int argc, char *argv[])
 {
-  bool devMode = false;
+  // Parse command line arguments
+  Tau5CLI::CommonArgs args;
   bool enableDebugPane = true;
-  bool enableMcp = false;
-  bool enableRepl = false;
+  bool checkMode = false;
 
   for (int i = 1; i < argc; ++i) {
-    if (std::strcmp(argv[i], "dev") == 0) {
-      devMode = true;
+    const char* nextArg = (i + 1 < argc) ? argv[i + 1] : nullptr;
+    
+    // Try parsing as a shared argument first
+    if (Tau5CLI::parseSharedArg(argv[i], nextArg, i, args)) {
+      if (args.hasError) {
+        std::cerr << "Error: " << args.errorMessage << "\n";
+        std::cerr << "Use --help to see available options\n";
+        return 1;
+      }
+      if (args.showHelp) {
+        std::cout << "Usage: tau5 [options]\n"
+                  << "Options:\n"
+                  << "  dev              Run in development mode\n"
+                  << "  check            Verify production release and BEAM startup\n"
+                  << "  --enable-mcp     Enable MCP servers (tau5-gui-dev in dev, hermes in prod)\n"
+                  << "  --enable-repl    Enable Elixir REPL console\n"
+                  << "  --port <number>  Specify server port (default: 5555 in dev, random in prod)\n"
+                  << "  --verbose        Enable verbose logging (show all BEAM output)\n"
+                  << "  --no-debug-pane  Disable debug pane\n"
+                  << "\n"
+                  << "Local I/O Services (requires compiled NIFs):\n"
+                  << "  --disable-midi       Disable MIDI support\n"
+                  << "  --disable-link       Disable Ableton Link support\n"
+                  << "  --disable-discovery  Disable network discovery\n"
+                  << "  --disable-all        Disable all local I/O services\n"
+                  << "\n"
+                  << "  --help, -h       Show this help message\n"
+                  << "\n"
+                  << "Tau5 - Desktop application for collaborative live-coding\n"
+                  << "Creates music and visuals through code. Includes a full GUI interface.\n"
+                  << "\n"
+                  << "Note: MIDI, Link, and Discovery services require the corresponding NIFs\n"
+                  << "to be compiled during the build. If a NIF is not available, the service\n"
+                  << "will show as 'Module Missing' in the summary.\n";
+        return 0;
+      }
+      continue;
+    }
+    
+    // GUI-specific arguments
+    if (std::strcmp(argv[i], "check") == 0) {
+      checkMode = true;
     } else if (std::strcmp(argv[i], "--no-debug-pane") == 0) {
       enableDebugPane = false;
-    } else if (std::strcmp(argv[i], "--enable-mcp") == 0) {
-      enableMcp = true;
-    } else if (std::strcmp(argv[i], "--enable-repl") == 0) {
-      enableRepl = true;
-    } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
-      std::cout << "Usage: tau5 [options]\n"
-                << "Options:\n"
-                << "  dev              Run in development mode\n"
-                << "  check            Verify production release and BEAM startup\n"
-                << "  --no-debug-pane  Disable debug pane\n"
-                << "  --enable-mcp     Enable MCP development servers\n"
-                << "  --enable-repl    Enable Elixir REPL console\n"
-                << "  --help, -h       Show this help message\n";
-      return 0;
+    } else {
+      std::cerr << "Unknown option: " << argv[i] << "\n";
+      std::cerr << "Use --help to see available options\n";
+      return 1;
     }
   }
 
 
-  if (devMode)
+  if (args.devMode)
   {
     setupConsoleOutput();
   }
+
+  // Apply service disable settings before starting
+  Tau5CLI::applyServiceDisables(args);
 
   Tau5LoggerConfig logConfig;
   logConfig.appName = "gui";
@@ -246,7 +284,7 @@ int main(int argc, char *argv[])
   };
   logConfig.emitQtSignals = enableDebugPane;
   logConfig.consoleEnabled = true;
-  logConfig.consoleColors = devMode;
+  logConfig.consoleColors = args.devMode;
   logConfig.reuseRecentSession = false;
 
   QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
@@ -254,11 +292,11 @@ int main(int argc, char *argv[])
 
   Tau5Logger::initialize(logConfig);
 
-  quint16 port = Tau5Common::Config::DEFAULT_PORT;
+  quint16 port = args.customPort ? args.customPort : Tau5Common::Config::DEFAULT_PORT;
 
   Tau5Logger::instance().info("Starting Tau5...");
 
-  if (argc > 1 && std::strcmp(argv[1], "check") == 0)
+  if (checkMode)
   {
     Tau5Logger::instance().info("===============================================");
     Tau5Logger::instance().info("Running Tau5 production mode check");
@@ -310,19 +348,24 @@ int main(int argc, char *argv[])
       }
     }
   }
-  else if (argc > 1 && std::strcmp(argv[1], "dev") == 0)
+  else if (args.devMode)
   {
     Tau5Logger::instance().info("Development mode enabled.");
+    if (!args.customPort) {
+      port = Tau5Common::Config::DEFAULT_PORT;
+    }
   }
   else
   {
     Tau5Logger::instance().info("Production mode enabled.");
-    port = getFreePort();
+    if (!args.customPort) {
+      port = getFreePort();
 
-    if (port == 0)
-    {
-      QMessageBox::critical(nullptr, "Error", "Failed to allocate port");
-      return 1;
+      if (port == 0)
+      {
+        QMessageBox::critical(nullptr, "Error", "Failed to allocate port");
+        return 1;
+      }
     }
   }
 
@@ -335,7 +378,7 @@ int main(int argc, char *argv[])
 
   QApplication app(argc, argv);
 
-  if (!initializeApplication(app, devMode, enableMcp, enableRepl))
+  if (!initializeApplication(app, args.devMode, args.enableMcp, args.enableRepl, args.verboseLogging))
   {
     QMessageBox::critical(nullptr, "Error", "Failed to initialize application");
     return 1;
@@ -352,7 +395,7 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  MainWindow mainWindow(devMode, enableDebugPane, enableMcp, enableRepl);
+  MainWindow mainWindow(args.devMode, enableDebugPane, args.enableMcp, args.enableRepl);
 
   if (enableDebugPane) {
     QObject::connect(&Tau5Logger::instance(), &Tau5Logger::logMessage,
@@ -389,10 +432,10 @@ int main(int argc, char *argv[])
 
   Tau5Logger::instance().info("Delaying BEAM server startup by 1 second...");
 
-  QTimer::singleShot(2000, [&app, &beam, &mainWindow, basePath, port, devMode, enableMcp, enableRepl]() {
+  QTimer::singleShot(Tau5Common::Config::BEAM_STARTUP_DELAY_MS, [&app, &beam, &mainWindow, basePath, port, &args]() {
     Tau5Logger::instance().info("Starting BEAM server...");
     beam = std::make_shared<Beam>(&app, basePath, Tau5Common::Config::APP_NAME,
-                                  Tau5Common::Config::APP_VERSION, port, devMode, enableMcp, enableRepl);
+                                  Tau5Common::Config::APP_VERSION, port, args.devMode, args.enableMcp, args.enableRepl, Beam::DeploymentMode::Gui);
 
     mainWindow.setBeamInstance(beam.get());
 

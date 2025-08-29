@@ -13,6 +13,10 @@ namespace Tau5Common {
         constexpr quint16 DEFAULT_PORT = 5555;
         constexpr const char* APP_NAME = "tau5";
         constexpr const char* APP_VERSION = "0.1.0";
+        
+        // Timer delays (in milliseconds)
+        constexpr int BEAM_STARTUP_DELAY_MS = 2000;  // Delay before starting BEAM in GUI mode
+        constexpr int NODE_STARTUP_DELAY_MS = 500;   // Delay before starting BEAM in node mode
     }
 
     // Get a free port for the server (deprecated - use allocatePort instead)
