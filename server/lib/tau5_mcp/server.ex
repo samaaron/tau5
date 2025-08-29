@@ -51,7 +51,7 @@ defmodule Tau5MCP.Server do
           
           # Log after sending response
           spawn(fn ->
-            Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :syntax_error, duration, reason)
+            Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :syntax_error, duration, reason, nil)
           end)
           
           {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
@@ -66,7 +66,7 @@ defmodule Tau5MCP.Server do
               
               # Log after sending response to avoid blocking
               spawn(fn -> 
-                Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :success, duration)
+                Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :success, duration, nil, result)
               end)
               
               {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
@@ -78,7 +78,7 @@ defmodule Tau5MCP.Server do
               
               # Log after sending response
               spawn(fn ->
-                Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :error, duration, reason)
+                Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :error, duration, reason, nil)
               end)
               
               {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
@@ -95,7 +95,7 @@ defmodule Tau5MCP.Server do
         
         # Log after sending response
         spawn(fn ->
-          Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :exception, duration, error_msg)
+          Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :exception, duration, error_msg, nil)
         end)
         
         {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}
@@ -110,7 +110,7 @@ defmodule Tau5MCP.Server do
         
         # Log after sending response
         spawn(fn ->
-          Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :crash, duration, error_msg)
+          Tau5MCP.ActivityLogger.log_activity("lua_eval", request_id, params, :crash, duration, error_msg, nil)
         end)
         
         {:reply, resp, assign(frame, counter: frame.assigns.counter + 1)}

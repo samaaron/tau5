@@ -34,7 +34,7 @@ defmodule Tau5MCP.ActivityLogger do
   Log an MCP activity as a single complete entry.
   Logs everything in one entry when the tool completes.
   """
-  def log_activity(tool, request_id, params, status, duration_ms, error_details \\ nil) do
+  def log_activity(tool, request_id, params, status, duration_ms, error_details \\ nil, response \\ nil) do
     # Calculate params size
     params_size = calculate_params_size(params)
     
@@ -56,6 +56,15 @@ defmodule Tau5MCP.ActivityLogger do
       entry
     end
     
+    # Add response for successful calls
+    entry = if status == :success && response do
+      entry
+      |> Map.put(:response, response)
+      |> Map.put(:response_size, calculate_response_size(response))
+    else
+      entry
+    end
+    
     # Encode as JSON and append to file
     case Jason.encode(entry) do
       {:ok, json} ->
@@ -73,6 +82,14 @@ defmodule Tau5MCP.ActivityLogger do
   # Calculate the size of params when encoded as JSON
   defp calculate_params_size(params) do
     case Jason.encode(params) do
+      {:ok, json} -> byte_size(json)
+      {:error, _} -> 0
+    end
+  end
+  
+  # Calculate the size of response when encoded as JSON
+  defp calculate_response_size(response) do
+    case Jason.encode(response) do
       {:ok, json} -> byte_size(json)
       {:error, _} -> 0
     end
