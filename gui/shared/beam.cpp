@@ -35,8 +35,6 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
       appName(appName), appVersion(version), isRestarting(false),
       enableMcp(enableMcp), enableRepl(enableRepl), useStdinConfig(true), deploymentMode(deploymentMode)
 {
-  // Tau5Logger MUST be initialized before creating Beam instances
-  // as we need the session path for TAU5_LOG_DIR environment variable
   if (!Tau5Logger::isInitialized()) {
     qFatal("Beam: Tau5Logger must be initialized before creating Beam instances");
   }
@@ -45,9 +43,9 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
   heartbeatToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
   appPort = port;
   QByteArray randomBytes(64, 0);
-  for (int i = 0; i < 64; ++i) {
-    randomBytes[i] = QRandomGenerator::global()->generate();
-  }
+  quint32 buffer[16];
+  QRandomGenerator::system()->fillRange(buffer, 16);
+  memcpy(randomBytes.data(), buffer, 64);
   secretKeyBase = randomBytes.toBase64();
   heartbeatSocket = new QUdpSocket(this);
   
@@ -218,7 +216,6 @@ void Beam::startElixirServerDev()
   Tau5Logger::instance().info( "Starting Elixir server in Development mode");
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   
-  // Convert enum to string for environment variable
   QString modeString;
   switch(deploymentMode) {
     case DeploymentMode::Gui:
@@ -250,12 +247,10 @@ void Beam::startElixirServerDev()
   env.insert("MIX_ENV", "dev");
   env.insert("RELEASE_DISTRIBUTION", "none");
 
-  // Tau5Logger must be initialized before creating Beam instances
   QString sessionPath = Tau5Logger::instance().currentSessionPath();
   env.insert("TAU5_LOG_DIR", sessionPath);
   Tau5Logger::instance().debug(QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
 
-  // Set MCP and REPL flags based on constructor parameters
   if (enableMcp) {
     env.insert("TAU5_ENABLE_DEV_MCP", "1");
     Tau5Logger::instance().debug( "MCP enabled for Elixir server");
@@ -292,7 +287,6 @@ void Beam::startElixirServerProd()
 
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   
-  // Convert enum to string for environment variable
   QString modeString;
   switch(deploymentMode) {
     case DeploymentMode::Gui:
@@ -325,13 +319,20 @@ void Beam::startElixirServerProd()
   env.insert("PHX_HOST", "127.0.0.1");
   env.insert("MIX_ENV", "prod");
   env.insert("RELEASE_DISTRIBUTION", "none");
+  
+  // Use environment variable if set, otherwise use auto-generated key
+  QString envSecretKey = env.value("SECRET_KEY_BASE");
+  if (!envSecretKey.isEmpty()) {
+    Tau5Logger::instance().info("Using provided SECRET_KEY_BASE from environment");
+  } else {
+    env.insert("SECRET_KEY_BASE", secretKeyBase);
+    Tau5Logger::instance().info("Using auto-generated SECRET_KEY_BASE for this session");
+  }
 
-  // Tau5Logger must be initialized before creating Beam instances
   QString sessionPath = Tau5Logger::instance().currentSessionPath();
   env.insert("TAU5_LOG_DIR", sessionPath);
   Tau5Logger::instance().debug(QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
 
-  // Set MCP and REPL flags based on constructor parameters
   if (enableMcp) {
     env.insert("TAU5_ENABLE_DEV_MCP", "1");
     Tau5Logger::instance().debug( "MCP enabled for Elixir server");
@@ -344,12 +345,6 @@ void Beam::startElixirServerProd()
   env.insert("RELEASE_SYS_CONFIG", releaseSysPath);
   env.insert("RELEASE_ROOT", releaseRoot);
   env.insert("RELEASE_DISTRIBUTION", "none");
-  
-  if (!useStdinConfig) {
-    env.insert("SECRET_KEY_BASE", secretKeyBase.isEmpty() ? 
-      "plksdjflsdjflsdjaflaskdjflsdkfjlsdkfjlsdakfjldskafjdlaskfjdaslkfjdslkfjsdlkafjsldakfj" : 
-      secretKeyBase);
-  }
 
   process->setWorkingDirectory(appBasePath);
   process->setProcessEnvironment(env); // Use setEnvironment instead of setProcessEnvironment
@@ -733,9 +728,9 @@ void Beam::startNewBeamProcess()
   heartbeatToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
   
   QByteArray randomBytes(64, 0);
-  for (int i = 0; i < 64; ++i) {
-    randomBytes[i] = QRandomGenerator::global()->generate();
-  }
+  quint32 buffer[16];
+  QRandomGenerator::system()->fillRange(buffer, 16);
+  memcpy(randomBytes.data(), buffer, 64);
   secretKeyBase = randomBytes.toBase64();
   
   Tau5Logger::instance().debug("Generated new secure tokens");
