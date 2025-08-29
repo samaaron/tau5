@@ -381,23 +381,21 @@ void DebugPane::setupConsole()
 
   // Add startup message for Tau5 MCP
   QString tau5MCPStartupMessage =
-    "Tau5 MCP Server\n"
-    "(All commands are executed in a secure sandboxed environment.)\n\n";
+      "\n"
+      "Tau5 MCP Server - ENABLED\n"
+      "═════════════════════════\n"
+      "\n"
+      "Available Tools:\n"
+      "• Lua Evaluation (experimental)\n"
+      "\n"
+      "Note, all commands are executed in a secure\n"
+      "sandboxed environment.\n"
+      "\n─────────────────────────────────────────────\n";
+
   m_newTau5MCPWidget->appendLog(tau5MCPStartupMessage, false);
-  
-  // Set up Tidewave MCP log
-  QString tidewaveLogFilePath = QDir(sessionPath).absoluteFilePath("mcp-tidewave.log");
-  m_newTidewaveMCPWidget->setLogFilePath(tidewaveLogFilePath);
-  Tau5Logger::instance().debug(QString("DebugPane: Setting Tidewave MCP log path to: %1").arg(tidewaveLogFilePath));
 
-  // Add startup message for Tidewave MCP
-  QString tidewaveMCPStartupMessage =
-    "Tidewave MCP Server\n"
-    "(Elixir development tools and server introspection.)\n\n";
-  m_newTidewaveMCPWidget->appendLog(tidewaveMCPStartupMessage, false);
-
-
-  if (enableDevMCP) {
+  if (enableDevMCP)
+  {
     QString dataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
     QString tau5DataPath = QDir(dataPath).absoluteFilePath("Tau5");
     QString mcpLogsPath = QDir(tau5DataPath).absoluteFilePath("mcp-logs");
@@ -407,55 +405,96 @@ void DebugPane::setupConsole()
 
     // Add startup message for GUI Dev MCP
     QString guiMCPStartupMessage =
-      "Tau5 Dev GUI MCP\n"
-      "══════════════════════════\n\n"
+        "\n"
+        "Tau5-Dev GUI MCP Services - ENABLED\n"
+        "═══════════════════════════════════\n"
+        "\n"
+        "Available Services:\n"
+        "\n";
+    m_newGuiMCPWidget->appendLog(guiMCPStartupMessage, false);
 
-      "Available Services:\n"
+    // Set up Tidewave MCP log
+    QString tidewaveLogFilePath = QDir(sessionPath).absoluteFilePath("mcp-tidewave.log");
+    m_newTidewaveMCPWidget->setLogFilePath(tidewaveLogFilePath);
+    Tau5Logger::instance().debug(QString("DebugPane: Setting Tidewave MCP log path to: %1").arg(tidewaveLogFilePath));
+  }
+  else
+  {
+    QString tidewaveDisabledMessage =
+        "\n"
+        "Tau5-Dev Tidewave MCP Server - DISABLED\n"
+        "══════════════════════════════════════\n"
+        "\n"
+        "The Tau5-Dev Tidewave service is disabled.\n"
+        "To enable, start Tau5 with the flag\n"
+        "  --enable-mcp\n";
+
+    QString devGUIMCPDisabledMessage =
+        "\n"
+        "Tau5-Dev GUI MCP Services - DISABLED\n"
+        "════════════════════════════════════\n"
+        "\n"
+        "The Tau5-Dev GUI MCP services are disabled.\n"
+        "To enable, start Tau5 with the flag\n"
+        "  --enable-mcp\n";
+
+    m_newGuiMCPWidget->appendLog(devGUIMCPDisabledMessage, false);
+    m_newTidewaveMCPWidget->appendLog(tidewaveDisabledMessage, false);
+  }
+
+  QString tidewaveMCPServerDescription =
+      "\n"
+      "The Tidewave MCP Server provides tools for:\n"
+      "\n"
+      "• Full Elixir control and observation\n"
+      "• Code evaluation\n"
+      "• Documentation lookup\n"
+      "• BEAM Log access\n"
+      "\n─────────────────────────────────────────────\n";
+
+  QString devGUIMCPServerDescription =
+      "\n"
+      "The Tau5-Dev GUI MCP Services provides access\n"
+      "to the Chrome DevTools Protocol for:\n"
+      "\n"
       "• DOM inspection and manipulation\n"
       "• JavaScript execution in WebViews\n"
       "• Element selection and style inspection\n"
-      "• GUI application logs access\n\n"
-      "Chrome DevTools Protocol server listening on port 9223\n\n"
+      "\n"
+      "Note, this service is listening on port 9223\n"
+      "and is used by the separate tau5-dev-gui-mcp\n"
+      "MCP Server for full functionality.\n"
+      "\n─────────────────────────────────────────────\n";
 
-      "────────────────────────────────────────\n";
-    m_newGuiMCPWidget->appendLog(guiMCPStartupMessage, false);
+  m_newTidewaveMCPWidget->appendLog(tidewaveMCPServerDescription, false);
+  m_newGuiMCPWidget->appendLog(devGUIMCPServerDescription, false);
 
-  } else {
-    QString disabledMessage =
-      "\nTau5 Dev MCP Services - DISABLED\n"
-      " ════════════════════════════\n\n"
-      "Tau5's Development MCP services are not enabled.\n\n\n"
-      "To enable, set TAU5_ENABLE_DEV_MCP=1 before starting Tau5\n\n\n"
-      "When enabled, the following services will become available:\n\n"
-      "• Chromium DevTools Protocol on port 9223\n"
-      "    - for manipulating/observing the GUI\n\n"
-      "• Tidewave - an MCP server\n"
-      "    - for manipulating/observing the Elixir server\n\n";
-
-    m_newGuiMCPWidget->appendLog(disabledMessage, false);
-  }
-
-  m_consoleStack->addWidget(m_newBeamLogWidget);  // Index 0
-  m_consoleStack->addWidget(m_newGuiLogWidget);   // Index 1
-  m_consoleStack->addWidget(m_newTau5MCPWidget);  // Index 2
-  m_consoleStack->addWidget(m_newTidewaveMCPWidget);  // Index 3
-  m_consoleStack->addWidget(m_newGuiMCPWidget);   // Index 4
+  m_consoleStack->addWidget(m_newBeamLogWidget);     // Index 0
+  m_consoleStack->addWidget(m_newGuiLogWidget);      // Index 1
+  m_consoleStack->addWidget(m_newTau5MCPWidget);     // Index 2
+  m_consoleStack->addWidget(m_newTidewaveMCPWidget); // Index 3
+  m_consoleStack->addWidget(m_newGuiMCPWidget);      // Index 4
 
   m_consoleStack->setCurrentIndex(0);
-  
-  if (m_newBeamLogWidget && m_newBeamLogWidget->getToolbar()) {
+
+  if (m_newBeamLogWidget && m_newBeamLogWidget->getToolbar())
+  {
     m_consoleToolbarStack->addWidget(m_newBeamLogWidget->getToolbar());
   }
-  if (m_newGuiLogWidget && m_newGuiLogWidget->getToolbar()) {
+  if (m_newGuiLogWidget && m_newGuiLogWidget->getToolbar())
+  {
     m_consoleToolbarStack->addWidget(m_newGuiLogWidget->getToolbar());
   }
-  if (m_newTau5MCPWidget && m_newTau5MCPWidget->getToolbar()) {
+  if (m_newTau5MCPWidget && m_newTau5MCPWidget->getToolbar())
+  {
     m_consoleToolbarStack->addWidget(m_newTau5MCPWidget->getToolbar());
   }
-  if (m_newTidewaveMCPWidget && m_newTidewaveMCPWidget->getToolbar()) {
+  if (m_newTidewaveMCPWidget && m_newTidewaveMCPWidget->getToolbar())
+  {
     m_consoleToolbarStack->addWidget(m_newTidewaveMCPWidget->getToolbar());
   }
-  if (m_newGuiMCPWidget && m_newGuiMCPWidget->getToolbar()) {
+  if (m_newGuiMCPWidget && m_newGuiMCPWidget->getToolbar())
+  {
     m_consoleToolbarStack->addWidget(m_newGuiMCPWidget->getToolbar());
   }
   m_consoleToolbarStack->setCurrentIndex(0);
