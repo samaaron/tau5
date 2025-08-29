@@ -411,10 +411,10 @@ void DebugPane::setupConsole()
     // Add startup message for GUI Dev MCP
     QString guiMCPStartupMessage =
         "\n"
+        "═══════════════════════════════════\n"
         "Tau5-Dev GUI MCP Services - ENABLED\n"
         "═══════════════════════════════════\n"
         "\n"
-        "Available Services:\n"
         "\n";
     m_newGuiMCPWidget->appendLog(guiMCPStartupMessage, false);
 
@@ -425,10 +425,10 @@ void DebugPane::setupConsole()
 
     QString tidewaveEnabledMessage =
         "\n"
+        "══════════════════════════════════════\n"
         "Tau5-Dev Tidewave MCP Server - ENABLED\n"
         "══════════════════════════════════════\n"
         "\n"
-        "The Tau5-Dev Tidewave server is enabled.\n"
         "\n";
     m_newTidewaveMCPWidget->appendLog(tidewaveEnabledMessage, false);
   }
@@ -436,19 +436,21 @@ void DebugPane::setupConsole()
   {
     QString tidewaveDisabledMessage =
         "\n"
+        "═══════════════════════════════════════\n"
         "Tau5-Dev Tidewave MCP Server - DISABLED\n"
-        "══════════════════════════════════════\n"
+        "═══════════════════════════════════════\n"
         "\n"
-        "The Tau5-Dev Tidewave service is disabled.\n"
+        "\n"
         "To enable, start Tau5 with the flag\n"
         "  --enable-mcp\n";
 
     QString devGUIMCPDisabledMessage =
         "\n"
+        "════════════════════════════════════\n"
         "Tau5-Dev GUI MCP Services - DISABLED\n"
         "════════════════════════════════════\n"
         "\n"
-        "The Tau5-Dev GUI MCP services are disabled.\n"
+        "\n"
         "To enable, start Tau5 with the flag\n"
         "  --enable-mcp\n";
 
