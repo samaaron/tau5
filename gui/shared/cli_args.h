@@ -5,7 +5,7 @@
 #include <string>
 #include <cstdlib>
 #include <QtCore/QtGlobal>
-#include <QtCore/QtEnvironmentVariables>
+#include <QtCore/QCoreApplication>
 
 namespace Tau5CLI {
 
