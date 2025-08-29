@@ -129,14 +129,15 @@ DebugPane::DebugPane(QWidget *parent, bool devMode, bool enableMcp, bool enableR
       m_maxLines(5000), m_currentMode(BeamLogOnly), m_isResizing(false),
       m_resizeStartY(0), m_resizeStartHeight(0), m_isHoveringHandle(false),
       m_targetWebView(nullptr), m_devToolsView(nullptr), m_liveDashboardView(nullptr),
-      m_elixirConsoleView(nullptr), m_elixirConsoleTabButton(nullptr), m_guiMCPTabButton(nullptr),
+      m_elixirConsoleView(nullptr),
       m_currentFontSize(12), m_guiLogFontSize(12),
       m_devToolsMainContainer(nullptr),
       m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
       m_dragHandleWidget(nullptr), m_dragHandleAnimationTimer(nullptr), m_animationBar(nullptr),
       m_restartLabel(nullptr), m_restartButton(nullptr), m_resetButton(nullptr), m_closeButton(nullptr),
       m_newBeamLogWidget(nullptr), m_newGuiLogWidget(nullptr), m_newTau5MCPWidget(nullptr),
-      m_newGuiMCPWidget(nullptr), m_consoleToolbarStack(nullptr),
+      m_newTidewaveMCPWidget(nullptr), m_newGuiMCPWidget(nullptr), m_consoleToolbarStack(nullptr),
+      m_elixirConsoleTabButton(nullptr), m_tau5MCPTabButton(nullptr), m_tidewaveMCPTabButton(nullptr), m_guiMCPTabButton(nullptr),
       m_devMode(devMode), m_mcpEnabled(enableMcp), m_replEnabled(enableRepl)
 {
   static bool codiconLoaded = false;
@@ -326,12 +327,14 @@ void DebugPane::setupConsole()
 
   bool enableDevMCP = isMcpEnabled();
   m_tau5MCPTabButton = new ActivityTabButton("Tau5 MCP", consoleToolbar);
+  m_tidewaveMCPTabButton = new ActivityTabButton("Tidewave MCP", consoleToolbar);
   m_guiMCPTabButton = new ActivityTabButton("GUI MCP", consoleToolbar);
 
   if (!enableDevMCP) {
     m_guiMCPTabButton->setToolTip("GUI Dev MCP disabled - click for more information");
   }
   if (!m_devMode) {
+    m_tidewaveMCPTabButton->setVisible(false);
     m_guiMCPTabButton->setVisible(false);
   }
 
@@ -339,6 +342,7 @@ void DebugPane::setupConsole()
   toolbarLayout->addWidget(m_guiLogTabButton);
   toolbarLayout->addWidget(m_tau5MCPTabButton);
   if (m_devMode) {
+    toolbarLayout->addWidget(m_tidewaveMCPTabButton);
     toolbarLayout->addWidget(m_guiMCPTabButton);
   }
   toolbarLayout->addStretch();
@@ -367,6 +371,7 @@ void DebugPane::setupConsole()
   m_newGuiLogWidget = new LogWidget(LogWidget::GuiLog, nullptr);
 
   m_newTau5MCPWidget = new LogWidget(LogWidget::MCPLog, nullptr);
+  m_newTidewaveMCPWidget = new LogWidget(LogWidget::MCPLog, nullptr);
   m_newGuiMCPWidget = new LogWidget(LogWidget::MCPLog, nullptr);
 
   QString sessionPath = Tau5Logger::instance().currentSessionPath();
@@ -379,6 +384,17 @@ void DebugPane::setupConsole()
     "Tau5 MCP Server\n"
     "(All commands are executed in a secure sandboxed environment.)\n\n";
   m_newTau5MCPWidget->appendLog(tau5MCPStartupMessage, false);
+  
+  // Set up Tidewave MCP log
+  QString tidewaveLogFilePath = QDir(sessionPath).absoluteFilePath("mcp-tidewave.log");
+  m_newTidewaveMCPWidget->setLogFilePath(tidewaveLogFilePath);
+  Tau5Logger::instance().debug(QString("DebugPane: Setting Tidewave MCP log path to: %1").arg(tidewaveLogFilePath));
+
+  // Add startup message for Tidewave MCP
+  QString tidewaveMCPStartupMessage =
+    "Tidewave MCP Server\n"
+    "(Elixir development tools and server introspection.)\n\n";
+  m_newTidewaveMCPWidget->appendLog(tidewaveMCPStartupMessage, false);
 
 
   if (enableDevMCP) {
@@ -422,7 +438,8 @@ void DebugPane::setupConsole()
   m_consoleStack->addWidget(m_newBeamLogWidget);  // Index 0
   m_consoleStack->addWidget(m_newGuiLogWidget);   // Index 1
   m_consoleStack->addWidget(m_newTau5MCPWidget);  // Index 2
-  m_consoleStack->addWidget(m_newGuiMCPWidget);   // Index 3
+  m_consoleStack->addWidget(m_newTidewaveMCPWidget);  // Index 3
+  m_consoleStack->addWidget(m_newGuiMCPWidget);   // Index 4
 
   m_consoleStack->setCurrentIndex(0);
   
@@ -435,6 +452,9 @@ void DebugPane::setupConsole()
   if (m_newTau5MCPWidget && m_newTau5MCPWidget->getToolbar()) {
     m_consoleToolbarStack->addWidget(m_newTau5MCPWidget->getToolbar());
   }
+  if (m_newTidewaveMCPWidget && m_newTidewaveMCPWidget->getToolbar()) {
+    m_consoleToolbarStack->addWidget(m_newTidewaveMCPWidget->getToolbar());
+  }
   if (m_newGuiMCPWidget && m_newGuiMCPWidget->getToolbar()) {
     m_consoleToolbarStack->addWidget(m_newGuiMCPWidget->getToolbar());
   }
@@ -446,6 +466,7 @@ void DebugPane::setupConsole()
   connect(m_beamLogTabButton, &QPushButton::clicked, this, &DebugPane::showBeamLog);
   connect(m_guiLogTabButton, &QPushButton::clicked, this, &DebugPane::showGuiLog);
   connect(m_tau5MCPTabButton, &QPushButton::clicked, this, &DebugPane::showTau5MCPLog);
+  connect(m_tidewaveMCPTabButton, &QPushButton::clicked, this, &DebugPane::showTidewaveMCPLog);
   connect(m_guiMCPTabButton, &QPushButton::clicked, this, &DebugPane::showGuiMCPLog);
   
   connect(m_newBeamLogWidget, &LogWidget::logActivity, 
@@ -463,6 +484,12 @@ void DebugPane::setupConsole()
   connect(m_newTau5MCPWidget, &LogWidget::logActivity,
           [this, widget = QPointer<LogWidget>(m_newTau5MCPWidget),
            button = QPointer<ActivityTabButton>(m_tau5MCPTabButton)]() {
+            if (widget && button) handleLogActivity(widget, button);
+          });
+  
+  connect(m_newTidewaveMCPWidget, &LogWidget::logActivity,
+          [this, widget = QPointer<LogWidget>(m_newTidewaveMCPWidget),
+           button = QPointer<ActivityTabButton>(m_tidewaveMCPTabButton)]() {
             if (widget && button) handleLogActivity(widget, button);
           });
   
@@ -1005,6 +1032,7 @@ void DebugPane::showBeamLog()
   m_beamLogTabButton->setHasUnread(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(false);
+  m_tidewaveMCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(false);
   if (m_newBeamLogWidget) {
     m_newBeamLogWidget->onActivated();
@@ -1028,6 +1056,7 @@ void DebugPane::showGuiLog()
   m_guiLogTabButton->setChecked(true);
   m_guiLogTabButton->setHasUnread(false);
   m_tau5MCPTabButton->setChecked(false);
+  m_tidewaveMCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(false);
   if (m_newGuiLogWidget) {
     m_newGuiLogWidget->onActivated();
@@ -1059,6 +1088,7 @@ void DebugPane::showTau5MCPLog()
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(true);
   m_tau5MCPTabButton->setHasUnread(false);
+  m_tidewaveMCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(false);
   if (m_newTau5MCPWidget) {
     m_newTau5MCPWidget->onActivated();
@@ -1066,7 +1096,7 @@ void DebugPane::showTau5MCPLog()
   }
 }
 
-void DebugPane::showGuiMCPLog()
+void DebugPane::showTidewaveMCPLog()
 {
   if (m_consoleStack->currentWidget()) {
     if (auto* debugWidget = qobject_cast<DebugWidget*>(m_consoleStack->currentWidget())) {
@@ -1081,6 +1111,31 @@ void DebugPane::showGuiMCPLog()
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(false);
+  m_tidewaveMCPTabButton->setChecked(true);
+  m_tidewaveMCPTabButton->setHasUnread(false);
+  m_guiMCPTabButton->setChecked(false);
+  if (m_newTidewaveMCPWidget) {
+    m_newTidewaveMCPWidget->onActivated();
+    m_newTidewaveMCPWidget->setFocus();
+  }
+}
+
+void DebugPane::showGuiMCPLog()
+{
+  if (m_consoleStack->currentWidget()) {
+    if (auto* debugWidget = qobject_cast<DebugWidget*>(m_consoleStack->currentWidget())) {
+      debugWidget->onDeactivated();
+    }
+  }
+  // Switch to new LogWidget at index 4
+  m_consoleStack->setCurrentIndex(4);
+  if (m_consoleToolbarStack) {
+    m_consoleToolbarStack->setCurrentIndex(4);
+  }
+  m_beamLogTabButton->setChecked(false);
+  m_guiLogTabButton->setChecked(false);
+  m_tau5MCPTabButton->setChecked(false);
+  m_tidewaveMCPTabButton->setChecked(false);
   m_guiMCPTabButton->setChecked(true);
   m_guiMCPTabButton->setHasUnread(false);
   if (m_newGuiMCPWidget) {
@@ -1237,7 +1292,8 @@ void DebugPane::setRestartButtonEnabled(bool enabled)
   if (m_beamLogTabButton) m_beamLogTabButton->setVisible(enabled);
   if (m_guiLogTabButton) m_guiLogTabButton->setVisible(enabled);
   if (m_tau5MCPTabButton) m_tau5MCPTabButton->setVisible(enabled);
-  if (m_guiMCPTabButton) m_guiMCPTabButton->setVisible(enabled);
+  if (m_tidewaveMCPTabButton) m_tidewaveMCPTabButton->setVisible(enabled && m_devMode);
+  if (m_guiMCPTabButton) m_guiMCPTabButton->setVisible(enabled && m_devMode);
   if (m_devToolsTabButton) m_devToolsTabButton->setVisible(enabled);
   if (m_liveDashboardTabButton) m_liveDashboardTabButton->setVisible(enabled);
   if (m_elixirConsoleTabButton) m_elixirConsoleTabButton->setVisible(enabled);
@@ -1488,6 +1544,10 @@ void DebugPane::updateAllLogs()
     m_newTau5MCPWidget->updateIfNeeded();
   }
   
+  if (m_newTidewaveMCPWidget) {
+    m_newTidewaveMCPWidget->updateIfNeeded();
+  }
+  
   if (m_newGuiMCPWidget) {
     m_newGuiMCPWidget->updateIfNeeded();
   }
@@ -1515,6 +1575,13 @@ void DebugPane::toggleActivityIndicators()
     m_tau5MCPTabButton->setActivityIndicatorsEnabled(m_activityIndicatorsEnabled);
     if (!m_activityIndicatorsEnabled) {
       m_tau5MCPTabButton->setHasUnread(false);
+    }
+  }
+  
+  if (m_tidewaveMCPTabButton) {
+    m_tidewaveMCPTabButton->setActivityIndicatorsEnabled(m_activityIndicatorsEnabled);
+    if (!m_activityIndicatorsEnabled) {
+      m_tidewaveMCPTabButton->setHasUnread(false);
     }
   }
   

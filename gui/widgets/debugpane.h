@@ -74,6 +74,7 @@ private slots:
   void showGuiLog();
   void showElixirConsole();
   void showTau5MCPLog();
+  void showTidewaveMCPLog();
   void showGuiMCPLog();
   void showDevToolsTab();
   void showLiveDashboardTab();
@@ -121,6 +122,7 @@ private:
   ActivityTabButton *m_guiLogTabButton;
   QPushButton *m_elixirConsoleTabButton;
   ActivityTabButton *m_tau5MCPTabButton;
+  ActivityTabButton *m_tidewaveMCPTabButton;
   ActivityTabButton *m_guiMCPTabButton;
   QWidget *m_elixirConsoleContainer;
   SandboxedWebView *m_elixirConsoleView;
@@ -163,6 +165,7 @@ private:
   LogWidget *m_newBeamLogWidget;
   LogWidget *m_newGuiLogWidget;
   LogWidget *m_newTau5MCPWidget;
+  LogWidget *m_newTidewaveMCPWidget;
   LogWidget *m_newGuiMCPWidget;
   bool m_activityIndicatorsEnabled = true;
   QPushButton *m_activityToggleButton;

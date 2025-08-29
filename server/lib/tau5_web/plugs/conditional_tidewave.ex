@@ -8,7 +8,7 @@ defmodule Tau5Web.Plugs.ConditionalTidewave do
 
   def call(conn, _opts) do
     if enabled?() and Code.ensure_loaded?(Tidewave) do
-      # Initialize and call Tidewave plug at runtime
+      # Initialize and call Tidewave plug at runtime with logging
       # Get the current server port dynamically
       port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
       
@@ -18,9 +18,17 @@ defmodule Tau5Web.Plugs.ConditionalTidewave do
         autoformat: true
       ]
       
-      tidewave_opts
-      |> Tidewave.init()
-      |> then(&Tidewave.call(conn, &1))
+      # Initialize Tidewave options
+      tidewave_init_opts = Tidewave.init(tidewave_opts)
+      
+      # If logging is enabled, wrap with logger, otherwise call directly
+      if logging_enabled?() do
+        conn
+        |> Tau5Web.Plugs.TidewaveLogger.call(tidewave_init_opts)
+      else
+        conn
+        |> Tidewave.call(tidewave_init_opts)
+      end
     else
       conn
     end
@@ -28,5 +36,9 @@ defmodule Tau5Web.Plugs.ConditionalTidewave do
 
   defp enabled? do
     System.get_env("TAU5_ENABLE_DEV_MCP", "false") in ["1", "true", "yes"]
+  end
+  
+  defp logging_enabled? do
+    System.get_env("TAU5_TIDEWAVE_LOGGING", "true") in ["1", "true", "yes"]
   end
 end

@@ -54,8 +54,12 @@ defmodule Tau5.Application do
 
     case Supervisor.start_link(children, opts) do
       {:ok, pid} ->
-        # Initialize MCP activity logger
+        # Initialize MCP activity loggers
         Tau5MCP.ActivityLogger.init()
+        
+        if System.get_env("TAU5_ENABLE_DEV_MCP", "false") in ["1", "true", "yes"] do
+          TidewaveMCP.ActivityLogger.init()
+        end
 
         # Print ASCII art directly to stdio without any formatting/prefixes
         # Using explicit string concatenation to preserve exact spacing
