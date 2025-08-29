@@ -253,9 +253,10 @@ int main(int argc, char *argv[]) {
             qputenv("TAU5_DISCOVERY_ENABLED", "false");
         }
         
+        // Create Beam instance with deploymentMode = Node for tau5-node
         beam = std::make_shared<Beam>(&app, basePath, Config::APP_NAME,
                                      Config::APP_VERSION, port, devMode, 
-                                     enableMcp, enableRepl);
+                                     enableMcp, enableRepl, Beam::DeploymentMode::Node);
         
         // Connect to OTP ready signal
         QObject::connect(beam.get(), &Beam::otpReady, [verboseMode, enableMcp, &serverInfo, &beam]() {

@@ -285,7 +285,7 @@ int main(int argc, char *argv[])
 
     {
       Beam beam(&tempApp, basePath, Tau5Common::Config::APP_NAME, Tau5Common::Config::APP_VERSION,
-                getFreePort(), false, false, false);
+                getFreePort(), false, false, false, Beam::DeploymentMode::Gui);
 
       Tau5Logger::instance().info("Waiting for BEAM server to start (timeout: 10 seconds)...");
       int waitCount = 0;

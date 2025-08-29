@@ -29,11 +29,11 @@
 
 using namespace Tau5Common;
 
-Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp, bool enableRepl)
+Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp, bool enableRepl, DeploymentMode deploymentMode)
     : QObject(parent), appBasePath(basePath), process(new QProcess(this)),
       beamPid(0), heartbeatPort(0), serverReady(false), otpTreeReady(false), devMode(devMode),
       appName(appName), appVersion(version), isRestarting(false),
-      enableMcp(enableMcp), enableRepl(enableRepl), useStdinConfig(true)
+      enableMcp(enableMcp), enableRepl(enableRepl), useStdinConfig(true), deploymentMode(deploymentMode)
 {
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
   heartbeatToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -211,7 +211,21 @@ void Beam::startElixirServerDev()
 {
   Tau5Logger::instance().info( "Starting Elixir server in Development mode");
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-  env.insert("TAU5_MODE", "desktop");
+  
+  // Convert enum to string for environment variable
+  QString modeString;
+  switch(deploymentMode) {
+    case DeploymentMode::Gui:
+      modeString = "gui";
+      break;
+    case DeploymentMode::Node:
+      modeString = "node";
+      break;
+    case DeploymentMode::Central:
+      modeString = "central";
+      break;
+  }
+  env.insert("TAU5_MODE", modeString);
   env.insert("TAU5_ENV", "dev");
   
   if (useStdinConfig) {
@@ -279,7 +293,21 @@ void Beam::startElixirServerProd()
   Tau5Logger::instance().info( "Starting Elixir server in Production mode");
 
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-  env.insert("TAU5_MODE", "desktop");
+  
+  // Convert enum to string for environment variable
+  QString modeString;
+  switch(deploymentMode) {
+    case DeploymentMode::Gui:
+      modeString = "gui";
+      break;
+    case DeploymentMode::Node:
+      modeString = "node";
+      break;
+    case DeploymentMode::Central:
+      modeString = "central";
+      break;
+  }
+  env.insert("TAU5_MODE", modeString);
   env.insert("TAU5_ENV", "prod");
   
   if (useStdinConfig) {

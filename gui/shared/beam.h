@@ -12,7 +12,13 @@ class Beam : public QObject
   Q_OBJECT
 
 public:
-  explicit Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp = false, bool enableRepl = false);
+  enum class DeploymentMode {
+    Gui,      // Running as Qt GUI desktop app
+    Node,     // Running as standalone node server (headless)
+    Central   // Running as the authoritative tau5.sonic-pi.net server
+  };
+
+  explicit Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp = false, bool enableRepl = false, DeploymentMode deploymentMode = DeploymentMode::Gui);
   ~Beam();
   
   QString getSessionToken() const { return sessionToken; }
@@ -61,6 +67,7 @@ private:
   bool enableRepl;
   bool useStdinConfig;
   QString secretKeyBase;
+  DeploymentMode deploymentMode;
 
   void startProcess(const QString &cmd, const QStringList &args);
   void writeSecretsToStdin();

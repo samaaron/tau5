@@ -27,11 +27,11 @@ config :tau5, :heartbeat_enabled,
   System.get_env("TAU5_HEARTBEAT_ENABLED", "false") == "true"
 
 # Deployment mode configuration
-# :desktop - Running as Qt GUI desktop app
+# :gui - Running as Qt GUI desktop app
+# :node - Running as standalone node server (headless)
 # :central - Running as the authoritative tau5.sonic-pi.net server
-# :headless - Running as standalone server (default)
 config :tau5,
-  deployment_mode: System.get_env("TAU5_MODE", "headless") |> String.to_atom()
+  deployment_mode: System.get_env("TAU5_MODE", "node") |> String.to_atom()
 
 config :tau5, Tau5.ConfigRepo,
   # Tau5.ConfigRepo.init/2 will inject :database at boot-time
