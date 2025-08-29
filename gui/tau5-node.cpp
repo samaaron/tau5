@@ -12,6 +12,8 @@
 #else
 #include <windows.h>
 #include <process.h>
+#include <io.h>
+#include <fcntl.h>
 #endif
 #include "shared/beam.h"
 #include "shared/tau5logger.h"
@@ -69,6 +71,16 @@ void printUsage(const char* programName) {
 }
 
 int main(int argc, char *argv[]) {
+#ifdef Q_OS_WIN
+    // Set console to UTF-8 mode immediately on Windows
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+    
+    // Set stdout to binary mode to prevent any text translation
+    _setmode(_fileno(stdout), _O_BINARY);
+    _setmode(_fileno(stderr), _O_BINARY);
+#endif
+    
     // Parse command line arguments
     bool devMode = false;
     bool enableMcp = false;
@@ -136,7 +148,7 @@ int main(int argc, char *argv[]) {
     originalMessageHandler = qInstallMessageHandler(tau5NodeMessageHandler);
     
     if (!verboseMode) {
-        std::cout << getTau5Logo().toLocal8Bit().constData();
+        std::cout << getTau5Logo().toUtf8().constData();
         std::cout << "Starting Tau5 Node (Headless Mode)...\n" << std::flush;
     } else {
         Tau5Logger::instance().info(getTau5Logo());
