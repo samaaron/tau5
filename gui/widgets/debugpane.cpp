@@ -422,6 +422,15 @@ void DebugPane::setupConsole()
     QString tidewaveLogFilePath = QDir(sessionPath).absoluteFilePath("mcp-tidewave.log");
     m_newTidewaveMCPWidget->setLogFilePath(tidewaveLogFilePath);
     Tau5Logger::instance().debug(QString("DebugPane: Setting Tidewave MCP log path to: %1").arg(tidewaveLogFilePath));
+
+    QString tidewaveEnabledMessage =
+        "\n"
+        "Tau5-Dev Tidewave MCP Server - ENABLED\n"
+        "══════════════════════════════════════\n"
+        "\n"
+        "The Tau5-Dev Tidewave server is enabled.\n"
+        "\n";
+    m_newTidewaveMCPWidget->appendLog(tidewaveEnabledMessage, false);
   }
   else
   {
