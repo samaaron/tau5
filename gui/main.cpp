@@ -322,8 +322,15 @@ int main(int argc, char *argv[])
     Tau5Logger::instance().info("Production release found, starting BEAM server...");
 
     {
+      quint16 allocatedPort = 0;
+      auto portHolder = allocatePort(allocatedPort);
+      if (!portHolder || allocatedPort == 0) {
+        Tau5Logger::instance().error("Failed to allocate port for production check");
+        return 1;
+      }
+      
       Beam beam(&tempApp, basePath, Tau5Common::Config::APP_NAME, Tau5Common::Config::APP_VERSION,
-                getFreePort(), false, false, false, Beam::DeploymentMode::Gui);
+                allocatedPort, false, false, false, Beam::DeploymentMode::Gui);
 
       Tau5Logger::instance().info("Waiting for BEAM server to start (timeout: 10 seconds)...");
       int waitCount = 0;
@@ -359,13 +366,13 @@ int main(int argc, char *argv[])
   {
     Tau5Logger::instance().info("Production mode enabled.");
     if (!args.customPort) {
-      port = getFreePort();
-
-      if (port == 0)
+      auto portHolder = allocatePort(port);
+      if (!portHolder || port == 0)
       {
         QMessageBox::critical(nullptr, "Error", "Failed to allocate port");
         return 1;
       }
+      // portHolder will be destroyed when going out of scope, releasing the port for the Beam process
     }
   }
 
