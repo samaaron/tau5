@@ -9,7 +9,11 @@ Tau5 is known to work with the following depencies:
 3. CMake (3.30+)
 4. Elixir(1.17+)
 
-To install the dependencies run the script `./bin/linux/install-deps.sh` which covers Debian, Redhat, Arch and OpenSuse based distributions.
+To install dependencies:
+- For full GUI build: `./bin/linux/install-gui-deps.sh` 
+- For headless/node only: `./bin/linux/install-node-deps.sh`
+
+Both scripts cover Debian, Redhat, Arch and OpenSuse based distributions.
 
 **Note, that you'll need to use `sudo` so like all other scripts that requre `sudo` that you didn't write yourself - definitely look through the file first to make sure you're happy.**
 

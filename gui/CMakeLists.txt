@@ -36,20 +36,28 @@ set(QT_TOOLS_DIR ${CMAKE_PREFIX_PATH}/bin)
 set_property(GLOBAL PROPERTY AUTOMOC_FOLDER Automoc)
 set_property(GLOBAL PROPERTY AUTOGEN_TARGETS_FOLDER Automoc)
 
-find_package(Qt6 QUIET)
-find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg SvgWidgets LinguistTools WebEngineWidgets WebSockets Concurrent REQUIRED)
+option(BUILD_NODE_ONLY "Build only the tau5-node CLI without GUI dependencies" OFF)
 
-if(NOT APPLE)
-  set(QWINDOWKIT_BUILD_STATIC ON CACHE BOOL "" FORCE)
-  set(QWINDOWKIT_BUILD_WIDGETS ON CACHE BOOL "" FORCE)
-  set(QWINDOWKIT_BUILD_QUICK OFF CACHE BOOL "" FORCE)
-  set(QWINDOWKIT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-  set(QWINDOWKIT_BUILD_DOCUMENTATIONS OFF CACHE BOOL "" FORCE)
-  set(QWINDOWKIT_INSTALL OFF CACHE BOOL "" FORCE)
-  set(QWINDOWKIT_ENABLE_WINDOWS_SYSTEM_BORDERS ON CACHE BOOL "" FORCE)
-  set(QWINDOWKIT_ENABLE_STYLE_AGENT ON CACHE BOOL "" FORCE)
+if(BUILD_NODE_ONLY)
+  find_package(Qt6 COMPONENTS Core Network Concurrent REQUIRED)
+else()
+  find_package(Qt6 QUIET)
+  find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg SvgWidgets LinguistTools WebEngineWidgets WebSockets Concurrent REQUIRED)
+endif()
 
-  add_subdirectory(external/qwindowkit-1.4.0)
+if(NOT BUILD_NODE_ONLY)
+  if(NOT APPLE)
+    set(QWINDOWKIT_BUILD_STATIC ON CACHE BOOL "" FORCE)
+    set(QWINDOWKIT_BUILD_WIDGETS ON CACHE BOOL "" FORCE)
+    set(QWINDOWKIT_BUILD_QUICK OFF CACHE BOOL "" FORCE)
+    set(QWINDOWKIT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(QWINDOWKIT_BUILD_DOCUMENTATIONS OFF CACHE BOOL "" FORCE)
+    set(QWINDOWKIT_INSTALL OFF CACHE BOOL "" FORCE)
+    set(QWINDOWKIT_ENABLE_WINDOWS_SYSTEM_BORDERS ON CACHE BOOL "" FORCE)
+    set(QWINDOWKIT_ENABLE_STYLE_AGENT ON CACHE BOOL "" FORCE)
+
+    add_subdirectory(external/qwindowkit-1.4.0)
+  endif()
 endif()
 
 
@@ -126,14 +134,16 @@ SET(RESOURCES
   ${QTAPP_ROOT}/images/app.icns
 )
 
-if(APPLE)
-  add_executable(${APP_NAME} MACOSX_BUNDLE ${SOURCES} ${RESOURCES})
-else()
-  add_executable(${APP_NAME} WIN32 ${SOURCES} ${RESOURCES})
+if(NOT BUILD_NODE_ONLY)
+  if(APPLE)
+    add_executable(${APP_NAME} MACOSX_BUNDLE ${SOURCES} ${RESOURCES})
+  else()
+    add_executable(${APP_NAME} WIN32 ${SOURCES} ${RESOURCES})
+  endif()
 endif()
 
 
-if(APPLE)
+if(NOT BUILD_NODE_ONLY AND APPLE)
   set_target_properties(
     ${APP_NAME} PROPERTIES
     OUTPUT_NAME "Tau5"
@@ -176,41 +186,44 @@ if(APPLE)
   )
 endif()
 
-message(STATUS "App Root: ${APP_ROOT}")
-
-set_property(TARGET ${APP_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON) # Qt requires this?
-
-target_include_directories(${APP_NAME}
-  PRIVATE
-  ${QTAPP_ROOT}
-  ${QTAPP_ROOT}/widgets
-  ${QTAPP_ROOT}/lib
-  ${QTAPP_ROOT}/styles
-  ${CMAKE_BINARY_DIR}
-  include)
-
-target_link_libraries(${APP_NAME}
-  PRIVATE
-  tau5_core  # Link to our static library
-  Qt::Core
-  Qt::Gui
-  Qt::Widgets
-  Qt::Network
-  Qt::Svg
-  Qt::SvgWidgets
-  Qt::WebEngineWidgets
-  Qt::WebSockets)
-
-# Link QWindowKit for Windows/Linux
-if(NOT APPLE)
-  target_link_libraries(${APP_NAME}
-    PRIVATE
-    QWindowKit::Widgets)
+if(NOT BUILD_NODE_ONLY)
+  message(STATUS "App Root: ${APP_ROOT}")
+  set_property(TARGET ${APP_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON) # Qt requires this?
 endif()
 
-# Add compile definitions based on build options
-if(BUILD_DEBUG_PANE)
-  target_compile_definitions(${APP_NAME} PRIVATE BUILD_WITH_DEBUG_PANE)
+if(NOT BUILD_NODE_ONLY)
+  target_include_directories(${APP_NAME}
+    PRIVATE
+    ${QTAPP_ROOT}
+    ${QTAPP_ROOT}/widgets
+    ${QTAPP_ROOT}/lib
+    ${QTAPP_ROOT}/styles
+    ${CMAKE_BINARY_DIR}
+    include)
+
+  target_link_libraries(${APP_NAME}
+    PRIVATE
+    tau5_core  # Link to our static library
+    Qt::Core
+    Qt::Gui
+    Qt::Widgets
+    Qt::Network
+    Qt::Svg
+    Qt::SvgWidgets
+    Qt::WebEngineWidgets
+    Qt::WebSockets)
+
+  # Link QWindowKit for Windows/Linux
+  if(NOT APPLE)
+    target_link_libraries(${APP_NAME}
+      PRIVATE
+      QWindowKit::Widgets)
+  endif()
+
+  # Add compile definitions based on build options
+  if(BUILD_DEBUG_PANE)
+    target_compile_definitions(${APP_NAME} PRIVATE BUILD_WITH_DEBUG_PANE)
+  endif()
 endif()
 
 # Build tau5-node CLI executable
@@ -227,12 +240,12 @@ target_include_directories(${NODE_APP_NAME}
 
 target_link_libraries(${NODE_APP_NAME}
   PRIVATE
-  tau5_core  # Link to our static library  
+  tau5_core
   Qt::Core
   Qt::Network)
 
 # Deploy Qt binaries to the output on windows, and copy the CRT to the release folder
-if(WIN32)
+if(NOT BUILD_NODE_ONLY AND WIN32)
   # Visual Studio
   set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP true)
   include(InstallRequiredSystemLibraries)

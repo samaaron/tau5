@@ -12,7 +12,7 @@ trap cleanup_function EXIT
 
 echo "Installing latest Elixir and Erlang via ASDF..."
 echo ""
-echo "NOTE: Run ./install-deps.sh first to install build dependencies"
+echo "NOTE: Run ./install-node-deps.sh or ./install-gui-deps.sh first to install build dependencies"
 echo ""
 
 # Install or update ASDF

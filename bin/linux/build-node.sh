@@ -33,11 +33,23 @@ cd "${BUILD_DIR}"
 
 echo "Building tau5-node CLI..."
 
-if [[ $(uname -m) == 'arm64' ]] || [ "$TAU5_BUILD_TARGET" == 'arm64' ]
+if [[ $(uname -m) == 'arm64' ]] || [[ $(uname -m) == 'aarch64' ]] || [ "$TAU5_BUILD_TARGET" == 'arm64' ]
 then
-  cmake -G "Unix Makefiles" -DCMAKE_OSC_ARCHITECTURES="ARM64" -DCMAKE_BUILD_TYPE="$CONFIG" ..
+  echo "Detected ARM architecture"
+  cmake -G "Unix Makefiles" \
+    -DCMAKE_OSC_ARCHITECTURES="ARM64" \
+    -DCMAKE_BUILD_TYPE="$CONFIG" \
+    -DBUILD_NODE_ONLY=ON \
+    -DBUILD_DEBUG_PANE=OFF \
+    -DBUILD_MCP_SERVER=OFF \
+    ..
 else
-  cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="$CONFIG" ..
+  cmake -G "Unix Makefiles" \
+    -DCMAKE_BUILD_TYPE="$CONFIG" \
+    -DBUILD_NODE_ONLY=ON \
+    -DBUILD_DEBUG_PANE=OFF \
+    -DBUILD_MCP_SERVER=OFF \
+    ..
 fi
 
 cmake --build . --target tau5-node
