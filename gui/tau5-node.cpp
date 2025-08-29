@@ -136,8 +136,8 @@ int main(int argc, char *argv[]) {
     originalMessageHandler = qInstallMessageHandler(tau5NodeMessageHandler);
     
     if (!verboseMode) {
-        std::cout << getTau5Logo().toStdString();
-        std::cout << "Starting Tau5 Node (Headless Mode)...\n";
+        std::cout << getTau5Logo().toLocal8Bit().constData();
+        std::cout << "Starting Tau5 Node (Headless Mode)...\n" << std::flush;
     } else {
         Tau5Logger::instance().info(getTau5Logo());
         Tau5Logger::instance().info("Starting Tau5 Node (Headless Mode)...");

@@ -71,6 +71,15 @@ bool setupConsoleOutput() {
 #if defined(Q_OS_WIN)
     // Try to attach to parent process console first (when launched from cmd/powershell)
     if (AttachConsole(ATTACH_PARENT_PROCESS)) {
+        // Store original code page
+        UINT originalCP = GetConsoleCP();
+        UINT originalOutputCP = GetConsoleOutputCP();
+        
+        // Try to set console to UTF-8 mode
+        // Note: This may not work properly with all console fonts
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+        
         FILE* stream;
         freopen_s(&stream, "CONOUT$", "w", stdout);
         freopen_s(&stream, "CONOUT$", "w", stderr);
@@ -81,6 +90,10 @@ bool setupConsoleOutput() {
     }
     // If no parent console, allocate a new one (for CLI mode)
     else if (AllocConsole()) {
+        // Set console to UTF-8 mode
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+        
         FILE* stream;
         freopen_s(&stream, "CONOUT$", "w", stdout);
         freopen_s(&stream, "CONOUT$", "w", stderr);
