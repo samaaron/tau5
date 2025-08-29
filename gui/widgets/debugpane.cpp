@@ -387,8 +387,10 @@ void DebugPane::setupConsole()
   // Add startup message for Tau5 MCP
   QString tau5MCPStartupMessage =
       "\n"
+      "═════════════════════════\n"
       "Tau5 MCP Server - ENABLED\n"
       "═════════════════════════\n"
+      "\n"
       "\n"
       "Available Tools:\n"
       "• Lua Evaluation (experimental)\n"
