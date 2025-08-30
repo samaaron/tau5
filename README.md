@@ -23,9 +23,11 @@
 
 # Tau5
 
-This is the ground-up re-development of Sonic Pi's core ideas - with a specific focus on collaboration and web compatibility.
+This is a ground-up re-development of Sonic Pi's core ideas - with a specific focus on collaboration, security and web compatibility.
 
 The main technology for Tau5 is a VM called the BEAM which hosts both the Erlang and Elixir programming languages whilst also enabling low-latency comms with C++ native code for MIDI/Ableton Link/Discovery, etc.
+
+https://tau5.live
 
 ## Next Collaboration
 
