@@ -6,13 +6,12 @@ defmodule Tau5Web.ConsoleLiveTest do
     test "mount fails when console is disabled", %{conn: conn} do
       # Ensure console is disabled
       Application.delete_env(:tau5, :console_enabled)
-      System.put_env("TAU5_SESSION_TOKEN", "test-token")
+      # Both InternalEndpointSecurity and ConsoleSecurity use same token
+      token = Application.get_env(:tau5, :session_token) || "test-token-for-tests"
+      System.put_env("TAU5_SESSION_TOKEN", token)
       
-      conn = 
-        conn
-        |> Map.put(:remote_ip, {127, 0, 0, 1})
-      
-      conn = get(conn, "/dev/console?token=test-token")
+      # Use the conn from ConnCase which already has the proper token header
+      conn = get(conn, "/dev/console?token=#{token}")
       assert conn.status == 403
       assert conn.resp_body =~ "The Tau5 Elixir REPL console is disabled"
       
@@ -23,13 +22,15 @@ defmodule Tau5Web.ConsoleLiveTest do
       # Enable console for this test
       Application.put_env(:tau5, :console_enabled, true)
       
+      # Create a fresh conn with non-localhost IP
       conn = 
-        conn
+        Phoenix.ConnTest.build_conn()
         |> Map.put(:remote_ip, {192, 168, 1, 1})  # Non-localhost
       
       conn = get(conn, "/dev/console")
       assert conn.status == 403
-      assert conn.resp_body =~ "does not accept remote connections"
+      # InternalEndpointSecurity blocks non-localhost first
+      assert conn.resp_body =~ "This endpoint is only accessible from localhost"
       
       Application.delete_env(:tau5, :console_enabled)
     end
@@ -39,13 +40,15 @@ defmodule Tau5Web.ConsoleLiveTest do
       Application.put_env(:tau5, :console_enabled, true)
       System.put_env("TAU5_SESSION_TOKEN", "test-token")
       
+      # Create a fresh conn without token header
       conn = 
-        conn
+        Phoenix.ConnTest.build_conn()
         |> Map.put(:remote_ip, {127, 0, 0, 1})
       
       conn = get(conn, "/dev/console")
       assert conn.status == 403
-      assert conn.resp_body =~ "Invalid or missing session token"
+      # InternalEndpointSecurity blocks missing token
+      assert conn.resp_body =~ "Invalid or missing app token"
       
       System.delete_env("TAU5_SESSION_TOKEN")
       Application.delete_env(:tau5, :console_enabled)

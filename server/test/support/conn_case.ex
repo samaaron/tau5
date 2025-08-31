@@ -35,9 +35,13 @@ defmodule Tau5Web.ConnCase do
     # Build conn with test token for InternalEndpointSecurity
     conn = Phoenix.ConnTest.build_conn()
     
-    # Add the test token as a query parameter for internal endpoint security
+    # Get the test token
     token = Application.get_env(:tau5, :session_token) || "test-token-for-tests"
-    conn = %{conn | query_params: %{"token" => token}}
+    
+    # Add token as a header (more reliable than query params for tests)
+    conn = conn
+    |> Plug.Conn.put_req_header("x-tau5-token", token)
+    |> Map.put(:remote_ip, {127, 0, 0, 1})  # Ensure localhost IP
     
     {:ok, conn: conn}
   end
