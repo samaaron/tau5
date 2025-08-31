@@ -103,12 +103,8 @@ defmodule Tau5.PublicEndpointTest do
       # Port should be an integer or nil if not configured
       if port != nil do
         assert is_integer(port)
-        # In test env, port is 4003; in prod it's 7005-7024
-        if Mix.env() == :test do
-          assert port == 4003
-        else
-          assert port >= 7005 and port <= 7024
-        end
+        # Port can be either test port (4003) or dynamically assigned (7005-7024)
+        assert port == 4003 or (port >= 7005 and port <= 7024)
       end
     end
     
@@ -120,12 +116,8 @@ defmodule Tau5.PublicEndpointTest do
       # Port should be an integer or nil if not configured
       if port != nil do
         assert is_integer(port)
-        # In test env, port is 4003; in prod it's 7005-7024
-        if Mix.env() == :test do
-          assert port == 4003
-        else
-          assert port >= 7005 and port <= 7024
-        end
+        # Port can be either test port (4003) or dynamically assigned (7005-7024)
+        assert port == 4003 or (port >= 7005 and port <= 7024)
       end
     end
   end

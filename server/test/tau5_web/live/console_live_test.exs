@@ -18,7 +18,7 @@ defmodule Tau5Web.ConsoleLiveTest do
       System.delete_env("TAU5_SESSION_TOKEN")
     end
 
-    test "mount fails without proper security", %{conn: conn} do
+    test "mount fails without proper security", %{conn: _conn} do
       # Enable console for this test
       Application.put_env(:tau5, :console_enabled, true)
       
@@ -35,7 +35,7 @@ defmodule Tau5Web.ConsoleLiveTest do
       Application.delete_env(:tau5, :console_enabled)
     end
     
-    test "mount fails without token", %{conn: conn} do
+    test "mount fails without token", %{conn: _conn} do
       # Enable console for this test
       Application.put_env(:tau5, :console_enabled, true)
       System.put_env("TAU5_SESSION_TOKEN", "test-token")
