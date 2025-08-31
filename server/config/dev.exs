@@ -6,12 +6,12 @@ import Config
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-port = String.to_integer(System.get_env("PORT") || "4000")
+# Internal endpoint always uses random port for security
+# GUI will pass the allocated port via PORT env var
+port = String.to_integer(System.get_env("PORT") || "0")
 
 config :tau5, Tau5Web.Endpoint,
-  # Development server binding options:
-  # - Localhost only (default, secure): {127, 0, 0, 1} for IPv4 or {0, 0, 0, 0, 0, 0, 0, 1} for IPv6
-  # - All interfaces (access from other machines): {0, 0, 0, 0} for IPv4 or {0, 0, 0, 0, 0, 0, 0, 0} for IPv6
+  # Internal endpoint - localhost only with app token required
   http: [ip: {127, 0, 0, 1}, port: port],
   check_origin: false,
   code_reloader: true,
@@ -58,8 +58,18 @@ config :tau5, Tau5Web.Endpoint,
 
 config :tau5, dev_routes: true
 
-# Console allowed origins (optional)
-# config :tau5, console_allowed_origins: ["http://localhost:4000", "http://localhost:5555"]
+# Public endpoint configuration for development
+# This endpoint listens on all interfaces for remote access
+config :tau5, Tau5Web.PublicEndpoint,
+  http: [
+    ip: {0, 0, 0, 0, 0, 0, 0, 0},  # Listen on all interfaces (IPv6 + IPv4 dual-stack)
+    port: 7005
+  ],
+  server: true,
+  check_origin: false
+
+# Console allowed origins (optional - ports are dynamic now)
+# config :tau5, console_allowed_origins: ["http://localhost:*"]
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :console, format: "[$level] $message\n"

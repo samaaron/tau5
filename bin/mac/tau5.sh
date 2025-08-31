@@ -15,4 +15,4 @@ cd "${ROOT_DIR}"
 
 # Set server path explicitly for development
 export TAU5_SERVER_PATH="${SERVER_DIR}"
-./gui/build/Tau5.app/Contents/MacOS/Tau5 dev --enable-mcp --enable-repl
+./gui/build/Tau5.app/Contents/MacOS/Tau5 dev --enable-mcp --enable-repl --public-endpoint

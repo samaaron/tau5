@@ -1,4 +1,4 @@
-defmodule Tau5Web.Endpoint do
+defmodule Tau5Web.PublicEndpoint do
   use Phoenix.Endpoint, otp_app: :tau5
 
   # The session will be stored in the cookie and signed,
@@ -6,10 +6,11 @@ defmodule Tau5Web.Endpoint do
   # Set :encryption_salt if you would also like to encrypt it.
   @session_options [
     store: :cookie,
-    key: "_tau5_key",
-    signing_salt: "Ft4u6yx2",
+    key: "_tau5_public_key",
+    signing_salt: "KaBar2nliI8=",
     same_site: "Lax",
     http_only: true  # Prevent JavaScript access to cookies
+    # Note: secure flag omitted as this may run on local networks without HTTPS
   ]
 
   socket "/live", Phoenix.LiveView.Socket,
@@ -26,25 +27,10 @@ defmodule Tau5Web.Endpoint do
     gzip: false,
     only: Tau5Web.static_paths()
 
-  # Tidewave MCP integration (runtime check when in dev)
-  if Mix.env() == :dev do
-    plug Tau5Web.Plugs.ConditionalTidewave
-  end
-
-  # Code reloading can be explicitly enabled under the
-  # :code_reloader configuration of your endpoint.
-  if code_reloading? do
-    socket "/phoenix/live_reload/socket", Phoenix.LiveReloader.Socket
-    plug Phoenix.LiveReloader
-    plug Phoenix.CodeReloader
-  end
-
-  plug Phoenix.LiveDashboard.RequestLogger,
-    param_key: "request_logger",
-    cookie_key: "request_logger"
-
+  # No code reloading or live dashboard for public endpoint
+  
   plug Plug.RequestId
-  plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
+  plug Plug.Telemetry, event_prefix: [:phoenix, :public_endpoint]
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
@@ -55,8 +41,8 @@ defmodule Tau5Web.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
   
-  # Security for internal endpoint - requires localhost + app token
-  plug Tau5Web.Plugs.InternalEndpointSecurity
+  # Access control plug - must come before router
+  plug Tau5Web.Plugs.PublicAccessControl
   
   plug Tau5Web.Router
 end

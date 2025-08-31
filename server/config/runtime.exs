@@ -69,6 +69,11 @@ if config_env() != :test do
     System.get_env("TAU5_DISCOVERY_ENABLED", "true") != "false"
 end
 
+# Configure public endpoint for remote access
+# Set TAU5_PUBLIC_ENDPOINT=true to enable remote access by default
+config :tau5, :public_endpoint_enabled,
+  System.get_env("TAU5_PUBLIC_ENDPOINT", "false") == "true"
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
@@ -89,7 +94,8 @@ if config_env() == :prod do
     end
 
   host = System.get_env("PHX_HOST") || "127.0.0.1"
-  port = String.to_integer(System.get_env("PORT") || "4000")
+  # Port must be provided by GUI or use 0 for random allocation
+  port = String.to_integer(System.get_env("PORT") || "0")
 
   config :tau5, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
@@ -106,4 +112,12 @@ if config_env() == :prod do
     server: true,
     cache_static_manifest: "priv/static/cache_manifest.json",
     secret_key_base: secret_key_base
+  
+  # Derive public endpoint secret from main secret for session persistence
+  # This ensures sessions survive restarts while maintaining uniqueness per installation
+  public_endpoint_secret = :crypto.hash(:sha256, secret_key_base <> "_public_endpoint")
+    |> Base.encode64()
+  
+  config :tau5, Tau5Web.PublicEndpoint,
+    secret_key_base: public_endpoint_secret
 end

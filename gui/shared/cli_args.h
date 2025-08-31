@@ -17,6 +17,7 @@ struct CommonArgs {
     bool disableMidi = false;
     bool disableLink = false;
     bool disableDiscovery = false;
+    bool publicEndpoint = false;
     quint16 customPort = 0;
     bool showHelp = false;
     bool hasError = false;
@@ -69,6 +70,9 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         args.disableLink = true;
         args.disableDiscovery = true;
         return true;
+    } else if (std::strcmp(arg, "--public-endpoint") == 0) {
+        args.publicEndpoint = true;
+        return true;
     } else if (std::strcmp(arg, "--help") == 0 || std::strcmp(arg, "-h") == 0) {
         args.showHelp = true;
         return true;
@@ -86,6 +90,9 @@ inline void applyServiceDisables(const CommonArgs& args) {
     }
     if (args.disableDiscovery) {
         qputenv("TAU5_DISCOVERY_ENABLED", "false");
+    }
+    if (args.publicEndpoint) {
+        qputenv("TAU5_PUBLIC_ENDPOINT", "true");
     }
 }
 

@@ -9,6 +9,7 @@
 #include <QTimer>
 #include <QMoveEvent>
 #include <QPropertyAnimation>
+#include <QUrlQuery>
 #include "mainwindow.h"
 #include "widgets/mainphxwidget.h"
 #ifdef BUILD_WITH_DEBUG_PANE
@@ -279,6 +280,20 @@ void MainWindow::onFadeToBlackComplete()
   phxUrl.setScheme("http");
   phxUrl.setHost("localhost");
   phxUrl.setPort(m_serverPort);
+  phxUrl.setPath("/app");
+  
+  // Add the session token as a query parameter for security
+  if (beamInstance) {
+    QString token = beamInstance->getSessionToken();
+    Tau5Logger::instance().debug(QString("Session token for /app: %1").arg(token.isEmpty() ? "EMPTY" : token));
+    if (!token.isEmpty()) {
+      QUrlQuery query;
+      query.addQueryItem("token", token);
+      phxUrl.setQuery(query);
+    }
+  } else {
+    Tau5Logger::instance().warning("No beam instance available for token retrieval");
+  }
   
   if (phxWidget) {
     phxWidget->transitionToApp(phxUrl);

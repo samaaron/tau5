@@ -9,11 +9,16 @@ defmodule Tau5Web.MainLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    {endpoint_type, access_tier, features} = Tau5Web.AccessTier.get_access_info(socket.endpoint)
+    
     {:ok,
      socket
      |> assign(:layout_state, TiledLayout.new())
      |> assign(:show_controls, true)
-     |> assign(:show_lua_console, false)}
+     |> assign(:show_lua_console, false)
+     |> assign(:endpoint_type, endpoint_type)
+     |> assign(:access_tier, access_tier)
+     |> assign(:features, features)}
   end
 
   @impl true
@@ -23,6 +28,16 @@ defmodule Tau5Web.MainLive do
       
       <div class="layout-header">
         <div class="layout-controls">
+          <span class={["access-badge", "access-#{@endpoint_type}"]}>
+            <%= if @endpoint_type == "local" do %>
+              <i class="codicon codicon-lock"></i> Local
+            <% else %>
+              <i class="codicon codicon-unlock"></i> Public
+            <% end %>
+          </span>
+          
+          <div class="separator"></div>
+          
           <button phx-click="split_h" phx-value-panel={to_string(@layout_state.active)} title="Split Horizontal">
             <i class="codicon codicon-split-horizontal"></i>
           </button>
@@ -51,11 +66,13 @@ defmodule Tau5Web.MainLive do
             <i class={if @layout_state.zoom != nil, do: "codicon codicon-screen-normal", else: "codicon codicon-screen-full"}></i>
           </button>
           
-          <div class="separator"></div>
-          
-          <button phx-click="toggle_lua_console" class={if @show_lua_console, do: "active"} title="Toggle Lua Console">
-            <i class="codicon codicon-terminal"></i>
-          </button>
+          <%= if @features.console_access do %>
+            <div class="separator"></div>
+            
+            <button phx-click="toggle_lua_console" class={if @show_lua_console, do: "active"} title="Toggle Lua Console">
+              <i class="codicon codicon-terminal"></i>
+            </button>
+          <% end %>
         </div>
         
         <div class="layout-info">

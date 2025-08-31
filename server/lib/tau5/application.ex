@@ -28,8 +28,23 @@ defmodule Tau5.Application do
     end
 
     http_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
+    
+    public_endpoint_port = case Tau5.PortFinder.configure_endpoint_port(Tau5Web.PublicEndpoint) do
+      {:ok, port} ->
+        Logger.info("PublicEndpoint: Successfully configured on port #{port}")
+        port
+      {:error, :no_available_port} ->
+        Logger.warning("PublicEndpoint: No available port found, endpoint will be disabled")
+        nil
+    end
+    
+    public_endpoint_enabled = if public_endpoint_port do
+      Application.get_env(:tau5, :public_endpoint_enabled, false)
+    else
+      false
+    end
 
-    children = [
+    base_children = [
       Tau5.ConfigRepo,
       Tau5.ConfigRepoMigrator,
       Tau5Web.Telemetry,
@@ -37,7 +52,19 @@ defmodule Tau5.Application do
       {Finch, name: Tau5.Finch},
       Hermes.Server.Registry,
       {Tau5MCP.Server, transport: :streamable_http},
-      Tau5Web.Endpoint,
+      Tau5Web.Endpoint
+    ]
+    
+    public_endpoint_children = if public_endpoint_port do
+      [
+        Tau5Web.PublicEndpoint,
+        {Tau5.PublicEndpoint, [enabled: public_endpoint_enabled]}
+      ]
+    else
+      []
+    end
+    
+    additional_children = [
       # Kill switch must be temporary - ensures system dies if kill switch fails
       %{
         id: Tau5.KillSwitch,
@@ -49,6 +76,8 @@ defmodule Tau5.Application do
       Tau5.MIDI,
       {Tau5.Discovery, %{http_port: http_port}}
     ]
+    
+    children = base_children ++ public_endpoint_children ++ additional_children
 
     opts = [strategy: :one_for_one, name: Tau5.Supervisor]
 
