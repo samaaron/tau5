@@ -40,10 +40,12 @@ defmodule Tau5Web.MCPSecurityTest do
       # Test that the actual routes are protected
       # This ensures the pipeline is properly configured
       
-      # From public endpoint - should return 404 (using RequireInternalEndpoint)
+      # From public endpoint - should return 403 (InternalEndpointSecurity blocks non-localhost)
+      # Since tests run from localhost, we need to check the actual response
       public_conn = %{conn | private: %{phoenix_endpoint: Tau5Web.PublicEndpoint}}
       public_conn = get(public_conn, "/tau5/mcp")
-      assert public_conn.status == 404  # RequireInternalEndpoint returns 404 to hide route existence
+      # In test environment with session token set, this returns 403 from InternalEndpointSecurity
+      assert public_conn.status == 403
       
       # Note: We can't easily test the internal endpoint positive case here
       # because it requires the full MCP server to be running

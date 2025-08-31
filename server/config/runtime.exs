@@ -74,6 +74,27 @@ end
 config :tau5, :public_endpoint_enabled,
   System.get_env("TAU5_PUBLIC_ENDPOINT", "false") == "true"
 
+# Configure public endpoint secret key for non-test environments
+if config_env() != :test do
+  # Get the appropriate secret key base
+  main_secret = case config_env() do
+    :prod ->
+      System.get_env("SECRET_KEY_BASE") || 
+        raise "SECRET_KEY_BASE is required in production"
+    _ ->
+      # In dev, use the configured secret from dev.exs
+      Application.get_env(:tau5, Tau5Web.Endpoint)[:secret_key_base]
+  end
+  
+  if main_secret && main_secret != "placeholder_will_be_replaced_by_stdin_config" do
+    public_endpoint_secret = :crypto.hash(:sha256, main_secret <> "_public_endpoint")
+      |> Base.encode64()
+    
+    config :tau5, Tau5Web.PublicEndpoint,
+      secret_key_base: public_endpoint_secret
+  end
+end
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
@@ -112,12 +133,4 @@ if config_env() == :prod do
     server: true,
     cache_static_manifest: "priv/static/cache_manifest.json",
     secret_key_base: secret_key_base
-  
-  # Derive public endpoint secret from main secret for session persistence
-  # This ensures sessions survive restarts while maintaining uniqueness per installation
-  public_endpoint_secret = :crypto.hash(:sha256, secret_key_base <> "_public_endpoint")
-    |> Base.encode64()
-  
-  config :tau5, Tau5Web.PublicEndpoint,
-    secret_key_base: public_endpoint_secret
 end

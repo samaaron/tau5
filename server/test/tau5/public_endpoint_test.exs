@@ -2,15 +2,18 @@ defmodule Tau5.PublicEndpointTest do
   use ExUnit.Case
   
   setup do
-    # The PublicEndpoint GenServer might already be started by the application
-    # Stop it if it exists, then start a fresh one for testing
+    # The PublicEndpoint GenServer is started by the application
+    # Just reset it to a known state for each test
     case Process.whereis(Tau5.PublicEndpoint) do
-      nil -> :ok
-      pid -> GenServer.stop(pid, :normal, 100)
+      nil -> 
+        # Start it if not running
+        {:ok, pid} = start_supervised({Tau5.PublicEndpoint, [enabled: false]})
+        {:ok, pid: pid}
+      pid -> 
+        # Reset to disabled state if already running
+        Tau5.PublicEndpoint.disable()
+        {:ok, pid: pid}
     end
-    
-    {:ok, pid} = start_supervised({Tau5.PublicEndpoint, [enabled: false]})
-    {:ok, pid: pid}
   end
   
   describe "enable/0" do

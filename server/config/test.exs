@@ -11,6 +11,18 @@ config :tau5, Tau5Web.Endpoint,
   secret_key_base: "BGzS0ba64RBujAPYlDYQSC3bH68HEYK+xdm1yxYXvN2bonhdncvSi++DsHWVMJlE",
   server: false
 
+# Configure public endpoint for tests
+config :tau5, Tau5Web.PublicEndpoint,
+  http: [ip: {127, 0, 0, 1}, port: 4003],
+  secret_key_base: "TestPublicEndpointSecretKeyBase1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+  server: false
+
+# Disable public endpoint by default in tests
+config :tau5, :public_endpoint_enabled, false
+
+# Set a test session token to avoid security errors
+config :tau5, :session_token, "test-token-for-tests"
+
 config :tau5, Tau5.ConfigRepo,
   database: ":memory:",
   pool_size: 1,

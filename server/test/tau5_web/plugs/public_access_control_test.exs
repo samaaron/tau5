@@ -3,10 +3,15 @@ defmodule Tau5Web.Plugs.PublicAccessControlTest do
   alias Tau5Web.Plugs.PublicAccessControl
   
   setup do
-    # The PublicEndpoint GenServer is started by the application
-    # Just ensure it's in the disabled state for tests
-    if Process.whereis(Tau5.PublicEndpoint) do
-      Tau5.PublicEndpoint.disable()
+    # The PublicEndpoint GenServer might be started by the application
+    # If not running, start it; if running, just reset its state
+    case Process.whereis(Tau5.PublicEndpoint) do
+      nil -> 
+        # Start it if not running - this happens in some test environments
+        start_supervised!({Tau5.PublicEndpoint, [enabled: false]})
+      _pid -> 
+        # Reset to disabled state if already running
+        Tau5.PublicEndpoint.disable()
     end
     :ok
   end

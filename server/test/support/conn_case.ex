@@ -32,6 +32,13 @@ defmodule Tau5Web.ConnCase do
   end
 
   setup _tags do
-    {:ok, conn: Phoenix.ConnTest.build_conn()}
+    # Build conn with test token for InternalEndpointSecurity
+    conn = Phoenix.ConnTest.build_conn()
+    
+    # Add the test token as a query parameter for internal endpoint security
+    token = Application.get_env(:tau5, :session_token) || "test-token-for-tests"
+    conn = %{conn | query_params: %{"token" => token}}
+    
+    {:ok, conn: conn}
   end
 end

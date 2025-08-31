@@ -29,13 +29,20 @@ defmodule Tau5.Application do
 
     http_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
     
-    public_endpoint_port = case Tau5.PortFinder.configure_endpoint_port(Tau5Web.PublicEndpoint) do
-      {:ok, port} ->
-        Logger.info("PublicEndpoint: Successfully configured on port #{port}")
-        port
-      {:error, :no_available_port} ->
-        Logger.warning("PublicEndpoint: No available port found, endpoint will be disabled")
-        nil
+    # In test environment, use configured port directly; otherwise find available port
+    public_endpoint_port = if Mix.env() == :test do
+      # Use the configured test port
+      config = Application.get_env(:tau5, Tau5Web.PublicEndpoint, [])
+      Keyword.get(config[:http] || [], :port)
+    else
+      case Tau5.PortFinder.configure_endpoint_port(Tau5Web.PublicEndpoint) do
+        {:ok, port} ->
+          Logger.info("PublicEndpoint: Successfully configured on port #{port}")
+          port
+        {:error, :no_available_port} ->
+          Logger.warning("PublicEndpoint: No available port found, endpoint will be disabled")
+          nil
+      end
     end
     
     public_endpoint_enabled = if public_endpoint_port do
