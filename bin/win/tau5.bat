@@ -10,7 +10,7 @@ cd /d "%ROOT_DIR%"
 rem Set server path for dev mode
 set TAU5_SERVER_PATH=%ROOT_DIR%\server
 
-gui\build\Release\Tau5.exe dev --enable-mcp --enable-repl
+gui\build\Release\Tau5.exe dev --enable-mcp --enable-repl --public-endpoint
 
 cd /d "%WORKING_DIR%"
 endlocal

@@ -10,6 +10,7 @@ defmodule Tau5Web.Router do
     plug(:put_root_layout, html: {Tau5Web.Layouts, :root})
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
+    plug(Tau5Web.Plugs.AccessTier)
   end
 
   pipeline :api do
@@ -18,6 +19,10 @@ defmodule Tau5Web.Router do
 
   pipeline :console_secure do
     plug(Tau5Web.Plugs.ConsoleSecurity)
+  end
+
+  pipeline :require_internal_endpoint do
+    plug(Tau5Web.Plugs.RequireInternalEndpoint)
   end
 
   scope "/", Tau5Web do
@@ -34,27 +39,29 @@ defmodule Tau5Web.Router do
 
   pipeline :mcp do
     plug :accepts, ["json", "event-stream"]
-    plug Tau5Web.Plugs.RequireDesktopMode
+    plug Tau5Web.Plugs.RequireInternalEndpoint
   end
 
-  # MCP server - only accessible in desktop mode (checked by plug)
+  # MCP server - only accessible from internal endpoint (localhost in dev, GUI in prod)
   scope "/tau5/mcp" do
     pipe_through(:mcp)
     
-    # Use Streamable HTTP transport - handles GET, POST, DELETE at the same endpoint
     forward("/", StreamableHTTP.Plug, server: Tau5MCP.Server)
   end
 
+  # Dev routes should only be accessible from the internal endpoint
+  # We check this at runtime to ensure they're never exposed on the public endpoint
   if Application.compile_env(:tau5, :dev_routes) do
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
       pipe_through(:browser)
+      pipe_through(:require_internal_endpoint)
       
       live_dashboard("/dashboard", metrics: Tau5Web.Telemetry)
       forward("/mailbox", Plug.Swoosh.MailboxPreview)
       
-      # Console route - security is handled by ConsoleSecurity plug
+      # Console route - additional security via ConsoleSecurity plug
       pipe_through(:console_secure)
       live("/console", Tau5Web.ConsoleLive, :console)
     end

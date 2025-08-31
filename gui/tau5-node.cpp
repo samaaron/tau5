@@ -52,7 +52,7 @@ void printUsage(const char* programName) {
               << "  dev              Run in development mode\n"
               << "  --enable-mcp     Enable MCP servers (tidewave in dev, hermes in prod)\n"
               << "  --enable-repl    Enable Elixir REPL console\n"
-              << "  --port <number>  Specify server port (default: 5555 in dev, random in prod)\n"
+              << "  --port <number>  Specify internal server port (default: random)\n"
               << "  --verbose        Enable verbose logging (show all BEAM output)\n"
               << "\n"
               << "Local I/O Services (requires compiled NIFs):\n"
@@ -60,6 +60,7 @@ void printUsage(const char* programName) {
               << "  --disable-link   Disable Ableton Link support\n"
               << "  --disable-discovery  Disable network discovery\n"
               << "  --disable-all    Disable all local I/O services\n"
+              << "  --public-endpoint Enable public endpoint on port 7005 for remote access\n"
               << "\n"
               << "  --help, -h       Show this help message\n"
               << "\n"
@@ -144,7 +145,7 @@ int main(int argc, char *argv[]) {
     quint16 port = args.customPort;
     if (port == 0) {
         if (args.devMode) {
-            port = Config::DEFAULT_PORT;
+            port = 0;  // Will allocate random port
             if (args.verboseLogging) {
                 Tau5Logger::instance().info("Development mode enabled");
             }

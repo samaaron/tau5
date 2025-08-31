@@ -10,7 +10,7 @@
 namespace Tau5Common {
     // Configuration constants
     namespace Config {
-        constexpr quint16 DEFAULT_PORT = 5555;
+        // Port is always dynamically allocated for security
         constexpr const char* APP_NAME = "tau5";
         constexpr const char* APP_VERSION = "0.1.0";
         

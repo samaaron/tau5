@@ -8,7 +8,7 @@
 #include <QFileInfo>
 
 SandboxedWebView::SandboxedWebView(bool devMode, QWidget *parent)
-    : QWebEngineView(parent), m_fallbackUrl("http://localhost:5555")
+    : QWebEngineView(parent), m_fallbackUrl("")  // No fallback - must be set with actual port
 {
     m_interceptor = new PhxUrlInterceptor(devMode);
     

@@ -231,8 +231,8 @@ int main(int argc, char *argv[])
                   << "  dev              Run in development mode\n"
                   << "  check            Verify production release and BEAM startup\n"
                   << "  --enable-mcp     Enable MCP servers (tau5-gui-dev in dev, hermes in prod)\n"
-                  << "  --enable-repl    Enable Elixir REPL console\n"
-                  << "  --port <number>  Specify server port (default: 5555 in dev, random in prod)\n"
+                  << "  --enable-repl    Enable Elixir REPL console (requires dev mode)\n"
+                  << "  --port <number>  Specify internal server port (default: random)\n"
                   << "  --verbose        Enable verbose logging (show all BEAM output)\n"
                   << "  --no-debug-pane  Disable debug pane\n"
                   << "\n"
@@ -241,6 +241,7 @@ int main(int argc, char *argv[])
                   << "  --disable-link       Disable Ableton Link support\n"
                   << "  --disable-discovery  Disable network discovery\n"
                   << "  --disable-all        Disable all local I/O services\n"
+                  << "  --public-endpoint    Enable public endpoint on port 7005 for remote access\n"
                   << "\n"
                   << "  --help, -h       Show this help message\n"
                   << "\n"
@@ -291,7 +292,7 @@ int main(int argc, char *argv[])
 
   Tau5Logger::initialize(logConfig);
 
-  quint16 port = args.customPort ? args.customPort : Tau5Common::Config::DEFAULT_PORT;
+  quint16 port = args.customPort ? args.customPort : 0;  // 0 means allocate random port
 
   Tau5Logger::instance().info("Starting Tau5...");
 
@@ -357,8 +358,16 @@ int main(int argc, char *argv[])
   else if (args.devMode)
   {
     Tau5Logger::instance().info("Development mode enabled.");
+    // In dev mode, also allocate a random port for security unless custom port specified
     if (!args.customPort) {
-      port = Tau5Common::Config::DEFAULT_PORT;
+      auto portHolder = allocatePort(port);
+      if (!portHolder || port == 0)
+      {
+        QMessageBox::critical(nullptr, "Error", "Failed to allocate port");
+        return 1;
+      }
+      Tau5Logger::instance().info(QString("Allocated port %1 for internal endpoint").arg(port));
+      // portHolder will be destroyed when going out of scope, releasing the port for the Beam process
     }
   }
   else

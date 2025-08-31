@@ -77,6 +77,8 @@
 .codicon-screen-full:before { content: '\eb61'; }
 .codicon-screen-normal:before { content: '\eb62'; }
 .codicon-terminal:before { content: '\ea85'; }
+.codicon-lock:before { content: '\eb5f'; }
+.codicon-unlock:before { content: '\eb60'; }
 
 .layout-controls button .codicon {
   font-size: 14px;
@@ -94,6 +96,51 @@
   height: 16px;
   background: rgba(255, 255, 255, 0.2);
   margin: 0 0.5rem;
+}
+
+/* Access type badge */
+.access-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.access-badge.access-local {
+  background: rgba(255, 20, 147, 0.15);
+  color: #FF1493;
+  border: 1px solid rgba(255, 20, 147, 0.25);
+  box-shadow: 0 0 10px rgba(255, 20, 147, 0.1);
+}
+
+.access-badge.access-local:hover {
+  background: rgba(255, 20, 147, 0.2);
+  border-color: rgba(255, 20, 147, 0.35);
+  box-shadow: 0 0 15px rgba(255, 20, 147, 0.15);
+}
+
+.access-badge.access-public {
+  background: rgba(100, 100, 100, 0.15);
+  color: #a0a0a0;
+  border: 1px solid rgba(100, 100, 100, 0.25);
+}
+
+.access-badge.access-public:hover {
+  background: rgba(100, 100, 100, 0.2);
+  border-color: rgba(100, 100, 100, 0.35);
+}
+
+.access-badge .codicon {
+  font-size: 13px;
+  opacity: 0.9;
 }
 
 .layout-info {

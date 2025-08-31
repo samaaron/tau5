@@ -21,6 +21,22 @@ config :tau5, Tau5Web.Endpoint,
   pubsub_server: Tau5.PubSub,
   live_view: [signing_salt: "knYdl8z1"]
 
+# Configures the public endpoint for remote access
+config :tau5, Tau5Web.PublicEndpoint,
+  url: [host: "0.0.0.0"],
+  adapter: Bandit.PhoenixAdapter,
+  render_errors: [
+    formats: [html: Tau5Web.ErrorHTML, json: Tau5Web.ErrorJSON],
+    layout: false
+  ],
+  pubsub_server: Tau5.PubSub,
+  live_view: [signing_salt: "KaBar2nliI8="],
+  server: true,
+  # Default HTTP config - will be updated with actual port at runtime
+  http: [port: 7005, ip: {0, 0, 0, 0}],
+  # Enable IPv6 support - Bandit will bind to both IPv4 and IPv6
+  http_options: [enable_ipv6: true]
+
 # Configures the mailer
 #
 # By default it uses the "Local" adapter which stores the emails
