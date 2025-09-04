@@ -506,6 +506,10 @@ int main(int argc, char *argv[]) {
                                 std::cout << "\n";
                             }
                             
+                            if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true" && serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
+                                std::cout << "  Console:   http://localhost:" << serverInfo.serverPort << "/dev/console?token=" << serverInfo.sessionToken.toStdString() << "\n";
+                            }
+                            
                             std::cout << "========================================================\n";
                             std::cout << "Press Ctrl+C to stop\n" << std::flush;
                         }
@@ -546,6 +550,10 @@ int main(int argc, char *argv[]) {
                         std::cout << " (with Tidewave)";
                     }
                     std::cout << "\n";
+                }
+                
+                if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true" && serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
+                    std::cout << "  Console:   http://localhost:" << serverInfo.serverPort << "/dev/console?token=" << serverInfo.sessionToken.toStdString() << "\n";
                 }
 
                 std::cout << "========================================================\n";
