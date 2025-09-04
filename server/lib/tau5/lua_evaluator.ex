@@ -138,21 +138,7 @@ defmodule Tau5.LuaEvaluator do
         memory_checker = spawn(fn -> memory_check_loop(self(), @config.max_heap_size) end)
 
         try do
-          # Measure just the evaluation time with monotonic clock
-          start_time = System.monotonic_time(:millisecond)
-          
-          # Set up a timer that will send a message after timeout
-          Process.send_after(self(), {:timeout_check, start_time}, @config.eval_timeout_ms)
-          
-          eval_result = eval_code(lua, code)
-          elapsed = System.monotonic_time(:millisecond) - start_time
-          
-          # Check if we exceeded the timeout
-          if elapsed > @config.eval_timeout_ms do
-            {:error, "Evaluation exceeded timeout (#{elapsed}ms > #{@config.eval_timeout_ms}ms)"}
-          else
-            eval_result
-          end
+          eval_code(lua, code)
         after
           Process.exit(memory_checker, :normal)
         end
@@ -178,21 +164,29 @@ defmodule Tau5.LuaEvaluator do
   end
   
   defp eval_code(lua, code) do
-    # Try as expression first, then as statement
+    # Try as expression first, then as statement (parsing phase - not timed)
     {code_to_eval, _is_expression} = 
       case Lua.parse_chunk("return " <> code) do
         {:ok, _} -> {"return " <> code, true}
         {:error, _} -> {code, false}
       end
     
-    # Direct evaluation 
+    # Time only the actual Lua evaluation
+    start_time = System.monotonic_time(:millisecond)
     {values, _state} = Lua.eval!(lua, code_to_eval)
-    formatted = format_result(values)
+    elapsed = System.monotonic_time(:millisecond) - start_time
     
-    if byte_size(formatted) > @config.max_output_size do
-      {:error, "Output too large (max #{@config.max_output_size} bytes)"}
+    # Check if evaluation exceeded timeout
+    if elapsed > @config.eval_timeout_ms do
+      {:error, "Evaluation exceeded timeout (#{elapsed}ms > #{@config.eval_timeout_ms}ms)"}
     else
-      {:ok, formatted}
+      formatted = format_result(values)
+      
+      if byte_size(formatted) > @config.max_output_size do
+        {:error, "Output too large (max #{@config.max_output_size} bytes)"}
+      else
+        {:ok, formatted}
+      end
     end
   end
 
