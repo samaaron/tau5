@@ -98,9 +98,15 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-:: Deploy Qt dependencies
+:: Deploy Qt dependencies if windeployqt is available
 cd /d "%ROOT_DIR%\release"
-%QT_INSTALL_LOCATION%\bin\windeployqt.exe tau5.exe
+if exist "%QT_INSTALL_LOCATION%\bin\windeployqt.exe" (
+    "%QT_INSTALL_LOCATION%\bin\windeployqt.exe" tau5.exe
+) else if exist "%Qt6_DIR%\bin\windeployqt.exe" (
+    "%Qt6_DIR%\bin\windeployqt.exe" tau5.exe
+) else (
+    echo WARNING: windeployqt not found, Qt dependencies may not be deployed
+)
 if %errorlevel% neq 0 (
     echo windeployqt failed
     cd /d "%WORKING_DIR%"

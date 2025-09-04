@@ -365,9 +365,16 @@ if(NOT BUILD_NODE_ONLY AND WIN32)
   # Copy runtime libs to build directory
   file(COPY ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
-  # Run winddeployqt if it can be found, to ensure installed dependencies
+  # Run windeployqt to deploy Qt dependencies (required for release builds)
+  find_program(WINDEPLOYQT windeployqt 
+    HINTS 
+      ${CMAKE_PREFIX_PATH}/bin 
+      ${Qt6_DIR}/../../../bin
+      $ENV{Qt6_DIR}/bin
+      $ENV{QT_INSTALL_LOCATION}/bin
+    REQUIRED)
   add_custom_command(TARGET ${APP_NAME} POST_BUILD
-    COMMAND ${CMAKE_PREFIX_PATH}/bin/windeployqt $<TARGET_FILE:${APP_NAME}>)
+    COMMAND ${WINDEPLOYQT} $<TARGET_FILE:${APP_NAME}>)
 endif() # Win32
 
 # Build options
