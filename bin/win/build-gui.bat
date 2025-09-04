@@ -27,7 +27,7 @@ cd ..\..\gui
 if not exist build mkdir build
 cd build
 
-cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=%CONFIG% -DBUILD_DEBUG_PANE=%BUILD_DEBUG_PANE% ..\
+cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=%CONFIG% -DBUILD_DEBUG_PANE=%BUILD_DEBUG_PANE% -DBUILD_NODE_ONLY=OFF ..\
 
 cmake --build . --config %CONFIG% --target tau5
 

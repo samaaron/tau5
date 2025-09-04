@@ -28,11 +28,11 @@ defmodule Tau5Web.Plugs.ConsoleSecurity do
     if Application.get_env(:tau5, :console_enabled, false) do
       :ok
     else
-      Logger.info("Tau5 Console - Access blocked, TAU5_ENABLE_DEV_REPL not set")
+      Logger.info("Tau5 Console - Access blocked, TAU5_ELIXIR_REPL_ENABLED not set")
       {:error, """
       The Tau5 Elixir REPL console is disabled for security.
       
-      To enable the console, set the TAU5_ENABLE_DEV_REPL=1 environment variable
+      To enable the console, set the TAU5_ELIXIR_REPL_ENABLED=true environment variable
       before starting Tau5, then restart the server.
       
       This feature should only be enabled in trusted development environments.

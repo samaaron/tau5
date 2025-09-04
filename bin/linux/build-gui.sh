@@ -38,9 +38,9 @@ cd "${BUILD_DIR}"
 
 if [[ $(uname -m) == 'arm64' ]] || [ "$TAU5_BUILD_TARGET" == 'arm64' ]
 then
-  cmake -G "Unix Makefiles" -DCMAKE_OSC_ARCHITECTURES="ARM64" -DCMAKE_BUILD_TYPE="$CONFIG" -DBUILD_DEBUG_PANE=${BUILD_DEBUG_PANE} ..
+  cmake -G "Unix Makefiles" -DCMAKE_OSC_ARCHITECTURES="ARM64" -DCMAKE_BUILD_TYPE="$CONFIG" -DBUILD_DEBUG_PANE=${BUILD_DEBUG_PANE} -DBUILD_NODE_ONLY=OFF ..
 else
-  cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="$CONFIG" -DBUILD_DEBUG_PANE=${BUILD_DEBUG_PANE} ..
+  cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="$CONFIG" -DBUILD_DEBUG_PANE=${BUILD_DEBUG_PANE} -DBUILD_NODE_ONLY=OFF ..
 fi
 
 cmake --build . --target tau5

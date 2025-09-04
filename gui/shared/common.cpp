@@ -49,22 +49,33 @@ std::unique_ptr<QTcpServer> allocatePort(quint16& outPort, const QHostAddress& a
     return nullptr;
 }
 
-QString getServerBasePath() {
-    // Always use environment variable - it should be set by launch scripts
+QString getServerBasePath(const std::string& commandLineOverride) {
+    // Priority 1: Command-line override
+    if (!commandLineOverride.empty()) {
+        QString overridePath = QString::fromStdString(commandLineOverride);
+        return QDir(overridePath).absolutePath();
+    }
+    
+    // Priority 2: Environment variable
     QString serverPath = qEnvironmentVariable("TAU5_SERVER_PATH");
     if (!serverPath.isEmpty()) {
-        if (!QDir(serverPath).exists()) {
-            qWarning() << "TAU5_SERVER_PATH set but directory doesn't exist:" << serverPath;
-        }
         return QDir(serverPath).absolutePath();
     }
 
-    // Environment variable not set - this shouldn't happen in normal usage
-    qCritical() << "TAU5_SERVER_PATH environment variable not set!";
-    qCritical() << "Please use the launch scripts in bin/ or set TAU5_SERVER_PATH manually.";
-
-    // Return current directory as last resort (will likely fail)
-    return QCoreApplication::applicationDirPath();
+    // Priority 3: Compiled-in default (if set at build time)
+#ifdef TAU5_SERVER_PATH_DEFAULT
+    QString defaultPath = QString(TAU5_SERVER_PATH_DEFAULT);
+    // If it's a relative path, resolve it from the binary location
+    if (QDir::isRelativePath(defaultPath)) {
+        QDir appDir(QCoreApplication::applicationDirPath());
+        return appDir.absoluteFilePath(defaultPath);
+    }
+    return defaultPath;
+#else
+    // No default configured - return empty string
+    // The caller should handle this as a fatal error
+    return QString();
+#endif
 }
 
 bool setupConsoleOutput() {

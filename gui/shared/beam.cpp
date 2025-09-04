@@ -216,20 +216,7 @@ void Beam::startElixirServerDev()
   Tau5Logger::instance().info( "Starting Elixir server in Development mode");
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   
-  QString modeString;
-  switch(deploymentMode) {
-    case DeploymentMode::Gui:
-      modeString = "gui";
-      break;
-    case DeploymentMode::Node:
-      modeString = "node";
-      break;
-    case DeploymentMode::Central:
-      modeString = "central";
-      break;
-  }
-  env.insert("TAU5_MODE", modeString);
-  env.insert("TAU5_ENV", "dev");
+  // TAU5_MODE is already set by the binary (tau5 or tau5-node)
   
   if (useStdinConfig) {
     env.insert("TAU5_USE_STDIN_CONFIG", "true");
@@ -244,20 +231,28 @@ void Beam::startElixirServerDev()
   }
   
   env.insert("PHX_HOST", "127.0.0.1");
-  env.insert("MIX_ENV", "dev");
+  // MIX_ENV should already be set by the binary based on mode flags
+  // Only set it if not already present (backward compatibility)
+  if (env.value("MIX_ENV").isEmpty()) {
+    env.insert("MIX_ENV", "dev");  // Development mode default for startElixirServerDev
+  }
   env.insert("RELEASE_DISTRIBUTION", "none");
 
   QString sessionPath = Tau5Logger::instance().currentSessionPath();
   env.insert("TAU5_LOG_DIR", sessionPath);
   Tau5Logger::instance().debug(QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
 
-  if (enableMcp) {
-    env.insert("TAU5_ENABLE_DEV_MCP", "1");
-    Tau5Logger::instance().debug( "MCP enabled for Elixir server");
+  // MCP configuration
+  if (env.value("TAU5_MCP_PORT").toInt() > 0) {
+    Tau5Logger::instance().debug(QString("MCP endpoint enabled on port %1").arg(env.value("TAU5_MCP_PORT")));
   }
-  if (enableRepl) {
-    env.insert("TAU5_ENABLE_DEV_REPL", "1");
-    Tau5Logger::instance().debug( "REPL enabled for Elixir server");
+  if (env.value("TAU5_TIDEWAVE_ENABLED") == "true") {
+    Tau5Logger::instance().debug("Tidewave development tools enabled on MCP endpoint");
+  }
+  
+  // Elixir REPL configuration (development only)
+  if (env.value("TAU5_ELIXIR_REPL_ENABLED") == "true") {
+    Tau5Logger::instance().debug("Elixir REPL enabled for development");
   }
 
 #ifdef Q_OS_WIN
@@ -299,8 +294,10 @@ void Beam::startElixirServerProd()
       modeString = "central";
       break;
   }
-  env.insert("TAU5_MODE", modeString);
-  env.insert("TAU5_ENV", "prod");
+  // TAU5_MODE should already be set by the binary, but set it as fallback
+  if (env.value("TAU5_MODE").isEmpty()) {
+    env.insert("TAU5_MODE", modeString);
+  }
   
   if (useStdinConfig) {
     env.insert("TAU5_USE_STDIN_CONFIG", "true");
@@ -317,7 +314,11 @@ void Beam::startElixirServerProd()
   }
   
   env.insert("PHX_HOST", "127.0.0.1");
-  env.insert("MIX_ENV", "prod");
+  // MIX_ENV should already be set by the binary based on mode flags
+  // Only set it if not already present (backward compatibility)
+  if (env.value("MIX_ENV").isEmpty()) {
+    env.insert("MIX_ENV", "prod");  // Production mode default for startElixirServerProd
+  }
   env.insert("RELEASE_DISTRIBUTION", "none");
   
   // Use environment variable if set, otherwise use auto-generated key
@@ -333,13 +334,17 @@ void Beam::startElixirServerProd()
   env.insert("TAU5_LOG_DIR", sessionPath);
   Tau5Logger::instance().debug(QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
 
-  if (enableMcp) {
-    env.insert("TAU5_ENABLE_DEV_MCP", "1");
-    Tau5Logger::instance().debug( "MCP enabled for Elixir server");
+  // MCP configuration
+  if (env.value("TAU5_MCP_PORT").toInt() > 0) {
+    Tau5Logger::instance().debug(QString("MCP endpoint enabled on port %1").arg(env.value("TAU5_MCP_PORT")));
   }
-  if (enableRepl) {
-    env.insert("TAU5_ENABLE_DEV_REPL", "1");
-    Tau5Logger::instance().debug( "REPL enabled for Elixir server");
+  if (env.value("TAU5_TIDEWAVE_ENABLED") == "true") {
+    Tau5Logger::instance().debug("Tidewave development tools enabled on MCP endpoint");
+  }
+  
+  // Elixir REPL configuration (development only)
+  if (env.value("TAU5_ELIXIR_REPL_ENABLED") == "true") {
+    Tau5Logger::instance().debug("Elixir REPL enabled for development");
   }
 
   env.insert("RELEASE_SYS_CONFIG", releaseSysPath);

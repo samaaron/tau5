@@ -27,9 +27,10 @@ config :tau5, :heartbeat_enabled,
   System.get_env("TAU5_HEARTBEAT_ENABLED", "false") == "true"
 
 # Deployment mode configuration
-# :gui - Running as Qt GUI desktop app
-# :node - Running as standalone node server (headless)
-# :central - Running as the authoritative tau5.sonic-pi.net server
+# TAU5_MODE is set by the binaries:
+# - tau5 binary sets "gui" for desktop app
+# - tau5-node binary sets "node" for headless server (or "central" with --target-central flag)
+# - Direct mix phx.server uses env var or defaults to "node"
 config :tau5,
   deployment_mode: System.get_env("TAU5_MODE", "node") |> String.to_atom()
 
@@ -38,6 +39,29 @@ config :tau5, Tau5.ConfigRepo,
   pool_size: 1,
   busy_timeout: 5_000,
   journal_mode: :wal
+
+# Configure MCP endpoint and servers
+config :tau5, :mcp_enabled,
+  System.get_env("TAU5_MCP_ENABLED", "false") == "true"
+
+# Safe port parsing helper
+parse_port = fn env_var, default ->
+  case System.get_env(env_var, default) do
+    "" -> String.to_integer(default)
+    value ->
+      case Integer.parse(value) do
+        {port, ""} when port >= 0 and port <= 65535 -> port
+        _ -> 
+          IO.warn("Invalid port value for #{env_var}: #{value}, using default: #{default}")
+          String.to_integer(default)
+      end
+  end
+end
+
+config :tau5, :mcp_port, parse_port.("TAU5_MCP_PORT", "5555")
+
+config :tau5, :tidewave_enabled,
+  System.get_env("TAU5_TIDEWAVE_ENABLED", "false") == "true"
 
 # Security configuration for development tools
 # IMPORTANT: These should NEVER be enabled in production!
@@ -51,28 +75,48 @@ else
   # In dev/test, check if console should be enabled via env var
   # Default to false for security unless explicitly enabled
   # Accept "1", "true", or "yes" as enabled
-  repl_enabled = System.get_env("TAU5_ENABLE_DEV_REPL", "false")
+  repl_enabled = System.get_env("TAU5_ELIXIR_REPL_ENABLED", "false")
   config :tau5, console_enabled: repl_enabled in ["1", "true", "yes"]
 end
 
 # Configure NIF services
-# These can be disabled via environment variables
-# Skip these configurations in test environment where they're already set
+# These can be disabled via environment variables or based on deployment mode
 if config_env() != :test do
-  config :tau5, :midi_enabled,
-    System.get_env("TAU5_MIDI_ENABLED", "true") != "false"
+  target = System.get_env("TAU5_MODE", "node")
+  
+  # Central deployment always disables NIFs
+  if target == "central" do
+    config :tau5, :midi_enabled, false
+    config :tau5, :link_enabled, false
+    config :tau5, :discovery_enabled, false
+  else
+    # For gui and node targets, check individual env vars
+    config :tau5, :midi_enabled,
+      System.get_env("TAU5_MIDI_ENABLED", "true") != "false"
 
-  config :tau5, :link_enabled,
-    System.get_env("TAU5_LINK_ENABLED", "true") != "false"
+    config :tau5, :link_enabled,
+      System.get_env("TAU5_LINK_ENABLED", "true") != "false"
 
-  config :tau5, :discovery_enabled,
-    System.get_env("TAU5_DISCOVERY_ENABLED", "true") != "false"
+    config :tau5, :discovery_enabled,
+      System.get_env("TAU5_DISCOVERY_ENABLED", "true") != "false"
+  end
 end
 
-# Configure public endpoint for remote access
-# Set TAU5_PUBLIC_ENDPOINT=true to enable remote access by default
-config :tau5, :public_endpoint_enabled,
-  System.get_env("TAU5_PUBLIC_ENDPOINT", "false") == "true"
+# Configure endpoints
+# Local port defaults to PORT env var or 0 for random allocation
+local_port_default = System.get_env("PORT", "0")
+config :tau5, :local_port,
+  parse_port.("TAU5_LOCAL_PORT", local_port_default)
+
+# Public endpoint configuration
+# Public endpoint is enabled if TAU5_PUBLIC_PORT is set and > 0
+public_port = parse_port.("TAU5_PUBLIC_PORT", "0")
+config :tau5, :public_port, public_port
+config :tau5, :public_endpoint_enabled, public_port > 0
+
+# MCP endpoint is enabled when TAU5_MCP_ENABLED is true
+# Port is already configured above
+
 
 # Configure public endpoint secret key for non-test environments
 if config_env() != :test do
@@ -116,7 +160,7 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST") || "127.0.0.1"
   # Port must be provided by GUI or use 0 for random allocation
-  port = String.to_integer(System.get_env("PORT") || "0")
+  port = parse_port.("PORT", "0")
 
   config :tau5, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 

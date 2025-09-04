@@ -15,4 +15,5 @@ cd "${ROOT_DIR}"
 # Set server path for dev mode
 export TAU5_SERVER_PATH="${ROOT_DIR}/server"
 
-./gui/build/tau5 dev --enable-mcp --enable-repl --public-endpoint
+# Quick development setup with all dev tools enabled
+./gui/build/bin/tau5 --devtools

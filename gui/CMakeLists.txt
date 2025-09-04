@@ -38,6 +38,69 @@ set_property(GLOBAL PROPERTY AUTOGEN_TARGETS_FOLDER Automoc)
 
 option(BUILD_NODE_ONLY "Build only the tau5-node CLI without GUI dependencies" OFF)
 
+# Set consistent output directories for all platforms
+# Note: macOS app bundles will still go in the default location
+if(NOT APPLE)
+  # For Windows and Linux, put binaries in build/bin
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/bin)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/bin)
+endif()
+
+# On Windows, also set library output to the same directory so DLLs are found
+if(WIN32)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/bin)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/bin)
+endif()
+
+# Server path configuration
+# For development builds, the default assumes running from the build directory
+# For installation builds, set TAU5_INSTALL_SERVER_PATH to the installation location
+if(DEFINED TAU5_INSTALL_SERVER_PATH)
+  # Explicit installation path provided
+  set(TAU5_SERVER_PATH_DEFAULT "${TAU5_INSTALL_SERVER_PATH}")
+  message(STATUS "Server installation path: ${TAU5_SERVER_PATH_DEFAULT}")
+elseif(CMAKE_INSTALL_PREFIX STREQUAL "/usr/local" OR CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+  # Check if we're in the tau5 source tree (development build)
+  if(EXISTS "${CMAKE_SOURCE_DIR}/../server/mix.exs")
+    # Development build - use relative path from binary location
+    if(APPLE)
+      # From gui/build/Tau5.app/Contents/MacOS/Tau5 -> server
+      set(TAU5_SERVER_PATH_DEFAULT "../../../../../../server")
+    elseif(WIN32)
+      # From gui/build/bin/tau5.exe -> server
+      set(TAU5_SERVER_PATH_DEFAULT "../../../server")
+    else()
+      # From gui/build/bin/tau5 -> server
+      set(TAU5_SERVER_PATH_DEFAULT "../../../server")
+    endif()
+    message(STATUS "Development build detected - server path relative to binary: ${TAU5_SERVER_PATH_DEFAULT}")
+  else()
+    # Installation build - assume standard layout
+    set(TAU5_SERVER_PATH_DEFAULT "${CMAKE_INSTALL_PREFIX}/share/tau5/server")
+    message(STATUS "Installation build - server path: ${TAU5_SERVER_PATH_DEFAULT}")
+  endif()
+else()
+  # Non-standard install prefix - assume development build
+  # Use relative path from binary location
+  if(APPLE)
+    # From gui/build/Tau5.app/Contents/MacOS/Tau5 -> server
+    set(TAU5_SERVER_PATH_DEFAULT "../../../../../../server")
+  elseif(WIN32)
+    # From gui/build/bin/tau5.exe -> server
+    set(TAU5_SERVER_PATH_DEFAULT "../../../server")
+  else()
+    # From gui/build/bin/tau5 -> server
+    set(TAU5_SERVER_PATH_DEFAULT "../../../server")
+  endif()
+  message(STATUS "Development build - server path relative to binary: ${TAU5_SERVER_PATH_DEFAULT}")
+endif()
+
 if(BUILD_NODE_ONLY)
   find_package(Qt6 COMPONENTS Core Network Concurrent REQUIRED)
 else()
@@ -224,6 +287,9 @@ if(NOT BUILD_NODE_ONLY)
   if(BUILD_DEBUG_PANE)
     target_compile_definitions(${APP_NAME} PRIVATE BUILD_WITH_DEBUG_PANE)
   endif()
+  
+  # Add server path definition
+  target_compile_definitions(${APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="${TAU5_SERVER_PATH_DEFAULT}")
 endif()
 
 # Build tau5-node CLI executable
@@ -243,6 +309,9 @@ target_link_libraries(${NODE_APP_NAME}
   tau5_core
   Qt::Core
   Qt::Network)
+
+# Add server path definition for tau5-node as well
+target_compile_definitions(${NODE_APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="${TAU5_SERVER_PATH_DEFAULT}")
 
 # Deploy Qt binaries to the output on windows, and copy the CRT to the release folder
 if(NOT BUILD_NODE_ONLY AND WIN32)

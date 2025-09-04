@@ -9,7 +9,12 @@ add_library(tau5_core STATIC
     tau5logger.h
     common.cpp
     common.h
+    health_check.cpp
+    health_check.h
+    test_cli_args.cpp
+    test_cli_args.h
     error_codes.h
+    cli_args.h
 )
 
 # Set properties for the library
@@ -48,6 +53,11 @@ target_compile_definitions(tau5_core
     PRIVATE
         TAU5_CORE_IMPL
 )
+
+# Add server path definition from parent CMakeLists
+if(DEFINED TAU5_SERVER_PATH_DEFAULT)
+    target_compile_definitions(tau5_core PRIVATE TAU5_SERVER_PATH_DEFAULT="${TAU5_SERVER_PATH_DEFAULT}")
+endif()
 
 # Platform-specific configurations
 if(WIN32)
