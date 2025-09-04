@@ -81,24 +81,23 @@ jobs:
           sudo apt-get install -y libasound2-dev libevent-dev libminizip-dev
         if: startsWith(matrix.os, 'ubuntu')
 
-      # Build - Windows
-      - name: Build Windows
+      # Build Release - Windows
+      - name: Build Release (Windows)
         working-directory: ${{github.workspace}}/bin/win
         shell: cmd
-        run: build-all.bat
+        run: build-release.bat
         if: startsWith(matrix.os, 'windows')
 
-      # Build - macOS
-      - name: Build macOS
+      # Build Release - macOS
+      - name: Build Release (macOS)
         working-directory: ${{github.workspace}}/bin/mac
-        run: ./build-all.sh
+        run: ./build-release.sh
         if: startsWith(matrix.os, 'macos')
 
-      # Build - Linux
-      - name: Build Linux
+      # Build Release - Linux
+      - name: Build Release (Linux)
         working-directory: ${{github.workspace}}/bin/linux
-        run: |
-          ./build-all.sh
+        run: ./build-release.sh
         env:
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cc == 'clang' && 'clang++' || 'g++' }}
@@ -123,27 +122,27 @@ jobs:
         run: mix test
         if: startsWith(matrix.os, 'ubuntu')
 
-      # GUI Production Mode Check - Windows
-      - name: GUI Production Mode Check (Windows)
+      # Release Health Checks
+      # The --check flag now understands release builds
+      
+      - name: Release Health Check (Windows)
         shell: cmd
-        working-directory: ${{github.workspace}}/gui/build/Release/
-        run: tau5.exe check
-        env:
-          TAU5_SERVER_PATH: ${{github.workspace}}/server
+        working-directory: ${{github.workspace}}/release/
+        run: |
+          tau5.exe --check
+          tau5-node.exe --check
         if: startsWith(matrix.os, 'windows')
 
-      # GUI Production Mode Check - macOS
-      - name: GUI Production Mode Check (macOS)
-        working-directory: ${{github.workspace}}/gui/build/Tau5.app/Contents/MacOS/
-        run: ./Tau5 check
-        env:
-          TAU5_SERVER_PATH: ${{github.workspace}}/server
+      - name: Release Health Check (macOS)
+        working-directory: ${{github.workspace}}/release/
+        run: |
+          Tau5.app/Contents/MacOS/Tau5 --check
+          Tau5.app/Contents/MacOS/tau5-node --check
         if: startsWith(matrix.os, 'macos')
 
-      # GUI Production Mode Check - Linux
-      - name: GUI Production Mode Check (Linux)
-        working-directory: ${{github.workspace}}/gui/build/
-        run: ./tau5 check
-        env:
-          TAU5_SERVER_PATH: ${{github.workspace}}/server
+      - name: Release Health Check (Linux)
+        working-directory: ${{github.workspace}}/release/Tau5-Linux/
+        run: |
+          ./tau5 --check
+          ./tau5-node --check
         if: startsWith(matrix.os, 'ubuntu')

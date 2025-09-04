@@ -5,8 +5,6 @@ GUI_DIR="${ROOT_DIR}/gui"
 BUILD_DIR="${GUI_DIR}/build"
 SERVER_DIR="${ROOT_DIR}/server"
 
-# Set server path explicitly for development
-export TAU5_SERVER_PATH="${SERVER_DIR}"
-
-# Pass all arguments to tau5-node
-"${BUILD_DIR}/tau5-node" "$@"
+# Use --server-path flag for development
+# The binary should be in bin/ on Linux
+"${BUILD_DIR}/bin/tau5-node" --server-path "${SERVER_DIR}" "$@"

@@ -28,6 +28,9 @@ rm -rf priv/static/assets/*
 
 cd "${ROOT_DIR}"
 rm -rf gui/build
-rm -rf Release
+rm -rf gui/build-release
+rm -rf release/*
+# Keep the release directory structure but remove contents
+[ -d release ] && touch release/.gitkeep
 rm -rf build
 

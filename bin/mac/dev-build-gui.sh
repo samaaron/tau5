@@ -43,5 +43,7 @@ else
   cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="$CONFIG" -DBUILD_DEBUG_PANE=${BUILD_DEBUG_PANE} -DBUILD_NODE_ONLY=OFF ..
 fi
 
+# Build both tau5 and tau5-node
+# tau5-node will be placed only inside the app bundle, not as standalone
 cmake --build . --target tau5
 cmake --build . --target tau5-node

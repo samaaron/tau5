@@ -155,86 +155,175 @@ QList<CheckResult> checkServerComponents(const HealthCheckConfig& config) {
         "Server Components",
         "Server directory found",
         CheckStatus::Passed,
-        config.serverPath,
+        "",  // Don't show path in success case
         false
     });
     
-    // Check for Elixir project files
-    if (serverDir.exists("mix.exs")) {
-        results.append({
-            "Server Components",
-            "Elixir project structure",
-            CheckStatus::Passed,
-            "mix.exs found",
-            false
-        });
-    } else {
-        results.append({
-            "Server Components",
-            "Elixir project structure",
-            CheckStatus::Failed,
-            "mix.exs not found",
-            true
-        });
-    }
+    #ifdef TAU5_RELEASE_BUILD
+    bool isReleaseBuild = true;
+    #else
+    bool isReleaseBuild = false;
+    #endif
     
-    // Check for lib directory
-    if (serverDir.exists("lib/tau5")) {
-        results.append({
-            "Server Components",
-            "Tau5 source code",
-            CheckStatus::Passed,
-            "lib/tau5 found",
-            false
-        });
+    if (isReleaseBuild) {
+        // This is a release build - check release structure
+        
+        // Check for release binary
+        if (serverDir.exists("bin/tau5")) {
+            results.append({
+                "Server Components",
+                "Release binary",
+                CheckStatus::Passed,
+                "bin/tau5 found",
+                false
+            });
+        } else {
+            results.append({
+                "Server Components",
+                "Release binary",
+                CheckStatus::Failed,
+                "bin/tau5 not found",
+                true
+            });
+        }
+        
+        // Check for lib directory with BEAM files
+        if (serverDir.exists("lib")) {
+            results.append({
+                "Server Components",
+                "BEAM libraries",
+                CheckStatus::Passed,
+                "lib/ directory found",
+                false
+            });
+        } else {
+            results.append({
+                "Server Components",
+                "BEAM libraries",
+                CheckStatus::Failed,
+                "lib/ directory not found",
+                true
+            });
+        }
+        
+        // Check for releases directory
+        if (serverDir.exists("releases")) {
+            results.append({
+                "Server Components",
+                "Release metadata",
+                CheckStatus::Passed,
+                "releases/ directory found",
+                false
+            });
+        } else {
+            results.append({
+                "Server Components",
+                "Release metadata",
+                CheckStatus::Failed,
+                "releases/ directory not found",
+                true
+            });
+        }
+        
+        // Check for embedded ERTS (Erlang runtime)
+        QStringList ertsDirs = serverDir.entryList(QStringList() << "erts-*", QDir::Dirs);
+        if (!ertsDirs.isEmpty()) {
+            results.append({
+                "Server Components",
+                "Embedded Erlang runtime",
+                CheckStatus::Passed,
+                ertsDirs.first() + " found",
+                false
+            });
+        } else {
+            results.append({
+                "Server Components",
+                "Embedded Erlang runtime",
+                CheckStatus::Failed,
+                "erts-* directory not found",
+                true
+            });
+        }
     } else {
-        results.append({
-            "Server Components",
-            "Tau5 source code",
-            CheckStatus::Failed,
-            "lib/tau5 not found",
-            true
-        });
-    }
-    
-    // Check for production release
-    QString releasePath = QString("%1/_build/prod/rel/tau5").arg(config.serverPath);
-    if (QDir(releasePath).exists()) {
-        results.append({
-            "Server Components",
-            "Production release",
-            CheckStatus::Passed,
-            "Found",
-            false
-        });
-    } else {
-        results.append({
-            "Server Components",
-            "Production release",
-            CheckStatus::Warning,
-            "Not built (run: mix release)",
-            false
-        });
-    }
-    
-    // Check for development dependencies
-    QString depsPath = QString("%1/deps").arg(config.serverPath);
-    if (QDir(depsPath).exists()) {
-        results.append({
-            "Server Components",
-            "Dependencies",
-            CheckStatus::Passed,
-            "deps/ directory found",
-            false
-        });
-    } else {
-        results.append({
-            "Server Components",
-            "Dependencies",
-            CheckStatus::Warning,
-            "Not installed (run: mix deps.get)",
-            false
-        });
+        // This is a development build - check source structure
+        
+        // Check for Elixir project files
+        if (serverDir.exists("mix.exs")) {
+            results.append({
+                "Server Components",
+                "Elixir project structure",
+                CheckStatus::Passed,
+                "mix.exs found",
+                false
+            });
+        } else {
+            results.append({
+                "Server Components",
+                "Elixir project structure",
+                CheckStatus::Failed,
+                "mix.exs not found",
+                true
+            });
+        }
+        
+        // Check for lib directory
+        if (serverDir.exists("lib/tau5")) {
+            results.append({
+                "Server Components",
+                "Tau5 source code",
+                CheckStatus::Passed,
+                "lib/tau5 found",
+                false
+            });
+        } else {
+            results.append({
+                "Server Components",
+                "Tau5 source code",
+                CheckStatus::Failed,
+                "lib/tau5 not found",
+                true
+            });
+        }
+        
+        // Check for production release (optional in dev)
+        QString releasePath = QString("%1/_build/prod/rel/tau5").arg(config.serverPath);
+        if (QDir(releasePath).exists()) {
+            results.append({
+                "Server Components",
+                "Production release",
+                CheckStatus::Passed,
+                "Found",
+                false
+            });
+        } else {
+            results.append({
+                "Server Components",
+                "Production release",
+                CheckStatus::Warning,
+                "Not built (run: mix release)",
+                false
+            });
+        }
+        
+        // Check for development dependencies
+        QString depsPath = QString("%1/deps").arg(config.serverPath);
+        if (QDir(depsPath).exists()) {
+            results.append({
+                "Server Components",
+                "Dependencies",
+                CheckStatus::Passed,
+                "deps/ directory found",
+                false
+            });
+        } else {
+            results.append({
+                "Server Components",
+                "Dependencies",
+                CheckStatus::Warning,
+                "Not installed (run: mix deps.get)",
+                false
+            });
+        }
     }
     
     return results;
@@ -360,8 +449,16 @@ QList<CheckResult> checkBEAMRuntime(const HealthCheckConfig& config) {
         return results;
     }
     
-    // Check BEAM runtime components (without starting the VM)
-    QString releasePath = QString("%1/_build/prod/rel/tau5").arg(config.serverPath);
+    #ifdef TAU5_RELEASE_BUILD
+    bool isReleaseBuild = true;
+    #else
+    bool isReleaseBuild = false;
+    #endif
+    
+    // For release builds, the server path IS the release path
+    // For dev builds, look in _build/prod/rel/tau5
+    QString releasePath = isReleaseBuild ? config.serverPath : QString("%1/_build/prod/rel/tau5").arg(config.serverPath);
+    
     if (QDir(releasePath).exists()) {
         // Check for ERTS
         QDir releaseDir(releasePath);
@@ -460,8 +557,17 @@ QList<CheckResult> checkBEAMRuntime(const HealthCheckConfig& config) {
 QList<CheckResult> checkNIFs(const HealthCheckConfig& config) {
     QList<CheckResult> results;
     
+    #ifdef TAU5_RELEASE_BUILD
+    bool isReleaseBuild = true;
+    #else
+    bool isReleaseBuild = false;
+    #endif
+    
+    // For release builds, the server path IS the release path
+    // For dev builds, look in _build/prod/rel/tau5
+    QString releasePath = isReleaseBuild ? config.serverPath : QString("%1/_build/prod/rel/tau5").arg(config.serverPath);
+    
     // NIFs are bundled with the main tau5 application in tau5-{version}/priv/nifs/
-    QString releasePath = QString("%1/_build/prod/rel/tau5").arg(config.serverPath);
     QString nifPath = QString("%1/lib/tau5-%2/priv/nifs").arg(releasePath).arg(Config::APP_VERSION);
     QDir nifDir(nifPath);
     

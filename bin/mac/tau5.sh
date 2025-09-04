@@ -13,7 +13,6 @@ trap cleanup_function EXIT
 
 cd "${ROOT_DIR}"
 
-# Set server path explicitly for development
-export TAU5_SERVER_PATH="${SERVER_DIR}"
 # Quick development setup with all dev tools enabled
-./gui/build/bin/Tau5.app/Contents/MacOS/Tau5 --devtools
+# Use --server-path flag instead of environment variable
+./gui/build/bin/Tau5.app/Contents/MacOS/Tau5 --server-path "${SERVER_DIR}" --devtools

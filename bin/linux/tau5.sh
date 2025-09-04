@@ -12,8 +12,6 @@ trap cleanup_function EXIT
 
 cd "${ROOT_DIR}"
 
-# Set server path for dev mode
-export TAU5_SERVER_PATH="${ROOT_DIR}/server"
-
 # Quick development setup with all dev tools enabled
-./gui/build/bin/tau5 --devtools
+# Use --server-path flag instead of environment variable
+./gui/build/bin/tau5 --server-path "${ROOT_DIR}/server" --devtools

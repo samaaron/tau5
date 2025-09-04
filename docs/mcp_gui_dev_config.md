@@ -16,7 +16,7 @@ cmd.exe /c "bin\win\build-gui.bat"
 
 # macOS/Linux
 cd tau5
-./bin/mac/build-gui.sh  # or ./bin/linux/build-gui.sh
+./bin/mac/dev-build-gui.sh  # or ./bin/linux/dev-build-gui.sh
 ```
 
 This will build both Tau5 and the tau5-dev-gui-mcp-server executable.

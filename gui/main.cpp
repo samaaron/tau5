@@ -309,6 +309,17 @@ int main(int argc, char *argv[])
 
   // Check if we're in dev environment from the parsed arguments
   bool isDevMode = (args.env == Tau5CLI::CommonArgs::Env::Dev);
+  
+  // Validate that the requested mode matches the build type
+#ifdef TAU5_RELEASE_BUILD
+  // Release builds must run in production mode
+  if (isDevMode) {
+    std::cerr << "Error: Cannot use --env-dev with a release build.\n";
+    std::cerr << "Release builds only support production mode.\n";
+    return 1;
+  }
+#endif
+
   if (isDevMode)
   {
     setupConsoleOutput();
@@ -431,6 +442,49 @@ int main(int argc, char *argv[])
     QMessageBox::critical(nullptr, "Error", "Server directory not found:\n" + basePath);
     return 1;
   }
+
+#ifndef TAU5_RELEASE_BUILD
+  // Development build - validate server structure matches requested mode
+  QDir serverDir(basePath);
+  
+  bool hasSourceStructure = serverDir.exists("mix.exs");
+  bool hasReleaseStructure = serverDir.exists("bin/tau5");
+  
+  if (isDevMode && !hasSourceStructure) {
+    Tau5Logger::instance().error("--env-dev requires source structure (mix.exs) but not found");
+    Tau5Logger::instance().error(QString("Server path: %1").arg(basePath));
+    QMessageBox::critical(nullptr, "Error", 
+                          "Development mode requires source structure.\n\n"
+                          "mix.exs not found in:\n" + basePath + "\n\n"
+                          "This appears to be a release structure. Use --env-prod instead.");
+    return 1;
+  }
+  
+  if (!isDevMode && !hasReleaseStructure) {
+    // Only error if we also don't have source structure
+    if (!hasSourceStructure) {
+      Tau5Logger::instance().error("--env-prod requires release structure but server directory is invalid");
+      Tau5Logger::instance().error(QString("Server path: %1").arg(basePath));
+      QMessageBox::critical(nullptr, "Error", 
+                            "Production mode requires release structure.\n\n"
+                            "Neither mix.exs nor bin/tau5 found in:\n" + basePath);
+      return 1;
+    }
+    // If we have source structure but no release, give helpful message
+    Tau5Logger::instance().error("--env-prod requires release structure (bin/tau5) but not found");
+    QString helpMessage = QString(
+      "Production mode requires a compiled release.\n\n"
+      "To create a production release:\n"
+      "1. cd %1\n"
+      "2. MIX_ENV=prod mix deps.get --only prod\n"
+      "3. MIX_ENV=prod mix compile\n"
+      "4. MIX_ENV=prod mix release\n\n"
+      "Or use --env-dev for development mode."
+    ).arg(basePath);
+    QMessageBox::critical(nullptr, "Error", helpMessage);
+    return 1;
+  }
+#endif
 
   // Map environment variables to mainwindow constructor parameters
   bool enableMcp = (qgetenv("TAU5_MCP_PORT") != "0" && !qgetenv("TAU5_MCP_PORT").isEmpty());

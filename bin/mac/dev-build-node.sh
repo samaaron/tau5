@@ -34,13 +34,14 @@ cd "${BUILD_DIR}"
 echo "Building tau5-node CLI for macOS..."
 
 # Check for architecture
+# BUILD_NODE_ONLY=ON ensures tau5-node is built as standalone binary in build/bin/
 if [[ $(uname -m) == 'arm64' ]]
 then
   echo "Building for Apple Silicon (arm64)..."
-  cmake -G "Unix Makefiles" -DCMAKE_OSX_ARCHITECTURES="arm64" -DCMAKE_BUILD_TYPE="$CONFIG" ..
+  cmake -G "Unix Makefiles" -DCMAKE_OSX_ARCHITECTURES="arm64" -DCMAKE_BUILD_TYPE="$CONFIG" -DBUILD_NODE_ONLY=ON ..
 else
   echo "Building for Intel (x86_64)..."
-  cmake -G "Unix Makefiles" -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_BUILD_TYPE="$CONFIG" ..
+  cmake -G "Unix Makefiles" -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_BUILD_TYPE="$CONFIG" -DBUILD_NODE_ONLY=ON ..
 fi
 
 cmake --build . --target tau5-node

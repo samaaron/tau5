@@ -56,13 +56,19 @@ if(WIN32)
   set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/bin)
 endif()
 
+# Build mode configuration
+option(TAU5_RELEASE_BUILD "Build for release/distribution (not development)" OFF)
+
 # Server path configuration
-# For development builds, the default assumes running from the build directory
-# For installation builds, set TAU5_INSTALL_SERVER_PATH to the installation location
-if(DEFINED TAU5_INSTALL_SERVER_PATH)
-  # Explicit installation path provided
+if(TAU5_RELEASE_BUILD)
+  # Release/distribution build - server will be embedded in the package
+  if(NOT DEFINED TAU5_INSTALL_SERVER_PATH)
+    message(FATAL_ERROR "TAU5_RELEASE_BUILD requires TAU5_INSTALL_SERVER_PATH to be set")
+  endif()
   set(TAU5_SERVER_PATH_DEFAULT "${TAU5_INSTALL_SERVER_PATH}")
-  message(STATUS "Server installation path: ${TAU5_SERVER_PATH_DEFAULT}")
+  message(STATUS "RELEASE BUILD - Server will be at: ${TAU5_SERVER_PATH_DEFAULT}")
+  # Pass this to C++ code
+  add_compile_definitions(TAU5_RELEASE_BUILD=1)
 elseif(CMAKE_INSTALL_PREFIX STREQUAL "/usr/local" OR CMAKE_INSTALL_PREFIX STREQUAL "/usr")
   # Check if we're in the tau5 source tree (development build)
   if(EXISTS "${CMAKE_SOURCE_DIR}/../server/mix.exs")
@@ -77,7 +83,7 @@ elseif(CMAKE_INSTALL_PREFIX STREQUAL "/usr/local" OR CMAKE_INSTALL_PREFIX STREQU
       # From gui/build/bin/tau5 -> server
       set(TAU5_SERVER_PATH_DEFAULT "../../../server")
     endif()
-    message(STATUS "Development build detected - server path relative to binary: ${TAU5_SERVER_PATH_DEFAULT}")
+    message(STATUS "DEVELOPMENT BUILD - Server at source tree: ${TAU5_SERVER_PATH_DEFAULT}")
   else()
     # Installation build - assume standard layout
     set(TAU5_SERVER_PATH_DEFAULT "${CMAKE_INSTALL_PREFIX}/share/tau5/server")
@@ -313,23 +319,40 @@ target_link_libraries(${NODE_APP_NAME}
   Qt::Core
   Qt::Network)
 
-# Set server path for tau5-node
-# When built with GUI on macOS, it will be in the app bundle
-# When built standalone, it will be at gui/build/tau5-node
-if(APPLE AND NOT BUILD_NODE_ONLY AND TARGET ${APP_NAME})
-  # tau5-node will be in app bundle, use same path as tau5
-  target_compile_definitions(${NODE_APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="${TAU5_SERVER_PATH_DEFAULT}")
-  
-  # Copy tau5-node into the app bundle
-  add_custom_command(
-    TARGET ${NODE_APP_NAME}
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:${NODE_APP_NAME}>
-            "${CMAKE_BINARY_DIR}/bin/${MACOS_APP_NAME}.app/Contents/MacOS/${NODE_APP_NAME}"
-  )
+# Configure tau5-node based on build context
+if(NOT BUILD_NODE_ONLY AND TARGET ${APP_NAME})
+  # Building with GUI - tau5-node is for the app bundle/release structure
+  if(APPLE)
+    # On macOS, don't output tau5-node to bin/ when building with GUI
+    # It will only exist inside the app bundle
+    set_target_properties(${NODE_APP_NAME} PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/temp"
+      RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/temp"
+      RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/temp"
+      RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}/temp"
+      RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}/temp"
+    )
+    
+    # tau5-node in app bundle needs path to server
+    # From Tau5.app/Contents/MacOS/tau5-node -> server
+    target_compile_definitions(${NODE_APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="${TAU5_SERVER_PATH_DEFAULT}")
+    
+    # Copy tau5-node into the app bundle
+    add_custom_command(
+      TARGET ${NODE_APP_NAME}
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+              $<TARGET_FILE:${NODE_APP_NAME}>
+              "${CMAKE_BINARY_DIR}/bin/${MACOS_APP_NAME}.app/Contents/MacOS/${NODE_APP_NAME}"
+    )
+  else()
+    # Windows/Linux - tau5-node goes to bin/ alongside tau5
+    # From gui/build/bin/tau5-node -> server
+    target_compile_definitions(${NODE_APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="../../../server")
+  endif()
 else()
-  # Standalone tau5-node build - all platforms put binaries in gui/build/bin
+  # Standalone tau5-node build (BUILD_NODE_ONLY=ON or no GUI target)
+  # Output to bin/ for all platforms
   # From gui/build/bin/tau5-node -> server
   target_compile_definitions(${NODE_APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="../../../server")
 endif()
@@ -355,3 +378,21 @@ option(BUILD_DEBUG_PANE "Include debug pane in the build" ON)
 if(BUILD_MCP_SERVER)
   add_subdirectory(gui-dev-mcp-server)
 endif()
+
+# Print build configuration summary
+message(STATUS "")
+message(STATUS "==============================================")
+message(STATUS "Tau5 Build Configuration Summary")
+message(STATUS "==============================================")
+if(TAU5_RELEASE_BUILD)
+  message(STATUS "Build Type: RELEASE/DISTRIBUTION")
+  message(STATUS "Server Path: ${TAU5_SERVER_PATH_DEFAULT}")
+  message(STATUS "Binaries will expect server at the configured path")
+else()
+  message(STATUS "Build Type: DEVELOPMENT")
+  message(STATUS "Server Path: ${TAU5_SERVER_PATH_DEFAULT}")
+  message(STATUS "Binaries will look for server in source tree")
+endif()
+message(STATUS "Optimization: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Platform: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "==============================================")

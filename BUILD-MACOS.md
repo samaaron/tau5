@@ -59,7 +59,7 @@ Now you just need to change into the `tau5` directory and run the build script:
 
 ```
 cd ~/Development/tau5
-./bin/mac/build-all.sh
+./bin/mac/dev-build-all.sh
 ```
 
 ## Run Tau5 in Development Mode

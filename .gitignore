@@ -1,6 +1,8 @@
 .DS_Store
 build
-Release
+build-release
+release/*
+!release/README.md
 .history
 
 installer/wix/*.wixobj
