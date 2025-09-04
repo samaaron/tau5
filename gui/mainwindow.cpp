@@ -226,13 +226,16 @@ bool MainWindow::connectToServer(quint16 port)
   
 #ifdef BUILD_WITH_DEBUG_PANE
   if (debugPane) {
-    QString dashboardUrl = QString("http://localhost:%1/dev/dashboard").arg(port);
-    debugPane->setLiveDashboardUrl(dashboardUrl);
-
     if (beamInstance) {
       QString token = beamInstance->getSessionToken();
+      QString dashboardUrl = QString("http://localhost:%1/dev/dashboard?token=%2").arg(port).arg(token);
+      debugPane->setLiveDashboardUrl(dashboardUrl);
+      
       QString consoleUrl = QString("http://localhost:%1/dev/console?token=%2").arg(port).arg(token);
       debugPane->setElixirConsoleUrl(consoleUrl);
+    } else {
+      QString dashboardUrl = QString("http://localhost:%1/dev/dashboard").arg(port);
+      debugPane->setLiveDashboardUrl(dashboardUrl);
     }
   }
 #endif

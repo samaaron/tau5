@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
                   << "Options:\n"
                   << "\n"
                   << "Quick Setup:\n"
-                  << "  --devtools               All-in-one dev setup (dev mode + MCP + Chrome DevTools + Tidewave)\n"
+                  << "  --devtools               All-in-one dev setup (dev mode + MCP + Chrome DevTools + Tidewave + REPL)\n"
                   << "\n"
                   << "Environment Selection:\n"
                   << "  --env-dev                Development environment (MIX_ENV=dev)\n"

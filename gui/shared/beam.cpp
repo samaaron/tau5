@@ -162,21 +162,32 @@ void Beam::handleStandardOutput()
     Tau5Logger::instance().log(LogLevel::Info, "beam", outputStr.trimmed());
   }
 
-  QRegularExpression pidRegex("\\[TAU5_BEAM_PID:(\\d+)\\]");
-  QRegularExpressionMatch pidMatch = pidRegex.match(outputStr);
-  if (pidMatch.hasMatch())
+  // Check for combined server info message first (new format)
+  QRegularExpression serverInfoRegex("\\[TAU5_SERVER_INFO:PID=(\\d+),PORT=(\\d+)\\]");
+  QRegularExpressionMatch serverInfoMatch = serverInfoRegex.match(outputStr);
+  if (serverInfoMatch.hasMatch())
   {
-    beamPid = pidMatch.captured(1).toLongLong();
-    Tau5Logger::instance().debug( QString("Captured BEAM PID: %1").arg(beamPid));
+    beamPid = serverInfoMatch.captured(1).toLongLong();
+    quint16 actualPort = serverInfoMatch.captured(2).toUInt();
+    
+    Tau5Logger::instance().debug( QString("Captured server info - PID: %1, Port: %2").arg(beamPid).arg(actualPort));
+    
+    if (actualPort > 0) {
+      appPort = actualPort;  // Update with actual allocated port
+    }
+    
     serverReady = true;
     heartbeatTimer->start();
-
+    
     if (!otpTreeReady) {
       otpTreeReady = true;
       emit otpReady();
     }
+    
+    if (actualPort > 0 && actualPort != appPort) {
+      emit actualPortAllocated(actualPort);
+    }
   }
-
 
   emit standardOutput(outputStr);
 }

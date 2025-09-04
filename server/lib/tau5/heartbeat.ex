@@ -23,7 +23,7 @@ defmodule Tau5.Heartbeat do
           end
           
           Logger.info("UDP heartbeat listener started successfully")
-          send_pid_to_gui()
+          # Don't send PID here - let StartupInfo handle it with the port
           
           {:ok, %{
             socket: socket,
@@ -106,11 +106,6 @@ defmodule Tau5.Heartbeat do
     end
   end
 
-  defp send_pid_to_gui do
-    pid = System.pid()
-    IO.puts("[TAU5_BEAM_PID:#{pid}]")
-    Logger.debug("Sent BEAM PID #{pid} to GUI")
-  end
 
   defp heartbeat_enabled? do
     # Check environment variable first, then application config

@@ -34,6 +34,7 @@ signals:
   void standardError(const QString &error);
   void otpReady();
   void restartComplete();
+  void actualPortAllocated(quint16 port);
 
 private slots:
   void handleStandardOutput();

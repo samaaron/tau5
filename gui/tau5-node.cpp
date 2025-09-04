@@ -52,7 +52,7 @@ void printUsage(const char* programName) {
               << "Options:\n"
               << "\n"
               << "Quick Setup:\n"
-              << "  --devtools               All-in-one dev setup (dev mode + MCP + Tidewave)\n"
+              << "  --devtools               All-in-one dev setup (dev mode + MCP + Tidewave + REPL)\n"
               << "\n"
               << "Environment Selection:\n"
               << "  --env-dev                Development environment (MIX_ENV=dev)\n"
@@ -407,6 +407,7 @@ int main(int argc, char *argv[]) {
         qint64 nodePid = 0;
         qint64 beamPid = 0;
         QString logPath;
+        QString sessionToken;
     } serverInfo;
 
     serverInfo.serverPort = port;
@@ -436,31 +437,107 @@ int main(int argc, char *argv[]) {
                                      Config::APP_VERSION, port, isDevMode,
                                      enableMcp, enableRepl, mode);
 
+        // Get session token from beam
+        serverInfo.sessionToken = beam->getSessionToken();
+
+        // Track whether we've shown the server info yet
+        bool serverInfoShown = false;
+
+        // Connect to actualPortAllocated signal to update the port when we get it
+        QObject::connect(beam.get(), &Beam::actualPortAllocated, [&serverInfo, &args, port](quint16 actualPort) {
+            if (actualPort > 0) {
+                serverInfo.serverPort = actualPort;
+                if (args.verbose) {
+                    Tau5Logger::instance().info(QString("Server allocated port: %1").arg(actualPort));
+                }
+            }
+        });
+
         // Connect to OTP ready signal
-        QObject::connect(beam.get(), &Beam::otpReady, [&args, &serverInfo, &beam]() {
+        QObject::connect(beam.get(), &Beam::otpReady, [&args, &serverInfo, &beam, &serverInfoShown, port]() {
             serverInfo.otpReady = true;
 
             // Get BEAM PID when it's ready
             if (beam) {
                 serverInfo.beamPid = beam->getBeamPid();
+                // Also update port in case it was allocated
+                quint16 actualPort = beam->getPort();
+                if (actualPort > 0) {
+                    serverInfo.serverPort = actualPort;
+                }
             }
 
-            if (args.verbose) {
-                Tau5Logger::instance().info("OTP supervision tree ready");
-                Tau5Logger::instance().info("Server is running. Press Ctrl+C to stop.");
-            } else {
-                // Print concise summary in quiet mode
-                std::cout << "\n========================================================\n";
-                std::cout << "Tau5 Server Started\n";
-                std::cout << "--------------------------------------------------------\n";
-                std::cout << "  Mode:      " << serverInfo.mode.toStdString() << "\n";
-                std::cout << "  Port:      " << serverInfo.serverPort << "\n";
-                std::cout << "  URL:       http://localhost:" << serverInfo.serverPort << "\n";
-                std::cout << "  Node PID:  " << serverInfo.nodePid << "\n";
-                if (serverInfo.beamPid > 0) {
-                    std::cout << "  BEAM PID:  " << serverInfo.beamPid << "\n";
-                }
-                std::cout << "  Logs:      " << serverInfo.logPath.toStdString() << "\n";
+            // For random port (0), wait a bit for the actual port to be reported
+            if (port == 0 && serverInfo.serverPort == 0 && !serverInfoShown) {
+                // Set a timer to show server info after a short delay to allow port allocation
+                QTimer::singleShot(300, [&serverInfo, &args, &serverInfoShown]() {
+                    if (!serverInfoShown) {
+                        serverInfoShown = true;
+                        if (!args.verbose) {
+                            // Print server summary
+                            std::cout << "\n========================================================\n";
+                            std::cout << "Tau5 Server Started\n";
+                            std::cout << "--------------------------------------------------------\n";
+                            std::cout << "  Mode:      " << serverInfo.mode.toStdString() << "\n";
+                            if (serverInfo.serverPort > 0) {
+                                std::cout << "  Port:      " << serverInfo.serverPort << "\n";
+                                if (serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
+                                    std::cout << "  URL:       http://localhost:" << serverInfo.serverPort << "/?token=" << serverInfo.sessionToken.toStdString() << "\n";
+                                    std::cout << "  Dashboard: http://localhost:" << serverInfo.serverPort << "/dev/dashboard?token=" << serverInfo.sessionToken.toStdString() << "\n";
+                                } else {
+                                    std::cout << "  URL:       http://localhost:" << serverInfo.serverPort << "\n";
+                                }
+                            } else {
+                                std::cout << "  Port:      (random allocation in progress)\n";
+                                std::cout << "  URL:       (pending port allocation)\n";
+                            }
+                            std::cout << "  Node PID:  " << serverInfo.nodePid << "\n";
+                            if (serverInfo.beamPid > 0) {
+                                std::cout << "  BEAM PID:  " << serverInfo.beamPid << "\n";
+                            }
+                            std::cout << "  Logs:      " << serverInfo.logPath.toStdString() << "\n";
+                            
+                            QString mcpPort = qgetenv("TAU5_MCP_PORT");
+                            if (!mcpPort.isEmpty() && mcpPort != "0") {
+                                std::cout << "  MCP:       Port " << mcpPort.toStdString();
+                                if (qgetenv("TAU5_TIDEWAVE_ENABLED") == "true") {
+                                    std::cout << " (with Tidewave)";
+                                }
+                                std::cout << "\n";
+                            }
+                            
+                            std::cout << "========================================================\n";
+                            std::cout << "Press Ctrl+C to stop\n" << std::flush;
+                        }
+                    }
+                });
+                return; // Wait for the timer
+            }
+            
+            // If we have a fixed port or already got the allocated port, show immediately
+            if (!serverInfoShown) {
+                serverInfoShown = true;
+                if (args.verbose) {
+                    Tau5Logger::instance().info("OTP supervision tree ready");
+                    Tau5Logger::instance().info("Server is running. Press Ctrl+C to stop.");
+                } else {
+                    // Print concise summary in quiet mode
+                    std::cout << "\n========================================================\n";
+                    std::cout << "Tau5 Server Started\n";
+                    std::cout << "--------------------------------------------------------\n";
+                    std::cout << "  Mode:      " << serverInfo.mode.toStdString() << "\n";
+                    std::cout << "  Port:      " << serverInfo.serverPort << "\n";
+                    if (serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
+                        std::cout << "  URL:       http://localhost:" << serverInfo.serverPort << "/?token=" << serverInfo.sessionToken.toStdString() << "\n";
+                        std::cout << "  Dashboard: http://localhost:" << serverInfo.serverPort << "/dev/dashboard?token=" << serverInfo.sessionToken.toStdString() << "\n";
+                    } else {
+                        std::cout << "  URL:       http://localhost:" << serverInfo.serverPort << "\n";
+                    }
+                    std::cout << "  Node PID:  " << serverInfo.nodePid << "\n";
+                    if (serverInfo.beamPid > 0) {
+                        std::cout << "  BEAM PID:  " << serverInfo.beamPid << "\n";
+                    }
+                    std::cout << "  Logs:      " << serverInfo.logPath.toStdString() << "\n";
 
                 QString mcpPort = qgetenv("TAU5_MCP_PORT");
                 if (!mcpPort.isEmpty() && mcpPort != "0") {
@@ -473,6 +550,7 @@ int main(int argc, char *argv[]) {
 
                 std::cout << "========================================================\n";
                 std::cout << "Press Ctrl+C to stop\n\n" << std::flush;
+                }
             }
         });
 

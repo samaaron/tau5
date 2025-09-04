@@ -124,6 +124,9 @@ defmodule Tau5.Application do
 
         :ok = :io.put_chars(:standard_io, ascii_art)
 
+        # Report server startup info to parent process in a separate task
+        Task.start(fn -> Tau5.StartupInfo.report_server_info() end)
+
         Logger.info(
           "[TAU5 SERVER READY] - Elixir OTP supervision tree started with opts: #{inspect(opts)}"
         )

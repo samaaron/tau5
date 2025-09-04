@@ -136,6 +136,7 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         args.mcp = true;
         args.tidewave = true;
         args.chromeDevtools = true;
+        args.repl = true;  // Enable REPL for full dev experience
         return true;
     }
     // Deployment mode override (tau5-node only, but parse here for consistency)

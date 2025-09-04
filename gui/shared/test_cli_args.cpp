@@ -147,6 +147,22 @@ bool testDevtoolsFlag(TestContext& ctx) {
     TEST_ASSERT(ctx, args.env == CommonArgs::Env::Dev, "--devtools should set env to Dev");
     TEST_ASSERT(ctx, args.mcp == true, "--devtools should enable mcp");
     TEST_ASSERT(ctx, args.tidewave == true, "--devtools should enable tidewave");
+    TEST_ASSERT(ctx, args.chromeDevtools == true, "--devtools should enable Chrome DevTools");
+    TEST_ASSERT(ctx, args.repl == true, "--devtools should enable REPL");
+    
+    // Test environment variables are set correctly
+    applyEnvironmentVariables(args, "gui");
+    TEST_ASSERT(ctx, qgetenv("MIX_ENV") == "dev", "MIX_ENV should be dev");
+    TEST_ASSERT(ctx, qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true", "REPL should be enabled via environment");
+    TEST_ASSERT(ctx, qgetenv("TAU5_TIDEWAVE_ENABLED") == "true", "Tidewave should be enabled via environment");
+    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_ENABLED") == "true", "DevTools should be enabled via environment");
+    
+    // Clean up environment variables
+    qunsetenv("MIX_ENV");
+    qunsetenv("TAU5_ELIXIR_REPL_ENABLED");
+    qunsetenv("TAU5_TIDEWAVE_ENABLED");
+    qunsetenv("TAU5_DEVTOOLS_ENABLED");
+    
     return ctx.passed;
 }
 
