@@ -51,7 +51,7 @@ void printUsage(const char* programName) {
     std::cout << "Usage: " << programName << " [options]\n"
               << "Options:\n"
               << "\n";
-    
+
 #ifndef TAU5_RELEASE_BUILD
     // Development build - show all options
     std::cout << "Quick Setup:\n"
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
 
     // Enforce release settings before anything else
     Tau5CLI::enforceReleaseSettings();
-    
+
 #ifdef TAU5_RELEASE_BUILD
     // Set the mode for tau5-node
     qputenv("TAU5_MODE", "node");
@@ -177,10 +177,6 @@ int main(int argc, char *argv[]) {
     }
     if (args.repl) {
         std::cerr << "Error: Elixir REPL (--with-repl) is not available in release builds\n";
-        return 1;
-    }
-    if (args.check) {
-        std::cerr << "Error: Health check (--check) is not available in release builds\n";
         return 1;
     }
     // The --devtools flag combines multiple dev features, reject it too
@@ -406,10 +402,10 @@ int main(int argc, char *argv[]) {
 #else
     // Development build - validate server structure matches requested mode
     QDir serverDir(basePath);
-    
+
     bool hasSourceStructure = serverDir.exists("mix.exs");
     bool hasReleaseStructure = serverDir.exists("bin/tau5");
-    
+
     if (isDevMode && !hasSourceStructure) {
         if (args.verbose) {
             Tau5Logger::instance().error("--env-dev requires source structure (mix.exs) but not found");
@@ -422,7 +418,7 @@ int main(int argc, char *argv[]) {
         }
         return static_cast<int>(ExitCode::INVALID_ARGUMENTS);
     }
-    
+
     if (!isDevMode && !hasReleaseStructure) {
         // Only error if we also don't have source structure
         if (!hasSourceStructure) {
@@ -557,7 +553,7 @@ int main(int argc, char *argv[]) {
                                 std::cout << "  BEAM PID:  " << serverInfo.beamPid << "\n";
                             }
                             std::cout << "  Logs:      " << serverInfo.logPath.toStdString() << "\n";
-                            
+
                             QString mcpPort = qgetenv("TAU5_MCP_PORT");
                             if (!mcpPort.isEmpty() && mcpPort != "0") {
                                 std::cout << "  MCP:       Port " << mcpPort.toStdString();
@@ -566,11 +562,11 @@ int main(int argc, char *argv[]) {
                                 }
                                 std::cout << "\n";
                             }
-                            
+
                             if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true" && serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
                                 std::cout << "  Console:   http://localhost:" << serverInfo.serverPort << "/dev/console?token=" << serverInfo.sessionToken.toStdString() << "\n";
                             }
-                            
+
                             std::cout << "========================================================\n";
                             std::cout << "Press Ctrl+C to stop\n" << std::flush;
                         }
@@ -578,7 +574,7 @@ int main(int argc, char *argv[]) {
                 });
                 return; // Wait for the timer
             }
-            
+
             // If we have a fixed port or already got the allocated port, show immediately
             if (!serverInfoShown) {
                 serverInfoShown = true;
@@ -612,7 +608,7 @@ int main(int argc, char *argv[]) {
                     }
                     std::cout << "\n";
                 }
-                
+
                 if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true" && serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
                     std::cout << "  Console:   http://localhost:" << serverInfo.serverPort << "/dev/console?token=" << serverInfo.sessionToken.toStdString() << "\n";
                 }

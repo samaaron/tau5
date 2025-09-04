@@ -289,12 +289,8 @@ int main(int argc, char *argv[])
 #endif
         std::cout << "\n"
                   << "Other:\n";
-#ifndef TAU5_RELEASE_BUILD
         std::cout << "  --server-path <path>     Override server directory path\n"
                   << "  --check                  Verify installation and exit\n";
-#else
-        std::cout << "  --server-path <path>     Override server directory path\n";
-#endif
         std::cout << "  --help, -h               Show this help message\n"
                   << "  --version                Show version information\n"
                   << "\n"
@@ -349,10 +345,6 @@ int main(int argc, char *argv[])
   }
   if (args.chromeDevtools) {
     std::cerr << "Error: Chrome DevTools (--chrome-devtools) are not available in release builds\n";
-    return 1;
-  }
-  if (args.check) {
-    std::cerr << "Error: Health check (--check) is not available in release builds\n";
     return 1;
   }
   // Check for --devtools flag which combines multiple dev features

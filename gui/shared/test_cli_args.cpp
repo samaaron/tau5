@@ -130,6 +130,33 @@ bool testVersionFlag(TestContext& ctx) {
 }
 
 bool testDevtoolsFlag(TestContext& ctx) {
+#ifdef TAU5_RELEASE_BUILD
+    // In release builds, --devtools parsing succeeds but environment enforcement overrides it
+    ArgSimulator sim;
+    sim.add("tau5");
+    sim.add("--devtools");
+    
+    CommonArgs args;
+    int i = 1;
+    while (i < sim.argc()) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        int oldI = i;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        if (i == oldI) i++;
+    }
+    
+    // Parsing sets the flags initially
+    TEST_ASSERT(ctx, args.devtools == true, "--devtools flag is parsed");
+    
+    // But in release mode, environment gets overridden
+    applyEnvironmentVariables(args, "gui");
+    TEST_ASSERT(ctx, qgetenv("MIX_ENV") == "prod", "MIX_ENV should be prod in release");
+    TEST_ASSERT(ctx, qgetenv("TAU5_ELIXIR_REPL_ENABLED") != "true", "REPL should be disabled in release");
+    TEST_ASSERT(ctx, qgetenv("TAU5_TIDEWAVE_ENABLED") != "true", "Tidewave should be disabled in release");
+    
+    qunsetenv("MIX_ENV");
+    return ctx.passed;
+#else
     ArgSimulator sim;
     sim.add("tau5");
     sim.add("--devtools");
@@ -164,56 +191,32 @@ bool testDevtoolsFlag(TestContext& ctx) {
     qunsetenv("TAU5_DEVTOOLS_ENABLED");
     
     return ctx.passed;
+#endif
 }
 
 bool testEnvironmentFlags(TestContext& ctx) {
+#ifdef TAU5_RELEASE_BUILD
+    // Environment flags have been removed - environment is determined by build type
+    // Release builds always use prod, dev builds always use dev
+    // This test is not applicable to the new design
+    return true;
+#else
+    // In development builds, environment flags are also removed
+    // but we can test that the default is dev mode
+    ArgSimulator sim;
+    sim.add("tau5");
     
-    // Test --env-dev
-    {
-        ArgSimulator sim;
-        sim.add("tau5");
-        sim.add("--env-dev");
-        
-        CommonArgs args;
-        for (int i = 1; i < sim.argc(); ++i) {
-            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
-            parseSharedArg(sim.argv()[i], nextArg, i, args);
-        }
-        
-        TEST_ASSERT(ctx, args.env == CommonArgs::Env::Dev, "--env-dev should set Dev environment");
+    CommonArgs args;
+    for (int i = 1; i < sim.argc(); ++i) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
     }
     
-    // Test --env-prod
-    {
-        ArgSimulator sim;
-        sim.add("tau5");
-        sim.add("--env-prod");
-        
-        CommonArgs args;
-        for (int i = 1; i < sim.argc(); ++i) {
-            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
-            parseSharedArg(sim.argv()[i], nextArg, i, args);
-        }
-        
-        TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod, "--env-prod should set Prod environment");
-    }
-    
-    // Test --env-test
-    {
-        ArgSimulator sim;
-        sim.add("tau5");
-        sim.add("--env-test");
-        
-        CommonArgs args;
-        for (int i = 1; i < sim.argc(); ++i) {
-            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
-            parseSharedArg(sim.argv()[i], nextArg, i, args);
-        }
-        
-        TEST_ASSERT(ctx, args.env == CommonArgs::Env::Test, "--env-test should set Test environment");
-    }
+    // In dev builds, default should be Default which becomes dev when applied
+    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Default, "Default environment in dev build");
     
     return ctx.passed;
+#endif
 }
 
 bool testPortArguments(TestContext& ctx) {
@@ -394,7 +397,6 @@ bool testEnvironmentVariableApplication(TestContext& ctx) {
     
     ArgSimulator sim;
     sim.add("tau5");
-    sim.add("--env-dev");
     sim.add("--mcp");
     sim.add("--port-mcp");
     sim.add("5555");
@@ -413,7 +415,11 @@ bool testEnvironmentVariableApplication(TestContext& ctx) {
     applyEnvironmentVariables(args, "test");
     
     // Check they were set correctly
-    TEST_ASSERT(ctx, qgetenv("MIX_ENV") == "dev", "MIX_ENV should be dev");
+#ifdef TAU5_RELEASE_BUILD
+    TEST_ASSERT(ctx, qgetenv("MIX_ENV") == "prod", "MIX_ENV should be prod in release");
+#else
+    TEST_ASSERT(ctx, qgetenv("MIX_ENV") == "dev", "MIX_ENV should be dev in dev build");
+#endif
     TEST_ASSERT(ctx, qgetenv("TAU5_MODE") == "test", "TAU5_MODE should be test");
     TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT") == "5555", "TAU5_MCP_PORT should be 5555");
     TEST_ASSERT(ctx, qgetenv("TAU5_MIDI_ENABLED") == "false", "TAU5_MIDI_ENABLED should be false");
@@ -564,12 +570,14 @@ bool testMissingArguments(TestContext& ctx) {
 
 bool testDuplicateFlags(TestContext& ctx) {
     
-    // Test conflicting environments
+    // Environment flags have been removed, test duplicate ports instead
     {
         ArgSimulator sim;
         sim.add("tau5");
-        sim.add("--env-dev");
-        sim.add("--env-prod");  // Conflicts with dev
+        sim.add("--port-local");
+        sim.add("3000");
+        sim.add("--port-local");
+        sim.add("4000");  // Duplicate port flag
         
         CommonArgs args;
         int i = 1;
@@ -581,8 +589,8 @@ bool testDuplicateFlags(TestContext& ctx) {
         }
         
         // Last one wins
-        TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod, "Last environment flag should win");
-        TEST_ASSERT(ctx, args.hasError == false, "No error on duplicate env flags");
+        TEST_ASSERT(ctx, args.portLocal == 4000, "Last port value should win");
+        TEST_ASSERT(ctx, args.hasError == false, "No error on duplicate port flags");
     }
     
     // Test duplicate ports
@@ -631,12 +639,14 @@ bool testDuplicateFlags(TestContext& ctx) {
 
 bool testFlagOrdering(TestContext& ctx) {
     
-    // Test that --devtools after --env-prod causes a conflict error
+    // Environment flags have been removed, test port conflict ordering instead
     {
         ArgSimulator sim;
         sim.add("tau5");
-        sim.add("--env-prod");
-        sim.add("--devtools");  // Should cause conflict error
+        sim.add("--port-local");
+        sim.add("3000");
+        sim.add("--port-mcp");
+        sim.add("3000");  // Same port for MCP - should fail validation
         
         CommonArgs args;
         int i = 1;
@@ -644,43 +654,24 @@ bool testFlagOrdering(TestContext& ctx) {
             const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
             int oldI = i;
             parseSharedArg(sim.argv()[i], nextArg, i, args);
-            if (args.hasError) break;  // Stop on error
             if (i == oldI) i++;
         }
         
-        TEST_ASSERT(ctx, args.hasError == true, "--devtools after --env-prod should cause error");
-        TEST_ASSERT(ctx, args.errorMessage.find("conflict") != std::string::npos || 
-                    args.errorMessage.find("different environment") != std::string::npos,
-                    QString("Error should mention conflict, got: %1").arg(QString::fromStdString(args.errorMessage)));
+        // Validate should catch the conflict
+        bool valid = validateArguments(args);
+        TEST_ASSERT(ctx, valid == false, "Same port for local and MCP should fail validation");
+        TEST_ASSERT(ctx, args.errorMessage.find("cannot be the same") != std::string::npos,
+                    QString("Error should mention ports cannot be the same, got: %1").arg(QString::fromStdString(args.errorMessage)));
     }
     
-    // Test that --devtools BEFORE --env-prod works (devtools sets dev, then error on prod)
+    // Test different ports work fine
     {
         ArgSimulator sim;
         sim.add("tau5");
-        sim.add("--devtools");
-        sim.add("--env-prod");  // Should cause conflict error
-        
-        CommonArgs args;
-        int i = 1;
-        while (i < sim.argc()) {
-            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
-            int oldI = i;
-            parseSharedArg(sim.argv()[i], nextArg, i, args);
-            if (args.hasError) break;  // Stop on error  
-            if (i == oldI) i++;
-        }
-        
-        TEST_ASSERT(ctx, args.hasError == true, "--env-prod after --devtools should cause error");
-        TEST_ASSERT(ctx, args.devtools == true, "devtools should be set before error");
-    }
-    
-    // Test that explicit flags after --devtools can override
-    {
-        ArgSimulator sim;
-        sim.add("tau5");
-        sim.add("--devtools");
-        sim.add("--verbose");  // Additional flag after devtools
+        sim.add("--port-local");
+        sim.add("3000");
+        sim.add("--port-mcp");
+        sim.add("4000");  // Different port
         
         CommonArgs args;
         int i = 1;
@@ -691,9 +682,10 @@ bool testFlagOrdering(TestContext& ctx) {
             if (i == oldI) i++;
         }
         
-        // Verify devtools settings are preserved and verbose is also set
-        TEST_ASSERT(ctx, args.mcp == true, "MCP should still be enabled from devtools");
-        TEST_ASSERT(ctx, args.verbose == true, "Verbose should be enabled");
+        bool valid = validateArguments(args);
+        TEST_ASSERT(ctx, valid == true, "Different ports should be valid");
+        TEST_ASSERT(ctx, args.portLocal == 3000, "Local port should be 3000");
+        TEST_ASSERT(ctx, args.portMcp == 4000, "MCP port should be 4000");
     }
     
     return ctx.passed;
@@ -962,12 +954,14 @@ bool testReleaseBuildFlagRejection(TestContext& ctx) {
             if (i == oldI) i++;
         }
         
-        TEST_ASSERT(ctx, args.env != CommonArgs::Env::Dev, 
-                    "Release build should not allow --devtools (env should not be dev)");
-        TEST_ASSERT(ctx, !args.tidewave, 
-                    "Release build should not allow --devtools (tidewave should be disabled)");
-        TEST_ASSERT(ctx, !args.repl, 
-                    "Release build should not allow --devtools (repl should be disabled)");
+        // In release builds, flags are parsed but environment enforcement overrides them
+        TEST_ASSERT(ctx, args.devtools == true, 
+                    "Release build parses --devtools flag");
+        // After environment application, these would be overridden
+        applyEnvironmentVariables(args, "gui");
+        TEST_ASSERT(ctx, qgetenv("MIX_ENV") == "prod", 
+                    "Release build forces prod environment");
+        qunsetenv("MIX_ENV");
     }
     
     // Test --chrome-devtools rejection
@@ -985,11 +979,12 @@ bool testReleaseBuildFlagRejection(TestContext& ctx) {
             if (i == oldI) i++;
         }
         
-        TEST_ASSERT(ctx, !args.chromeDevtools, 
-                    "Release build should not allow Chrome DevTools");
+        // Chrome DevTools flag is parsed but not enabled in prod environment
+        TEST_ASSERT(ctx, args.chromeDevtools == true, 
+                    "Chrome DevTools flag is parsed");
     }
     
-    // Test --check rejection
+    // Test --check is ALLOWED in release builds (for CI/CD)
     {
         ArgSimulator sim;
         sim.add("tau5");
@@ -1004,8 +999,8 @@ bool testReleaseBuildFlagRejection(TestContext& ctx) {
             if (i == oldI) i++;
         }
         
-        TEST_ASSERT(ctx, !args.check, 
-                    "Release build should not allow health check flag");
+        TEST_ASSERT(ctx, args.check, 
+                    "Release build SHOULD allow health check flag for CI/CD");
     }
 #else
     // In development builds, verify that dev flags ARE allowed
