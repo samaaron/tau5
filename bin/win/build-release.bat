@@ -54,12 +54,12 @@ if not exist build-release mkdir build-release
 cd build-release
 
 :: Configure CMake for release build with proper server path
-:: For Windows release: binaries in root, server in _build\prod\rel\tau5
+:: For Windows release: binaries in root, server in _build/prod/rel/tau5
 cmake -G "Visual Studio 17 2022" ^
       -A x64 ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DTAU5_RELEASE_BUILD=ON ^
-      -DTAU5_INSTALL_SERVER_PATH="_build\prod\rel\tau5" ^
+      -DTAU5_INSTALL_SERVER_PATH="_build/prod/rel/tau5" ^
       -DBUILD_DEBUG_PANE=OFF ^
       ..
 if %errorlevel% neq 0 (
