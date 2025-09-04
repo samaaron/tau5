@@ -865,6 +865,176 @@ bool testPortWhitespaceHandling(TestContext& ctx) {
 }
 
 
+// Test release build flag rejection
+bool testReleaseBuildFlagRejection(TestContext& ctx) {
+#ifdef TAU5_RELEASE_BUILD
+    // Test that development flags are properly rejected in release builds
+    
+    // Test --env-dev rejection
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--env-dev");
+        
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+        
+        // In release mode, dev environment should be forced to prod
+        TEST_ASSERT(ctx, args.env != CommonArgs::Env::Dev, 
+                    "Release build should not allow dev environment");
+    }
+    
+    // Test --env-test rejection
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--env-test");
+        
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+        
+        TEST_ASSERT(ctx, args.env != CommonArgs::Env::Test, 
+                    "Release build should not allow test environment");
+    }
+    
+    // Test --with-tidewave rejection
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--with-tidewave");
+        
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+        
+        TEST_ASSERT(ctx, !args.tidewave, 
+                    "Release build should not allow tidewave MCP server");
+    }
+    
+    // Test --with-repl rejection
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--with-repl");
+        
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+        
+        TEST_ASSERT(ctx, !args.repl, 
+                    "Release build should not allow Elixir REPL");
+    }
+    
+    // Test --devtools rejection (combines multiple dev features)
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--devtools");
+        
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+        
+        TEST_ASSERT(ctx, args.env != CommonArgs::Env::Dev, 
+                    "Release build should not allow --devtools (env should not be dev)");
+        TEST_ASSERT(ctx, !args.tidewave, 
+                    "Release build should not allow --devtools (tidewave should be disabled)");
+        TEST_ASSERT(ctx, !args.repl, 
+                    "Release build should not allow --devtools (repl should be disabled)");
+    }
+    
+    // Test --chrome-devtools rejection
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--chrome-devtools");
+        
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+        
+        TEST_ASSERT(ctx, !args.chromeDevtools, 
+                    "Release build should not allow Chrome DevTools");
+    }
+    
+    // Test --check rejection
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--check");
+        
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+        
+        TEST_ASSERT(ctx, !args.check, 
+                    "Release build should not allow health check flag");
+    }
+#else
+    // In development builds, verify that dev flags ARE allowed
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--devtools");
+        
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+        
+        TEST_ASSERT(ctx, args.env == CommonArgs::Env::Dev, 
+                    "Development build should allow --devtools");
+        TEST_ASSERT(ctx, args.tidewave, 
+                    "Development build should enable tidewave with --devtools");
+        TEST_ASSERT(ctx, args.repl, 
+                    "Development build should enable REPL with --devtools");
+    }
+#endif
+    
+    return ctx.passed;
+}
+
 // Main test runner
 // Returns 0 if all pass, or the number of failures
 int runCliArgumentTests(int& totalTests, int& passedTests) {
@@ -895,6 +1065,9 @@ int runCliArgumentTests(int& totalTests, int& passedTests) {
     RUN_TEST(testFlagOrdering);
     RUN_TEST(testPortEdgeCases);
     RUN_TEST(testPortWhitespaceHandling);
+    
+    // Release build safety tests
+    RUN_TEST(testReleaseBuildFlagRejection);
     
     
     // Count results

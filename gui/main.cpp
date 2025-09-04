@@ -98,6 +98,7 @@ namespace GuiConfig
 
 static QtMessageHandler originalMessageHandler = nullptr;
 
+
 void tau5MessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
   if (originalMessageHandler) {
@@ -228,6 +229,14 @@ bool initializeApplication(QApplication &app, const Tau5CLI::CommonArgs &args)
 
 int main(int argc, char *argv[])
 {
+  // Enforce release settings before anything else
+  Tau5CLI::enforceReleaseSettings();
+  
+#ifdef TAU5_RELEASE_BUILD
+  // Set the mode for tau5 GUI
+  qputenv("TAU5_MODE", "gui");
+#endif
+  
   // Parse command line arguments
   Tau5CLI::CommonArgs args;
 
@@ -244,40 +253,49 @@ int main(int argc, char *argv[])
       if (args.showHelp) {
         std::cout << "Usage: tau5 [options]\n"
                   << "Options:\n"
-                  << "\n"
-                  << "Quick Setup:\n"
-                  << "  --devtools               All-in-one dev setup (dev mode + MCP + Chrome DevTools + Tidewave + REPL)\n"
-                  << "\n"
-                  << "Environment Selection:\n"
-                  << "  --env-dev                Development environment (MIX_ENV=dev)\n"
-                  << "  --env-prod               Production environment (MIX_ENV=prod) [default]\n"
-                  << "  --env-test               Test environment (MIX_ENV=test)\n"
-                  << "\n"
-                  << "Port Configuration:\n"
+                  << "\n";
+#ifndef TAU5_RELEASE_BUILD
+        std::cout << "Quick Setup:\n"
+                  << "  --devtools               All-in-one dev setup (MCP + Chrome DevTools + Tidewave + REPL)\n"
+                  << "\n";
+#endif
+        std::cout << "Port Configuration:\n"
                   << "  --port-local <n>         Local web UI port (default: random)\n"
                   << "  --port-public <n>        Public endpoint port (default: disabled)\n"
-                  << "  --port-mcp <n>           MCP services port (default: 5555 when enabled)\n"
-                  << "  --port-chrome-dev <n>    Chrome DevTools port (default: 9223 when enabled)\n"
-                  << "\n"
+                  << "  --port-mcp <n>           MCP services port (default: 5555 when enabled)\n";
+#ifndef TAU5_RELEASE_BUILD
+        std::cout << "  --port-chrome-dev <n>    Chrome DevTools port (default: 9223 when enabled)\n";
+#endif
+        std::cout << "\n"
                   << "Optional Features:\n"
-                  << "  --mcp                    Enable MCP endpoint\n"
-                  << "  --tidewave               Add Tidewave to MCP endpoint (implies --mcp)\n"
+                  << "  --mcp                    Enable MCP endpoint\n";
+#ifndef TAU5_RELEASE_BUILD
+        std::cout << "  --tidewave               Add Tidewave to MCP endpoint (implies --mcp)\n"
                   << "  --chrome-devtools        Enable Chrome DevTools\n"
-                  << "  --repl                   Enable Elixir REPL (dev mode only)\n"
-                  << "  --verbose                Enable verbose logging\n"
-                  << "  --debug-pane             Enable debug pane [default]\n"
-                  << "\n"
+                  << "  --repl                   Enable Elixir REPL\n";
+#endif
+        std::cout << "  --verbose                Enable verbose logging\n";
+#ifndef TAU5_RELEASE_BUILD
+        std::cout << "  --debug-pane             Enable debug pane [default]\n";
+#endif
+        std::cout << "\n"
                   << "Disable Features:\n"
                   << "  --no-midi                Disable MIDI support\n"
                   << "  --no-link                Disable Ableton Link support\n"
                   << "  --no-discovery           Disable network discovery\n"
-                  << "  --no-nifs                Disable all NIFs (MIDI, Link, and Discovery)\n"
-                  << "  --no-debug-pane          Disable debug pane\n"
-                  << "\n"
-                  << "Other:\n"
-                  << "  --server-path <path>     Override server directory path\n"
-                  << "  --check                  Verify installation and exit\n"
-                  << "  --help, -h               Show this help message\n"
+                  << "  --no-nifs                Disable all NIFs (MIDI, Link, and Discovery)\n";
+#ifndef TAU5_RELEASE_BUILD
+        std::cout << "  --no-debug-pane          Disable debug pane\n";
+#endif
+        std::cout << "\n"
+                  << "Other:\n";
+#ifndef TAU5_RELEASE_BUILD
+        std::cout << "  --server-path <path>     Override server directory path\n"
+                  << "  --check                  Verify installation and exit\n";
+#else
+        std::cout << "  --server-path <path>     Override server directory path\n";
+#endif
+        std::cout << "  --help, -h               Show this help message\n"
                   << "  --version                Show version information\n"
                   << "\n"
                   << "Tau5 - Desktop application for collaborative live-coding\n"
@@ -312,12 +330,46 @@ int main(int argc, char *argv[])
   
   // Validate that the requested mode matches the build type
 #ifdef TAU5_RELEASE_BUILD
-  // Release builds must run in production mode
-  if (isDevMode) {
-    std::cerr << "Error: Cannot use --env-dev with a release build.\n";
-    std::cerr << "Release builds only support production mode.\n";
+  // In release builds, reject all development-only flags
+  if (args.env == Tau5CLI::CommonArgs::Env::Dev) {
+    std::cerr << "Error: Development mode (--env-dev) is not available in release builds\n";
     return 1;
   }
+  if (args.env == Tau5CLI::CommonArgs::Env::Test) {
+    std::cerr << "Error: Test mode (--env-test) is not available in release builds\n";
+    return 1;
+  }
+  if (args.tidewave) {
+    std::cerr << "Error: Tidewave MCP server (--with-tidewave) is not available in release builds\n";
+    return 1;
+  }
+  if (args.repl) {
+    std::cerr << "Error: Elixir REPL (--with-repl) is not available in release builds\n";
+    return 1;
+  }
+  if (args.chromeDevtools) {
+    std::cerr << "Error: Chrome DevTools (--chrome-devtools) are not available in release builds\n";
+    return 1;
+  }
+  if (args.check) {
+    std::cerr << "Error: Health check (--check) is not available in release builds\n";
+    return 1;
+  }
+  // Check for --devtools flag which combines multiple dev features
+  bool hasDevToolsFlag = false;
+  for (int i = 1; i < argc; i++) {
+    if (QString(argv[i]) == "--devtools") {
+      hasDevToolsFlag = true;
+      break;
+    }
+  }
+  if (hasDevToolsFlag) {
+    std::cerr << "Error: Development tools (--devtools) are not available in release builds\n";
+    return 1;
+  }
+  // Force production settings
+  args.env = Tau5CLI::CommonArgs::Env::Prod;
+  isDevMode = false;
 #endif
 
   if (isDevMode)

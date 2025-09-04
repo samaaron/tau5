@@ -97,42 +97,18 @@ inline bool parsePort(const char* nextArg, int& i, quint16& portValue, CommonArg
 // Returns true if the argument was recognized (whether successful or not)
 // Check args.hasError to see if there was an error processing the argument
 inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonArgs& args) {
-    // Environment selection
-    if (std::strcmp(arg, "--env-dev") == 0) {
-        if (args.devtools && args.env != CommonArgs::Env::Dev) {
-            args.hasError = true;
-            args.errorMessage = "--env-dev conflicts with --devtools which already set development environment";
-            return true;
-        }
-        args.env = CommonArgs::Env::Dev;
-        return true;
-    } else if (std::strcmp(arg, "--env-prod") == 0) {
-        if (args.devtools) {
-            args.hasError = true;
-            args.errorMessage = "--env-prod conflicts with --devtools (which enables development environment)";
-            return true;
-        }
-        args.env = CommonArgs::Env::Prod;
-        return true;
-    } else if (std::strcmp(arg, "--env-test") == 0) {
-        if (args.devtools) {
-            args.hasError = true;
-            args.errorMessage = "--env-test conflicts with --devtools (which enables development environment)";
-            return true;
-        }
-        args.env = CommonArgs::Env::Test;
-        return true;
-    }
+    // Note: --env-dev, --env-prod, --env-test have been removed
+    // Environment is now determined by build type:
+    // - Development builds: always dev mode
+    // - Release builds: always prod mode
+    
     // Quick development setup
-    else if (std::strcmp(arg, "--devtools") == 0) {
-        if (args.env != CommonArgs::Env::Default && args.env != CommonArgs::Env::Dev) {
-            args.hasError = true;
-            args.errorMessage = "--devtools requires development environment but a different environment was already specified";
-            return true;
-        }
+    if (std::strcmp(arg, "--devtools") == 0) {
+        // --devtools is only available in development builds
+        // (Release builds will reject this flag later)
         args.devtools = true;
         // This implies several other flags
-        args.env = CommonArgs::Env::Dev;
+        args.env = CommonArgs::Env::Dev; // Will be overridden in release builds
         args.mcp = true;
         args.tidewave = true;
         args.chromeDevtools = true;
@@ -238,12 +214,14 @@ inline bool validateArguments(CommonArgs& args) {
         return true;
     }
     
-    // REPL only works in dev environment
-    if (args.repl && args.env != CommonArgs::Env::Dev) {
+    // REPL only works in dev builds
+#ifdef TAU5_RELEASE_BUILD
+    if (args.repl) {
         args.hasError = true;
-        args.errorMessage = "--repl only works in development environment (use --env-dev or --devtools)";
+        args.errorMessage = "--repl only works in development builds";
         return false;
     }
+#endif
     
     // Check port conflicts
     if (args.portLocal > 0 && args.portPublic > 0 && args.portLocal == args.portPublic) {
@@ -278,35 +256,14 @@ inline bool validateArguments(CommonArgs& args) {
         args.mcp = true;
     }
     
-    if (args.repl) {
-        // REPL only works in dev environment
-        bool isDevEnv = (args.env == CommonArgs::Env::Dev);
-        if (!isDevEnv && args.env != CommonArgs::Env::Default) {
-            // Only error if environment was explicitly set to non-dev
-            args.hasError = true;
-            args.errorMessage = "--repl requires development environment (--env-dev or --devtools)";
-            return false;
-        }
-        // If environment is Default, we'll set it to dev
-        if (args.env == CommonArgs::Env::Default) {
-            args.env = CommonArgs::Env::Dev;
-        }
-    }
-    
-    // If tidewave is requested, ensure we're in dev environment
+    // In release builds, additional validation for dev-only features
+#ifdef TAU5_RELEASE_BUILD
     if (args.tidewave) {
-        bool isDevEnv = (args.env == CommonArgs::Env::Dev);
-        if (!isDevEnv && args.env != CommonArgs::Env::Default) {
-            // Tidewave only works in dev environment
-            args.hasError = true;
-            args.errorMessage = "--tidewave requires development environment (--env-dev or --devtools)";
-            return false;
-        }
-        // Auto-enable dev environment if not explicitly set
-        if (args.env == CommonArgs::Env::Default) {
-            args.env = CommonArgs::Env::Dev;
-        }
+        args.hasError = true;
+        args.errorMessage = "--tidewave only works in development builds";
+        return false;
     }
+#endif
     
     // Validate port ranges (0 is allowed as it means "disabled" or "auto-allocate")
     auto validatePort = [&](quint16 port, const char* name) {
@@ -350,21 +307,14 @@ inline bool validateArguments(CommonArgs& args) {
 
 // Apply environment variables based on parsed arguments
 inline void applyEnvironmentVariables(const CommonArgs& args, const char* targetOverride = nullptr) {
-    // Set MIX_ENV based on runtime environment
-    switch (args.env) {
-        case CommonArgs::Env::Dev:
-            qputenv("MIX_ENV", "dev");
-            break;
-        case CommonArgs::Env::Prod:
-            qputenv("MIX_ENV", "prod");
-            break;
-        case CommonArgs::Env::Test:
-            qputenv("MIX_ENV", "test");
-            break;
-        case CommonArgs::Env::Default:
-            // Don't set, use system default or Phoenix default (prod)
-            break;
-    }
+    // Set MIX_ENV based on build type
+#ifdef TAU5_RELEASE_BUILD
+    // Release builds always use production
+    qputenv("MIX_ENV", "prod");
+#else
+    // Development builds always use dev
+    qputenv("MIX_ENV", "dev");
+#endif
     
     // Set TAU5_MODE based on deployment target
     // Priority: explicit mode flag > targetOverride > default
@@ -407,14 +357,12 @@ inline void applyEnvironmentVariables(const CommonArgs& args, const char* target
         qputenv("TAU5_DEVTOOLS_PORT", std::to_string(chromePort).c_str());
     }
     
-    // Tidewave configuration (only in dev environment)
+    // Tidewave configuration (only in dev builds)
     if (args.tidewave) {
-        bool isDevEnv = (args.env == CommonArgs::Env::Dev || 
-                        qgetenv("MIX_ENV") == "dev");
-        if (isDevEnv) {
-            qputenv("TAU5_TIDEWAVE_ENABLED", "true");
-        }
-        // Silently ignore in prod environment
+#ifndef TAU5_RELEASE_BUILD
+        qputenv("TAU5_TIDEWAVE_ENABLED", "true");
+#endif
+        // Silently ignored in release builds
     }
     
     // NIF control
@@ -430,17 +378,40 @@ inline void applyEnvironmentVariables(const CommonArgs& args, const char* target
     
     // Dev tools
     if (args.repl) {
-        // Elixir REPL only works in dev environment for security
-        bool isDevEnv = (args.env == CommonArgs::Env::Dev || 
-                        qgetenv("MIX_ENV") == "dev");
-        if (isDevEnv) {
-            qputenv("TAU5_ELIXIR_REPL_ENABLED", "true");
-        }
-        // Silently ignore in prod mode
+#ifndef TAU5_RELEASE_BUILD
+        // Elixir REPL only works in dev builds for security
+        qputenv("TAU5_ELIXIR_REPL_ENABLED", "true");
+#endif
+        // Silently ignored in release builds
     }
     if (args.verbose) {
         qputenv("TAU5_VERBOSE", "true");
     }
+}
+
+// Enforce safe environment settings for release builds
+inline void enforceReleaseSettings() {
+#ifdef TAU5_RELEASE_BUILD
+    // Override any dangerous environment variables
+    // Force production mode
+    qputenv("MIX_ENV", "prod");
+    
+    // Disable all development features
+    qputenv("TAU5_ELIXIR_REPL_ENABLED", "false");
+    qputenv("TAU5_TIDEWAVE_ENABLED", "false");
+    qputenv("TAU5_CHROME_DEVTOOLS_ENABLED", "false");
+    qputenv("TAU5_DEV_MCP_ENABLED", "false");
+    qputenv("TAU5_ENABLE_DEV_MCP", "false");
+    qputenv("TAU5_GUI_DEV_MCP_ENABLED", "false");
+    
+    // Ensure console is disabled
+    qputenv("TAU5_CONSOLE_ENABLED", "false");
+    
+    // Clear any server path overrides (use embedded server)
+    qunsetenv("TAU5_SERVER_PATH");
+    
+    // Note: TAU5_MODE should be set by the specific executable (gui or node)
+#endif
 }
 
 } // namespace Tau5CLI

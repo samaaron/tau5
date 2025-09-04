@@ -82,23 +82,22 @@ fi
 
 # Test the release build
 echo ""
-echo "Testing release build with --check..."
+echo "Testing release build (basic startup check)..."
 cd "${ROOT_DIR}/release/Tau5-Linux"
 
-# The --check flag now understands release builds
-./tau5 --check
-if [ $? -ne 0 ]; then
-    echo "ERROR: Release build health check failed!"
+# Note: --check flag is disabled in release builds for security
+# Just verify the binaries exist and are executable
+if [ ! -x ./tau5 ]; then
+    echo "ERROR: tau5 binary not executable!"
     exit 1
 fi
 
-./tau5-node --check
-if [ $? -ne 0 ]; then
-    echo "ERROR: tau5-node health check failed!"
+if [ ! -x ./tau5-node ]; then
+    echo "ERROR: tau5-node binary not executable!"
     exit 1
 fi
 
-echo "✓ All health checks passed"
+echo "✓ Release binaries are present and executable"
 
 echo ""
 echo "========================================"

@@ -50,14 +50,12 @@ void tau5NodeMessageHandler(QtMsgType type, const QMessageLogContext &context, c
 void printUsage(const char* programName) {
     std::cout << "Usage: " << programName << " [options]\n"
               << "Options:\n"
-              << "\n"
-              << "Quick Setup:\n"
-              << "  --devtools               All-in-one dev setup (dev mode + MCP + Tidewave + REPL)\n"
-              << "\n"
-              << "Environment Selection:\n"
-              << "  --env-dev                Development environment (MIX_ENV=dev)\n"
-              << "  --env-prod               Production environment (MIX_ENV=prod) [default]\n"
-              << "  --env-test               Test environment (MIX_ENV=test)\n"
+              << "\n";
+    
+#ifndef TAU5_RELEASE_BUILD
+    // Development build - show all options
+    std::cout << "Quick Setup:\n"
+              << "  --devtools               All-in-one dev setup (MCP + Tidewave + REPL)\n"
               << "\n"
               << "Deployment Mode Override:\n"
               << "  --mode-node              Local headless server [default]\n"
@@ -67,17 +65,29 @@ void printUsage(const char* programName) {
               << "                           - Public web endpoints only\n"
               << "                           - No local endpoints or MCP servers\n"
               << "                           - No NIFs or local I/O capabilities\n"
-              << "\n"
-              << "Port Configuration:\n"
-              << "  --port-local <n>         Local web UI port (default: random)\n"
-              << "  --port-public <n>        Public endpoint port (default: disabled)\n"
+              << "\n";
+#endif
+
+    std::cout << "Port Configuration:\n"
+              << "  --port-local <n>         Local web UI port (default: random)\n";
+
+#ifndef TAU5_RELEASE_BUILD
+    std::cout << "  --port-public <n>        Public endpoint port (default: disabled)\n"
               << "  --port-mcp <n>           MCP services port (default: 5555 when enabled)\n"
               << "\n"
               << "Optional Features:\n"
               << "  --mcp                    Enable MCP endpoint\n"
               << "  --tidewave               Add Tidewave to MCP endpoint (implies --mcp)\n"
-              << "  --repl                   Enable Elixir REPL (dev mode only)\n"
-              << "  --verbose                Enable verbose logging\n"
+              << "  --repl                   Enable Elixir REPL (dev mode only)\n";
+#else
+    // Release build - only show Tau5 MCP option
+    std::cout << "  --port-mcp <n>           Tau5 MCP port (default: 5555)\n"
+              << "\n"
+              << "Optional Features:\n"
+              << "  --mcp                    Enable Tau5 MCP endpoint\n";
+#endif
+
+    std::cout << "  --verbose                Enable verbose logging\n"
               << "\n"
               << "Disable Features:\n"
               << "  --no-midi                Disable MIDI support\n"
@@ -85,9 +95,13 @@ void printUsage(const char* programName) {
               << "  --no-discovery           Disable network discovery\n"
               << "  --no-nifs                Disable all NIFs (MIDI, Link, and Discovery)\n"
               << "\n"
-              << "Other:\n"
-              << "  --server-path <path>     Override server directory path\n"
-              << "  --help, -h               Show this help message\n"
+              << "Other:\n";
+
+#ifndef TAU5_RELEASE_BUILD
+    std::cout << "  --server-path <path>     Override server directory path\n";
+#endif
+
+    std::cout << "  --help, -h               Show this help message\n"
               << "  --version                Show version information\n"
               << "\n"
               << "Tau5 - Code. Art. Together.\n"
@@ -96,6 +110,7 @@ void printUsage(const char* programName) {
               << "\n";
 
 }
+
 
 int main(int argc, char *argv[]) {
 #ifdef Q_OS_WIN
@@ -106,6 +121,14 @@ int main(int argc, char *argv[]) {
     // Set stdout to binary mode to prevent any text translation
     _setmode(_fileno(stdout), _O_BINARY);
     _setmode(_fileno(stderr), _O_BINARY);
+#endif
+
+    // Enforce release settings before anything else
+    Tau5CLI::enforceReleaseSettings();
+    
+#ifdef TAU5_RELEASE_BUILD
+    // Set the mode for tau5-node
+    qputenv("TAU5_MODE", "node");
 #endif
 
     // Parse command line arguments
@@ -137,6 +160,44 @@ int main(int argc, char *argv[]) {
 
     setupConsoleOutput();
     setupSignalHandlers();
+
+#ifdef TAU5_RELEASE_BUILD
+    // In release builds, reject all development-only flags
+    if (args.env == Tau5CLI::CommonArgs::Env::Dev) {
+        std::cerr << "Error: Development mode (--env-dev) is not available in release builds\n";
+        return 1;
+    }
+    if (args.env == Tau5CLI::CommonArgs::Env::Test) {
+        std::cerr << "Error: Test mode (--env-test) is not available in release builds\n";
+        return 1;
+    }
+    if (args.tidewave) {
+        std::cerr << "Error: Tidewave MCP server (--with-tidewave) is not available in release builds\n";
+        return 1;
+    }
+    if (args.repl) {
+        std::cerr << "Error: Elixir REPL (--with-repl) is not available in release builds\n";
+        return 1;
+    }
+    if (args.check) {
+        std::cerr << "Error: Health check (--check) is not available in release builds\n";
+        return 1;
+    }
+    // The --devtools flag combines multiple dev features, reject it too
+    bool hasDevToolsFlag = false;
+    for (int i = 1; i < argc; i++) {
+        if (QString(argv[i]) == "--devtools") {
+            hasDevToolsFlag = true;
+            break;
+        }
+    }
+    if (hasDevToolsFlag) {
+        std::cerr << "Error: Development tools (--devtools) are not available in release builds\n";
+        return 1;
+    }
+    // Force production settings
+    args.env = Tau5CLI::CommonArgs::Env::Prod;
+#endif
 
     // Validate central mode restrictions
     if (args.mode == Tau5CLI::CommonArgs::Mode::Central) {
