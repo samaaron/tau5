@@ -41,11 +41,17 @@ defmodule Tau5Web.Plugs.InternalEndpointSecurity do
     # Check if we already have a valid session
     session_token = get_session(conn, "app_token")
     
-    # Check token in multiple places: session first, then query params, then header
+    # Check for new token in query params or header (NOT session)
+    # Handle multiple token params (take first if array)
+    query_token = case Map.get(conn.query_params, "token") do
+      [first | _] -> first  # Multiple params - take first
+      single -> single      # Single param or nil
+    end
+    
     provided_token = 
-      session_token ||
-      conn.query_params["token"] ||
+      query_token ||
       get_req_header(conn, "x-tau5-token") |> List.first()
+    
     
     cond do
       # In dev mode without a token set, allow access (for development convenience)
@@ -58,11 +64,11 @@ defmodule Tau5Web.Plugs.InternalEndpointSecurity do
         {:error, "Server not configured with session token"}
         
       # Valid session already exists
-      session_token == expected_token ->
+      not is_nil(session_token) and session_token == expected_token ->
         {:ok, conn}
         
-      # New valid token provided - store it in session
-      provided_token == expected_token ->
+      # New valid token provided - store it in session  
+      not is_nil(provided_token) and provided_token == expected_token ->
         conn = put_session(conn, "app_token", expected_token)
         {:ok, conn}
         
@@ -73,9 +79,10 @@ defmodule Tau5Web.Plugs.InternalEndpointSecurity do
     end
   end
 
-  defp is_local?({127, _, _, _}), do: true
-  defp is_local?({0, 0, 0, 0, 0, 0, 0, 1}), do: true
-  defp is_local?({0, 0, 0, 0, 0, 65535, 32512, 1}), do: true  # IPv4-mapped IPv6
+  # Only allow 127.0.0.x range for IPv4 localhost (not entire 127.0.0.0/8)
+  defp is_local?({127, 0, 0, n}) when n in 1..255, do: true
+  defp is_local?({0, 0, 0, 0, 0, 0, 0, 1}), do: true  # IPv6 localhost
+  defp is_local?({0, 0, 0, 0, 0, 65535, 32512, 1}), do: true  # IPv4-mapped IPv6 localhost
   defp is_local?(_), do: false
 
   defp forbidden_page(reason) do
