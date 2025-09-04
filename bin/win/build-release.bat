@@ -82,8 +82,8 @@ echo Creating release package...
 cd /d "%ROOT_DIR%"
 if not exist release mkdir release
 
-:: Copy GUI binaries
-xcopy /E /I /Y gui\build-release\bin\Release\* release\
+:: Copy GUI binaries (they're directly in bin\ for CMake builds)
+xcopy /E /I /Y gui\build-release\bin\* release\
 if %errorlevel% neq 0 (
     echo Failed to copy GUI binaries
     cd /d "%WORKING_DIR%"
