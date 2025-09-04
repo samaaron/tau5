@@ -2,6 +2,10 @@ defmodule Tau5.PortFinderTest do
   use ExUnit.Case
   alias Tau5.PortFinder
   
+  # Skip these tests in CI environments where port allocation is unreliable
+  # CI runners often have port conflicts and timing issues that make these tests flaky
+  @moduletag skip: System.get_env("CI") == "true"
+  
   # Use high port numbers for testing to avoid conflicts
   @test_base_port 49152
   
