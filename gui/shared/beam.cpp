@@ -62,15 +62,12 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
   }
   
   if (heartbeatPort == 0) {
-    // Failed to find free port after 100 attempts
-    Tau5Logger::instance().error("Failed to find available UDP port for heartbeat");
+      Tau5Logger::instance().error("Failed to find available UDP port for heartbeat");
     emit standardError("Failed to initialize heartbeat system - no available ports");
     QCoreApplication::exit(static_cast<int>(ExitCode::HEARTBEAT_PORT_FAILED));
     return;
   }
   
-  // Only log heartbeat setup errors, not normal operation
-  // Tau5Logger::instance().debug(QString("UDP heartbeat: Server will listen on port %1").arg(heartbeatPort));
 
   connect(process, &QProcess::readyReadStandardOutput,
           this, &Beam::handleStandardOutput);
@@ -82,8 +79,6 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
   int interval = intervalStr.isEmpty() ? 5000 : intervalStr.toInt();
   if (interval < 1000) interval = 5000; // Minimum 1 second to prevent busy loop
   heartbeatTimer->setInterval(interval);
-  // Don't log the timer interval in normal operation
-  // Tau5Logger::instance().debug(QString("Heartbeat timer interval set to %1ms").arg(interval));
   connect(heartbeatTimer, &QTimer::timeout, this, &Beam::sendHeartbeat);
 
   if (devMode)
@@ -110,7 +105,7 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
 
     if (!ertsDirs.isEmpty())
     {
-      QString ertsFolder = ertsDirs.first(); // Pick the first match (assuming there's only one)
+      QString ertsFolder = ertsDirs.first();
 #ifdef Q_OS_WIN
       releaseErlBinPath = QFileInfo(QString("%1/%2/bin/erl.exe").arg(releaseDir.absolutePath()).arg(ertsFolder)).absoluteFilePath();
 #else
@@ -121,7 +116,7 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
     else
     {
       qCritical() << "BEAM.cpp - Exiting. No Elixir _build release folder found:" << releaseDir.absolutePath();
-      QCoreApplication::exit(static_cast<int>(ExitCode::SERVER_DIR_NOT_FOUND)); // Exit with specific error code
+      QCoreApplication::exit(static_cast<int>(ExitCode::SERVER_DIR_NOT_FOUND));
     }
   }
 }
@@ -133,7 +128,6 @@ Beam::~Beam()
     heartbeatTimer->stop();
   }
   
-  // Clean up UDP socket
   if (heartbeatSocket) {
     heartbeatSocket->deleteLater();
   }
@@ -143,7 +137,6 @@ Beam::~Beam()
     killBeamProcess();
   }
 
-  // Clean up the QProcess to avoid "destroyed while still running" warning
   if (process)
   {
     process->disconnect();
@@ -178,7 +171,6 @@ void Beam::handleStandardOutput()
     serverReady = true;
     heartbeatTimer->start();
 
-    // Emit OTP ready when we receive the PID, as this indicates the server is running
     if (!otpTreeReady) {
       otpTreeReady = true;
       emit otpReady();
@@ -198,14 +190,13 @@ void Beam::handleStandardError()
     Tau5Logger::instance().log(LogLevel::Error, "beam", errorStr.trimmed());
   }
 
-  // Check for address in use error during restart
   if (isRestarting && (errorStr.contains("address already in use") ||
                        errorStr.contains("Address already in use") ||
                        errorStr.contains("EADDRINUSE")))
   {
     Tau5Logger::instance().error( "Port is still in use, restart failed");
     isRestarting = false;
-    emit restartComplete(); // Re-enable the button
+    emit restartComplete();
   }
 
   emit standardError(errorStr);
@@ -216,7 +207,6 @@ void Beam::startElixirServerDev()
   Tau5Logger::instance().info( "Starting Elixir server in Development mode");
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   
-  // TAU5_MODE is already set by the binary (tau5 or tau5-node)
   
   if (useStdinConfig) {
     env.insert("TAU5_USE_STDIN_CONFIG", "true");
@@ -231,10 +221,8 @@ void Beam::startElixirServerDev()
   }
   
   env.insert("PHX_HOST", "127.0.0.1");
-  // MIX_ENV should already be set by the binary based on mode flags
-  // Only set it if not already present (backward compatibility)
   if (env.value("MIX_ENV").isEmpty()) {
-    env.insert("MIX_ENV", "dev");  // Development mode default for startElixirServerDev
+    env.insert("MIX_ENV", "dev");
   }
   env.insert("RELEASE_DISTRIBUTION", "none");
 
@@ -242,7 +230,6 @@ void Beam::startElixirServerDev()
   env.insert("TAU5_LOG_DIR", sessionPath);
   Tau5Logger::instance().debug(QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
 
-  // MCP configuration
   if (env.value("TAU5_MCP_PORT").toInt() > 0) {
     Tau5Logger::instance().debug(QString("MCP endpoint enabled on port %1").arg(env.value("TAU5_MCP_PORT")));
   }
@@ -250,7 +237,6 @@ void Beam::startElixirServerDev()
     Tau5Logger::instance().debug("Tidewave development tools enabled on MCP endpoint");
   }
   
-  // Elixir REPL configuration (development only)
   if (env.value("TAU5_ELIXIR_REPL_ENABLED") == "true") {
     Tau5Logger::instance().debug("Elixir REPL enabled for development");
   }
@@ -262,13 +248,12 @@ void Beam::startElixirServerDev()
   QString cmd = QDir(dir.absolutePath()).filePath("win-start-server.bat");
   QStringList args = {};
 #else
-  QString serverPath = qEnvironmentVariable("TAU5_SERVER_PATH");
-  if (serverPath.isEmpty()) {
-    Tau5Logger::instance().error("TAU5_SERVER_PATH not set - cannot start dev server");
-    Tau5Logger::instance().error("Please set TAU5_SERVER_PATH environment variable to the server directory path");
+  if (appBasePath.isEmpty()) {
+    Tau5Logger::instance().error("Server path not set - cannot start dev server");
+    Tau5Logger::instance().error("Please use --server-path argument or set TAU5_SERVER_PATH environment variable");
     return;
   }
-  process->setWorkingDirectory(serverPath);
+  process->setWorkingDirectory(appBasePath);
   QString cmd = "mix";
   QStringList args = {"phx.server"};
 #endif
@@ -294,7 +279,6 @@ void Beam::startElixirServerProd()
       modeString = "central";
       break;
   }
-  // TAU5_MODE should already be set by the binary, but set it as fallback
   if (env.value("TAU5_MODE").isEmpty()) {
     env.insert("TAU5_MODE", modeString);
   }
@@ -314,14 +298,11 @@ void Beam::startElixirServerProd()
   }
   
   env.insert("PHX_HOST", "127.0.0.1");
-  // MIX_ENV should already be set by the binary based on mode flags
-  // Only set it if not already present (backward compatibility)
   if (env.value("MIX_ENV").isEmpty()) {
-    env.insert("MIX_ENV", "prod");  // Production mode default for startElixirServerProd
+    env.insert("MIX_ENV", "prod");
   }
   env.insert("RELEASE_DISTRIBUTION", "none");
   
-  // Use environment variable if set, otherwise use auto-generated key
   QString envSecretKey = env.value("SECRET_KEY_BASE");
   if (!envSecretKey.isEmpty()) {
     Tau5Logger::instance().info("Using provided SECRET_KEY_BASE from environment");
@@ -334,7 +315,6 @@ void Beam::startElixirServerProd()
   env.insert("TAU5_LOG_DIR", sessionPath);
   Tau5Logger::instance().debug(QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
 
-  // MCP configuration
   if (env.value("TAU5_MCP_PORT").toInt() > 0) {
     Tau5Logger::instance().debug(QString("MCP endpoint enabled on port %1").arg(env.value("TAU5_MCP_PORT")));
   }
@@ -342,7 +322,6 @@ void Beam::startElixirServerProd()
     Tau5Logger::instance().debug("Tidewave development tools enabled on MCP endpoint");
   }
   
-  // Elixir REPL configuration (development only)
   if (env.value("TAU5_ELIXIR_REPL_ENABLED") == "true") {
     Tau5Logger::instance().debug("Elixir REPL enabled for development");
   }
@@ -352,7 +331,7 @@ void Beam::startElixirServerProd()
   env.insert("RELEASE_DISTRIBUTION", "none");
 
   process->setWorkingDirectory(appBasePath);
-  process->setProcessEnvironment(env); // Use setEnvironment instead of setProcessEnvironment
+  process->setProcessEnvironment(env);
 
   QString cmd = releaseErlBinPath;
   QStringList args = {
@@ -435,7 +414,7 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
 
   process->start(cmd, args);
 
-  if (!process->waitForStarted(5000))  // 5 second timeout
+  if (!process->waitForStarted(5000))
   {
     QString errorMsg = QString("Error starting BEAM: %1\nCommand: %2\nArgs: %3")
                       .arg(process->errorString())
@@ -480,8 +459,6 @@ void Beam::sendHeartbeat()
     Tau5Logger::instance().warning(QString("Failed to send UDP heartbeat: %1")
                                   .arg(heartbeatSocket->errorString()));
   } else {
-    // Successfully sent - no need to log every heartbeat
-    // Tau5Logger::instance().debug(QString("Sent UDP heartbeat to port %1").arg(heartbeatPort));
   }
 }
 
@@ -626,12 +603,10 @@ void Beam::restart()
   {
     Tau5Logger::instance().info( "Terminating BEAM process by PID (in background thread)...");
 
-    // Run killBeamProcess in a separate thread to avoid blocking the UI
     QFuture<void> future = QtConcurrent::run([this]() {
       killBeamProcess();
     });
 
-    // Use a QFutureWatcher to know when it's done
     QFutureWatcher<void> *watcher = new QFutureWatcher<void>(this);
     connect(watcher, &QFutureWatcher<void>::finished, this, [this, watcher]() {
       beamPid = 0;
@@ -668,7 +643,7 @@ void Beam::continueRestart()
 void Beam::checkPortAndStartNewProcess()
 {
   static int retryCount = 0;
-  const int maxRetries = 20; // 10 seconds max (20 * 500ms)
+  const int maxRetries = 20;
 
   if (!isRestarting)
   {
@@ -691,7 +666,6 @@ void Beam::checkPortAndStartNewProcess()
     retryCount++;
     Tau5Logger::instance().debug( QString("Port %1 still in use, checking again in 500ms... (attempt %2/%3)")
                 .arg(appPort).arg(retryCount).arg(maxRetries));
-    // Check again in 500ms
     QTimer::singleShot(500, this, &Beam::checkPortAndStartNewProcess);
   }
   else
@@ -700,7 +674,7 @@ void Beam::checkPortAndStartNewProcess()
                 .arg(appPort).arg(maxRetries * 0.5));
     retryCount = 0;
     isRestarting = false;
-    emit restartComplete(); // Re-enable the button
+    emit restartComplete();
   }
 }
 
@@ -719,13 +693,12 @@ void Beam::startNewBeamProcess()
   connect(process, &QProcess::readyReadStandardError,
           this, &Beam::handleStandardError);
 
-  // Add error handling for process startup
   connect(process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
     if (error == QProcess::FailedToStart)
     {
       Tau5Logger::instance().error( "Failed to start new BEAM process");
       isRestarting = false;
-      emit restartComplete(); // Emit even on failure to re-enable button
+      emit restartComplete();
     }
   });
 
@@ -750,21 +723,19 @@ void Beam::startNewBeamProcess()
     startElixirServerProd();
   }
 
-  // Set up a timeout to handle cases where OTP never becomes ready
-  QTimer::singleShot(30000, this, [this]() { // 30 second timeout
+  QTimer::singleShot(30000, this, [this]() {
     if (isRestarting)
     {
       Tau5Logger::instance().error( "BEAM restart timeout - OTP failed to start");
       isRestarting = false;
-      emit restartComplete(); // Emit to re-enable button
+      emit restartComplete();
     }
   });
 
-  // Connect a one-shot timer to emit restartComplete when OTP is ready
   QObject *context = new QObject();
   connect(this, &Beam::otpReady, context, [this, context]() {
     Tau5Logger::instance().info( "BEAM restart complete");
-    isRestarting = false;  // Reset the flag
+    isRestarting = false;
     emit restartComplete();
     context->deleteLater();
   });

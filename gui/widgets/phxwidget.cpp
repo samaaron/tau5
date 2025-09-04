@@ -18,6 +18,8 @@ PhxWidget::PhxWidget(bool devMode, QWidget *parent)
 {
   phxAlive = false;
   retryCount = 0;
+  appPageEmitted = false;
+  appPageTimer = nullptr;
   phxView = new PhxWebView(m_devMode, this);
   QSizePolicy sp_retain = phxView->sizePolicy();
   sp_retain.setRetainSizeWhenHidden(true);
@@ -69,16 +71,36 @@ void PhxWidget::handleOpenExternalBrowser()
 void PhxWidget::connectToTauPhx(QUrl url)
 {
   defaultUrl = url;
-  retryCount = 0; // Reset retry count when connecting
+  retryCount = 0;
   Tau5Logger::instance().info( QString("[PHX] - connecting to: %1").arg(url.toString()));
   phxView->load(url);
+  
+  if (url.toString().contains("/app") && phxAlive) {
+    appPageEmitted = false;
+    
+    if (appPageTimer) {
+      appPageTimer->stop();
+      delete appPageTimer;
+    }
+    
+    appPageTimer = new QTimer(this);
+    appPageTimer->setSingleShot(true);
+    connect(appPageTimer, &QTimer::timeout, this, [this]() {
+      if (!appPageEmitted) {
+        Tau5Logger::instance().info("[PHX] - app page ready (timer-based)");
+        emit appPageReady();
+        appPageEmitted = true;
+      }
+      appPageTimer = nullptr;
+    });
+    appPageTimer->start(1500);
+  }
 }
 
 void PhxWidget::handleLoadFinished(bool ok)
 {
   if (ok)
   {
-    // Reset retry count on successful load
     retryCount = 0;
     if (!phxAlive)
     {
@@ -87,21 +109,19 @@ void PhxWidget::handleLoadFinished(bool ok)
       phxView->show();
       emit pageLoaded();
     }
-    else
-    {
-      // This is a subsequent page load (like transitioning to app)
-      Tau5Logger::instance().info( "[PHX] - app page loaded");
-      emit appPageReady();
-    }
   }
   else
   {
-    // Check if we should retry
+    QString currentUrl = phxView->url().toString();
+    if (currentUrl.contains("/app")) {
+      Tau5Logger::instance().debug(QString("[PHX] Load reported as failed for /app page (expected with LiveView)"));
+      return;
+    }
+    
     if (retryCount < MAX_RETRIES)
     {
       retryCount++;
       
-      // Calculate exponential backoff delay
       int delayMs = INITIAL_RETRY_DELAY_MS * std::pow(2, retryCount - 1);
       
       Tau5Logger::instance().warning( 
@@ -110,7 +130,6 @@ void PhxWidget::handleLoadFinished(bool ok)
                   .arg(retryCount)
                   .arg(MAX_RETRIES));
       
-      // Schedule retry with exponential backoff
       retryTimer->start(delayMs);
     }
     else
@@ -118,14 +137,13 @@ void PhxWidget::handleLoadFinished(bool ok)
       Tau5Logger::instance().error( 
                   QString("[PHX] - load failed after %1 retries")
                   .arg(MAX_RETRIES));
-      // Could emit a signal here to show an error UI
     }
   }
 }
 
 void PhxWidget::handleResetBrowser()
 {
-  retryCount = 0; // Reset retry count on manual reset
+  retryCount = 0;
   phxView->load(defaultUrl);
 }
 

@@ -43,6 +43,8 @@ private:
   int retryCount;
   QDateTime lastRetryTime;
   QTimer *retryTimer;
+  QTimer *appPageTimer;
+  bool appPageEmitted;
   static constexpr int MAX_RETRIES = 5;
   static constexpr int INITIAL_RETRY_DELAY_MS = 1000;
 
