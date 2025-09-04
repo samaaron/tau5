@@ -75,7 +75,7 @@ elseif(CMAKE_INSTALL_PREFIX STREQUAL "/usr/local" OR CMAKE_INSTALL_PREFIX STREQU
     # Development build - use relative path from binary location
     if(APPLE)
       # From gui/build/bin/Tau5.app/Contents/MacOS/Tau5 -> server
-      set(TAU5_SERVER_PATH_DEFAULT "../../../../../../../server")
+      set(TAU5_SERVER_PATH_DEFAULT "../../../../../../server")
     elseif(WIN32)
       # From gui/build/bin/tau5.exe -> server
       set(TAU5_SERVER_PATH_DEFAULT "../../../server")
@@ -94,7 +94,7 @@ else()
   # Use relative path from binary location
   if(APPLE)
     # From gui/build/bin/Tau5.app/Contents/MacOS/Tau5 -> server
-    set(TAU5_SERVER_PATH_DEFAULT "../../../../../../../server")
+    set(TAU5_SERVER_PATH_DEFAULT "../../../../../../server")
   elseif(WIN32)
     # From gui/build/bin/tau5.exe -> server
     set(TAU5_SERVER_PATH_DEFAULT "../../../server")
