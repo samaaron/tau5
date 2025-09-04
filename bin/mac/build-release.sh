@@ -26,8 +26,11 @@ rm -rf server/_build/prod
 echo ""
 echo "Building Elixir server (production release)..."
 cd "${ROOT_DIR}/server"
-MIX_ENV=prod mix deps.get --only prod
-MIX_ENV=prod mix compile
+# Setup will get deps, build assets, and compile NIFs
+MIX_ENV=prod mix setup
+# Deploy assets for production (minified)
+MIX_ENV=prod mix assets.deploy
+# Create release
 MIX_ENV=prod mix release --overwrite
 
 # Build GUI with release configuration
