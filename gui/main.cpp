@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #endif
 #include <QApplication>
+#include <QCoreApplication>
 #include <QDir>
 #include <QTcpServer>
 #include <QDebug>
@@ -394,12 +395,8 @@ int main(int argc, char *argv[])
     Tau5Logger::initialize(logConfig);
     Tau5Logger::instance().info("Starting Tau5...");
     
-    // Set up for headless operation if no display
-    if (!qEnvironmentVariableIsSet("DISPLAY")) {
-      qputenv("QT_QPA_PLATFORM", "offscreen");
-    }
-    
-    QApplication tempApp(argc, argv);
+    // Use QCoreApplication for headless check mode - no GUI required
+    QCoreApplication tempApp(argc, argv);
     
     // Get server base path
     QString basePath = getServerBasePath(args.serverPath);
