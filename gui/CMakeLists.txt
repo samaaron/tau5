@@ -39,15 +39,13 @@ set_property(GLOBAL PROPERTY AUTOGEN_TARGETS_FOLDER Automoc)
 option(BUILD_NODE_ONLY "Build only the tau5-node CLI without GUI dependencies" OFF)
 
 # Set consistent output directories for all platforms
-# Note: macOS app bundles will still go in the default location
-if(NOT APPLE)
-  # For Windows and Linux, put binaries in build/bin
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin)
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin)
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/bin)
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/bin)
-endif()
+# All standalone executables go in build/bin
+# macOS app bundles will still go in the default location (build/)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/bin)
 
 # On Windows, also set library output to the same directory so DLLs are found
 if(WIN32)
@@ -70,8 +68,8 @@ elseif(CMAKE_INSTALL_PREFIX STREQUAL "/usr/local" OR CMAKE_INSTALL_PREFIX STREQU
   if(EXISTS "${CMAKE_SOURCE_DIR}/../server/mix.exs")
     # Development build - use relative path from binary location
     if(APPLE)
-      # From gui/build/Tau5.app/Contents/MacOS/Tau5 -> server
-      set(TAU5_SERVER_PATH_DEFAULT "../../../../../../server")
+      # From gui/build/bin/Tau5.app/Contents/MacOS/Tau5 -> server
+      set(TAU5_SERVER_PATH_DEFAULT "../../../../../../../server")
     elseif(WIN32)
       # From gui/build/bin/tau5.exe -> server
       set(TAU5_SERVER_PATH_DEFAULT "../../../server")
@@ -89,8 +87,8 @@ else()
   # Non-standard install prefix - assume development build
   # Use relative path from binary location
   if(APPLE)
-    # From gui/build/Tau5.app/Contents/MacOS/Tau5 -> server
-    set(TAU5_SERVER_PATH_DEFAULT "../../../../../../server")
+    # From gui/build/bin/Tau5.app/Contents/MacOS/Tau5 -> server
+    set(TAU5_SERVER_PATH_DEFAULT "../../../../../../../server")
   elseif(WIN32)
     # From gui/build/bin/tau5.exe -> server
     set(TAU5_SERVER_PATH_DEFAULT "../../../server")
@@ -200,6 +198,11 @@ SET(RESOURCES
 if(NOT BUILD_NODE_ONLY)
   if(APPLE)
     add_executable(${APP_NAME} MACOSX_BUNDLE ${SOURCES} ${RESOURCES})
+    # Put the app bundle in bin/ directory for consistency
+    set_target_properties(${APP_NAME} PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+      BUNDLE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
   else()
     add_executable(${APP_NAME} WIN32 ${SOURCES} ${RESOURCES})
   endif()
@@ -227,25 +230,25 @@ if(NOT BUILD_NODE_ONLY AND APPLE)
   add_custom_command(
     TARGET ${APP_NAME}
     POST_BUILD
-    COMMAND macdeployqt "${CMAKE_BINARY_DIR}/${MACOS_APP_NAME}.app"
+    COMMAND macdeployqt "${CMAKE_BINARY_DIR}/bin/${MACOS_APP_NAME}.app"
   )
 
   add_custom_command(
     TARGET ${APP_NAME}
     POST_BUILD
-    COMMAND plutil -replace NSHighResolutionCapable -bool true "${CMAKE_BINARY_DIR}/${MACOS_APP_NAME}.app/Contents/Info.plist"
+    COMMAND plutil -replace NSHighResolutionCapable -bool true "${CMAKE_BINARY_DIR}/bin/${MACOS_APP_NAME}.app/Contents/Info.plist"
   )
 
   add_custom_command(
     TARGET ${APP_NAME}
     POST_BUILD
-    COMMAND plutil -replace NSRequiresAquaSystemAppearance -bool false "${CMAKE_BINARY_DIR}/${MACOS_APP_NAME}.app/Contents/Info.plist"
+    COMMAND plutil -replace NSRequiresAquaSystemAppearance -bool false "${CMAKE_BINARY_DIR}/bin/${MACOS_APP_NAME}.app/Contents/Info.plist"
   )
 
   add_custom_command(
     TARGET ${APP_NAME}
     POST_BUILD
-    COMMAND plutil -replace NSMicrophoneUsageDescription -string "Sonic Pi Tau5 needs microphone access for its live audio input features." "${CMAKE_BINARY_DIR}/${MACOS_APP_NAME}.app/Contents/Info.plist"
+    COMMAND plutil -replace NSMicrophoneUsageDescription -string "Sonic Pi Tau5 needs microphone access for its live audio input features." "${CMAKE_BINARY_DIR}/bin/${MACOS_APP_NAME}.app/Contents/Info.plist"
   )
 endif()
 
@@ -310,8 +313,26 @@ target_link_libraries(${NODE_APP_NAME}
   Qt::Core
   Qt::Network)
 
-# Add server path definition for tau5-node as well
-target_compile_definitions(${NODE_APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="${TAU5_SERVER_PATH_DEFAULT}")
+# Set server path for tau5-node
+# When built with GUI on macOS, it will be in the app bundle
+# When built standalone, it will be at gui/build/tau5-node
+if(APPLE AND NOT BUILD_NODE_ONLY AND TARGET ${APP_NAME})
+  # tau5-node will be in app bundle, use same path as tau5
+  target_compile_definitions(${NODE_APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="${TAU5_SERVER_PATH_DEFAULT}")
+  
+  # Copy tau5-node into the app bundle
+  add_custom_command(
+    TARGET ${NODE_APP_NAME}
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:${NODE_APP_NAME}>
+            "${CMAKE_BINARY_DIR}/bin/${MACOS_APP_NAME}.app/Contents/MacOS/${NODE_APP_NAME}"
+  )
+else()
+  # Standalone tau5-node build - all platforms put binaries in gui/build/bin
+  # From gui/build/bin/tau5-node -> server
+  target_compile_definitions(${NODE_APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="../../../server")
+endif()
 
 # Deploy Qt binaries to the output on windows, and copy the CRT to the release folder
 if(NOT BUILD_NODE_ONLY AND WIN32)

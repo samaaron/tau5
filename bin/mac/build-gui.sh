@@ -44,3 +44,4 @@ else
 fi
 
 cmake --build . --target tau5
+cmake --build . --target tau5-node

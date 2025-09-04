@@ -18,11 +18,11 @@ mkdir -p Release
 cd Release
 
 # Copy gui across
-cp -R ../gui/build/*.app .
+cp -R ../gui/build/bin/*.app .
 
 # Copy tau5-node executable into the app bundle
 APP_NAME=$(find . -name "*.app" -type d | head -n 1)
-cp ../gui/build/tau5-node "${APP_NAME}/Contents/MacOS/"
+cp ../gui/build/bin/tau5-node "${APP_NAME}/Contents/MacOS/"
 
 # Copy prod release part of the server across
 cd *.app/Contents/Resources
