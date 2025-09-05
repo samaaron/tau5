@@ -533,9 +533,20 @@ int main(int argc, char *argv[]) {
 
     // Get log path from logger
     serverInfo.logPath = Tau5Logger::instance().currentSessionPath();
+    
+    // Simple progress dots timer
+    QTimer* dotsTimer = nullptr;
+    if (!args.verbose) {
+        std::cout << "Starting BEAM server" << std::flush;
+        dotsTimer = new QTimer(&app);
+        QObject::connect(dotsTimer, &QTimer::timeout, []() {
+            std::cout << "." << std::flush;
+        });
+        dotsTimer->start(500);
+    }
 
     // Small delay to ensure everything is initialized
-    QTimer::singleShot(Tau5Common::Config::NODE_STARTUP_DELAY_MS, [&app, &beam, basePath, port, &args, &serverInfo, isDevMode, isCentralMode]() {
+    QTimer::singleShot(Tau5Common::Config::NODE_STARTUP_DELAY_MS, [&app, &beam, basePath, port, &args, &serverInfo, isDevMode, isCentralMode, dotsTimer]() {
         if (args.verbose) {
             Tau5Logger::instance().info("Starting BEAM server...");
         }
@@ -565,8 +576,17 @@ int main(int argc, char *argv[]) {
         });
 
         // Connect to OTP ready signal
-        QObject::connect(beam.get(), &Beam::otpReady, [&args, &serverInfo, &beam, &serverInfoShown, port]() {
+        QObject::connect(beam.get(), &Beam::otpReady, [&args, &serverInfo, &beam, &serverInfoShown, port, dotsTimer]() {
             serverInfo.otpReady = true;
+            
+            // Stop the dots timer
+            if (dotsTimer) {
+                dotsTimer->stop();
+                dotsTimer->deleteLater();
+                if (!args.verbose) {
+                    std::cout << " done\n" << std::flush;
+                }
+            }
 
             // Get BEAM PID when it's ready
             if (beam) {
@@ -718,14 +738,21 @@ int main(int argc, char *argv[]) {
         if (args.verbose) {
             Tau5Logger::instance().info("Shutting down Tau5 Node...");
         } else {
-            std::cout << "\nShutting down Tau5 Node...\n";
+            std::cout << "\nShutting down Tau5 Node..." << std::flush;
         }
+        
+        // Normal shutdown - let the destructor do its job
         if (beam) {
             beam.reset();
         }
+        
+        // Clean up signal handlers
         Tau5Common::cleanupSignalHandlers();
+        
         if (args.verbose) {
             Tau5Logger::instance().info("Tau5 Node stopped");
+        } else {
+            std::cout << " done\n" << std::flush;
         }
     });
 
