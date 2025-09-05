@@ -12,4 +12,4 @@ trap cleanup_function EXIT
 
 cd "${ROOT_DIR}"
 # Linux executable path
-./gui/build/tau5-dev-gui-mcp-server "$@"
+./gui/build/bin/tau5-dev-gui-mcp-server "$@"
