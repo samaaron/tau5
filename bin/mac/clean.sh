@@ -31,9 +31,7 @@ rm -rf gui/build
 rm -rf gui/build-release
 rm -rf gui/build-release-node
 rm -rf release/*
-rm -rf release-node/*
 # Keep the release directory structure but remove contents
 [ -d release ] && touch release/.gitkeep
-[ -d release-node ] && touch release-node/.gitkeep
 rm -rf build
 
