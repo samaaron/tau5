@@ -95,7 +95,7 @@ else
     cmake -G "Unix Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
           -DTAU5_RELEASE_BUILD=ON \
-          -DTAU5_INSTALL_SERVER_PATH="_build/prod/rel/tau5" \
+          -DTAU5_SERVER_PATH="_build/prod/rel/tau5" \
           -DBUILD_DEBUG_PANE=OFF \
           ..
 
