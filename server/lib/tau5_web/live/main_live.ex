@@ -10,12 +10,28 @@ defmodule Tau5Web.MainLive do
   @impl true
   def mount(_params, _session, socket) do
     # Access tier info should already be in socket assigns from AccessTierHook
-    # Just add the UI-specific state
-    {:ok,
-     socket
-     |> assign(:layout_state, TiledLayout.new())
-     |> assign(:show_controls, true)
-     |> assign(:show_lua_console, false)}
+    # But we need to provide defaults in case it's not there (production issue)
+    socket = 
+      socket
+      |> assign_new(:endpoint_type, fn -> "local" end)
+      |> assign_new(:access_tier, fn -> "full" end)
+      |> assign_new(:features, fn -> 
+        %{
+          admin_tools: true,
+          pairing: true,
+          fs_access: true,
+          mutate: true,
+          console_access: true,
+          lua_privileged: true,
+          midi_access: true,
+          link_access: true
+        }
+      end)
+      |> assign(:layout_state, TiledLayout.new())
+      |> assign(:show_controls, true)
+      |> assign(:show_lua_console, false)
+    
+    {:ok, socket}
   end
 
   @impl true
