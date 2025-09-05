@@ -12,15 +12,23 @@ defmodule Tau5.StartupInfo do
     Process.sleep(1000)
     
     pid = System.pid()
-    configured_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
-    Logger.debug("Configured port: #{configured_port}")
     
-    port = get_actual_server_port()
-    
-    # Send both PID and port in a single atomic message
-    # Format: [TAU5_SERVER_INFO:PID=12345,PORT=4000]
-    IO.puts("[TAU5_SERVER_INFO:PID=#{pid},PORT=#{port}]")
-    Logger.info("Server started - PID: #{pid}, Port: #{port}")
+    # Check if local endpoint is disabled
+    if System.get_env("TAU5_NO_LOCAL_ENDPOINT") == "true" do
+      # Report with port 0 to indicate no local endpoint
+      IO.puts("[TAU5_SERVER_INFO:PID=#{pid},PORT=0]")
+      Logger.info("Server started - PID: #{pid}, No local endpoint")
+    else
+      configured_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
+      Logger.debug("Configured port: #{configured_port}")
+      
+      port = get_actual_server_port()
+      
+      # Send both PID and port in a single atomic message
+      # Format: [TAU5_SERVER_INFO:PID=12345,PORT=4000]
+      IO.puts("[TAU5_SERVER_INFO:PID=#{pid},PORT=#{port}]")
+      Logger.info("Server started - PID: #{pid}, Port: #{port}")
+    end
   end
   
   defp get_actual_server_port do

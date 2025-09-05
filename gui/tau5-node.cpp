@@ -7,6 +7,8 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <QThread>
+#include <QNetworkInterface>
+#include <QHostAddress>
 #ifndef Q_OS_WIN
 #include <unistd.h>
 #else
@@ -69,7 +71,8 @@ void printUsage(const char* programName) {
 #endif
 
     std::cout << "Port Configuration:\n"
-              << "  --port-local <n>         Local web UI port (default: random)\n";
+              << "  --port-local <n>         Local web UI port (default: random)\n"
+              << "  --no-local-endpoint      Disable local endpoint completely\n";
 
 #ifndef TAU5_RELEASE_BUILD
     std::cout << "  --port-public <n>        Public endpoint port (default: disabled)\n"
@@ -111,6 +114,42 @@ void printUsage(const char* programName) {
 
 }
 
+// Helper function to print public endpoint info
+void printPublicEndpointInfo(const Tau5CLI::CommonArgs& args) {
+    QList<QHostAddress> addresses = QNetworkInterface::allAddresses();
+    bool firstPublicIP = true;
+    
+    for (const QHostAddress &address : addresses) {
+        // Skip loopback and IPv6 link-local addresses
+        if (!address.isLoopback() && 
+            address.protocol() == QAbstractSocket::IPv4Protocol) {
+            
+            if (firstPublicIP) {
+                std::cout << "  Public:    ";
+                firstPublicIP = false;
+            } else {
+                std::cout << "             ";
+            }
+            
+            std::cout << "http://" << address.toString().toStdString() << ":" << args.portPublic;
+            QString friendToken = qgetenv("TAU5_FRIEND_TOKEN");
+            if (qgetenv("TAU5_FRIEND_MODE") == "true" && !friendToken.isEmpty()) {
+                std::cout << "/?friend_token=" << friendToken.toStdString();
+            }
+            std::cout << "\n";
+        }
+    }
+    
+    // If no non-loopback addresses found, show 127.0.0.1 as fallback
+    if (firstPublicIP) {
+        std::cout << "  Public:    http://127.0.0.1:" << args.portPublic;
+        QString friendToken = qgetenv("TAU5_FRIEND_TOKEN");
+        if (qgetenv("TAU5_FRIEND_MODE") == "true" && !friendToken.isEmpty()) {
+            std::cout << "/?friend_token=" << friendToken.toStdString();
+        }
+        std::cout << "\n";
+    }
+}
 
 int main(int argc, char *argv[]) {
 #ifdef Q_OS_WIN
@@ -194,6 +233,13 @@ int main(int argc, char *argv[]) {
     // Force production settings
     args.env = Tau5CLI::CommonArgs::Env::Prod;
 #endif
+
+    // Validate no-local-endpoint restrictions
+    if (args.noLocalEndpoint && args.portLocal > 0) {
+        std::cerr << "Error: --no-local-endpoint conflicts with --port-local\n";
+        std::cerr << "Cannot specify a local port when local endpoint is disabled\n";
+        return 1;
+    }
 
     // Validate central mode restrictions
     if (args.mode == Tau5CLI::CommonArgs::Mode::Central) {
@@ -300,11 +346,23 @@ int main(int argc, char *argv[]) {
         Tau5Logger::instance().info("Starting Tau5 Node (Headless Mode)...");
     }
 
-    // Determine port (central mode doesn't use local ports)
+    // Determine port based on mode and endpoint configuration
     quint16 port = 0;
     bool isCentralMode = (args.mode == Tau5CLI::CommonArgs::Mode::Central);
+    bool hasLocalEndpoint = !args.noLocalEndpoint;
 
-    if (!isCentralMode) {
+    if (isCentralMode) {
+        // Central mode never uses local ports
+        if (args.verbose) {
+            Tau5Logger::instance().info("Central coordinator mode enabled");
+        }
+    } else if (!hasLocalEndpoint) {
+        // Node mode with no local endpoint - don't allocate local port
+        if (args.verbose) {
+            Tau5Logger::instance().info("Node mode with no local endpoint");
+        }
+    } else {
+        // Standard node mode with local endpoint
         port = args.portLocal;
         if (port == 0) {
             if (isDevMode) {
@@ -330,10 +388,6 @@ int main(int argc, char *argv[]) {
                     Tau5Logger::instance().info("Production mode enabled");
                 }
             }
-        }
-    } else {
-        if (args.verbose) {
-            Tau5Logger::instance().info("Central coordinator mode enabled");
         }
     }
 
@@ -525,7 +579,7 @@ int main(int argc, char *argv[]) {
             }
 
             // For random port (0), wait a bit for the actual port to be reported
-            if (port == 0 && serverInfo.serverPort == 0 && !serverInfoShown) {
+            if (port == 0 && serverInfo.serverPort == 0 && !serverInfoShown && !args.noLocalEndpoint) {
                 // Set a timer to show server info after a short delay to allow port allocation
                 QTimer::singleShot(300, [&serverInfo, &args, &serverInfoShown]() {
                     if (!serverInfoShown) {
@@ -536,17 +590,23 @@ int main(int argc, char *argv[]) {
                             std::cout << "Tau5 Server Started\n";
                             std::cout << "--------------------------------------------------------\n";
                             std::cout << "  Mode:      " << serverInfo.mode.toStdString() << "\n";
-                            if (serverInfo.serverPort > 0) {
-                                std::cout << "  Port:      " << serverInfo.serverPort << "\n";
+                            
+                            // Show local endpoint info
+                            if (args.noLocalEndpoint) {
+                                std::cout << "  Local:     Disabled (--no-local-endpoint)\n";
+                            } else if (serverInfo.serverPort > 0) {
+                                std::cout << "  Local:     http://localhost:" << serverInfo.serverPort;
                                 if (serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
-                                    std::cout << "  URL:       http://localhost:" << serverInfo.serverPort << "/?token=" << serverInfo.sessionToken.toStdString() << "\n";
-                                    std::cout << "  Dashboard: http://localhost:" << serverInfo.serverPort << "/dev/dashboard?token=" << serverInfo.sessionToken.toStdString() << "\n";
-                                } else {
-                                    std::cout << "  URL:       http://localhost:" << serverInfo.serverPort << "\n";
+                                    std::cout << "/?token=" << serverInfo.sessionToken.toStdString();
                                 }
+                                std::cout << "\n";
                             } else {
-                                std::cout << "  Port:      (random allocation in progress)\n";
-                                std::cout << "  URL:       (pending port allocation)\n";
+                                std::cout << "  Local:     (random port allocation in progress)\n";
+                            }
+                            
+                            // Show public endpoint info if configured
+                            if (args.portPublic > 0) {
+                                printPublicEndpointInfo(args);
                             }
                             std::cout << "  Node PID:  " << serverInfo.nodePid << "\n";
                             if (serverInfo.beamPid > 0) {
@@ -575,7 +635,7 @@ int main(int argc, char *argv[]) {
                 return; // Wait for the timer
             }
 
-            // If we have a fixed port or already got the allocated port, show immediately
+            // If we have a fixed port or already got the allocated port, or no local endpoint, show immediately
             if (!serverInfoShown) {
                 serverInfoShown = true;
                 if (args.verbose) {
@@ -587,12 +647,25 @@ int main(int argc, char *argv[]) {
                     std::cout << "Tau5 Server Started\n";
                     std::cout << "--------------------------------------------------------\n";
                     std::cout << "  Mode:      " << serverInfo.mode.toStdString() << "\n";
-                    std::cout << "  Port:      " << serverInfo.serverPort << "\n";
-                    if (serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
-                        std::cout << "  URL:       http://localhost:" << serverInfo.serverPort << "/?token=" << serverInfo.sessionToken.toStdString() << "\n";
-                        std::cout << "  Dashboard: http://localhost:" << serverInfo.serverPort << "/dev/dashboard?token=" << serverInfo.sessionToken.toStdString() << "\n";
+                    
+                    // Show local endpoint info
+                    if (args.noLocalEndpoint) {
+                        std::cout << "  Local:     Disabled (--no-local-endpoint)\n";
                     } else {
-                        std::cout << "  URL:       http://localhost:" << serverInfo.serverPort << "\n";
+                        std::cout << "  Local:     http://localhost:" << serverInfo.serverPort;
+                        if (serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
+                            std::cout << "/?token=" << serverInfo.sessionToken.toStdString();
+                        }
+                        std::cout << "\n";
+                        
+                        if (serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
+                            std::cout << "  Dashboard: http://localhost:" << serverInfo.serverPort << "/dev/dashboard?token=" << serverInfo.sessionToken.toStdString() << "\n";
+                        }
+                    }
+                    
+                    // Show public endpoint info if configured
+                    if (args.portPublic > 0) {
+                        printPublicEndpointInfo(args);
                     }
                     std::cout << "  Node PID:  " << serverInfo.nodePid << "\n";
                     if (serverInfo.beamPid > 0) {

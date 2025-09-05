@@ -12,12 +12,16 @@ namespace Tau5CLI {
 struct CommonArgs {
     // Runtime environment (controls MIX_ENV)
     enum class Env {
-        Default,  // Not specified, will use prod
+        Default,  // Not specified, will use build default
         Dev,      // Development environment
         Prod,     // Production environment
         Test      // Test environment
     };
-    Env env = Env::Default;
+    #ifdef TAU5_RELEASE_BUILD
+    Env env = Env::Prod;  // Release builds default to production
+    #else
+    Env env = Env::Dev;   // Development builds default to dev
+    #endif
     
     // Deployment mode override (tau5-node only, controls TAU5_MODE)
     enum class Mode {
@@ -49,6 +53,7 @@ struct CommonArgs {
     bool noLink = false;           // Disable Ableton Link support
     bool noDiscovery = false;      // Disable network discovery
     bool noNifs = false;           // Disable all NIFs
+    bool noLocalEndpoint = false;  // Disable local endpoint (tau5-node only)
     
     // Other
     bool check = false;            // Verify installation
@@ -178,6 +183,9 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         return true;
     } else if (std::strcmp(arg, "--no-debug-pane") == 0) {
         args.debugPane = false;
+        return true;
+    } else if (std::strcmp(arg, "--no-local-endpoint") == 0) {
+        args.noLocalEndpoint = true;
         return true;
     }
     // Path configuration
@@ -374,6 +382,11 @@ inline void applyEnvironmentVariables(const CommonArgs& args, const char* target
     }
     if (args.noDiscovery) {
         qputenv("TAU5_DISCOVERY_ENABLED", "false");
+    }
+    
+    // Local endpoint control (tau5-node only)
+    if (args.noLocalEndpoint) {
+        qputenv("TAU5_NO_LOCAL_ENDPOINT", "true");
     }
     
     // Dev tools

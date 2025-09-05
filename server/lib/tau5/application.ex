@@ -58,9 +58,17 @@ defmodule Tau5.Application do
       {Phoenix.PubSub, name: Tau5.PubSub},
       {Finch, name: Tau5.Finch},
       Hermes.Server.Registry,
-      {Tau5MCP.Server, transport: :streamable_http},
-      Tau5Web.Endpoint
+      {Tau5MCP.Server, transport: :streamable_http}
     ]
+    
+    # Only add main endpoint if not disabled
+    local_endpoint_children = 
+      if System.get_env("TAU5_NO_LOCAL_ENDPOINT") == "true" do
+        Logger.info("Local endpoint disabled via TAU5_NO_LOCAL_ENDPOINT")
+        []
+      else
+        [Tau5Web.Endpoint]
+      end
     
     public_endpoint_children = if public_endpoint_port do
       [
@@ -84,7 +92,7 @@ defmodule Tau5.Application do
       {Tau5.Discovery, %{http_port: http_port}}
     ]
     
-    children = base_children ++ public_endpoint_children ++ additional_children
+    children = base_children ++ local_endpoint_children ++ public_endpoint_children ++ additional_children
 
     opts = [strategy: :one_for_one, name: Tau5.Supervisor]
 
