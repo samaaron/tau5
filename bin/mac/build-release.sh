@@ -146,7 +146,7 @@ if [ "$NODE_ONLY" = true ]; then
     
     # Copy tau5-node binary to release root
     echo "Copying tau5-node binary..."
-    cp "${ROOT_DIR}/gui/build-release-node/bin/tau5-node" .
+    cp "${ROOT_DIR}/gui/build-release-node/temp/tau5-node" .
     
     # Make binary executable
     chmod +x tau5-node
@@ -170,7 +170,7 @@ else
     cd "release/${RELEASE_DIR_NAME}"
     
     # Copy the app bundle
-    cp -R ../gui/build-release/bin/*.app .
+    cp -R "${ROOT_DIR}/gui/build-release/bin"/*.app .
     APP_NAME=$(find . -name "*.app" -type d | head -n 1)
     
     # tau5-node should already be in the app bundle from the build

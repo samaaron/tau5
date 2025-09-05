@@ -344,12 +344,14 @@ if(NOT BUILD_NODE_ONLY AND TARGET ${APP_NAME})
     
     # Copy tau5-node into the app bundle
     add_custom_command(
-      TARGET ${NODE_APP_NAME}
+      TARGET ${APP_NAME}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
               $<TARGET_FILE:${NODE_APP_NAME}>
               "${CMAKE_BINARY_DIR}/bin/${MACOS_APP_NAME}.app/Contents/MacOS/${NODE_APP_NAME}"
     )
+    # Ensure tau5-node is built before tau5
+    add_dependencies(${APP_NAME} ${NODE_APP_NAME})
   else()
     # Windows/Linux - tau5-node goes to bin/ alongside tau5
     # Use the configured server path
