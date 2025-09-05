@@ -11,10 +11,18 @@ defmodule Tau5.Application do
           Application.put_env(:tau5, :heartbeat_token, secrets.heartbeat_token)
           Application.put_env(:tau5, :heartbeat_port, secrets.heartbeat_port)
 
+          # Parse the port from stdin
+          {port, _} = Integer.parse(secrets.app_port)
+          
           endpoint_config = Application.get_env(:tau5, Tau5Web.Endpoint)
 
+          # Update both secret_key_base and port
           new_endpoint_config =
-            Keyword.put(endpoint_config, :secret_key_base, secrets.secret_key_base)
+            endpoint_config
+            |> Keyword.put(:secret_key_base, secrets.secret_key_base)
+            |> Keyword.update(:http, [port: port], fn http_config ->
+              Keyword.put(http_config, :port, port)
+            end)
 
           Application.put_env(:tau5, Tau5Web.Endpoint, new_endpoint_config)
 

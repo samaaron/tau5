@@ -38,7 +38,7 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
   if (!Tau5Logger::isInitialized()) {
     qFatal("Beam: Tau5Logger must be initialized before creating Beam instances");
   }
-  
+
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
   heartbeatToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
   appPort = port;
@@ -48,7 +48,7 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
   memcpy(randomBytes.data(), buffer, 64);
   secretKeyBase = randomBytes.toBase64();
   heartbeatSocket = new QUdpSocket(this);
-  
+
   // Find an available port for the server to bind to
   // Try binding to verify it's free, then immediately release it
   QUdpSocket portTest;
@@ -60,14 +60,14 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
       break;
     }
   }
-  
+
   if (heartbeatPort == 0) {
       Tau5Logger::instance().error("Failed to find available UDP port for heartbeat");
     emit standardError("Failed to initialize heartbeat system - no available ports");
     QCoreApplication::exit(static_cast<int>(ExitCode::HEARTBEAT_PORT_FAILED));
     return;
   }
-  
+
 
   connect(process, &QProcess::readyReadStandardOutput,
           this, &Beam::handleStandardOutput);
@@ -127,7 +127,7 @@ Beam::~Beam()
   {
     heartbeatTimer->stop();
   }
-  
+
   if (heartbeatSocket) {
     heartbeatSocket->deleteLater();
   }
@@ -169,21 +169,21 @@ void Beam::handleStandardOutput()
   {
     beamPid = serverInfoMatch.captured(1).toLongLong();
     quint16 actualPort = serverInfoMatch.captured(2).toUInt();
-    
+
     Tau5Logger::instance().debug( QString("Captured server info - PID: %1, Port: %2").arg(beamPid).arg(actualPort));
-    
+
     if (actualPort > 0) {
       appPort = actualPort;  // Update with actual allocated port
     }
-    
+
     serverReady = true;
     heartbeatTimer->start();
-    
+
     if (!otpTreeReady) {
       otpTreeReady = true;
       emit otpReady();
     }
-    
+
     if (actualPort > 0 && actualPort != appPort) {
       emit actualPortAllocated(actualPort);
     }
@@ -213,24 +213,103 @@ void Beam::handleStandardError()
   emit standardError(errorStr);
 }
 
+QProcessEnvironment Beam::createControlledEnvironment()
+{
+    QProcessEnvironment env;
+    // PATH - dev builds inherit from parent, release builds get nothing
+#ifndef TAU5_RELEASE_BUILD
+ // Dev builds need access to PATH for dev tools (git, etc.)
+
+  QProcessEnvironment sysEnv = QProcessEnvironment::systemEnvironment();
+  QString systemPath = sysEnv.value("PATH");
+  if (!systemPath.isEmpty()) {
+    env.insert("PATH", systemPath);
+  }
+#endif
+
+  // Home directory for BEAM config files
+  env.insert("HOME", QDir::homePath());
+
+#ifdef Q_OS_UNIX
+  // Get username from home directory path instead of environment
+  QString homePath = QDir::homePath();
+  QString userName = homePath.section('/', -1);
+  env.insert("USER", userName);
+#endif
+
+  // Locale
+  env.insert("LANG", "en_US.UTF-8");
+  env.insert("LC_ALL", "en_US.UTF-8");
+  env.insert("LC_CTYPE", "en_US.UTF-8");
+
+  env.insert("TERM", "xterm-256color");
+
+  // Temp directories
+  env.insert("TMPDIR", QDir::tempPath());
+  env.insert("TMP", QDir::tempPath());
+  env.insert("TEMP", QDir::tempPath());
+
+  // Tau5-specific variables from CLI arguments only
+  if (!qgetenv("MIX_ENV").isEmpty()) {
+    env.insert("MIX_ENV", qgetenv("MIX_ENV"));
+  }
+  if (!qgetenv("TAU5_MODE").isEmpty()) {
+    env.insert("TAU5_MODE", qgetenv("TAU5_MODE"));
+  }
+
+  // MCP configuration
+  if (!qgetenv("TAU5_MCP_PORT").isEmpty() && qgetenv("TAU5_MCP_PORT") != "0") {
+    env.insert("TAU5_MCP_PORT", qgetenv("TAU5_MCP_PORT"));
+    env.insert("TAU5_MCP_ENABLED", qgetenv("TAU5_MCP_ENABLED"));
+  }
+  if (qgetenv("TAU5_TIDEWAVE_ENABLED") == "true") {
+    env.insert("TAU5_TIDEWAVE_ENABLED", "true");
+  }
+
+  if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true") {
+    env.insert("TAU5_ELIXIR_REPL_ENABLED", "true");
+  }
+
+  // NIF configuration
+  if (qgetenv("TAU5_MIDI_ENABLED") == "false") {
+    env.insert("TAU5_MIDI_ENABLED", "false");
+  }
+  if (qgetenv("TAU5_LINK_ENABLED") == "false") {
+    env.insert("TAU5_LINK_ENABLED", "false");
+  }
+  if (qgetenv("TAU5_DISCOVERY_ENABLED") == "false") {
+    env.insert("TAU5_DISCOVERY_ENABLED", "false");
+  }
+
+  if (qgetenv("TAU5_VERBOSE") == "true") {
+    env.insert("TAU5_VERBOSE", "true");
+  }
+
+
+  return env;
+}
+
 void Beam::startElixirServerDev()
 {
   Tau5Logger::instance().info( "Starting Elixir server in Development mode");
-  QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-  
-  
+
+  // Use controlled environment instead of system environment
+  QProcessEnvironment env = createControlledEnvironment();
+
+
   if (useStdinConfig) {
     env.insert("TAU5_USE_STDIN_CONFIG", "true");
     env.insert("TAU5_HEARTBEAT_ENABLED", "true");
-    env.insert("PORT", QString::number(appPort));
+    // PORT is now passed via stdin, not environment
   } else {
+    // Fallback mode - less secure but necessary for some deployments
     env.insert("TAU5_SESSION_TOKEN", sessionToken);
     env.insert("TAU5_HEARTBEAT_ENABLED", "true");
     env.insert("TAU5_HEARTBEAT_PORT", QString::number(heartbeatPort));
     env.insert("TAU5_HEARTBEAT_TOKEN", heartbeatToken);
-    env.insert("PORT", QString::number(appPort));
+    env.insert("PORT", QString::number(appPort));  // Only in fallback mode
   }
-  
+
   env.insert("PHX_HOST", "127.0.0.1");
   if (env.value("MIX_ENV").isEmpty()) {
     env.insert("MIX_ENV", "dev");
@@ -247,7 +326,7 @@ void Beam::startElixirServerDev()
   if (env.value("TAU5_TIDEWAVE_ENABLED") == "true") {
     Tau5Logger::instance().debug("Tidewave development tools enabled on MCP endpoint");
   }
-  
+
   if (env.value("TAU5_ELIXIR_REPL_ENABLED") == "true") {
     Tau5Logger::instance().debug("Elixir REPL enabled for development");
   }
@@ -276,8 +355,9 @@ void Beam::startElixirServerProd()
 {
   Tau5Logger::instance().info( "Starting Elixir server in Production mode");
 
-  QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-  
+  // Use controlled environment instead of system environment
+  QProcessEnvironment env = createControlledEnvironment();
+
   QString modeString;
   switch(deploymentMode) {
     case DeploymentMode::Gui:
@@ -293,27 +373,28 @@ void Beam::startElixirServerProd()
   if (env.value("TAU5_MODE").isEmpty()) {
     env.insert("TAU5_MODE", modeString);
   }
-  
+
   if (useStdinConfig) {
     env.insert("TAU5_USE_STDIN_CONFIG", "true");
     env.insert("TAU5_HEARTBEAT_ENABLED", "true");
-    env.insert("PORT", QString::number(appPort));
+    // PORT is now passed via stdin, not environment
     env.insert("PHX_SERVER", "1");
   } else {
+    // Fallback mode - less secure but necessary for some deployments
     env.insert("TAU5_SESSION_TOKEN", sessionToken);
     env.insert("TAU5_HEARTBEAT_ENABLED", "true");
     env.insert("TAU5_HEARTBEAT_PORT", QString::number(heartbeatPort));
     env.insert("TAU5_HEARTBEAT_TOKEN", heartbeatToken);
-    env.insert("PORT", QString::number(appPort));
+    env.insert("PORT", QString::number(appPort));  // Only in fallback mode
     env.insert("PHX_SERVER", "1");
   }
-  
+
   env.insert("PHX_HOST", "127.0.0.1");
   if (env.value("MIX_ENV").isEmpty()) {
     env.insert("MIX_ENV", "prod");
   }
   env.insert("RELEASE_DISTRIBUTION", "none");
-  
+
   QString envSecretKey = env.value("SECRET_KEY_BASE");
   if (!envSecretKey.isEmpty()) {
     Tau5Logger::instance().info("Using provided SECRET_KEY_BASE from environment");
@@ -332,7 +413,7 @@ void Beam::startElixirServerProd()
   if (env.value("TAU5_TIDEWAVE_ENABLED") == "true") {
     Tau5Logger::instance().debug("Tidewave development tools enabled on MCP endpoint");
   }
-  
+
   if (env.value("TAU5_ELIXIR_REPL_ENABLED") == "true") {
     Tau5Logger::instance().debug("Elixir REPL enabled for development");
   }
@@ -363,18 +444,19 @@ void Beam::writeSecretsToStdin()
   if (!process || !useStdinConfig) {
     return;
   }
-  
+
   Tau5Logger::instance().debug("Writing secure configuration to process stdin");
-  
+
   QString config;
   config += sessionToken + "\n";
   config += heartbeatToken + "\n";
   config += QString::number(heartbeatPort) + "\n";
+  config += QString::number(appPort) + "\n";  // PORT is now a secret
   config += secretKeyBase + "\n";
-  
+
   process->write(config.toUtf8());
   process->closeWriteChannel();
-  
+
   Tau5Logger::instance().debug(QString("Secure configuration written (%1 bytes) and stdin closed")
                               .arg(config.toUtf8().size()));
 }
@@ -454,7 +536,7 @@ void Beam::sendHeartbeat()
   {
     return;
   }
-  
+
   if (!heartbeatSocket)
   {
     Tau5Logger::instance().warning("Cannot send heartbeat - UDP socket not created");
@@ -463,9 +545,9 @@ void Beam::sendHeartbeat()
 
   QString heartbeatMsg = QString("HEARTBEAT:%1\n").arg(heartbeatToken);
   QByteArray datagram = heartbeatMsg.toUtf8();
-  
+
   qint64 sent = heartbeatSocket->writeDatagram(datagram, QHostAddress::LocalHost, heartbeatPort);
-  
+
   if (sent == -1) {
     Tau5Logger::instance().warning(QString("Failed to send UDP heartbeat: %1")
                                   .arg(heartbeatSocket->errorString()));
@@ -488,7 +570,7 @@ void Beam::killBeamProcess()
   QProcess gracefulKill;
   gracefulKill.start("taskkill", {"/PID", QString::number(beamPid), "/T"});
   gracefulKill.waitForFinished(1000);
-  
+
   if (gracefulKill.exitCode() != 0) {
     Tau5Logger::instance().debug(QString("taskkill graceful failed with exit code %1").arg(gracefulKill.exitCode()));
   }
@@ -516,7 +598,7 @@ void Beam::killBeamProcess()
   QProcess forceKill;
   forceKill.start("taskkill", {"/F", "/PID", QString::number(beamPid), "/T"});
   forceKill.waitForFinished(1000);
-  
+
   if (forceKill.exitCode() != 0) {
     Tau5Logger::instance().debug(QString("taskkill force failed with exit code %1").arg(forceKill.exitCode()));
   }
@@ -543,7 +625,7 @@ void Beam::killBeamProcess()
   };
 
   auto pid = static_cast<pid_t>(beamPid);
-  
+
   Tau5Logger::instance().debug(QString("Unix: Sending SIGTERM to PID: %1").arg(beamPid));
   if (::kill(pid, SIGTERM) == -1) {
     if (errno == ESRCH) {
@@ -568,7 +650,7 @@ void Beam::killBeamProcess()
       Tau5Logger::instance().debug(QString("Failed to send SIGKILL to %1: %2")
         .arg(beamPid).arg(QString::fromLocal8Bit(std::strerror(errno))));
     }
-    
+
     for (int i = 0; i < 20 && still_running(pid); ++i) {
       QThread::msleep(50);
     }
@@ -715,13 +797,13 @@ void Beam::startNewBeamProcess()
 
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
   heartbeatToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
-  
+
   QByteArray randomBytes(64, 0);
   quint32 buffer[16];
   QRandomGenerator::system()->fillRange(buffer, 16);
   memcpy(randomBytes.data(), buffer, 64);
   secretKeyBase = randomBytes.toBase64();
-  
+
   Tau5Logger::instance().debug("Generated new secure tokens");
 
   Tau5Logger::instance().info( "Starting new BEAM process...");

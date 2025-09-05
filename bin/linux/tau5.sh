@@ -12,6 +12,12 @@ trap cleanup_function EXIT
 
 cd "${ROOT_DIR}"
 
-# Quick development setup with all dev tools enabled
-# Use --server-path flag instead of environment variable
-./gui/build/bin/tau5 --server-path "${ROOT_DIR}/server" --devtools
+# Pass through all command-line arguments and respect environment variables
+# If no arguments provided, default to --devtools for backward compatibility
+if [ $# -eq 0 ]; then
+    # Default behavior when no arguments provided
+    exec ./gui/build/bin/tau5 --server-path "${ROOT_DIR}/server" --devtools
+else
+    # Pass through all arguments as provided
+    exec ./gui/build/bin/tau5 --server-path "${ROOT_DIR}/server" "$@"
+fi

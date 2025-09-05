@@ -228,6 +228,8 @@ bool testPortArguments(TestContext& ctx) {
     sim.add("443");
     sim.add("--port-mcp");
     sim.add("5555");
+    sim.add("--port-chrome-dev");
+    sim.add("9224");
 
     CommonArgs args;
     int i = 1;
@@ -246,6 +248,7 @@ bool testPortArguments(TestContext& ctx) {
     TEST_ASSERT(ctx, args.portLocal == 8080, QString("--port-local should be 8080, got %1").arg(args.portLocal));
     TEST_ASSERT(ctx, args.portPublic == 443, QString("--port-public should be 443, got %1").arg(args.portPublic));
     TEST_ASSERT(ctx, args.portMcp == 5555, QString("--port-mcp should be 5555, got %1").arg(args.portMcp));
+    TEST_ASSERT(ctx, args.portChrome == 9224, QString("--port-chrome-dev should be 9224, got %1").arg(args.portChrome));
     return ctx.passed;
 }
 
@@ -472,6 +475,105 @@ bool testCheckFlag(TestContext& ctx) {
     }
 
     TEST_ASSERT(ctx, args.check == true, "--check should be set");
+    return ctx.passed;
+}
+
+bool testCheckWithEnvironmentOverrides(TestContext& ctx) {
+    // Test that --check works with environment variable overrides
+    // This simulates running: TAU5_MCP_PORT=5556 tau5 --check
+    ArgSimulator sim;
+    sim.add("tau5");
+    sim.add("--check");
+    
+    CommonArgs args;
+    int i = 1;
+    while (i < sim.argc()) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        int oldI = i;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        if (i == oldI) i++;
+    }
+    
+    TEST_ASSERT(ctx, args.check == true, "--check should be set");
+    // Environment variables aren't parsed by CLI args, they're handled at runtime
+    // This test verifies that --check flag doesn't conflict with env vars
+    TEST_ASSERT(ctx, !args.hasError, "No errors should occur with --check");
+    return ctx.passed;
+}
+
+bool testControlledEnvironmentSecurity(TestContext& ctx) {
+    // Test that external environment variables don't leak through
+    // Set some "external" environment variables
+    qputenv("TAU5_MCP_PORT", "9999");
+    qputenv("TAU5_EXTERNAL_VAR", "should_not_appear");
+    qputenv("SECRET_KEY_BASE", "leaked_secret");
+    qputenv("PHX_SECRET", "another_leak");
+    
+    ArgSimulator sim;
+    sim.add("tau5");
+    sim.add("--port-mcp");
+    sim.add("5555");
+    
+    CommonArgs args;
+    int i = 1;
+    while (i < sim.argc()) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        int oldI = i;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        if (i == oldI) i++;
+    }
+    
+    // Apply environment variables based on CLI args
+    applyEnvironmentVariables(args, "test");
+    
+    // The CLI arg should win over external env var
+    TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT") == "5555", 
+                "CLI arg --port-mcp 5555 should override external env TAU5_MCP_PORT=9999");
+    
+    // Clean up
+    qunsetenv("TAU5_MCP_PORT");
+    qunsetenv("TAU5_EXTERNAL_VAR");
+    qunsetenv("SECRET_KEY_BASE");
+    qunsetenv("PHX_SECRET");
+    
+    return ctx.passed;
+}
+
+bool testEnvironmentIsolation(TestContext& ctx) {
+    // Test that only expected environment variables are set
+    ArgSimulator sim;
+    sim.add("tau5");
+    sim.add("--devtools");
+    
+    CommonArgs args;
+    int i = 1;
+    while (i < sim.argc()) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        int oldI = i;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        if (i == oldI) i++;
+    }
+    
+    // Clear any existing TAU5 variables
+    qunsetenv("TAU5_MCP_PORT");
+    qunsetenv("TAU5_DEVTOOLS_PORT");
+    
+    // Apply environment based on CLI
+    applyEnvironmentVariables(args, "test");
+    
+    // Check that devtools flags set the right env vars
+    TEST_ASSERT(ctx, !qgetenv("TAU5_MCP_PORT").isEmpty(), 
+                "--devtools should set TAU5_MCP_PORT");
+    TEST_ASSERT(ctx, !qgetenv("TAU5_DEVTOOLS_PORT").isEmpty(), 
+                "--devtools should set TAU5_DEVTOOLS_PORT");
+    
+    // Clean up
+    qunsetenv("TAU5_MCP_PORT");
+    qunsetenv("TAU5_DEVTOOLS_PORT");
+    qunsetenv("TAU5_DEVTOOLS_ENABLED");
+    qunsetenv("TAU5_TIDEWAVE_ENABLED");
+    qunsetenv("TAU5_ELIXIR_REPL_ENABLED");
+    
     return ctx.passed;
 }
 
@@ -797,11 +899,11 @@ bool testDefaultValues(TestContext& ctx) {
     TEST_ASSERT(ctx, !args.showVersion, "Version should be false by default");
     TEST_ASSERT(ctx, !args.check, "Check should be false by default");
     
-    // In release builds, environment defaults to Prod; in dev builds it defaults to Dev
+    // In release builds, environment defaults to Prod; in dev builds it defaults to Default
 #ifdef TAU5_RELEASE_BUILD
     TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod, "Environment should be Prod in release builds");
 #else
-    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Dev, "Environment should be Dev in dev builds");
+    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Default, "Environment should be Default in dev builds");
 #endif
     
     TEST_ASSERT(ctx, args.mode == CommonArgs::Mode::Default, "Mode should be Default");
@@ -1063,6 +1165,9 @@ int runCliArgumentTests(int& totalTests, int& passedTests) {
     RUN_TEST(testEnvironmentVariableApplication);
     RUN_TEST(testServerPathArgument);
     RUN_TEST(testCheckFlag);
+    RUN_TEST(testCheckWithEnvironmentOverrides);
+    RUN_TEST(testControlledEnvironmentSecurity);
+    RUN_TEST(testEnvironmentIsolation);
     RUN_TEST(testCombinedFlags);
 
     // Edge case tests

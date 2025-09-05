@@ -20,7 +20,7 @@ struct CommonArgs {
     #ifdef TAU5_RELEASE_BUILD
     Env env = Env::Prod;  // Release builds default to production
     #else
-    Env env = Env::Dev;   // Development builds default to dev
+    Env env = Env::Default;   // Development builds default to Default (becomes Dev when applied)
     #endif
     
     // Deployment mode override (tau5-node only, controls TAU5_MODE)
@@ -102,25 +102,18 @@ inline bool parsePort(const char* nextArg, int& i, quint16& portValue, CommonArg
 // Returns true if the argument was recognized (whether successful or not)
 // Check args.hasError to see if there was an error processing the argument
 inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonArgs& args) {
-    // Note: --env-dev, --env-prod, --env-test have been removed
-    // Environment is now determined by build type:
-    // - Development builds: always dev mode
-    // - Release builds: always prod mode
-    
     // Quick development setup
     if (std::strcmp(arg, "--devtools") == 0) {
-        // --devtools is only available in development builds
-        // (Release builds will reject this flag later)
         args.devtools = true;
         // This implies several other flags
-        args.env = CommonArgs::Env::Dev; // Will be overridden in release builds
+        args.env = CommonArgs::Env::Dev;
         args.mcp = true;
         args.tidewave = true;
         args.chromeDevtools = true;
-        args.repl = true;  // Enable REPL for full dev experience
+        args.repl = true;
         return true;
     }
-    // Deployment mode override (tau5-node only, but parse here for consistency)
+    // Deployment mode override
     else if (std::strcmp(arg, "--mode-node") == 0) {
         args.mode = CommonArgs::Mode::Node;
         return true;
@@ -137,11 +130,11 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         return true;
     } else if (std::strcmp(arg, "--port-mcp") == 0) {
         parsePort(nextArg, i, args.portMcp, args, "--port-mcp");
-        if (!args.hasError) args.mcp = true;  // Specifying a port implies enabling MCP
+        if (!args.hasError) args.mcp = true;
         return true;
     } else if (std::strcmp(arg, "--port-chrome-dev") == 0) {
         parsePort(nextArg, i, args.portChrome, args, "--port-chrome-dev");
-        if (!args.hasError) args.chromeDevtools = true;  // Specifying a port implies enabling Chrome DevTools
+        if (!args.hasError) args.chromeDevtools = true;
         return true;
     }
     // Optional features (enable with flag)
@@ -150,7 +143,7 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         return true;
     } else if (std::strcmp(arg, "--tidewave") == 0) {
         args.tidewave = true;
-        args.mcp = true;  // Tidewave requires MCP
+        args.mcp = true;
         return true;
     } else if (std::strcmp(arg, "--chrome-devtools") == 0) {
         args.chromeDevtools = true;
@@ -165,7 +158,7 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         args.debugPane = true;
         return true;
     }
-    // Disable features (--no-* pattern)
+    // Disable features
     else if (std::strcmp(arg, "--no-midi") == 0) {
         args.noMidi = true;
         return true;
@@ -192,7 +185,7 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
     else if (std::strcmp(arg, "--server-path") == 0) {
         if (nextArg != nullptr) {
             args.serverPath = nextArg;
-            i++; // Consume next arg
+            i++;
         } else {
             args.hasError = true;
             args.errorMessage = "--server-path requires a path";
@@ -211,18 +204,15 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         return true;
     }
     
-    return false; // Not a shared argument
+    return false;
 }
 
 // Validate arguments for conflicts and dependencies
-// Returns true if valid, false if there are issues (error message will be set)
 inline bool validateArguments(CommonArgs& args) {
-    // If --devtools was used, it has already set everything correctly
     if (args.devtools) {
         return true;
     }
     
-    // REPL only works in dev builds
 #ifdef TAU5_RELEASE_BUILD
     if (args.repl) {
         args.hasError = true;
@@ -231,7 +221,6 @@ inline bool validateArguments(CommonArgs& args) {
     }
 #endif
     
-    // Check port conflicts
     if (args.portLocal > 0 && args.portPublic > 0 && args.portLocal == args.portPublic) {
         args.hasError = true;
         args.errorMessage = "Local and public ports cannot be the same";
@@ -258,13 +247,10 @@ inline bool validateArguments(CommonArgs& args) {
         return false;
     }
     
-    // Validate dependent features
     if (args.tidewave && !args.mcp) {
-        // This shouldn't happen as tidewave flag sets mcp, but double-check
         args.mcp = true;
     }
     
-    // In release builds, additional validation for dev-only features
 #ifdef TAU5_RELEASE_BUILD
     if (args.tidewave) {
         args.hasError = true;
@@ -273,9 +259,8 @@ inline bool validateArguments(CommonArgs& args) {
     }
 #endif
     
-    // Validate port ranges (0 is allowed as it means "disabled" or "auto-allocate")
     auto validatePort = [&](quint16 port, const char* name) {
-        if (port > 65535) {  // This shouldn't happen due to quint16, but be defensive
+        if (port > 65535) {
             args.hasError = true;
             args.errorMessage = std::string(name) + " port number is invalid";
             return false;
@@ -288,21 +273,16 @@ inline bool validateArguments(CommonArgs& args) {
     if (!validatePort(args.portMcp, "MCP")) return false;
     if (!validatePort(args.portChrome, "Chrome DevTools")) return false;
     
-    // If MCP port is specified but MCP not enabled, enable it
     if (args.portMcp > 0 && !args.mcp) {
         args.mcp = true;
     }
     
-    // If Chrome port is specified but chrome devtools not enabled, enable it
     if (args.portChrome > 0 && !args.chromeDevtools) {
         args.chromeDevtools = true;
     }
     
-    // Validate deployment mode combinations
     if (args.mode == CommonArgs::Mode::Central) {
-        // Central mode should disable all NIFs
         if (!args.noNifs) {
-            // Auto-disable NIFs for central mode
             args.noMidi = true;
             args.noLink = true;
             args.noDiscovery = true;

@@ -78,6 +78,7 @@ private:
   void continueRestart();
   void checkPortAndStartNewProcess();
   void startNewBeamProcess();
+  QProcessEnvironment createControlledEnvironment();
 };
 
 #endif // BEAM_H

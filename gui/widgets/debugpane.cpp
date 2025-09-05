@@ -382,6 +382,12 @@ void DebugPane::setupConsole()
   m_newTau5MCPWidget->setLogFilePath(tau5LogFilePath);
   Tau5Logger::instance().debug(QString("DebugPane: Setting Tau5 MCP log path to: %1").arg(tau5LogFilePath));
 
+  // Get the MCP port for Tau5 MCP
+  QString tau5MCPPort = qgetenv("TAU5_MCP_PORT");
+  if (tau5MCPPort.isEmpty()) {
+    tau5MCPPort = "5555";
+  }
+  
   // Add startup message for Tau5 MCP
   QString tau5MCPStartupMessage =
       "\n"
@@ -389,11 +395,15 @@ void DebugPane::setupConsole()
       "Tau5 MCP Server - ENABLED\n"
       "═════════════════════════\n"
       "\n"
+      "Endpoint: http://localhost:" + tau5MCPPort + "/tau5/mcp\n"
+      "\n"
+      "To add to Claude Code, use:\n"
+      "tau5 (http://localhost:" + tau5MCPPort + "/tau5/mcp)\n"
       "\n"
       "Available Tools:\n"
       "• Lua Evaluation (experimental)\n"
       "\n"
-      "Note, all commands are executed in a secure\n"
+      "Note: All commands are executed in a secure\n"
       "sandboxed environment.\n"
       "\n─────────────────────────────────────────────\n";
 
@@ -401,7 +411,13 @@ void DebugPane::setupConsole()
 
   if (enableDevMCP)
   {
-    QString guiMCPLogFilePath = Tau5Logger::getGlobalMCPLogPath("gui-dev-9223");
+    // Get the Chrome DevTools port that was set by applyEnvironmentVariables() from CLI args
+    QString devToolsPort = qgetenv("TAU5_DEVTOOLS_PORT");
+    if (devToolsPort.isEmpty()) {
+      devToolsPort = "9223";  // Default port
+    }
+    
+    QString guiMCPLogFilePath = Tau5Logger::getGlobalMCPLogPath(QString("gui-dev-%1").arg(devToolsPort));
     m_newGuiMCPWidget->setLogFilePath(guiMCPLogFilePath);
     Tau5Logger::instance().debug(QString("DebugPane: Setting GUI Dev MCP log path to: %1").arg(guiMCPLogFilePath));
 
@@ -412,6 +428,10 @@ void DebugPane::setupConsole()
         "Tau5-Dev GUI MCP Services - ENABLED\n"
         "═══════════════════════════════════\n"
         "\n"
+        "Chrome DevTools Port: " + devToolsPort + "\n"
+        "\n"
+        "To add to Claude Code, use:\n"
+        "tau5-gui-dev (stdio)\n"
         "\n";
     m_newGuiMCPWidget->appendLog(guiMCPStartupMessage, false);
 
@@ -420,12 +440,22 @@ void DebugPane::setupConsole()
     m_newTidewaveMCPWidget->setLogFilePath(tidewaveLogFilePath);
     Tau5Logger::instance().debug(QString("DebugPane: Setting Tidewave MCP log path to: %1").arg(tidewaveLogFilePath));
 
+    // Get the MCP port from environment or use default
+    QString mcpPort = qgetenv("TAU5_MCP_PORT");
+    if (mcpPort.isEmpty()) {
+      mcpPort = "5555";  // Default MCP port
+    }
+    
     QString tidewaveEnabledMessage =
         "\n"
         "══════════════════════════════════════\n"
         "Tau5-Dev Tidewave MCP Server - ENABLED\n"
         "══════════════════════════════════════\n"
         "\n"
+        "Endpoint: http://localhost:" + mcpPort + "/tau5/mcp\n"
+        "\n"
+        "To add to Claude Code, use:\n"
+        "tidewave (http://localhost:" + mcpPort + "/tau5/mcp)\n"
         "\n";
     m_newTidewaveMCPWidget->appendLog(tidewaveEnabledMessage, false);
   }
@@ -465,6 +495,12 @@ void DebugPane::setupConsole()
       "• BEAM Log access\n"
       "\n─────────────────────────────────────────────\n";
 
+  // Get the Chrome DevTools port for the description
+  QString devToolsPortDesc = qgetenv("TAU5_DEVTOOLS_PORT");
+  if (devToolsPortDesc.isEmpty()) {
+    devToolsPortDesc = "9223";
+  }
+  
   QString devGUIMCPServerDescription =
       "\n"
       "The Tau5-Dev GUI MCP Services provides access\n"
@@ -474,9 +510,8 @@ void DebugPane::setupConsole()
       "• JavaScript execution in WebViews\n"
       "• Element selection and style inspection\n"
       "\n"
-      "Note, this service is listening on port 9223\n"
-      "and is used by the separate tau5-dev-gui-mcp\n"
-      "MCP Server for full functionality.\n"
+      "Note: This service uses Chrome DevTools on port " + devToolsPortDesc + "\n"
+      "and is accessed via the tau5-gui-dev MCP server.\n"
       "\n─────────────────────────────────────────────\n";
 
   m_newTidewaveMCPWidget->appendLog(tidewaveMCPServerDescription, false);
