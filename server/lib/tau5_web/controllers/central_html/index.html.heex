@@ -7,7 +7,7 @@
     <style>
       @font-face {
         font-family: 'Cascadia Code';
-        src: url('/fonts/CascadiaCodePL.woff2') format('woff2');
+        src: url('<%= @font_path %>') format('woff2');
         font-weight: normal;
         font-style: normal;
         font-display: swap;
@@ -15,7 +15,7 @@
 
       @font-face {
         font-family: 'Cascadia Code';
-        src: url('/fonts/CascadiaCodePL.woff2') format('woff2');
+        src: url('<%= @font_path %>') format('woff2');
         font-weight: bold;
         font-style: normal;
         font-display: swap;
@@ -161,7 +161,7 @@
   </head>
   <body>
     <canvas id="canvas"></canvas>
-    <img id="logo-img" src="/images/tau5-bw-hirez.png" />
+    <img id="logo-img" src={@logo_path} />
     <div class="cta-button">
       <a href="https://www.patreon.com/posts/what-is-tau5-136095977" id="cta-btn">
         Discover Tau5
@@ -184,8 +184,8 @@
           return;
         }
 
-        const vertexShaderSource = await loadShader('/shaders/tau5-loading.vert');
-        const fragmentShaderSource = await loadShader('/shaders/tau5-loading.frag');
+        const vertexShaderSource = await loadShader('<%= @vertex_shader_path %>');
+        const fragmentShaderSource = await loadShader('<%= @fragment_shader_path %>');
 
         if (!vertexShaderSource || !fragmentShaderSource) {
           document.getElementById('info').textContent = 'Failed to load shaders';
