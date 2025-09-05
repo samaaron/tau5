@@ -52,17 +52,33 @@ defmodule Tau5.PortFinder do
   This is called before the endpoint starts.
   """
   def configure_endpoint_port(endpoint_module) do
-    case find_available_port() do
+    # Check if a specific port was configured
+    configured_port = Application.get_env(:tau5, :public_port, 0)
+    
+    port = if configured_port > 0 do
+      # Use the configured port directly
+      Logger.info("PublicEndpoint: Using configured port #{configured_port}")
+      {:ok, configured_port}
+    else
+      # Find an available port
+      find_available_port()
+    end
+    
+    case port do
       {:ok, port} ->
         current_config = Application.get_env(:tau5, endpoint_module, [])
         http_config = Keyword.get(current_config, :http, [])
         
-        new_http_config = Keyword.put(http_config, :port, port)
+        # Ensure we bind to all interfaces for the public endpoint
+        new_http_config = http_config
+        |> Keyword.put(:port, port)
+        |> Keyword.put(:ip, {0, 0, 0, 0, 0, 0, 0, 0})  # Bind to all interfaces
+        
         new_config = Keyword.put(current_config, :http, new_http_config)
         
         Application.put_env(:tau5, endpoint_module, new_config)
         
-        Logger.info("PublicEndpoint: Configured to use port #{port}")
+        Logger.info("PublicEndpoint: Configured to use port #{port} on all interfaces")
         {:ok, port}
       
       {:error, :no_available_port} ->
