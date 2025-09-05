@@ -4,6 +4,16 @@ set -e # Quit script on error
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 WORKING_DIR="$(pwd)"
 ROOT_DIR="${SCRIPT_DIR}/../.."
+NODE_ONLY=false
+
+# Parse arguments
+for arg in "$@"; do
+    case $arg in
+        --node-only)
+            NODE_ONLY=true
+            ;;
+    esac
+done
 
 cleanup_function() {
     # Restore working directory as it was prior to this script running on exit
@@ -12,14 +22,24 @@ cleanup_function() {
 trap cleanup_function EXIT
 
 echo "================================================"
-echo "Tau5 Linux Release Build"
+if [ "$NODE_ONLY" = true ]; then
+    echo "Tau5 Linux Release Build (tau5-node only)"
+    echo "For headless systems without Qt GUI dependencies"
+else
+    echo "Tau5 Linux Release Build"
+fi
 echo "================================================"
 
 # Clean and prepare directories
 cd "${ROOT_DIR}"
 echo "Cleaning previous builds..."
-rm -rf release
-rm -rf gui/build-release  # Use separate build directory for release
+if [ "$NODE_ONLY" = true ]; then
+    rm -rf release-node
+    rm -rf gui/build-release-node  # Use separate build directory for node-only release
+else
+    rm -rf release
+    rm -rf gui/build-release  # Use separate build directory for release
+fi
 rm -rf server/_build/prod
 
 # Build server in production mode
@@ -35,39 +55,88 @@ MIX_ENV=prod mix release --overwrite
 
 # Build GUI with release configuration
 echo ""
-echo "Building GUI components with release paths..."
-cd "${ROOT_DIR}/gui"
-mkdir -p build-release  # Separate directory from dev builds
-cd build-release
-
-# Configure CMake for release build with proper server path
-# For Linux release: binaries in root, server in _build/prod/rel/tau5
-cmake -G "Unix Makefiles" \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DTAU5_RELEASE_BUILD=ON \
-      -DTAU5_INSTALL_SERVER_PATH="_build/prod/rel/tau5" \
-      -DBUILD_DEBUG_PANE=OFF \
-      ..
-
-# Build both tau5 and tau5-node
-echo "Building GUI and tau5-node..."
-cmake --build . --target tau5
-cmake --build . --target tau5-node
+if [ "$NODE_ONLY" = true ]; then
+    echo "Building tau5-node with release paths..."
+    cd "${ROOT_DIR}/gui"
+    mkdir -p build-release-node  # Separate directory from dev builds
+    cd build-release-node
+    
+    # Configure CMake for node-only release build
+    # Use BUILD_NODE_ONLY to skip Qt GUI components
+    if [[ $(uname -m) == 'arm64' ]] || [[ $(uname -m) == 'aarch64' ]] || [ "$TAU5_BUILD_TARGET" == 'arm64' ]
+    then
+        echo "Detected ARM architecture"
+        cmake -G "Unix Makefiles" \
+              -DCMAKE_OSC_ARCHITECTURES="ARM64" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DTAU5_RELEASE_BUILD=ON \
+              -DTAU5_INSTALL_SERVER_PATH="_build/prod/rel/tau5" \
+              -DBUILD_NODE_ONLY=ON \
+              -DBUILD_DEBUG_PANE=OFF \
+              -DBUILD_MCP_SERVER=OFF \
+              ..
+    else
+        cmake -G "Unix Makefiles" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DTAU5_RELEASE_BUILD=ON \
+              -DTAU5_INSTALL_SERVER_PATH="_build/prod/rel/tau5" \
+              -DBUILD_NODE_ONLY=ON \
+              -DBUILD_DEBUG_PANE=OFF \
+              -DBUILD_MCP_SERVER=OFF \
+              ..
+    fi
+    
+    # Build tau5-node only
+    echo "Building tau5-node..."
+    cmake --build . --target tau5-node
+else
+    echo "Building GUI components with release paths..."
+    cd "${ROOT_DIR}/gui"
+    mkdir -p build-release  # Separate directory from dev builds
+    cd build-release
+    
+    # Configure CMake for release build with proper server path
+    # For Linux release: binaries in root, server in _build/prod/rel/tau5
+    cmake -G "Unix Makefiles" \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DTAU5_RELEASE_BUILD=ON \
+          -DTAU5_INSTALL_SERVER_PATH="_build/prod/rel/tau5" \
+          -DBUILD_DEBUG_PANE=OFF \
+          ..
+    
+    # Build both tau5 and tau5-node
+    echo "Building GUI and tau5-node..."
+    cmake --build . --target tau5
+    cmake --build . --target tau5-node
+fi
 
 # Create release directory structure
 echo ""
 echo "Assembling release package..."
 cd "${ROOT_DIR}"
-mkdir -p release/Tau5-Linux
-cd release/Tau5-Linux
 
-# Copy binaries to release root
-echo "Copying binaries..."
-cp "${ROOT_DIR}/gui/build-release/bin/tau5" .
-cp "${ROOT_DIR}/gui/build-release/bin/tau5-node" .
-
-# Make binaries executable
-chmod +x tau5 tau5-node
+if [ "$NODE_ONLY" = true ]; then
+    mkdir -p release-node/Tau5-Node-Linux
+    cd release-node/Tau5-Node-Linux
+    
+    # Copy tau5-node binary to release root
+    echo "Copying tau5-node binary..."
+    cp "${ROOT_DIR}/gui/build-release-node/bin/tau5-node" .
+    
+    # Make binary executable
+    chmod +x tau5-node
+else
+    mkdir -p release/Tau5-Linux
+    cd release/Tau5-Linux
+    
+    # Copy binaries to release root
+    echo "Copying binaries..."
+    cp "${ROOT_DIR}/gui/build-release/bin/tau5" .
+    cp "${ROOT_DIR}/gui/build-release/bin/tau5-node" .
+    
+    # Make binaries executable
+    chmod +x tau5 tau5-node
+fi
 
 # Copy production server release
 echo "Copying server release..."
@@ -85,11 +154,22 @@ fi
 
 echo ""
 echo "========================================"
-echo "Release build completed successfully!"
-echo "========================================"
-echo "Release package: ${ROOT_DIR}/release/Tau5-Linux/"
-echo ""
-echo "The release directory is self-contained and ready for distribution."
-echo "Users can run Tau5 with:"
-echo "  ./tau5"
-echo "  ./tau5-node"
+if [ "$NODE_ONLY" = true ]; then
+    echo "tau5-node release build completed successfully!"
+    echo "========================================"
+    echo "Release package: ${ROOT_DIR}/release-node/Tau5-Node-Linux/"
+    echo ""
+    echo "The release directory is self-contained and ready for distribution."
+    echo "This build is suitable for headless systems without Qt dependencies."
+    echo "Users can run Tau5 with:"
+    echo "  ./tau5-node"
+else
+    echo "Release build completed successfully!"
+    echo "========================================"
+    echo "Release package: ${ROOT_DIR}/release/Tau5-Linux/"
+    echo ""
+    echo "The release directory is self-contained and ready for distribution."
+    echo "Users can run Tau5 with:"
+    echo "  ./tau5"
+    echo "  ./tau5-node"
+fi
