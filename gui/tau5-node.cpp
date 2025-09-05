@@ -616,7 +616,7 @@ int main(int argc, char *argv[]) {
                                 std::cout << "  Local:     Disabled (--no-local-endpoint)\n";
                             } else if (serverInfo.serverPort > 0) {
                                 std::cout << "  Local:     http://localhost:" << serverInfo.serverPort;
-                                if (serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
+                                if (!serverInfo.sessionToken.isEmpty()) {
                                     std::cout << "/?token=" << serverInfo.sessionToken.toStdString();
                                 }
                                 std::cout << "\n";
@@ -643,7 +643,7 @@ int main(int argc, char *argv[]) {
                                 std::cout << "\n";
                             }
 
-                            if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true" && serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
+                            if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true" && !serverInfo.sessionToken.isEmpty()) {
                                 std::cout << "  Console:   http://localhost:" << serverInfo.serverPort << "/dev/console?token=" << serverInfo.sessionToken.toStdString() << "\n";
                             }
 
@@ -673,12 +673,12 @@ int main(int argc, char *argv[]) {
                         std::cout << "  Local:     Disabled (--no-local-endpoint)\n";
                     } else {
                         std::cout << "  Local:     http://localhost:" << serverInfo.serverPort;
-                        if (serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
+                        if (!serverInfo.sessionToken.isEmpty()) {
                             std::cout << "/?token=" << serverInfo.sessionToken.toStdString();
                         }
                         std::cout << "\n";
                         
-                        if (serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
+                        if (!serverInfo.sessionToken.isEmpty()) {
                             std::cout << "  Dashboard: http://localhost:" << serverInfo.serverPort << "/dev/dashboard?token=" << serverInfo.sessionToken.toStdString() << "\n";
                         }
                     }
@@ -702,7 +702,7 @@ int main(int argc, char *argv[]) {
                     std::cout << "\n";
                 }
 
-                if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true" && serverInfo.mode == "development" && !serverInfo.sessionToken.isEmpty()) {
+                if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true" && !serverInfo.sessionToken.isEmpty()) {
                     std::cout << "  Console:   http://localhost:" << serverInfo.serverPort << "/dev/console?token=" << serverInfo.sessionToken.toStdString() << "\n";
                 }
 

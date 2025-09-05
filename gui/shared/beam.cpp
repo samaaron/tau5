@@ -87,11 +87,12 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
   }
   else
   {
-    releaseRoot = QFileInfo(QString("%1/_build/prod/rel/%2/").arg(basePath).arg(appName)).absoluteFilePath();
-    releaseSysPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/sys").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
-    releaseStartPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/start").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
-    releaseVmArgsPath = QFileInfo(QString("%1/_build/prod/rel/%2/releases/%3/vm.args").arg(basePath).arg(appName).arg(version)).absoluteFilePath();
-    releaseLibPath = QFileInfo(QString("%1/_build/prod/rel/%2/lib").arg(basePath).arg(appName)).absoluteFilePath();
+    // In release mode, basePath should point directly to the server directory
+    releaseRoot = QFileInfo(QString("%1/").arg(basePath)).absoluteFilePath();
+    releaseSysPath = QFileInfo(QString("%1/releases/%2/sys").arg(basePath).arg(version)).absoluteFilePath();
+    releaseStartPath = QFileInfo(QString("%1/releases/%2/start").arg(basePath).arg(version)).absoluteFilePath();
+    releaseVmArgsPath = QFileInfo(QString("%1/releases/%2/vm.args").arg(basePath).arg(version)).absoluteFilePath();
+    releaseLibPath = QFileInfo(QString("%1/lib").arg(basePath)).absoluteFilePath();
 #if defined(Q_OS_WIN)
     releaseRoot = releaseRoot.replace("/", "\\");
     releaseSysPath = releaseSysPath.replace("/", "\\");
@@ -100,7 +101,8 @@ Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, con
     releaseLibPath = releaseLibPath.replace("/", "\\");
 #endif
 
-    QDir releaseDir(QString("%1/_build/prod/rel/%2").arg(basePath).arg(appName));
+    // In release mode, basePath already points to the server directory
+    QDir releaseDir(basePath);
     QStringList ertsDirs = releaseDir.entryList(QStringList() << "erts-*", QDir::Dirs | QDir::NoDotAndDotDot);
 
     if (!ertsDirs.isEmpty())

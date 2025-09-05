@@ -288,7 +288,7 @@ void MainWindow::onFadeToBlackComplete()
   // Add the session token as a query parameter for security
   if (beamInstance) {
     QString token = beamInstance->getSessionToken();
-    Tau5Logger::instance().debug(QString("Session token for /app: %1").arg(token.isEmpty() ? "EMPTY" : token));
+    Tau5Logger::instance().debug(QString("Session token for /app: %1").arg(token.isEmpty() ? "EMPTY" : "PRESENT"));
     if (!token.isEmpty()) {
       QUrlQuery query;
       query.addQueryItem("token", token);
