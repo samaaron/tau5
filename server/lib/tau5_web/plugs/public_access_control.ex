@@ -9,16 +9,28 @@ defmodule Tau5Web.Plugs.PublicAccessControl do
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    if local_connection?(conn) or Tau5.PublicEndpoint.enabled?() do
-      conn
-    else
-      Logger.debug("PublicAccessControl: Rejecting remote connection from #{inspect(conn.remote_ip)}")
-      
-      conn
-      |> put_status(503)
-      |> put_resp_content_type("text/plain")
-      |> send_resp(503, "Remote access is currently disabled")
-      |> halt()
+    cond do
+      # Local connections always allowed
+      local_connection?(conn) ->
+        conn
+        
+      # Friend authenticated connections allowed
+      Map.get(conn.assigns, :friend_authenticated, false) ->
+        conn
+        
+      # Public endpoint enabled - allow all
+      Tau5.PublicEndpoint.enabled?() ->
+        conn
+        
+      # Otherwise reject
+      true ->
+        Logger.debug("PublicAccessControl: Rejecting remote connection from #{inspect(conn.remote_ip)}")
+        
+        conn
+        |> put_status(503)
+        |> put_resp_content_type("text/plain")
+        |> send_resp(503, "Remote access is currently disabled")
+        |> halt()
     end
   end
 

@@ -27,7 +27,12 @@ defmodule Tau5Web.PublicEndpoint do
     gzip: false,
     only: Tau5Web.static_paths()
 
-  # No code reloading or live dashboard for public endpoint
+  # Code reloading in development
+  if code_reloading? do
+    socket "/phoenix/live_reload/socket", Phoenix.LiveReloader.Socket
+    plug Phoenix.LiveReloader
+    plug Phoenix.CodeReloader
+  end
   
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :public_endpoint]
@@ -40,6 +45,9 @@ defmodule Tau5Web.PublicEndpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
+  
+  # Friend authentication - must come after session but before access control
+  plug Tau5Web.Plugs.FriendAuthentication
   
   # Access control plug - must come before router
   plug Tau5Web.Plugs.PublicAccessControl

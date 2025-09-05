@@ -117,21 +117,26 @@ config :tau5, :public_endpoint_enabled, public_port > 0
 # MCP endpoint is enabled when TAU5_MCP_ENABLED is true
 # Port is already configured above
 
+# Friend mode configuration for authenticated remote access
+config :tau5, :friend_mode_enabled,
+  System.get_env("TAU5_FRIEND_MODE", "false") == "true"
 
-# Configure public endpoint secret key for non-test environments
-if config_env() != :test do
+config :tau5, :friend_token,
+  System.get_env("TAU5_FRIEND_TOKEN")
+
+config :tau5, :friend_require_token,
+  System.get_env("TAU5_FRIEND_REQUIRE_TOKEN", "false") == "true"
+
+
+# Configure public endpoint secret key for production only
+if config_env() == :prod do
   # Get the appropriate secret key base
-  main_secret = case config_env() do
-    :prod ->
-      System.get_env("SECRET_KEY_BASE") || 
-        raise "SECRET_KEY_BASE is required in production"
-    _ ->
-      # In dev, use the configured secret from dev.exs
-      Application.get_env(:tau5, Tau5Web.Endpoint)[:secret_key_base]
-  end
+  main_secret = System.get_env("SECRET_KEY_BASE")
   
   if main_secret && main_secret != "placeholder_will_be_replaced_by_stdin_config" do
-    public_endpoint_secret = :crypto.hash(:sha256, main_secret <> "_public_endpoint")
+    # For production, derive a proper 64+ byte secret for the public endpoint
+    # Use SHA-512 to ensure we get enough bytes
+    public_endpoint_secret = :crypto.hash(:sha512, main_secret <> "_public_endpoint")
       |> Base.encode64()
     
     config :tau5, Tau5Web.PublicEndpoint,

@@ -83,7 +83,7 @@ defmodule Tau5Web.Plugs.AccessTierTest do
       public_count = Enum.count(Map.values(public_features), & &1)
       
       assert internal_count > public_count
-      assert internal_count == 5  # All features
+      assert internal_count == 8  # All features (including new lua_privileged, midi_access, link_access)
       assert public_count == 1    # Only mutate
     end
   end

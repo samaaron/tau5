@@ -30,7 +30,11 @@ defmodule Tau5Web.Router do
 
     # Both routes exist, controller will handle the mode check
     get("/", CentralController, :index)
-    live("/app", MainLive)
+    
+    live_session :default,
+      on_mount: Tau5Web.AccessTierHook do
+      live("/app", MainLive)
+    end
   end
 
   pipeline :sse do
