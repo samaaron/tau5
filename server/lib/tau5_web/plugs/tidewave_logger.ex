@@ -19,35 +19,33 @@ defmodule Tau5Web.Plugs.TidewaveLogger do
   
   def init(opts), do: opts
   
-  def call(conn, tidewave_opts) do
-    if is_tidewave_request?(conn) do
-      Logger.debug("TidewaveLogger: Intercepting Tidewave request")
-      start_time = System.monotonic_time(:millisecond)
-      
-      {:ok, body, conn} = read_body_cached(conn)
-      request_info = parse_request(body)
-      
-      conn = if request_info do
-        Plug.Conn.register_before_send(conn, fn conn ->
-          duration = System.monotonic_time(:millisecond) - start_time
-          spawn(fn -> log_tool_call(request_info, conn, duration) end)
-          conn
-        end)
-      else
+  def call(conn, _tidewave_opts) do
+    Logger.debug("TidewaveLogger: Intercepting Tidewave request")
+    start_time = System.monotonic_time(:millisecond)
+    
+    {:ok, body, conn} = read_body_cached(conn)
+    request_info = parse_request(body)
+    
+    conn = if request_info do
+      Plug.Conn.register_before_send(conn, fn conn ->
+        duration = System.monotonic_time(:millisecond) - start_time
+        spawn(fn -> log_tool_call(request_info, conn, duration) end)
         conn
-      end
-      
-      Tidewave.call(conn, tidewave_opts)
+      end)
     else
-      Tidewave.call(conn, tidewave_opts)
+      conn
     end
-  end
-  
-  defp is_tidewave_request?(conn) do
-    case conn.path_info do
-      ["tidewave", "mcp"] -> true
-      ["tidewave" | _] -> String.ends_with?(conn.request_path || "", "/mcp")
-      _ -> false
+    
+    try do
+      Tidewave.MCP.Server.handle_http_message(conn)
+    rescue
+      error ->
+        require Logger
+        Logger.error("Error calling Tidewave.MCP.Server: #{inspect(error)}")
+        Logger.error(Exception.format_stacktrace())
+        conn
+        |> Plug.Conn.put_status(500)
+        |> Phoenix.Controller.json(%{error: "Internal server error"})
     end
   end
   

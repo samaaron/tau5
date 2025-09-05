@@ -39,21 +39,29 @@ defmodule Tau5Web.Plugs.ConditionalTidewaveMCP do
         
         conn = Plug.Conn.put_private(conn, :tidewave_config, tidewave_config)
         
-        Logger.debug("Calling Tidewave.MCP.Server.handle_http_message")
-        try do
-          Tidewave.MCP.Server.handle_http_message(conn)
-        rescue
-          error ->
-            Logger.error("Error calling Tidewave.MCP.Server: #{inspect(error)}")
-            Logger.error(Exception.format_stacktrace())
-            conn
-            |> Plug.Conn.put_status(500)
-            |> Phoenix.Controller.json(%{error: "Internal server error"})
+        if logging_enabled?() do
+          Tau5Web.Plugs.TidewaveLogger.call(conn, tidewave_config)
+        else
+          Logger.debug("Calling Tidewave.MCP.Server.handle_http_message")
+          try do
+            Tidewave.MCP.Server.handle_http_message(conn)
+          rescue
+            error ->
+              Logger.error("Error calling Tidewave.MCP.Server: #{inspect(error)}")
+              Logger.error(Exception.format_stacktrace())
+              conn
+              |> Plug.Conn.put_status(500)
+              |> Phoenix.Controller.json(%{error: "Internal server error"})
+          end
         end
     end
   end
 
   defp enabled? do
     System.get_env("TAU5_TIDEWAVE_ENABLED", "false") in ["1", "true", "yes"]
+  end
+  
+  defp logging_enabled? do
+    System.get_env("TAU5_TIDEWAVE_LOGGING", "true") in ["1", "true", "yes"]
   end
 end
