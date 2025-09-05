@@ -796,7 +796,14 @@ bool testDefaultValues(TestContext& ctx) {
     TEST_ASSERT(ctx, !args.showHelp, "Help should be false by default");
     TEST_ASSERT(ctx, !args.showVersion, "Version should be false by default");
     TEST_ASSERT(ctx, !args.check, "Check should be false by default");
-    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Default, "Environment should be Default");
+    
+    // In release builds, environment defaults to Prod; in dev builds it defaults to Dev
+#ifdef TAU5_RELEASE_BUILD
+    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod, "Environment should be Prod in release builds");
+#else
+    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Dev, "Environment should be Dev in dev builds");
+#endif
+    
     TEST_ASSERT(ctx, args.mode == CommonArgs::Mode::Default, "Mode should be Default");
     TEST_ASSERT(ctx, args.portLocal == 0, "Local port should be 0 (auto)");
     TEST_ASSERT(ctx, args.portPublic == 0, "Public port should be 0 (disabled)");
