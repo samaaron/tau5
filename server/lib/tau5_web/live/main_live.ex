@@ -9,16 +9,13 @@ defmodule Tau5Web.MainLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {endpoint_type, access_tier, features} = Tau5Web.AccessTier.get_access_info(socket.endpoint)
-    
+    # Access tier info should already be in socket assigns from AccessTierHook
+    # Just add the UI-specific state
     {:ok,
      socket
      |> assign(:layout_state, TiledLayout.new())
      |> assign(:show_controls, true)
-     |> assign(:show_lua_console, false)
-     |> assign(:endpoint_type, endpoint_type)
-     |> assign(:access_tier, access_tier)
-     |> assign(:features, features)}
+     |> assign(:show_lua_console, false)}
   end
 
   @impl true
@@ -29,10 +26,13 @@ defmodule Tau5Web.MainLive do
       <div class="layout-header">
         <div class="layout-controls">
           <span class={["access-badge", "access-#{@endpoint_type}"]}>
-            <%= if @endpoint_type == "local" do %>
-              <i class="codicon codicon-lock"></i> Local
-            <% else %>
-              <i class="codicon codicon-unlock"></i> Public
+            <%= cond do %>
+              <% @endpoint_type == "local" -> %>
+                <i class="codicon codicon-lock"></i> Local
+              <% @access_tier == "friend" -> %>
+                <i class="codicon codicon-shield"></i> Public (Friend)
+              <% true -> %>
+                <i class="codicon codicon-unlock"></i> Public
             <% end %>
           </span>
           
