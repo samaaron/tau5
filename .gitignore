@@ -1,7 +1,9 @@
 .DS_Store
 build
 build-release
+build-release-node
 release/*
+release-node/*
 !release/README.md
 .history
 
