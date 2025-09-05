@@ -527,7 +527,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::showAbout() const
 {
   QMessageBox::about(const_cast<MainWindow*>(this), tr("About Tau5"),
-                     tr("Sonic Pi Tau5 Tech\n\nby Sam Aaron"));
+                     tr("Tau5 Tech\n\nby Sam Aaron"));
 }
 
 void MainWindow::handleSizeDown()

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-message(STATUS "CMakeLists: Sonic Pi Tau5")
+message(STATUS "CMakeLists: Tau5")
 
 if(APPLE)
   set(CMAKE_OSX_DEPLOYMENT_TARGET "13")
@@ -254,7 +254,7 @@ if(NOT BUILD_NODE_ONLY AND APPLE)
   add_custom_command(
     TARGET ${APP_NAME}
     POST_BUILD
-    COMMAND plutil -replace NSMicrophoneUsageDescription -string "Sonic Pi Tau5 needs microphone access for its live audio input features." "${CMAKE_BINARY_DIR}/bin/${MACOS_APP_NAME}.app/Contents/Info.plist"
+    COMMAND plutil -replace NSMicrophoneUsageDescription -string "Tau5 needs microphone access for its live audio input features." "${CMAKE_BINARY_DIR}/bin/${MACOS_APP_NAME}.app/Contents/Info.plist"
   )
 endif()
 
