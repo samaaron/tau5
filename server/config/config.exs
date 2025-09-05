@@ -37,6 +37,11 @@ config :tau5, Tau5Web.PublicEndpoint,
   # Enable IPv6 support - Bandit will bind to both IPv4 and IPv6
   http_options: [enable_ipv6: true]
 
+config :tau5, Tau5Web.MCPEndpoint,
+  url: [host: "localhost"],
+  adapter: Bandit.PhoenixAdapter,
+  server: false
+
 # Configures the mailer
 #
 # By default it uses the "Local" adapter which stores the emails

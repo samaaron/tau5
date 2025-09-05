@@ -58,6 +58,17 @@ config :tau5, Tau5Web.Endpoint,
 
 config :tau5, dev_routes: true
 
+config :tau5, Tau5Web.MCPEndpoint,
+  http: [
+    ip: {127, 0, 0, 1},
+    port: 5555
+  ],
+  server: true,
+  check_origin: false,
+  code_reloader: true,
+  debug_errors: true,
+  secret_key_base: "MCPSecretKeyBase123456789012345678901234567890123456789012345678"
+
 # Public endpoint configuration for development
 # This endpoint listens on all interfaces for remote access
 config :tau5, Tau5Web.PublicEndpoint,

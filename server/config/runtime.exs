@@ -40,11 +40,6 @@ config :tau5, Tau5.ConfigRepo,
   busy_timeout: 5_000,
   journal_mode: :wal
 
-# Configure MCP endpoint and servers
-config :tau5, :mcp_enabled,
-  System.get_env("TAU5_MCP_ENABLED", "false") == "true"
-
-# Safe port parsing helper
 parse_port = fn env_var, default ->
   case System.get_env(env_var, default) do
     "" -> String.to_integer(default)
@@ -59,6 +54,19 @@ parse_port = fn env_var, default ->
 end
 
 config :tau5, :mcp_port, parse_port.("TAU5_MCP_PORT", "5555")
+
+config :tau5, :mcp_enabled,
+  System.get_env("TAU5_MCP_ENABLED", "true") != "false"
+
+if config_env() != :test do
+  mcp_port = parse_port.("TAU5_MCP_PORT", "5555")
+  
+  config :tau5, Tau5Web.MCPEndpoint,
+    http: [
+      ip: {127, 0, 0, 1},
+      port: mcp_port
+    ]
+end
 
 config :tau5, :tidewave_enabled,
   System.get_env("TAU5_TIDEWAVE_ENABLED", "false") == "true"

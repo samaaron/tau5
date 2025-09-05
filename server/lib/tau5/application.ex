@@ -37,20 +37,13 @@ defmodule Tau5.Application do
 
     http_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
     
-    # In test environment, use configured port directly; otherwise find available port
-    public_endpoint_port = if Mix.env() == :test do
-      # Use the configured test port
-      config = Application.get_env(:tau5, Tau5Web.PublicEndpoint, [])
-      Keyword.get(config[:http] || [], :port)
-    else
-      case Tau5.PortFinder.configure_endpoint_port(Tau5Web.PublicEndpoint) do
-        {:ok, port} ->
-          Logger.info("PublicEndpoint: Successfully configured on port #{port}")
-          port
-        {:error, :no_available_port} ->
-          Logger.warning("PublicEndpoint: No available port found, endpoint will be disabled")
-          nil
-      end
+    public_endpoint_port = case Tau5.PortFinder.configure_endpoint_port(Tau5Web.PublicEndpoint) do
+      {:ok, port} ->
+        Logger.info("PublicEndpoint: Successfully configured on port #{port}")
+        port
+      {:error, :no_available_port} ->
+        Logger.warning("PublicEndpoint: No available port found, endpoint will be disabled")
+        nil
     end
     
     public_endpoint_enabled = if public_endpoint_port do
@@ -69,7 +62,6 @@ defmodule Tau5.Application do
       {Tau5MCP.Server, transport: :streamable_http}
     ]
     
-    # Only add main endpoint if not disabled
     local_endpoint_children = 
       if System.get_env("TAU5_NO_LOCAL_ENDPOINT") == "true" do
         Logger.info("Local endpoint disabled via TAU5_NO_LOCAL_ENDPOINT")
@@ -87,8 +79,14 @@ defmodule Tau5.Application do
       []
     end
     
+    mcp_endpoint_children = 
+      if Application.get_env(:tau5, :mcp_enabled, true) do
+        [Tau5Web.MCPEndpoint]
+      else
+        []
+      end
+    
     additional_children = [
-      # Kill switch must be temporary - ensures system dies if kill switch fails
       %{
         id: Tau5.KillSwitch,
         start: {Tau5.KillSwitch, :start_link, [[]]},
@@ -100,7 +98,7 @@ defmodule Tau5.Application do
       {Tau5.Discovery, %{http_port: http_port}}
     ]
     
-    children = base_children ++ local_endpoint_children ++ public_endpoint_children ++ additional_children
+    children = base_children ++ local_endpoint_children ++ public_endpoint_children ++ mcp_endpoint_children ++ additional_children
 
     opts = [strategy: :one_for_one, name: Tau5.Supervisor]
 
