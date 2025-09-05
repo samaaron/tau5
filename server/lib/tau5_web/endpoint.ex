@@ -26,11 +26,6 @@ defmodule Tau5Web.Endpoint do
     gzip: false,
     only: Tau5Web.static_paths()
 
-  # Tidewave MCP integration (runtime check when in dev)
-  if Mix.env() == :dev do
-    plug Tau5Web.Plugs.ConditionalTidewave
-  end
-
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
   if code_reloading? do

@@ -1,7 +1,5 @@
 defmodule Tau5Web.Router do
   use Tau5Web, :router
-  
-  alias Hermes.Server.Transport.StreamableHTTP
 
   pipeline :browser do
     plug(:accepts, ["html"])
@@ -39,18 +37,6 @@ defmodule Tau5Web.Router do
 
   pipeline :sse do
     plug :accepts, ["json", "event-stream"]
-  end
-
-  pipeline :mcp do
-    plug :accepts, ["json", "event-stream"]
-    plug Tau5Web.Plugs.RequireInternalEndpoint
-  end
-
-  # MCP server - only accessible from internal endpoint (localhost in dev, GUI in prod)
-  scope "/tau5/mcp" do
-    pipe_through(:mcp)
-    
-    forward("/", StreamableHTTP.Plug, server: Tau5MCP.Server)
   end
 
   # Dev routes should only be accessible from the internal endpoint
