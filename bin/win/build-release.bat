@@ -198,14 +198,24 @@ if "%NODE_ONLY%"=="true" (
     if not exist !RELEASE_DIR_NAME! mkdir !RELEASE_DIR_NAME!
     cd !RELEASE_DIR_NAME!
     
-    :: Copy GUI binaries (they're directly in bin\ for CMake builds)
     echo Copying binaries...
-    copy "%ROOT_DIR%\gui\build-release\bin\Release\tau5.exe" . /Y
-    copy "%ROOT_DIR%\gui\build-release\bin\Release\tau5-node.exe" . /Y
+    copy "%ROOT_DIR%\gui\build-release\bin\tau5.exe" . /Y 2>NUL
     if %errorlevel% neq 0 (
-        echo Failed to copy GUI binaries
-        cd /d "%WORKING_DIR%"
-        exit /b %errorlevel%
+        copy "%ROOT_DIR%\gui\build-release\bin\Release\tau5.exe" . /Y
+        if %errorlevel% neq 0 (
+            echo Failed to copy tau5.exe
+            cd /d "%WORKING_DIR%"
+            exit /b %errorlevel%
+        )
+    )
+    copy "%ROOT_DIR%\gui\build-release\bin\tau5-node.exe" . /Y 2>NUL
+    if %errorlevel% neq 0 (
+        copy "%ROOT_DIR%\gui\build-release\bin\Release\tau5-node.exe" . /Y
+        if %errorlevel% neq 0 (
+            echo Failed to copy tau5-node.exe
+            cd /d "%WORKING_DIR%"
+            exit /b %errorlevel%
+        )
     )
     
     :: Copy server release
