@@ -78,7 +78,10 @@ echo Cleaning root directories...
 
 :: Clean root level directories
 call :cleanDir "gui\build"
+call :cleanDir "gui\build-release"
+call :cleanDir "gui\build-release-node"
 call :cleanDir "Release"
+call :cleanDir "release-node"
 call :cleanDir "build"
 
 cd %WORKING_DIR%
