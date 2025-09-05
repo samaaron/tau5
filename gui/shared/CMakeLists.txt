@@ -54,14 +54,9 @@ target_compile_definitions(tau5_core
         TAU5_CORE_IMPL
 )
 
-# Add server path definition based on build context
-# For standalone builds (BUILD_NODE_ONLY=ON), use the simpler relative path
-# Otherwise, use the path set by parent CMakeLists
-if(BUILD_NODE_ONLY)
-    # Standalone build - simple relative path from bin/tau5-node to server
-    target_compile_definitions(tau5_core PRIVATE TAU5_SERVER_PATH_DEFAULT="../../../server")
-elseif(DEFINED TAU5_SERVER_PATH_DEFAULT)
-    # GUI build or other contexts - use the parent-defined path
+# Add server path definition
+# Always use the path from parent CMakeLists if it's defined
+if(DEFINED TAU5_SERVER_PATH_DEFAULT)
     target_compile_definitions(tau5_core PRIVATE TAU5_SERVER_PATH_DEFAULT="${TAU5_SERVER_PATH_DEFAULT}")
 endif()
 

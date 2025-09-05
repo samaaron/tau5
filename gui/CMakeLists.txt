@@ -60,15 +60,15 @@ endif()
 option(TAU5_RELEASE_BUILD "Build for release/distribution (not development)" OFF)
 
 # Server path configuration
-if(TAU5_RELEASE_BUILD)
-  # Release/distribution build - server will be embedded in the package
-  if(NOT DEFINED TAU5_INSTALL_SERVER_PATH)
-    message(FATAL_ERROR "TAU5_RELEASE_BUILD requires TAU5_INSTALL_SERVER_PATH to be set")
-  endif()
-  set(TAU5_SERVER_PATH_DEFAULT "${TAU5_INSTALL_SERVER_PATH}")
-  message(STATUS "RELEASE BUILD - Server will be at: ${TAU5_SERVER_PATH_DEFAULT}")
-  # Pass this to C++ code
-  add_compile_definitions(TAU5_RELEASE_BUILD=1)
+# TAU5_SERVER_PATH can be set to override the default path (relative to binary location)
+# If not set, development defaults are used based on the platform
+if(DEFINED TAU5_SERVER_PATH)
+  # Explicit path provided - use it for both dev and release builds
+  set(TAU5_SERVER_PATH_DEFAULT "${TAU5_SERVER_PATH}")
+  message(STATUS "Using explicit server path: ${TAU5_SERVER_PATH_DEFAULT}")
+elseif(TAU5_RELEASE_BUILD)
+  # Release build but no explicit path - this is an error
+  message(FATAL_ERROR "TAU5_RELEASE_BUILD requires TAU5_SERVER_PATH to be set for the release directory structure")
 elseif(CMAKE_INSTALL_PREFIX STREQUAL "/usr/local" OR CMAKE_INSTALL_PREFIX STREQUAL "/usr")
   # Check if we're in the tau5 source tree (development build)
   if(EXISTS "${CMAKE_SOURCE_DIR}/../server/mix.exs")
@@ -103,6 +103,11 @@ else()
     set(TAU5_SERVER_PATH_DEFAULT "../../../server")
   endif()
   message(STATUS "Development build - server path relative to binary: ${TAU5_SERVER_PATH_DEFAULT}")
+endif()
+
+# Pass release flag to C++ code if this is a release build
+if(TAU5_RELEASE_BUILD)
+  add_compile_definitions(TAU5_RELEASE_BUILD=1)
 endif()
 
 if(BUILD_NODE_ONLY)
@@ -347,14 +352,13 @@ if(NOT BUILD_NODE_ONLY AND TARGET ${APP_NAME})
     )
   else()
     # Windows/Linux - tau5-node goes to bin/ alongside tau5
-    # From gui/build/bin/tau5-node -> server
-    target_compile_definitions(${NODE_APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="../../../server")
+    # Use the configured server path
+    target_compile_definitions(${NODE_APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="${TAU5_SERVER_PATH_DEFAULT}")
   endif()
 else()
   # Standalone tau5-node build (BUILD_NODE_ONLY=ON or no GUI target)
-  # Output to bin/ for all platforms
-  # From gui/build/bin/tau5-node -> server
-  target_compile_definitions(${NODE_APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="../../../server")
+  # Use the configured server path
+  target_compile_definitions(${NODE_APP_NAME} PRIVATE TAU5_SERVER_PATH_DEFAULT="${TAU5_SERVER_PATH_DEFAULT}")
 endif()
 
 # Deploy Qt binaries to the output on windows, and copy the CRT to the release folder

@@ -29,10 +29,8 @@ echo ================================================
 cd /d "%ROOT_DIR%"
 echo Cleaning previous builds...
 if "%NODE_ONLY%"=="true" (
-    if exist release-node rmdir /s /q release-node
     if exist gui\build-release-node rmdir /s /q gui\build-release-node
 ) else (
-    if exist release rmdir /s /q release
     if exist gui\build-release rmdir /s /q gui\build-release
 )
 if exist server\_build\prod rmdir /s /q server\_build\prod
@@ -80,7 +78,7 @@ if "%NODE_ONLY%"=="true" (
           -A x64 ^
           -DCMAKE_BUILD_TYPE=Release ^
           -DTAU5_RELEASE_BUILD=ON ^
-          -DTAU5_INSTALL_SERVER_PATH="_build/prod/rel/tau5" ^
+          -DTAU5_SERVER_PATH="_build/prod/rel/tau5" ^
           -DBUILD_NODE_ONLY=ON ^
           -DBUILD_DEBUG_PANE=OFF ^
           -DBUILD_MCP_SERVER=OFF ^
@@ -91,7 +89,7 @@ if "%NODE_ONLY%"=="true" (
               -A x64 ^
               -DCMAKE_BUILD_TYPE=Release ^
               -DTAU5_RELEASE_BUILD=ON ^
-              -DTAU5_INSTALL_SERVER_PATH="_build/prod/rel/tau5" ^
+              -DTAU5_SERVER_PATH="_build/prod/rel/tau5" ^
               -DBUILD_NODE_ONLY=ON ^
               -DBUILD_DEBUG_PANE=OFF ^
               -DBUILD_MCP_SERVER=OFF ^
@@ -122,7 +120,7 @@ if "%NODE_ONLY%"=="true" (
           -A x64 ^
           -DCMAKE_BUILD_TYPE=Release ^
           -DTAU5_RELEASE_BUILD=ON ^
-          -DTAU5_INSTALL_SERVER_PATH="_build/prod/rel/tau5" ^
+          -DTAU5_SERVER_PATH="_build/prod/rel/tau5" ^
           -DBUILD_DEBUG_PANE=OFF ^
           ..
     if %errorlevel% neq 0 (
@@ -145,11 +143,25 @@ echo.
 echo Creating release package...
 cd /d "%ROOT_DIR%"
 
+:: Get version from mix.exs
+for /f "tokens=2 delims=:" %%a in ('findstr /c:"version:" "%ROOT_DIR%\server\mix.exs"') do (
+    set VERSION_LINE=%%a
+)
+:: Remove quotes and spaces from version
+set VERSION=%VERSION_LINE:"=%
+set VERSION=%VERSION: =%
+set VERSION=%VERSION:,=%
+
+:: Detect architecture
+set ARCH_NAME=x64
+if "%PROCESSOR_ARCHITECTURE%"=="ARM64" set ARCH_NAME=ARM64
+
 if "%NODE_ONLY%"=="true" (
-    if not exist release-node mkdir release-node
-    cd release-node
-    if not exist Tau5-Node-Windows mkdir Tau5-Node-Windows
-    cd Tau5-Node-Windows
+    set RELEASE_DIR_NAME=Tau5-Node-for-Windows-%ARCH_NAME%-v%VERSION%
+    if not exist release mkdir release
+    cd release
+    if not exist !RELEASE_DIR_NAME! mkdir !RELEASE_DIR_NAME!
+    cd !RELEASE_DIR_NAME!
     
     :: Copy tau5-node binary (it should be in bin\Release for CMake builds)
     echo Copying tau5-node binary...
@@ -180,10 +192,16 @@ if "%NODE_ONLY%"=="true" (
         exit /b %errorlevel%
     )
 ) else (
+    set RELEASE_DIR_NAME=Tau5-for-Windows-%ARCH_NAME%-v%VERSION%
     if not exist release mkdir release
+    cd release
+    if not exist !RELEASE_DIR_NAME! mkdir !RELEASE_DIR_NAME!
+    cd !RELEASE_DIR_NAME!
     
     :: Copy GUI binaries (they're directly in bin\ for CMake builds)
-    xcopy /E /I /Y gui\build-release\bin\* release\
+    echo Copying binaries...
+    copy "%ROOT_DIR%\gui\build-release\bin\Release\tau5.exe" . /Y
+    copy "%ROOT_DIR%\gui\build-release\bin\Release\tau5-node.exe" . /Y
     if %errorlevel% neq 0 (
         echo Failed to copy GUI binaries
         cd /d "%WORKING_DIR%"
@@ -191,7 +209,9 @@ if "%NODE_ONLY%"=="true" (
     )
     
     :: Copy server release
-    xcopy /E /I /Y server\_build\prod\rel\tau5 release\_build\prod\rel\tau5\
+    echo Copying server release...
+    if not exist _build\prod\rel mkdir _build\prod\rel
+    xcopy /E /I /Y "%ROOT_DIR%\server\_build\prod\rel\tau5" "_build\prod\rel\tau5\"
     if %errorlevel% neq 0 (
         echo Failed to copy server release
         cd /d "%WORKING_DIR%"
@@ -199,7 +219,6 @@ if "%NODE_ONLY%"=="true" (
     )
     
     :: Deploy Qt dependencies if windeployqt is available
-    cd /d "%ROOT_DIR%\release"
     if exist "%QT_INSTALL_LOCATION%\bin\windeployqt.exe" (
         "%QT_INSTALL_LOCATION%\bin\windeployqt.exe" tau5.exe
     ) else if exist "%Qt6_DIR%\bin\windeployqt.exe" (
@@ -219,7 +238,7 @@ echo ================================================
 if "%NODE_ONLY%"=="true" (
     echo tau5-node Windows release build completed successfully!
     echo ================================================
-    echo Release package: %ROOT_DIR%\release-node\Tau5-Node-Windows\
+    echo Release package: %ROOT_DIR%\release\!RELEASE_DIR_NAME!\
     echo.
     echo The release directory is self-contained and ready for distribution.
     echo This build is suitable for headless systems without Qt dependencies.
@@ -227,8 +246,13 @@ if "%NODE_ONLY%"=="true" (
     echo   tau5-node.exe
 ) else (
     echo Release build completed successfully!
-    echo Location: %ROOT_DIR%\release
     echo ================================================
+    echo Release package: %ROOT_DIR%\release\!RELEASE_DIR_NAME!\
+    echo.
+    echo The release directory is self-contained and ready for distribution.
+    echo Users can run Tau5 with:
+    echo   tau5.exe
+    echo   tau5-node.exe
 )
 
 cd /d "%WORKING_DIR%"
