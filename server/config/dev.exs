@@ -66,7 +66,24 @@ config :tau5, Tau5Web.PublicEndpoint,
     port: 7005
   ],
   server: true,
-  check_origin: false
+  check_origin: false,
+  code_reloader: true,
+  debug_errors: true,
+  secret_key_base: "khmBQWSyT6UlgsLgWV5d+bu84avmmqGLaEI+8+Ykt6kl2+CMWKdJRVBpglGf63FO",
+  watchers: [
+    esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]},
+    monaco_esbuild: {Esbuild, :install_and_run, [:monaco_worker, ~w(--sourcemap=inline --watch)]}
+  ],
+  live_reload: [
+    patterns: [
+      ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"priv/gettext/.*(po)$",
+      ~r"lib/tau5_web/(controllers|live|components)/.*(ex|heex)$",
+      ~r"lib/tau5_web/live/.*(ex|heex|sface)$",
+      ~r"lib/tau5_web/widgets/.*(ex|heex|sface)$"
+    ]
+  ]
 
 # Console allowed origins (optional - ports are dynamic now)
 # config :tau5, console_allowed_origins: ["http://localhost:*"]
