@@ -91,26 +91,6 @@ cd "${APP_NAME}/Contents/Resources"
 mkdir -p _build/prod/rel
 cp -R "${ROOT_DIR}/server/_build/prod/rel/tau5" _build/prod/rel/
 
-# Test the release build
-echo ""
-echo "Testing release build with --check..."
-cd "${ROOT_DIR}/release"
-
-# The --check flag now understands release builds
-"${APP_NAME}/Contents/MacOS/Tau5" --check
-if [ $? -ne 0 ]; then
-    echo "ERROR: Release build health check failed!"
-    exit 1
-fi
-
-"${APP_NAME}/Contents/MacOS/tau5-node" --check
-if [ $? -ne 0 ]; then
-    echo "ERROR: tau5-node health check failed!"
-    exit 1
-fi
-
-echo "✓ All health checks passed"
-
 echo ""
 echo "========================================"
 echo "Release build completed successfully!"

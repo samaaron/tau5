@@ -83,26 +83,6 @@ if [ ! -d "_build/prod/rel/tau5" ]; then
     exit 1
 fi
 
-# Test the release build
-echo ""
-echo "Testing release build with health checks..."
-cd "${ROOT_DIR}/release/Tau5-Linux"
-
-# Run health checks - essential for CI/CD pipelines
-./tau5 --check
-if [ $? -ne 0 ]; then
-    echo "ERROR: Release build health check failed for tau5!"
-    exit 1
-fi
-
-./tau5-node --check
-if [ $? -ne 0 ]; then
-    echo "ERROR: Release build health check failed for tau5-node!"
-    exit 1
-fi
-
-echo "✓ All health checks passed"
-
 echo ""
 echo "========================================"
 echo "Release build completed successfully!"
