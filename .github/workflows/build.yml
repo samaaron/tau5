@@ -127,22 +127,25 @@ jobs:
       
       - name: Release Health Check (Windows)
         shell: cmd
-        working-directory: ${{github.workspace}}/release/
+        working-directory: ${{github.workspace}}
         run: |
+          cd release\Tau5-for-Windows-*
           tau5.exe --check
           tau5-node.exe --check
         if: startsWith(matrix.os, 'windows')
 
       - name: Release Health Check (macOS)
-        working-directory: ${{github.workspace}}/release/
+        working-directory: ${{github.workspace}}
         run: |
-          Tau5.app/Contents/MacOS/Tau5 --check
-          Tau5.app/Contents/MacOS/tau5-node --check
+          cd release/Tau5-for-macOS-*/
+          ./Tau5.app/Contents/MacOS/Tau5 --check
+          ./Tau5.app/Contents/MacOS/tau5-node --check
         if: startsWith(matrix.os, 'macos')
 
       - name: Release Health Check (Linux)
-        working-directory: ${{github.workspace}}/release/Tau5-Linux/
+        working-directory: ${{github.workspace}}
         run: |
+          cd release/Tau5-for-Linux-*/
           ./tau5 --check
           ./tau5-node --check
         if: startsWith(matrix.os, 'ubuntu')
