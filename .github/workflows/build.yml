@@ -78,7 +78,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libasound2-dev libevent-dev libminizip-dev
+          sudo apt-get install -y libasound2-dev libevent-dev libminizip-dev alsa-utils
         if: startsWith(matrix.os, 'ubuntu')
 
       # Build Release - Windows
