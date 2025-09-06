@@ -39,7 +39,7 @@ jobs:
               node_only: true,
             }
           - {
-              title: "Linux x64 GCC (Ubuntu 24.04)",
+              title: "Linux x64 GCC",
               os: "ubuntu-24.04",
               cc: "gcc",
               arch: "x64",
@@ -47,13 +47,10 @@ jobs:
             }
           - {
               title: "Linux x64 Clang",
-              os: "ubuntu-22.04",
+              os: "ubuntu-24.04",
               cc: "clang",
               arch: "x64",
               build_type: "Release",
-              system_qt: true,
-              minimal_qt: true,
-              node_only: true,
             }
           - {
               title: "Linux ARM64 GCC (Ubuntu 22.04 - Node Only)",
@@ -242,9 +239,16 @@ jobs:
       - name: Release Health Check (Linux)
         working-directory: ${{github.workspace}}
         run: |
-          cd release/Tau5-for-Linux-*/
-          ./tau5 --check
-          ./tau5-node --check
+          if [ "${{ matrix.node_only }}" = "true" ]; then
+            # For node-only builds, check only tau5-node
+            cd release/Tau5-Node-for-Linux-*/
+            ./tau5-node --check
+          else
+            # For full builds, check both binaries
+            cd release/Tau5-for-Linux-*/
+            ./tau5 --check
+            ./tau5-node --check
+          fi
         if: startsWith(matrix.os, 'ubuntu')
 
       # Upload AppImages as artifacts (Linux GCC only)
