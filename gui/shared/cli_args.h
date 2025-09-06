@@ -4,6 +4,9 @@
 #include <cstring>
 #include <string>
 #include <cstdlib>
+#include <random>
+#include <sstream>
+#include <iomanip>
 #include <QtCore/QtGlobal>
 #include <QtCore/QCoreApplication>
 
@@ -63,11 +66,32 @@ struct CommonArgs {
     // Path overrides
     std::string serverPath;        // Override server path (instead of using TAU5_SERVER_PATH env var)
     
+    // Friend authentication
+    std::string friendToken;       // Friend authentication token for public endpoint
+    
     // Error handling
     bool hasError = false;
     std::string errorMessage;
 };
 
+
+// Helper function to generate a secure random token
+inline std::string generateSecureToken(size_t length = 32) {
+    const char charset[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    const size_t charset_size = sizeof(charset) - 1;
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, charset_size - 1);
+    
+    std::string token;
+    token.reserve(length);
+    for (size_t i = 0; i < length; ++i) {
+        token += charset[dis(gen)];
+    }
+    
+    return token;
+}
 
 // Helper function to parse port argument
 // Returns true if there was an error, false if successful
@@ -189,6 +213,26 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         } else {
             args.hasError = true;
             args.errorMessage = "--server-path requires a path";
+        }
+        return true;
+    }
+    // Friend authentication
+    else if (std::strcmp(arg, "--friend-token") == 0) {
+        // Check if next argument exists and is not another flag
+        if (nextArg != nullptr && nextArg[0] != '-') {
+            // User provided a specific token
+            args.friendToken = nextArg;
+            i++;
+        } else {
+            // No token provided, generate a secure random one
+            args.friendToken = generateSecureToken();
+        }
+        
+        // When friend token is specified, implicitly enable friend mode
+        // and the public endpoint (if not already set)
+        if (args.portPublic == 0) {
+            // Will use default port from server (7005 or auto-find)
+            args.portPublic = 7005;
         }
         return true;
     }
@@ -327,6 +371,14 @@ inline void applyEnvironmentVariables(const CommonArgs& args, const char* target
     }
     if (args.portPublic > 0) {
         qputenv("TAU5_PUBLIC_PORT", std::to_string(args.portPublic).c_str());
+        // If public endpoint is enabled, also enable public endpoint in the server
+        qputenv("TAU5_PUBLIC_ENDPOINT_ENABLED", "true");
+    }
+    
+    // Friend authentication configuration
+    if (!args.friendToken.empty()) {
+        qputenv("TAU5_FRIEND_MODE", "true");
+        qputenv("TAU5_FRIEND_TOKEN", args.friendToken.c_str());
     }
     
     // MCP configuration

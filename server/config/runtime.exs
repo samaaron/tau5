@@ -172,9 +172,10 @@ if config_env() == :prod do
 
   config :tau5, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
+  # Main endpoint ALWAYS binds to localhost only for security
   config :tau5, Tau5Web.Endpoint,
     http: [
-      ip: {127, 0, 0, 1},
+      ip: {127, 0, 0, 1},  # Always localhost only
       port: port
     ],
     check_origin: [

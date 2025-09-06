@@ -1144,6 +1144,171 @@ bool testReleaseBuildFlagRejection(TestContext& ctx) {
     return ctx.passed;
 }
 
+// Test friend token functionality
+bool testFriendTokenBasic(TestContext& ctx) {
+    ArgSimulator sim;
+    sim.add("tau5");
+    sim.add("--friend-token");
+    sim.add("mySecretToken123");
+
+    CommonArgs args;
+    int i = 1;
+    while (i < sim.argc()) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        int oldI = i;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        if (i == oldI) i++;
+    }
+
+    TEST_ASSERT(ctx, args.friendToken == "mySecretToken123", 
+                "Friend token should be set correctly");
+    TEST_ASSERT(ctx, args.portPublic == 7005, 
+                "Friend token should auto-enable public endpoint on default port");
+    TEST_ASSERT(ctx, !args.hasError, "No error expected");
+
+    // Test environment variables
+    applyEnvironmentVariables(args, "test");
+    TEST_ASSERT(ctx, qgetenv("TAU5_FRIEND_MODE") == "true",
+                "TAU5_FRIEND_MODE should be set");
+    TEST_ASSERT(ctx, qgetenv("TAU5_FRIEND_TOKEN") == "mySecretToken123",
+                "TAU5_FRIEND_TOKEN should be set correctly");
+    TEST_ASSERT(ctx, qgetenv("TAU5_PUBLIC_PORT") == "7005",
+                "TAU5_PUBLIC_PORT should be set");
+
+    // Clean up
+    qunsetenv("TAU5_FRIEND_MODE");
+    qunsetenv("TAU5_FRIEND_TOKEN");
+    qunsetenv("TAU5_PUBLIC_PORT");
+
+    return ctx.passed;
+}
+
+bool testFriendTokenWithExplicitPort(TestContext& ctx) {
+    ArgSimulator sim;
+    sim.add("tau5");
+    sim.add("--port-public");
+    sim.add("8080");
+    sim.add("--friend-token");
+    sim.add("anotherToken456");
+
+    CommonArgs args;
+    int i = 1;
+    while (i < sim.argc()) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        int oldI = i;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        if (i == oldI) i++;
+    }
+
+    TEST_ASSERT(ctx, args.friendToken == "anotherToken456",
+                "Friend token should be set correctly");
+    TEST_ASSERT(ctx, args.portPublic == 8080,
+                "Explicit port should override default");
+    TEST_ASSERT(ctx, !args.hasError, "No error expected");
+
+    // Test environment variables
+    applyEnvironmentVariables(args, "test");
+    TEST_ASSERT(ctx, qgetenv("TAU5_PUBLIC_PORT") == "8080",
+                "Explicit port should be used");
+    TEST_ASSERT(ctx, qgetenv("TAU5_FRIEND_TOKEN") == "anotherToken456",
+                "Friend token should be set");
+
+    // Clean up
+    qunsetenv("TAU5_FRIEND_MODE");
+    qunsetenv("TAU5_FRIEND_TOKEN");
+    qunsetenv("TAU5_PUBLIC_PORT");
+
+    return ctx.passed;
+}
+
+bool testFriendTokenAutoGeneration(TestContext& ctx) {
+    ArgSimulator sim;
+    sim.add("tau5");
+    sim.add("--friend-token");
+    // No token value provided - should auto-generate
+
+    CommonArgs args;
+    int i = 1;
+    while (i < sim.argc()) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        int oldI = i;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        if (i == oldI) i++;
+    }
+
+    TEST_ASSERT(ctx, !args.hasError,
+                "No error expected when --friend-token has no value");
+    TEST_ASSERT(ctx, !args.friendToken.empty(),
+                "Friend token should be auto-generated");
+    TEST_ASSERT(ctx, args.friendToken.length() == 32,
+                "Auto-generated token should be 32 characters");
+    TEST_ASSERT(ctx, args.portPublic == 7005,
+                "Public endpoint should be enabled on default port");
+
+    // Test that the token contains only valid characters
+    for (char c : args.friendToken) {
+        bool isValid = (c >= '0' && c <= '9') || 
+                      (c >= 'A' && c <= 'Z') || 
+                      (c >= 'a' && c <= 'z');
+        TEST_ASSERT(ctx, isValid,
+                    "Auto-generated token should only contain alphanumeric characters");
+    }
+
+    return ctx.passed;
+}
+
+bool testFriendTokenOrderIndependence(TestContext& ctx) {
+    // Test that order of --port-public and --friend-token doesn't matter
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--friend-token");
+        sim.add("token1");
+        sim.add("--port-public");
+        sim.add("9000");
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        TEST_ASSERT(ctx, args.friendToken == "token1",
+                    "Friend token should be set");
+        TEST_ASSERT(ctx, args.portPublic == 9000,
+                    "Port should be 9000 when specified after friend-token");
+    }
+
+    // Reverse order
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--port-public");
+        sim.add("9001");
+        sim.add("--friend-token");
+        sim.add("token2");
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        TEST_ASSERT(ctx, args.friendToken == "token2",
+                    "Friend token should be set");
+        TEST_ASSERT(ctx, args.portPublic == 9001,
+                    "Port should be 9001 when specified before friend-token");
+    }
+
+    return ctx.passed;
+}
+
 // Main test runner
 // Returns 0 if all pass, or the number of failures
 int runCliArgumentTests(int& totalTests, int& passedTests) {
@@ -1181,6 +1346,11 @@ int runCliArgumentTests(int& totalTests, int& passedTests) {
     // Release build safety tests
     RUN_TEST(testReleaseBuildFlagRejection);
 
+    // Friend token tests
+    RUN_TEST(testFriendTokenBasic);
+    RUN_TEST(testFriendTokenWithExplicitPort);
+    RUN_TEST(testFriendTokenAutoGeneration);
+    RUN_TEST(testFriendTokenOrderIndependence);
 
     // Count results
     int passed = 0;

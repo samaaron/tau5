@@ -72,11 +72,14 @@ void printUsage(const char* programName) {
 
     std::cout << "Port Configuration:\n"
               << "  --port-local <n>         Local web UI port (default: random)\n"
-              << "  --no-local-endpoint      Disable local endpoint completely\n";
+              << "  --port-public <n>        Public endpoint port (default: disabled)\n"
+              << "  --no-local-endpoint      Disable local endpoint completely\n"
+              << "  --friend-token [token]   Enable friend authentication\n"
+              << "                           (generates secure token if not provided)\n"
+              << "                           (automatically enables public endpoint)\n";
 
 #ifndef TAU5_RELEASE_BUILD
-    std::cout << "  --port-public <n>        Public endpoint port (default: disabled)\n"
-              << "  --port-mcp <n>           MCP services port (default: 5555 when enabled)\n"
+    std::cout << "  --port-mcp <n>           MCP services port (default: 5555 when enabled)\n"
               << "\n"
               << "Optional Features:\n"
               << "  --mcp                    Enable MCP endpoint\n"
@@ -132,8 +135,13 @@ void printPublicEndpointInfo(const Tau5CLI::CommonArgs& args) {
             }
             
             std::cout << "http://" << address.toString().toStdString() << ":" << args.portPublic;
+            // Check both args struct and environment (env vars may be set after args parsing)
             QString friendToken = qgetenv("TAU5_FRIEND_TOKEN");
-            if (qgetenv("TAU5_FRIEND_MODE") == "true" && !friendToken.isEmpty()) {
+            if (friendToken.isEmpty() && !args.friendToken.empty()) {
+                friendToken = QString::fromStdString(args.friendToken);
+            }
+            bool friendMode = qgetenv("TAU5_FRIEND_MODE") == "true" || !args.friendToken.empty();
+            if (friendMode && !friendToken.isEmpty()) {
                 std::cout << "/?friend_token=" << friendToken.toStdString();
             }
             std::cout << "\n";
@@ -143,8 +151,13 @@ void printPublicEndpointInfo(const Tau5CLI::CommonArgs& args) {
     // If no non-loopback addresses found, show 127.0.0.1 as fallback
     if (firstPublicIP) {
         std::cout << "  Public:    http://127.0.0.1:" << args.portPublic;
+        // Check both args struct and environment (env vars may be set after args parsing)
         QString friendToken = qgetenv("TAU5_FRIEND_TOKEN");
-        if (qgetenv("TAU5_FRIEND_MODE") == "true" && !friendToken.isEmpty()) {
+        if (friendToken.isEmpty() && !args.friendToken.empty()) {
+            friendToken = QString::fromStdString(args.friendToken);
+        }
+        bool friendMode = qgetenv("TAU5_FRIEND_MODE") == "true" || !args.friendToken.empty();
+        if (friendMode && !friendToken.isEmpty()) {
             std::cout << "/?friend_token=" << friendToken.toStdString();
         }
         std::cout << "\n";

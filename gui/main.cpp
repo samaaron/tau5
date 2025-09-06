@@ -263,7 +263,10 @@ int main(int argc, char *argv[])
         std::cout << "Port Configuration:\n"
                   << "  --port-local <n>         Local web UI port (default: random)\n"
                   << "  --port-public <n>        Public endpoint port (default: disabled)\n"
-                  << "  --port-mcp <n>           MCP services port (default: 5555 when enabled)\n";
+                  << "  --port-mcp <n>           MCP services port (default: 5555 when enabled)\n"
+                  << "  --friend-token [token]   Enable friend authentication\n"
+                  << "                           (generates secure token if not provided)\n"
+                  << "                           (automatically enables public endpoint)\n";
 #ifndef TAU5_RELEASE_BUILD
         std::cout << "  --port-chrome-dev <n>    Chrome DevTools port (default: 9223 when enabled)\n";
 #endif
