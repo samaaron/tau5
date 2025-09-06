@@ -48,44 +48,48 @@ else
     ARCH_NAME=$ARCH
 fi
 
-VERSION=$(grep 'version:' "${ROOT_DIR}/server/mix.exs" | sed -E 's/.*version: "([^"]+)".*/\1/')
+# Read version from project root VERSION file
+VERSION=$(cat "${ROOT_DIR}/VERSION" 2>/dev/null || echo "0.0.0")
 
 # Determine build naming based on context
-# Follow AppImage convention: continuous for CI, version for releases
 if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-    # GitHub Actions tagged build - use version from tag
+    # GitHub Actions tagged build - use clean version from tag
     VERSION_STRING="v${VERSION}"
 elif [ -n "$GITHUB_ACTIONS" ]; then
-    # GitHub Actions CI build - use "continuous" label (AppImage convention)
-    VERSION_STRING="continuous"
+    # GitHub Actions CI build - use commit hash so each build is unique
+    COMMIT_SHORT=${GITHUB_SHA:0:7}
+    VERSION_STRING="${COMMIT_SHORT}"
 else
-    # Local build - use git describe
+    # Local build - use git describe for full info
     GIT_DESC=$(git describe --tags --always --dirty 2>/dev/null || echo "local")
     VERSION_STRING="${GIT_DESC}"
 fi
 
 if [ "$NODE_ONLY" = true ]; then
-    RELEASE_DIR_NAME="Tau5-Node-for-Linux-${ARCH_NAME}-v${VERSION}"
     APPIMAGE_NAME="tau5-node-${ARCH_NAME}-${VERSION_STRING}.AppImage"
     BINARY_NAME="tau5-node"
 else
-    RELEASE_DIR_NAME="Tau5-for-Linux-${ARCH_NAME}-v${VERSION}"
     APPIMAGE_NAME="tau5-${ARCH_NAME}-${VERSION_STRING}.AppImage"
     BINARY_NAME="tau5"
 fi
 
-RELEASE_DIR="${ROOT_DIR}/release/${RELEASE_DIR_NAME}"
+# Both AppImage types use the same full release directory
+# The --node-only flag just controls which binary gets packaged
+RELEASE_DIR="${ROOT_DIR}/release/Tau5-for-Linux-${ARCH_NAME}-v${VERSION}"
 
 # Check if release exists
 if [ ! -d "${RELEASE_DIR}" ]; then
     echo "ERROR: Release directory not found: ${RELEASE_DIR}"
     echo "Please run build-release.sh first"
+    echo "Note: Both full and node-only AppImages use the full release directory"
     exit 1
 fi
 
+echo "Using release directory: $(basename ${RELEASE_DIR})"
+
 # Create AppDir
 echo "Creating AppDir structure..."
-APPDIR="${ROOT_DIR}/release/${RELEASE_DIR_NAME}-bundled.AppDir"
+APPDIR="${RELEASE_DIR}-bundled.AppDir"
 rm -rf "${APPDIR}"
 mkdir -p "${APPDIR}/usr/bin"
 mkdir -p "${APPDIR}/usr/lib"
