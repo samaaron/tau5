@@ -452,10 +452,10 @@ void DebugPane::setupConsole()
         "Tau5-Dev Tidewave MCP Server - ENABLED\n"
         "══════════════════════════════════════\n"
         "\n"
-        "Endpoint: http://localhost:" + mcpPort + "/tau5/mcp\n"
+        "Endpoint: http://localhost:" + mcpPort + "/tidewave/mcp\n"
         "\n"
         "To add to Claude Code, use:\n"
-        "tidewave (http://localhost:" + mcpPort + "/tau5/mcp)\n"
+        "tidewave (http://localhost:" + mcpPort + "/tidewave/mcp)\n"
         "\n";
     m_newTidewaveMCPWidget->appendLog(tidewaveEnabledMessage, false);
   }
