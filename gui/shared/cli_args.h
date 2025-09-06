@@ -130,11 +130,17 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
     if (std::strcmp(arg, "--devtools") == 0) {
         args.devtools = true;
         // This implies several other flags
+#ifdef TAU5_RELEASE_BUILD
+        // Release builds force prod environment
+        args.env = CommonArgs::Env::Prod;
+        // Other devtools flags are ignored in release
+#else
         args.env = CommonArgs::Env::Dev;
         args.mcp = true;
         args.tidewave = true;
         args.chromeDevtools = true;
         args.repl = true;
+#endif
         return true;
     }
     // Deployment mode override
@@ -238,10 +244,23 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
     }
     // Environment override
     else if (std::strcmp(arg, "--env-dev") == 0) {
+#ifdef TAU5_RELEASE_BUILD
+        // Release builds force prod, ignore dev flag
+        args.env = CommonArgs::Env::Prod;
+#else
         args.env = CommonArgs::Env::Dev;
+#endif
         return true;
     } else if (std::strcmp(arg, "--env-prod") == 0) {
         args.env = CommonArgs::Env::Prod;
+        return true;
+    } else if (std::strcmp(arg, "--env-test") == 0) {
+#ifdef TAU5_RELEASE_BUILD
+        // Release builds force prod, ignore test flag
+        args.env = CommonArgs::Env::Prod;
+#else
+        args.env = CommonArgs::Env::Test;
+#endif
         return true;
     }
     // Other
@@ -266,14 +285,11 @@ inline bool validateArguments(CommonArgs& args) {
     }
     
 #ifdef TAU5_RELEASE_BUILD
-    // Release builds enforce production environment
-    if (args.env == CommonArgs::Env::Dev) {
-        args.hasError = true;
-        args.errorMessage = "--env-dev is not supported in release builds";
-        return false;
+    // Release builds have already forced prod environment during parsing
+    // Double-check here just in case
+    if (args.env != CommonArgs::Env::Prod && args.env != CommonArgs::Env::Default) {
+        args.env = CommonArgs::Env::Prod;
     }
-    // Force prod environment regardless of what was specified
-    args.env = CommonArgs::Env::Prod;
     
     if (args.repl) {
         args.hasError = true;

@@ -150,7 +150,14 @@ bool testDevtoolsFlag(TestContext& ctx) {
 
     // But in release mode, environment gets overridden
     applyEnvironmentVariables(args, "gui");
-    TEST_ASSERT(ctx, qgetenv("MIX_ENV") == "prod", "MIX_ENV should be prod in release");
+    QByteArray actualEnv = qgetenv("MIX_ENV");
+    if (actualEnv != "prod") {
+        Tau5Logger::instance().error(QString("DEBUG: MIX_ENV is '%1' (len=%2), expected 'prod'. args.env=%3")
+            .arg(QString::fromUtf8(actualEnv))
+            .arg(actualEnv.length())
+            .arg(static_cast<int>(args.env)));
+    }
+    TEST_ASSERT(ctx, actualEnv == "prod", "MIX_ENV should be prod in release");
     TEST_ASSERT(ctx, qgetenv("TAU5_ELIXIR_REPL_ENABLED") != "true", "REPL should be disabled in release");
     TEST_ASSERT(ctx, qgetenv("TAU5_TIDEWAVE_ENABLED") != "true", "Tidewave should be disabled in release");
 
