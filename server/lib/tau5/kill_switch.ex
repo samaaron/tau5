@@ -18,23 +18,24 @@ defmodule Tau5.KillSwitch do
     if enabled?() do
       # Trap exits to ensure System.halt on abnormal termination
       Process.flag(:trap_exit, true)
-      
+
       grace_period = max(0, get_env_int("TAU5_HB_GRACE_MS", @default_grace_period))
       check_interval = max(1000, get_env_int("TAU5_HB_INTERVAL_MS", @default_check_interval))
       max_missed = max(1, get_env_int("TAU5_HB_MAX_MISSES", @default_max_missed_checks))
-      
+
       Logger.debug("Kill switch armed - will activate in #{grace_period}ms")
       Logger.debug("Kill switch config: interval=#{check_interval}ms, max_misses=#{max_missed}")
-      
+
       Process.send_after(self(), :start_monitoring, grace_period)
-      
-      {:ok, %{
-        last_reset: System.monotonic_time(:millisecond),
-        monitoring: false,
-        missed_checks: 0,
-        check_interval: check_interval,
-        max_missed_checks: max_missed
-      }}
+
+      {:ok,
+       %{
+         last_reset: System.monotonic_time(:millisecond),
+         monitoring: false,
+         missed_checks: 0,
+         check_interval: check_interval,
+         max_missed_checks: max_missed
+       }}
     else
       Logger.info("Kill switch disabled")
       {:ok, %{enabled: false}}
@@ -45,9 +46,9 @@ defmodule Tau5.KillSwitch do
     if state[:enabled] != false do
       Logger.error("KILL SWITCH PROCESS TERMINATING - KILLING ENTIRE SYSTEM")
       Logger.error("Termination reason: #{inspect(reason)}")
-      
-      if reason not in [:normal, :shutdown] and 
-         not match?({:shutdown, _}, reason) do
+
+      if reason not in [:normal, :shutdown] and
+           not match?({:shutdown, _}, reason) do
         if System.get_env("MIX_ENV") == "dev" do
           hard_kill_self()
         else
@@ -55,6 +56,7 @@ defmodule Tau5.KillSwitch do
         end
       end
     end
+
     :ok
   end
 
@@ -70,16 +72,15 @@ defmodule Tau5.KillSwitch do
   end
 
   def handle_cast(:reset, state) do
-    new_state = %{state | 
-      last_reset: System.monotonic_time(:millisecond),
-      missed_checks: 0
-    }
-    
+    new_state = %{state | last_reset: System.monotonic_time(:millisecond), missed_checks: 0}
+
     # Only log recovery from missed checks in warning situations
     if state[:missed_checks] && state.missed_checks > 1 do
-      Logger.info("Kill switch: normal operation restored after #{state.missed_checks} missed checks")
+      Logger.info(
+        "Kill switch: normal operation restored after #{state.missed_checks} missed checks"
+      )
     end
-    
+
     {:noreply, new_state}
   end
 
@@ -101,25 +102,28 @@ defmodule Tau5.KillSwitch do
     current_time = System.monotonic_time(:millisecond)
     time_since_reset = current_time - state.last_reset
 
-    new_state = 
+    new_state =
       if time_since_reset > state.check_interval do
         missed = state.missed_checks + 1
-        
-        Logger.warning("Kill switch: missed check #{missed}/#{state.max_missed_checks} " <>
-                      "(#{time_since_reset}ms since last reset)")
-        
+
+        Logger.warning(
+          "Kill switch: missed check #{missed}/#{state.max_missed_checks} " <>
+            "(#{time_since_reset}ms since last reset)"
+        )
+
         if missed >= state.max_missed_checks do
           Logger.error("KILL SWITCH TRIGGERED - No reset for #{missed} checks")
           Logger.error("Shutting down NOW")
-          Process.sleep(100)  # Give logs time to flush
-          
+          # Give logs time to flush
+          Process.sleep(100)
+
           if System.get_env("MIX_ENV") == "dev" do
             Logger.error("Dev mode: Killing OS process directly")
             hard_kill_self()
           else
             System.halt(0)
           end
-          
+
           %{state | missed_checks: missed}
         else
           %{state | missed_checks: missed}
@@ -143,10 +147,12 @@ defmodule Tau5.KillSwitch do
   # Cross-platform hard kill of own OS process
   defp hard_kill_self do
     pid = System.pid() |> String.to_integer()
+
     case :os.type() do
-      {:win32, _} -> 
+      {:win32, _} ->
         System.cmd("taskkill", ["/PID", Integer.to_string(pid), "/F"])
-      _ -> 
+
+      _ ->
         System.cmd("kill", ["-9", Integer.to_string(pid)])
     end
   end
@@ -154,11 +160,15 @@ defmodule Tau5.KillSwitch do
   # Get integer from environment variable with default
   defp get_env_int(var_name, default) do
     case System.get_env(var_name) do
-      nil -> default
+      nil ->
+        default
+
       str ->
         case Integer.parse(str) do
-          {val, ""} -> val
-          _ -> 
+          {val, ""} ->
+            val
+
+          _ ->
             Logger.warning("Invalid #{var_name}: #{str}, using default #{default}")
             default
         end

@@ -31,7 +31,7 @@ defmodule Tau5.MixProject do
   # Read version from VERSION file at project root
   defp version do
     version_file = Path.join(__DIR__, "../VERSION")
-    
+
     if File.exists?(version_file) do
       version_file
       |> File.read!()
@@ -105,7 +105,12 @@ defmodule Tau5.MixProject do
       clean: ["clean", "nifs.clean"],
       setup: ["deps.get", "assets.setup", "assets.build", "nifs.compile"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["tailwind default", "tailwind console", "esbuild default", "esbuild monaco_worker"],
+      "assets.build": [
+        "tailwind default",
+        "tailwind console",
+        "esbuild default",
+        "esbuild monaco_worker"
+      ],
       "assets.deploy": [
         "assets.setup",
         "tailwind default --minify",

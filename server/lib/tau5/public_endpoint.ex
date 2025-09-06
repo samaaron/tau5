@@ -65,7 +65,10 @@ defmodule Tau5.PublicEndpoint do
 
   @impl true
   def init(initial_enabled) do
-    Logger.info("PublicEndpoint starting with remote access #{if initial_enabled, do: "enabled", else: "disabled"}")
+    Logger.info(
+      "PublicEndpoint starting with remote access #{if initial_enabled, do: "enabled", else: "disabled"}"
+    )
+
     {:ok, %{enabled: initial_enabled}}
   end
 
@@ -86,24 +89,30 @@ defmodule Tau5.PublicEndpoint do
   @impl true
   def handle_call(:toggle, _from, state) do
     new_enabled = not state.enabled
-    Logger.info("PublicEndpoint: Toggling remote access to #{if new_enabled, do: "enabled", else: "disabled"}")
+
+    Logger.info(
+      "PublicEndpoint: Toggling remote access to #{if new_enabled, do: "enabled", else: "disabled"}"
+    )
+
     new_state = %{state | enabled: new_enabled}
     {:reply, {:ok, new_enabled}, new_state}
   end
 
   @impl true
   def handle_call(:status, _from, state) do
-    status = if state.enabled do
-      case get_endpoint_info() do
-        {:ok, port} -> {:enabled, port: port}
-        _ -> {:enabled, port: nil}
+    status =
+      if state.enabled do
+        case get_endpoint_info() do
+          {:ok, port} -> {:enabled, port: port}
+          _ -> {:enabled, port: nil}
+        end
+      else
+        case get_endpoint_info() do
+          {:ok, port} -> {:disabled, port: port}
+          _ -> {:disabled, port: nil}
+        end
       end
-    else
-      case get_endpoint_info() do
-        {:ok, port} -> {:disabled, port: port}
-        _ -> {:disabled, port: nil}
-      end
-    end
+
     {:reply, status, state}
   end
 
@@ -115,7 +124,7 @@ defmodule Tau5.PublicEndpoint do
   defp get_endpoint_info do
     config = Application.get_env(:tau5, Tau5Web.PublicEndpoint, [])
     http_config = Keyword.get(config, :http, [])
-    
+
     case Keyword.get(http_config, :port) do
       nil -> {:error, :no_port}
       port -> {:ok, port}

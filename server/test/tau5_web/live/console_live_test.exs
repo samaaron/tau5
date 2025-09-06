@@ -9,62 +9,64 @@ defmodule Tau5Web.ConsoleLiveTest do
       # Both InternalEndpointSecurity and ConsoleSecurity use same token
       token = Application.get_env(:tau5, :session_token) || "test-token-for-tests"
       System.put_env("TAU5_SESSION_TOKEN", token)
-      
+
       # Use the conn from ConnCase which already has the proper token header
       conn = get(conn, "/dev/console?token=#{token}")
       assert conn.status == 403
       assert conn.resp_body =~ "The Tau5 Elixir REPL console is disabled"
-      
+
       System.delete_env("TAU5_SESSION_TOKEN")
     end
 
     test "mount fails without proper security", %{conn: _conn} do
       # Enable console for this test
       Application.put_env(:tau5, :console_enabled, true)
-      
+
       # Create a fresh conn with non-localhost IP
-      conn = 
+      conn =
         Phoenix.ConnTest.build_conn()
-        |> Map.put(:remote_ip, {192, 168, 1, 1})  # Non-localhost
-      
+        # Non-localhost
+        |> Map.put(:remote_ip, {192, 168, 1, 1})
+
       conn = get(conn, "/dev/console")
       assert conn.status == 403
       # InternalEndpointSecurity blocks non-localhost first
       assert conn.resp_body =~ "This endpoint is only accessible from localhost"
-      
+
       Application.delete_env(:tau5, :console_enabled)
     end
-    
+
     test "mount fails without token", %{conn: _conn} do
       # Enable console for this test
       Application.put_env(:tau5, :console_enabled, true)
       System.put_env("TAU5_SESSION_TOKEN", "test-token")
-      
+
       # Create a fresh conn without token header
-      conn = 
+      conn =
         Phoenix.ConnTest.build_conn()
         |> Map.put(:remote_ip, {127, 0, 0, 1})
-      
+
       conn = get(conn, "/dev/console")
       assert conn.status == 403
       # InternalEndpointSecurity blocks missing token
       assert conn.resp_body =~ "Invalid or missing app token"
-      
+
       System.delete_env("TAU5_SESSION_TOKEN")
       Application.delete_env(:tau5, :console_enabled)
     end
   end
-  
+
   describe "unit tests for console functionality" do
     # Test the LiveView module directly without going through HTTP/security
     test "mount initializes state correctly" do
       socket = %Phoenix.LiveView.Socket{
         assigns: %{__changed__: %{}, flash: %{}}
       }
+
       socket = Map.put(socket, :connected?, true)
-      
+
       {:ok, socket} = ConsoleLive.mount(%{}, %{}, socket)
-      
+
       assert socket.assigns.page_title == "Tau5 Console"
       assert socket.assigns.prompt == "tau5(1)> "
       assert socket.assigns.counter == 1
@@ -75,7 +77,7 @@ defmodule Tau5Web.ConsoleLiveTest do
       assert socket.assigns.terminal_output == "Connecting..."
       refute Map.has_key?(socket.assigns, :evaluator)
     end
-    
+
     test "execute_command handles empty input" do
       socket = %Phoenix.LiveView.Socket{
         assigns: %{
@@ -90,14 +92,14 @@ defmodule Tau5Web.ConsoleLiveTest do
           multiline_mode: false
         }
       }
-      
+
       {:noreply, socket} = ConsoleLive.handle_event("execute_command", %{"command" => ""}, socket)
-      
+
       # Should not change anything for empty input
       assert socket.assigns.command_history == []
       assert socket.assigns.terminal_output == ""
     end
-    
+
     test "execute_command adds to history and updates output" do
       socket = %Phoenix.LiveView.Socket{
         assigns: %{
@@ -108,81 +110,99 @@ defmodule Tau5Web.ConsoleLiveTest do
           current_input: "",
           terminal_output: "Welcome\n",
           prompt: "tau5(1)> ",
-          evaluator: self(),  # Mock evaluator
+          # Mock evaluator
+          evaluator: self(),
           multiline_mode: false
         }
       }
-      
-      {:noreply, socket} = ConsoleLive.handle_event("execute_command", %{"command" => "1 + 1"}, socket)
-      
+
+      {:noreply, socket} =
+        ConsoleLive.handle_event("execute_command", %{"command" => "1 + 1"}, socket)
+
       assert socket.assigns.command_history == ["1 + 1"]
       assert socket.assigns.history_index == -1
       assert socket.assigns.current_input == ""
-      
+
       assert socket.assigns.terminal_output =~ "Welcome\n"
       assert socket.assigns.terminal_output =~ "tau5(1)> "
       assert socket.assigns.terminal_output =~ "1 + 1"
-      
+
       assert_received {:eval, _, "1 + 1"}
     end
-    
+
     test "handle_keydown ArrowUp navigates history" do
       socket = %Phoenix.LiveView.Socket{
         assigns: %{
           __changed__: %{},
           flash: %{},
-          command_history: ["3 + 3", "2 + 2", "1 + 1"],  # Most recent first
+          # Most recent first
+          command_history: ["3 + 3", "2 + 2", "1 + 1"],
           history_index: -1,
           current_input: "",
           multiline_mode: false
         }
       }
-      
+
       # First ArrowUp
-      {:noreply, socket} = ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowUp"}, socket)
+      {:noreply, socket} =
+        ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowUp"}, socket)
+
       assert socket.assigns.history_index == 0
       assert socket.assigns.current_input == "3 + 3"
-      
+
       # Second ArrowUp
-      {:noreply, socket} = ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowUp"}, socket)
+      {:noreply, socket} =
+        ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowUp"}, socket)
+
       assert socket.assigns.history_index == 1
       assert socket.assigns.current_input == "2 + 2"
-      
+
       # Third ArrowUp
-      {:noreply, socket} = ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowUp"}, socket)
+      {:noreply, socket} =
+        ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowUp"}, socket)
+
       assert socket.assigns.history_index == 2
       assert socket.assigns.current_input == "1 + 1"
-      
+
       # Fourth ArrowUp (should stay at oldest)
-      {:noreply, socket} = ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowUp"}, socket)
+      {:noreply, socket} =
+        ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowUp"}, socket)
+
       assert socket.assigns.history_index == 2
       assert socket.assigns.current_input == "1 + 1"
     end
-    
+
     test "handle_keydown ArrowDown navigates history" do
       socket = %Phoenix.LiveView.Socket{
         assigns: %{
           __changed__: %{},
           flash: %{},
           command_history: ["3 + 3", "2 + 2", "1 + 1"],
-          history_index: 2,  # At oldest
+          # At oldest
+          history_index: 2,
           current_input: "1 + 1",
           multiline_mode: false
         }
       }
-      
+
       # First ArrowDown
-      {:noreply, socket} = ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowDown"}, socket)
+      {:noreply, socket} =
+        ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowDown"}, socket)
+
       assert socket.assigns.history_index == 1
       assert socket.assigns.current_input == "2 + 2"
-      
+
       # Navigate to current input
-      {:noreply, socket} = ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowDown"}, socket)
-      {:noreply, socket} = ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowDown"}, socket)
+      {:noreply, socket} =
+        ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowDown"}, socket)
+
+      {:noreply, socket} =
+        ConsoleLive.handle_event("handle_keydown", %{"key" => "ArrowDown"}, socket)
+
       assert socket.assigns.history_index == -1
       assert socket.assigns.current_input == ""
     end
-    
+
     test "handle_info processes eval results" do
       socket = %Phoenix.LiveView.Socket{
         assigns: %{
@@ -194,31 +214,41 @@ defmodule Tau5Web.ConsoleLiveTest do
           multiline_mode: false
         }
       }
-      
+
       # Success result
-      {:noreply, socket} = ConsoleLive.handle_info({:eval_result, %{
-        success: true,
-        result: 2,
-        output: "",
-        bindings: []
-      }}, socket)
-      
+      {:noreply, socket} =
+        ConsoleLive.handle_info(
+          {:eval_result,
+           %{
+             success: true,
+             result: 2,
+             output: "",
+             bindings: []
+           }},
+          socket
+        )
+
       assert socket.assigns.terminal_output =~ "2"
       assert socket.assigns.prompt == "tau5(2)> "
       assert socket.assigns.counter == 2
-      
+
       # Error result
-      {:noreply, socket} = ConsoleLive.handle_info({:eval_result, %{
-        success: false,
-        error: "** (ArithmeticError) bad argument",
-        output: ""
-      }}, socket)
-      
+      {:noreply, socket} =
+        ConsoleLive.handle_info(
+          {:eval_result,
+           %{
+             success: false,
+             error: "** (ArithmeticError) bad argument",
+             output: ""
+           }},
+          socket
+        )
+
       assert socket.assigns.terminal_output =~ "ArithmeticError"
       # Counter should have incremented once from the error  
       assert socket.assigns.prompt == "tau5(2)> "
     end
-    
+
     test "Ctrl+L clears screen" do
       socket = %Phoenix.LiveView.Socket{
         assigns: %{
@@ -228,18 +258,19 @@ defmodule Tau5Web.ConsoleLiveTest do
           prompt: "tau5(5)> "
         }
       }
-      
-      {:noreply, socket} = ConsoleLive.handle_event(
-        "handle_keydown", 
-        %{"key" => "l", "ctrlKey" => "true"}, 
-        socket
-      )
-      
+
+      {:noreply, socket} =
+        ConsoleLive.handle_event(
+          "handle_keydown",
+          %{"key" => "l", "ctrlKey" => "true"},
+          socket
+        )
+
       # The base implementation doesn't handle Ctrl+L
       # It returns the socket unchanged
       assert socket.assigns.terminal_output == "lots of old output\n"
     end
-    
+
     test "update_input updates current input" do
       socket = %Phoenix.LiveView.Socket{
         assigns: %{
@@ -248,17 +279,18 @@ defmodule Tau5Web.ConsoleLiveTest do
           current_input: ""
         }
       }
-      
-      {:noreply, socket} = ConsoleLive.handle_event(
-        "update_input", 
-        %{"command" => "test input"}, 
-        socket
-      )
-      
+
+      {:noreply, socket} =
+        ConsoleLive.handle_event(
+          "update_input",
+          %{"command" => "test input"},
+          socket
+        )
+
       assert socket.assigns.current_input == "test input"
     end
   end
-  
+
   describe "ANSI color conversion" do
     test "syntax_colors converts ANSI to HTML" do
       # The private function is tested indirectly through eval results
@@ -271,16 +303,21 @@ defmodule Tau5Web.ConsoleLiveTest do
           counter: 1
         }
       }
-      
+
       # Simulate receiving a result with ANSI colors
       ansi_text = IO.ANSI.format([:red, "error", :reset]) |> IO.iodata_to_binary()
-      
-      {:noreply, socket} = ConsoleLive.handle_info({:eval_result, %{
-        success: false,
-        error: ansi_text,
-        output: ""
-      }}, socket)
-      
+
+      {:noreply, socket} =
+        ConsoleLive.handle_info(
+          {:eval_result,
+           %{
+             success: false,
+             error: ansi_text,
+             output: ""
+           }},
+          socket
+        )
+
       assert socket.assigns.terminal_output =~ "<span"
       assert socket.assigns.terminal_output =~ "error"
     end

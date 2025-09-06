@@ -1,12 +1,12 @@
 defmodule Tau5.TiledLayout do
   @moduledoc """
   A tmux-like layout system for panels.
-  
+
   Panels are arranged in a binary tree where leaves are panels and branches are splits.
   Users interact with panels by index (0, 1, 2...) which are assigned left-to-right.
-  
+
   ## Examples
-  
+
       iex> layout = SimpleLayout.new()
       iex> layout = SimpleLayout.split_horizontal(layout, 0)
       iex> SimpleLayout.panel_count(layout)
@@ -23,29 +23,30 @@ defmodule Tau5.TiledLayout do
   @type panel_id :: String.t()
   @type direction :: :horizontal | :vertical
   @type ratio :: float()
-  
+
   @type t :: %__MODULE__{
-    tree: tree_node(),
-    index: %{panel_index() => panel_id()},
-    active: panel_index(),
-    zoom: nil | panel_index()  # Just store which panel is zoomed
-  }
-  
+          tree: tree_node(),
+          index: %{panel_index() => panel_id()},
+          active: panel_index(),
+          # Just store which panel is zoomed
+          zoom: nil | panel_index()
+        }
+
   @type tree_node :: panel() | split()
-  
+
   @type panel :: %{
-    type: :panel,
-    id: panel_id()
-  }
-  
+          type: :panel,
+          id: panel_id()
+        }
+
   @type split :: %{
-    type: :split,
-    id: panel_id(),
-    direction: direction(),
-    ratio: ratio(),
-    left: tree_node(),
-    right: tree_node()
-  }
+          type: :split,
+          id: panel_id(),
+          direction: direction(),
+          ratio: ratio(),
+          left: tree_node(),
+          right: tree_node()
+        }
 
   @doc """
   Creates a new layout with a single panel.
@@ -53,7 +54,7 @@ defmodule Tau5.TiledLayout do
   @spec new() :: t()
   def new do
     panel = new_panel()
-    
+
     %__MODULE__{
       tree: panel,
       index: %{0 => panel.id},
@@ -69,7 +70,7 @@ defmodule Tau5.TiledLayout do
     # Invalid index, return unchanged
     layout
   end
-  
+
   def split_horizontal(layout, panel_index) do
     do_split(layout, panel_index, :horizontal)
   end
@@ -82,7 +83,7 @@ defmodule Tau5.TiledLayout do
     # Invalid index, return unchanged
     layout
   end
-  
+
   def split_vertical(layout, panel_index) do
     do_split(layout, panel_index, :vertical)
   end
@@ -96,7 +97,7 @@ defmodule Tau5.TiledLayout do
     # Invalid index, return unchanged
     layout
   end
-  
+
   def close_panel(%{tree: %{type: :panel}} = layout, _panel_index) do
     # Cannot close the last panel
     layout
@@ -140,22 +141,26 @@ defmodule Tau5.TiledLayout do
   @spec apply_main_vertical(t()) :: t()
   def apply_main_vertical(layout) do
     panels = collect_panels(layout.tree)
-    
+
     case panels do
-      [_single] -> 
+      [_single] ->
         layout
+
       _ ->
         # Get the active panel and make it the main panel
         active_panel_id = Map.get(layout.index, layout.active)
-        {main_panel, other_panels} = 
+
+        {main_panel, other_panels} =
           case Enum.split_with(panels, fn p -> p.id == active_panel_id end) do
-            {[main], others} -> {main, others}
-            {[], panels} -> 
+            {[main], others} ->
+              {main, others}
+
+            {[], panels} ->
               # Fallback if active panel not found (shouldn't happen)
               [main | rest] = panels
               {main, rest}
           end
-        
+
         new_tree = %{
           type: :split,
           id: generate_id(),
@@ -164,6 +169,7 @@ defmodule Tau5.TiledLayout do
           left: main_panel,
           right: build_balanced_tree(other_panels, :vertical)
         }
+
         rebuild_state(layout, new_tree)
     end
   end
@@ -187,7 +193,7 @@ defmodule Tau5.TiledLayout do
     # Invalid index, return unchanged
     layout
   end
-  
+
   def zoom_panel(layout, panel_index) do
     if Map.has_key?(layout.index, panel_index) do
       %{layout | zoom: panel_index}
@@ -212,22 +218,22 @@ defmodule Tau5.TiledLayout do
     # Invalid indices, return unchanged
     layout
   end
-  
+
   def swap_panels(layout, index1, index2) when index1 == index2 do
     # Same index, no-op
     layout
   end
-  
+
   def swap_panels(layout, index1, index2) do
     with {:ok, id1} <- get_panel_id(layout, index1),
          {:ok, id2} <- get_panel_id(layout, index2),
          true <- id1 != id2 do
-      new_tree = 
+      new_tree =
         layout.tree
         |> swap_node_id(id1, :temp)
         |> swap_node_id(id2, id1)
         |> swap_node_id(:temp, id2)
-      
+
       rebuild_state(layout, new_tree)
     else
       _ -> layout
@@ -242,7 +248,7 @@ defmodule Tau5.TiledLayout do
     # Invalid index, return unchanged
     layout
   end
-  
+
   def focus_panel(layout, panel_index) do
     if Map.has_key?(layout.index, panel_index) do
       %{layout | active: panel_index}
@@ -271,7 +277,7 @@ defmodule Tau5.TiledLayout do
         left: new_panel(panel_id),
         right: new_panel()
       }
-      
+
       new_tree = replace_node(layout.tree, panel_id, new_split)
       rebuild_state(layout, new_tree)
     else
@@ -289,12 +295,8 @@ defmodule Tau5.TiledLayout do
   defp rebuild_state(layout, new_tree) do
     new_index = build_index(new_tree)
     new_active = min(layout.active, map_size(new_index) - 1)
-    
-    %{layout |
-      tree: new_tree,
-      index: new_index,
-      active: new_active
-    }
+
+    %{layout | tree: new_tree, index: new_index, active: new_active}
   end
 
   defp build_index(tree) do
@@ -305,6 +307,7 @@ defmodule Tau5.TiledLayout do
   end
 
   defp collect_panels(%{type: :panel} = panel), do: [panel]
+
   defp collect_panels(%{type: :split, left: left, right: right}) do
     collect_panels(left) ++ collect_panels(right)
   end
@@ -312,32 +315,40 @@ defmodule Tau5.TiledLayout do
   defp replace_node(%{type: :panel, id: target_id}, target_id, replacement), do: replacement
   defp replace_node(%{type: :panel} = node, _target_id, _replacement), do: node
   defp replace_node(%{type: :split, id: target_id}, target_id, replacement), do: replacement
+
   defp replace_node(%{type: :split} = split, target_id, replacement) do
-    %{split |
-      left: replace_node(split.left, target_id, replacement),
-      right: replace_node(split.right, target_id, replacement)
+    %{
+      split
+      | left: replace_node(split.left, target_id, replacement),
+        right: replace_node(split.right, target_id, replacement)
     }
   end
 
   defp do_update_ratio(%{type: :split, id: target_id} = split, target_id, new_ratio) do
     %{split | ratio: new_ratio}
   end
+
   defp do_update_ratio(%{type: :split} = split, target_id, new_ratio) do
-    %{split |
-      left: do_update_ratio(split.left, target_id, new_ratio),
-      right: do_update_ratio(split.right, target_id, new_ratio)
+    %{
+      split
+      | left: do_update_ratio(split.left, target_id, new_ratio),
+        right: do_update_ratio(split.right, target_id, new_ratio)
     }
   end
+
   defp do_update_ratio(node, _target_id, _new_ratio), do: node
 
   defp swap_node_id(%{type: :panel, id: target_id} = node, target_id, new_id) do
     %{node | id: new_id}
   end
+
   defp swap_node_id(%{type: :panel} = node, _target_id, _new_id), do: node
+
   defp swap_node_id(%{type: :split} = split, target_id, new_id) do
-    %{split |
-      left: swap_node_id(split.left, target_id, new_id),
-      right: swap_node_id(split.right, target_id, new_id)
+    %{
+      split
+      | left: swap_node_id(split.left, target_id, new_id),
+        right: swap_node_id(split.right, target_id, new_id)
     }
   end
 
@@ -346,12 +357,15 @@ defmodule Tau5.TiledLayout do
   end
 
   defp do_remove_panel(%{type: :panel}, _panel_id, _parent_id), do: :error
+
   defp do_remove_panel(%{type: :split} = split, panel_id, _parent_id) do
     cond do
       match?(%{type: :panel, id: ^panel_id}, split.left) ->
         {:ok, split.right}
+
       match?(%{type: :panel, id: ^panel_id}, split.right) ->
         {:ok, split.left}
+
       true ->
         with {:ok, new_left} <- do_remove_panel(split.left, panel_id, split.id) do
           {:ok, %{split | left: new_left}}
@@ -366,10 +380,11 @@ defmodule Tau5.TiledLayout do
   end
 
   defp build_balanced_tree([single], _direction), do: single
+
   defp build_balanced_tree(panels, direction) do
     {left_panels, right_panels} = Enum.split(panels, div(length(panels), 2))
     next_direction = toggle_direction(direction)
-    
+
     %{
       type: :split,
       id: generate_id(),
@@ -386,12 +401,14 @@ defmodule Tau5.TiledLayout do
   end
 
   defp build_grid_tree([single], _columns), do: single
+
   defp build_grid_tree(panels, columns) when length(panels) <= columns do
     build_balanced_tree(panels, :horizontal)
   end
+
   defp build_grid_tree(panels, columns) do
     rows = Enum.chunk_every(panels, columns)
-    
+
     rows
     |> Enum.map(&build_balanced_tree(&1, :horizontal))
     |> build_balanced_tree(:vertical)
@@ -412,14 +429,14 @@ defmodule Tau5.TiledLayout do
     |> max(0.2)
     |> min(0.8)
   end
-  
+
   defp clamp_ratio(_) do
     # Default to center if invalid ratio
     0.5
   end
 
   defp generate_id do
-    :crypto.strong_rand_bytes(8) 
+    :crypto.strong_rand_bytes(8)
     |> Base.encode16(case: :lower)
   end
 end

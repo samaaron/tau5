@@ -15,8 +15,10 @@ defmodule Tau5Web.Plugs.RequireInternalEndpoint do
       conn
     else
       # Request is from public endpoint, deny
-      Logger.warning("Attempted to access internal-only route #{conn.request_path} from public endpoint")
-      
+      Logger.warning(
+        "Attempted to access internal-only route #{conn.request_path} from public endpoint"
+      )
+
       conn
       |> put_resp_content_type("text/html")
       |> send_resp(404, not_found_page())

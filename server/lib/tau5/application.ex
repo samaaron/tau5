@@ -13,7 +13,7 @@ defmodule Tau5.Application do
 
           # Parse the port from stdin
           {port, _} = Integer.parse(secrets.app_port)
-          
+
           endpoint_config = Application.get_env(:tau5, Tau5Web.Endpoint)
 
           # Update both secret_key_base and port
@@ -36,21 +36,24 @@ defmodule Tau5.Application do
     end
 
     http_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
-    
-    public_endpoint_port = case Tau5.PortFinder.configure_endpoint_port(Tau5Web.PublicEndpoint) do
-      {:ok, port} ->
-        Logger.info("PublicEndpoint: Successfully configured on port #{port}")
-        port
-      {:error, :no_available_port} ->
-        Logger.warning("PublicEndpoint: No available port found, endpoint will be disabled")
-        nil
-    end
-    
-    public_endpoint_enabled = if public_endpoint_port do
-      Application.get_env(:tau5, :public_endpoint_enabled, false)
-    else
-      false
-    end
+
+    public_endpoint_port =
+      case Tau5.PortFinder.configure_endpoint_port(Tau5Web.PublicEndpoint) do
+        {:ok, port} ->
+          Logger.info("PublicEndpoint: Successfully configured on port #{port}")
+          port
+
+        {:error, :no_available_port} ->
+          Logger.warning("PublicEndpoint: No available port found, endpoint will be disabled")
+          nil
+      end
+
+    public_endpoint_enabled =
+      if public_endpoint_port do
+        Application.get_env(:tau5, :public_endpoint_enabled, false)
+      else
+        false
+      end
 
     base_children = [
       Tau5.ConfigRepo,
@@ -61,31 +64,32 @@ defmodule Tau5.Application do
       Hermes.Server.Registry,
       {Tau5MCP.Server, transport: :streamable_http}
     ]
-    
-    local_endpoint_children = 
+
+    local_endpoint_children =
       if System.get_env("TAU5_NO_LOCAL_ENDPOINT") == "true" do
         Logger.info("Local endpoint disabled via TAU5_NO_LOCAL_ENDPOINT")
         []
       else
         [Tau5Web.Endpoint]
       end
-    
-    public_endpoint_children = if public_endpoint_port do
-      [
-        Tau5Web.PublicEndpoint,
-        {Tau5.PublicEndpoint, [enabled: public_endpoint_enabled]}
-      ]
-    else
-      []
-    end
-    
-    mcp_endpoint_children = 
+
+    public_endpoint_children =
+      if public_endpoint_port do
+        [
+          Tau5Web.PublicEndpoint,
+          {Tau5.PublicEndpoint, [enabled: public_endpoint_enabled]}
+        ]
+      else
+        []
+      end
+
+    mcp_endpoint_children =
       if Application.get_env(:tau5, :mcp_enabled, true) do
         [Tau5Web.MCPEndpoint]
       else
         []
       end
-    
+
     additional_children = [
       %{
         id: Tau5.KillSwitch,
@@ -97,8 +101,11 @@ defmodule Tau5.Application do
       Tau5.MIDI,
       {Tau5.Discovery, %{http_port: http_port}}
     ]
-    
-    children = base_children ++ local_endpoint_children ++ public_endpoint_children ++ mcp_endpoint_children ++ additional_children
+
+    children =
+      base_children ++
+        local_endpoint_children ++
+        public_endpoint_children ++ mcp_endpoint_children ++ additional_children
 
     opts = [strategy: :one_for_one, name: Tau5.Supervisor]
 
@@ -106,7 +113,7 @@ defmodule Tau5.Application do
       {:ok, pid} ->
         # Initialize MCP activity loggers
         Tau5MCP.ActivityLogger.init()
-        
+
         if System.get_env("TAU5_ENABLE_DEV_MCP", "false") in ["1", "true", "yes"] do
           TidewaveMCP.ActivityLogger.init()
         end

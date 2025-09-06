@@ -3,7 +3,7 @@ defmodule Tau5Web.MainLive do
   LiveView for the tiled layout system.
   Shows panels with indices and provides controls for layout operations.
   """
-  
+
   use Tau5Web, :live_view
   alias Tau5.TiledLayout
 
@@ -11,11 +11,11 @@ defmodule Tau5Web.MainLive do
   def mount(_params, _session, socket) do
     # Access tier info should already be in socket assigns from AccessTierHook
     # But we need to provide defaults in case it's not there (production issue)
-    socket = 
+    socket =
       socket
       |> assign_new(:endpoint_type, fn -> "local" end)
       |> assign_new(:access_tier, fn -> "full" end)
-      |> assign_new(:features, fn -> 
+      |> assign_new(:features, fn ->
         %{
           admin_tools: true,
           pairing: true,
@@ -30,7 +30,7 @@ defmodule Tau5Web.MainLive do
       |> assign(:layout_state, TiledLayout.new())
       |> assign(:show_controls, true)
       |> assign(:show_lua_console, false)
-    
+
     {:ok, socket}
   end
 
@@ -38,7 +38,6 @@ defmodule Tau5Web.MainLive do
   def render(assigns) do
     ~H"""
     <div class="layout-container">
-      
       <div class="layout-header">
         <div class="layout-controls">
           <span class={["access-badge", "access-#{@endpoint_type}"]}>
@@ -51,21 +50,33 @@ defmodule Tau5Web.MainLive do
                 <i class="codicon codicon-unlock"></i> Public
             <% end %>
           </span>
-          
+
           <div class="separator"></div>
-          
-          <button phx-click="split_h" phx-value-panel={to_string(@layout_state.active)} title="Split Horizontal">
+
+          <button
+            phx-click="split_h"
+            phx-value-panel={to_string(@layout_state.active)}
+            title="Split Horizontal"
+          >
             <i class="codicon codicon-split-horizontal"></i>
           </button>
-          <button phx-click="split_v" phx-value-panel={to_string(@layout_state.active)} title="Split Vertical">
+          <button
+            phx-click="split_v"
+            phx-value-panel={to_string(@layout_state.active)}
+            title="Split Vertical"
+          >
             <i class="codicon codicon-split-vertical"></i>
           </button>
-          <button phx-click="close" phx-value-panel={to_string(@layout_state.active)} title="Close Panel">
+          <button
+            phx-click="close"
+            phx-value-panel={to_string(@layout_state.active)}
+            title="Close Panel"
+          >
             <i class="codicon codicon-close"></i>
           </button>
-          
+
           <div class="separator"></div>
-          
+
           <button phx-click="layout_even_h" title="Even Horizontal Layout">
             <i class="codicon codicon-layout-panel-justify"></i>
           </button>
@@ -75,38 +86,54 @@ defmodule Tau5Web.MainLive do
           <button phx-click="layout_tiled" title="Tiled Layout">
             <i class="codicon codicon-layout"></i>
           </button>
-          
+
           <div class="separator"></div>
-          
-          <button phx-click="zoom" phx-value-panel={to_string(@layout_state.active)} class={if @layout_state.zoom != nil, do: "active"} title={if @layout_state.zoom != nil, do: "Exit Zoom", else: "Zoom Panel"}>
-            <i class={if @layout_state.zoom != nil, do: "codicon codicon-screen-normal", else: "codicon codicon-screen-full"}></i>
+
+          <button
+            phx-click="zoom"
+            phx-value-panel={to_string(@layout_state.active)}
+            class={if @layout_state.zoom != nil, do: "active"}
+            title={if @layout_state.zoom != nil, do: "Exit Zoom", else: "Zoom Panel"}
+          >
+            <i class={
+              if @layout_state.zoom != nil,
+                do: "codicon codicon-screen-normal",
+                else: "codicon codicon-screen-full"
+            }>
+            </i>
           </button>
-          
+
           <%= if @features.console_access do %>
             <div class="separator"></div>
-            
-            <button phx-click="toggle_lua_console" class={if @show_lua_console, do: "active"} title="Toggle Lua Console">
+
+            <button
+              phx-click="toggle_lua_console"
+              class={if @show_lua_console, do: "active"}
+              title="Toggle Lua Console"
+            >
               <i class="codicon codicon-terminal"></i>
             </button>
           <% end %>
         </div>
-        
+
         <div class="layout-info">
-          <span>Panels: <%= TiledLayout.panel_count(@layout_state) %></span>
-          <span>Active: <%= @layout_state.active %></span>
+          <span>Panels: {TiledLayout.panel_count(@layout_state)}</span>
+          <span>Active: {@layout_state.active}</span>
           <%= if @layout_state.zoom != nil do %>
-            <span class="zoomed">ZOOMED: Panel <%= @layout_state.zoom %></span>
+            <span class="zoomed">ZOOMED: Panel {@layout_state.zoom}</span>
           <% end %>
         </div>
       </div>
-      
-      <div class={["layout-body", @layout_state.zoom != nil && "zoom-mode"]} 
-           phx-window-keydown="keydown"
-           data-zoomed-panel={@layout_state.zoom}>
-        <%= render_tree(assigns, @layout_state.tree, @layout_state) %>
+
+      <div
+        class={["layout-body", @layout_state.zoom != nil && "zoom-mode"]}
+        phx-window-keydown="keydown"
+        data-zoomed-panel={@layout_state.zoom}
+      >
+        {render_tree(assigns, @layout_state.tree, @layout_state)}
       </div>
     </div>
-    
+
     <.live_component module={Tau5Web.LuaShellLive} id="lua-shell" visible={@show_lua_console} />
     """
   end
@@ -115,28 +142,30 @@ defmodule Tau5Web.MainLive do
   defp render_tree(assigns, tree, layout) do
     do_render_tree(assigns, tree, layout)
   end
-  
+
   defp do_render_tree(assigns, %{type: :panel, id: panel_id}, layout) do
     panel_index = find_panel_index(layout.index, panel_id)
     is_active = panel_index == layout.active
     is_zoomed = layout.zoom == panel_index
-    
-    assigns = 
+
+    assigns =
       assigns
       |> assign(:panel_id, panel_id)
       |> assign(:panel_index, panel_index)
       |> assign(:is_active, is_active)
       |> assign(:is_zoomed, is_zoomed)
-    
+
     ~H"""
-    <div class={[
-           "panel", 
-           @is_active && "active",
-           @is_zoomed && "zoomed-panel"
-         ]} 
-         data-panel-index={@panel_index}
-         phx-click="focus" 
-         phx-value-panel={to_string(@panel_index)}>
+    <div
+      class={[
+        "panel",
+        @is_active && "active",
+        @is_zoomed && "zoomed-panel"
+      ]}
+      data-panel-index={@panel_index}
+      phx-click="focus"
+      phx-value-panel={to_string(@panel_index)}
+    >
       <.live_component
         module={Tau5Web.Widgets.ShaderPanelWidget}
         id={@panel_id}
@@ -149,27 +178,29 @@ defmodule Tau5Web.MainLive do
   end
 
   defp do_render_tree(assigns, %{type: :split} = split, layout) do
-    assigns = 
+    assigns =
       assigns
       |> assign(:split, split)
       |> assign(:layout, layout)
       |> assign(:flex_class, if(split.direction == :horizontal, do: "flex-row", else: "flex-col"))
-    
+
     ~H"""
     <div class={["split", @flex_class]}>
       <div class="split-child" style={"flex: 0 0 #{@split.ratio * 100}%"}>
-        <%= do_render_tree(assigns, @split.left, @layout) %>
+        {do_render_tree(assigns, @split.left, @layout)}
       </div>
-      
-      <div class={["splitter", splitter_class(@split.direction)]}
-           id={"splitter-#{@split.id}"}
-           phx-hook="Splitter"
-           data-split-id={@split.id}
-           data-direction={to_string(@split.direction)}>
+
+      <div
+        class={["splitter", splitter_class(@split.direction)]}
+        id={"splitter-#{@split.id}"}
+        phx-hook="Splitter"
+        data-split-id={@split.id}
+        data-direction={to_string(@split.direction)}
+      >
       </div>
-      
+
       <div class="split-child" style={"flex: 1 1 #{(1 - @split.ratio) * 100}%"}>
-        <%= do_render_tree(assigns, @split.right, @layout) %>
+        {do_render_tree(assigns, @split.right, @layout)}
       </div>
     </div>
     """
@@ -231,13 +262,15 @@ defmodule Tau5Web.MainLive do
   @impl true
   def handle_event("zoom", %{"panel" => panel}, socket) do
     layout = socket.assigns.layout_state
-    new_layout = 
+
+    new_layout =
       if layout.zoom != nil do
         TiledLayout.unzoom(layout)
       else
         panel_index = String.to_integer(panel)
         TiledLayout.zoom_panel(layout, panel_index)
       end
+
     {:noreply, assign(socket, :layout_state, new_layout)}
   end
 
@@ -258,31 +291,45 @@ defmodule Tau5Web.MainLive do
   # Keyboard shortcuts
   defp handle_keyboard(key, socket) do
     layout = socket.assigns.layout_state
-    
-    new_layout = 
+
+    new_layout =
       case key do
-        "h" -> TiledLayout.split_horizontal(layout, layout.active)
-        "v" -> TiledLayout.split_vertical(layout, layout.active)
-        "x" -> TiledLayout.close_panel(layout, layout.active)
-        "z" -> 
+        "h" ->
+          TiledLayout.split_horizontal(layout, layout.active)
+
+        "v" ->
+          TiledLayout.split_vertical(layout, layout.active)
+
+        "x" ->
+          TiledLayout.close_panel(layout, layout.active)
+
+        "z" ->
           if layout.zoom != nil do
             TiledLayout.unzoom(layout)
           else
             TiledLayout.zoom_panel(layout, layout.active)
           end
-        "e" -> TiledLayout.apply_even_horizontal(layout)
-        "m" -> TiledLayout.apply_main_vertical(layout)
-        "t" -> TiledLayout.apply_tiled(layout)
-        _ -> layout
+
+        "e" ->
+          TiledLayout.apply_even_horizontal(layout)
+
+        "m" ->
+          TiledLayout.apply_main_vertical(layout)
+
+        "t" ->
+          TiledLayout.apply_tiled(layout)
+
+        _ ->
+          layout
       end
-    
+
     {:noreply, assign(socket, :layout_state, new_layout)}
   end
 
   # Helper functions
 
   defp find_panel_index(index_map, panel_id) do
-    Enum.find_value(index_map, fn {idx, id} -> 
+    Enum.find_value(index_map, fn {idx, id} ->
       if id == panel_id, do: idx
     end)
   end

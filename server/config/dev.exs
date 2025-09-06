@@ -73,7 +73,8 @@ config :tau5, Tau5Web.MCPEndpoint,
 # This endpoint listens on all interfaces for remote access
 config :tau5, Tau5Web.PublicEndpoint,
   http: [
-    ip: {0, 0, 0, 0, 0, 0, 0, 0},  # Listen on all interfaces (IPv6 + IPv4 dual-stack)
+    # Listen on all interfaces (IPv6 + IPv4 dual-stack)
+    ip: {0, 0, 0, 0, 0, 0, 0, 0},
     port: 7005
   ],
   server: true,

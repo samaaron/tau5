@@ -9,10 +9,10 @@ defmodule Tau5Web.Plugs.CachingBodyReader do
       {:ok, body, conn} ->
         conn = Plug.Conn.put_private(conn, :raw_body, body)
         {:ok, body, conn}
-      
+
       {:more, partial, conn} ->
         {:more, partial, conn}
-      
+
       {:error, reason} ->
         {:error, reason}
     end

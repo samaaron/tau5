@@ -30,6 +30,6 @@ defmodule Tau5Web.MCPEndpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
-  
+
   plug Tau5Web.MCPRouter
 end

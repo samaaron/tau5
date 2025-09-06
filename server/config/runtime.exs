@@ -23,8 +23,7 @@ end
 # Configure heartbeat monitoring
 # Set TAU5_HEARTBEAT_ENABLED=true to enable heartbeat monitoring
 # (required when running from GUI to prevent zombie processes)
-config :tau5, :heartbeat_enabled,
-  System.get_env("TAU5_HEARTBEAT_ENABLED", "false") == "true"
+config :tau5, :heartbeat_enabled, System.get_env("TAU5_HEARTBEAT_ENABLED", "false") == "true"
 
 # Deployment mode configuration
 # TAU5_MODE is set by the binaries:
@@ -42,11 +41,15 @@ config :tau5, Tau5.ConfigRepo,
 
 parse_port = fn env_var, default ->
   case System.get_env(env_var, default) do
-    "" -> String.to_integer(default)
+    "" ->
+      String.to_integer(default)
+
     value ->
       case Integer.parse(value) do
-        {port, ""} when port >= 0 and port <= 65535 -> port
-        _ -> 
+        {port, ""} when port >= 0 and port <= 65535 ->
+          port
+
+        _ ->
           IO.warn("Invalid port value for #{env_var}: #{value}, using default: #{default}")
           String.to_integer(default)
       end
@@ -55,12 +58,11 @@ end
 
 config :tau5, :mcp_port, parse_port.("TAU5_MCP_PORT", "5555")
 
-config :tau5, :mcp_enabled,
-  System.get_env("TAU5_MCP_ENABLED", "true") != "false"
+config :tau5, :mcp_enabled, System.get_env("TAU5_MCP_ENABLED", "true") != "false"
 
 if config_env() != :test do
   mcp_port = parse_port.("TAU5_MCP_PORT", "5555")
-  
+
   config :tau5, Tau5Web.MCPEndpoint,
     http: [
       ip: {127, 0, 0, 1},
@@ -68,15 +70,14 @@ if config_env() != :test do
     ]
 end
 
-config :tau5, :tidewave_enabled,
-  System.get_env("TAU5_TIDEWAVE_ENABLED", "false") == "true"
+config :tau5, :tidewave_enabled, System.get_env("TAU5_TIDEWAVE_ENABLED", "false") == "true"
 
 # Security configuration for development tools
 # IMPORTANT: These should NEVER be enabled in production!
 if config_env() == :prod do
   # Disable all development routes in production
   config :tau5, dev_routes: false
-  
+
   # Explicitly disable console in production
   config :tau5, console_enabled: false
 else
@@ -91,7 +92,7 @@ end
 # These can be disabled via environment variables or based on deployment mode
 if config_env() != :test do
   target = System.get_env("TAU5_MODE", "node")
-  
+
   # Central deployment always disables NIFs
   if target == "central" do
     config :tau5, :midi_enabled, false
@@ -99,22 +100,18 @@ if config_env() != :test do
     config :tau5, :discovery_enabled, false
   else
     # For gui and node targets, check individual env vars
-    config :tau5, :midi_enabled,
-      System.get_env("TAU5_MIDI_ENABLED", "true") != "false"
+    config :tau5, :midi_enabled, System.get_env("TAU5_MIDI_ENABLED", "true") != "false"
 
-    config :tau5, :link_enabled,
-      System.get_env("TAU5_LINK_ENABLED", "true") != "false"
+    config :tau5, :link_enabled, System.get_env("TAU5_LINK_ENABLED", "true") != "false"
 
-    config :tau5, :discovery_enabled,
-      System.get_env("TAU5_DISCOVERY_ENABLED", "true") != "false"
+    config :tau5, :discovery_enabled, System.get_env("TAU5_DISCOVERY_ENABLED", "true") != "false"
   end
 end
 
 # Configure endpoints
 # Local port defaults to PORT env var or 0 for random allocation
 local_port_default = System.get_env("PORT", "0")
-config :tau5, :local_port,
-  parse_port.("TAU5_LOCAL_PORT", local_port_default)
+config :tau5, :local_port, parse_port.("TAU5_LOCAL_PORT", local_port_default)
 
 # Public endpoint configuration
 # Public endpoint is enabled if TAU5_PUBLIC_PORT is set and > 0
@@ -126,29 +123,27 @@ config :tau5, :public_endpoint_enabled, public_port > 0
 # Port is already configured above
 
 # Friend mode configuration for authenticated remote access
-config :tau5, :friend_mode_enabled,
-  System.get_env("TAU5_FRIEND_MODE", "false") == "true"
+config :tau5, :friend_mode_enabled, System.get_env("TAU5_FRIEND_MODE", "false") == "true"
 
-config :tau5, :friend_token,
-  System.get_env("TAU5_FRIEND_TOKEN")
+config :tau5, :friend_token, System.get_env("TAU5_FRIEND_TOKEN")
 
-config :tau5, :friend_require_token,
-  System.get_env("TAU5_FRIEND_REQUIRE_TOKEN", "false") == "true"
-
+config :tau5,
+       :friend_require_token,
+       System.get_env("TAU5_FRIEND_REQUIRE_TOKEN", "false") == "true"
 
 # Configure public endpoint secret key for production only
 if config_env() == :prod do
   # Get the appropriate secret key base
   main_secret = System.get_env("SECRET_KEY_BASE")
-  
+
   if main_secret && main_secret != "placeholder_will_be_replaced_by_stdin_config" do
     # For production, derive a proper 64+ byte secret for the public endpoint
     # Use SHA-512 to ensure we get enough bytes
-    public_endpoint_secret = :crypto.hash(:sha512, main_secret <> "_public_endpoint")
+    public_endpoint_secret =
+      :crypto.hash(:sha512, main_secret <> "_public_endpoint")
       |> Base.encode64()
-    
-    config :tau5, Tau5Web.PublicEndpoint,
-      secret_key_base: public_endpoint_secret
+
+    config :tau5, Tau5Web.PublicEndpoint, secret_key_base: public_endpoint_secret
   end
 end
 

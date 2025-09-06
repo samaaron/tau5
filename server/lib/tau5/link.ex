@@ -23,7 +23,7 @@ defmodule Tau5.Link do
       :sp_link.init()
       Logger.info("SP Link NIF loaded: #{inspect(:sp_link.is_nif_loaded())} ")
 
-      unless :sp_link.is_nif_initialized() do
+      if !:sp_link.is_nif_initialized() do
         :sp_link.init_nif(60.0)
       end
 

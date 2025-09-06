@@ -9,13 +9,28 @@ defmodule Tau5Web.PublicEndpoint do
     key: "_tau5_public_key",
     signing_salt: "KaBar2nliI8=",
     same_site: "Lax",
-    http_only: true  # Prevent JavaScript access to cookies
+    # Prevent JavaScript access to cookies
+    http_only: true
     # Note: secure flag omitted as this may run on local networks without HTTPS
   ]
 
   socket "/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [session: @session_options, peer_data: true, x_headers: ["x-forwarded-for"], uri: true]],
-    longpoll: [connect_info: [session: @session_options, peer_data: true, x_headers: ["x-forwarded-for"], uri: true]]
+    websocket: [
+      connect_info: [
+        session: @session_options,
+        peer_data: true,
+        x_headers: ["x-forwarded-for"],
+        uri: true
+      ]
+    ],
+    longpoll: [
+      connect_info: [
+        session: @session_options,
+        peer_data: true,
+        x_headers: ["x-forwarded-for"],
+        uri: true
+      ]
+    ]
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -33,7 +48,7 @@ defmodule Tau5Web.PublicEndpoint do
     plug Phoenix.LiveReloader
     plug Phoenix.CodeReloader
   end
-  
+
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :public_endpoint]
 
@@ -45,12 +60,12 @@ defmodule Tau5Web.PublicEndpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
-  
+
   # Friend authentication - must come after session but before access control
   plug Tau5Web.Plugs.FriendAuthentication
-  
+
   # Access control plug - must come before router
   plug Tau5Web.Plugs.PublicAccessControl
-  
+
   plug Tau5Web.Router
 end

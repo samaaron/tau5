@@ -12,7 +12,7 @@ defmodule Tau5Web.Plugs.AccessTier do
   def call(conn, _opts) do
     endpoint = conn.private.phoenix_endpoint
     {endpoint_type, access_tier, features} = AccessTier.get_access_info(endpoint, conn)
-    
+
     conn
     |> assign(:endpoint_type, endpoint_type)
     |> assign(:access_tier, access_tier)

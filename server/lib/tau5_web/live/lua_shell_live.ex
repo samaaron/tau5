@@ -52,9 +52,9 @@ defmodule Tau5Web.LuaShellLive do
             class={["output-line", line.type]}
           >
             <%= if line.type == :input do %>
-              <span class="prompt" aria-hidden="true"><%= Map.get(line, :prompt, "> ") %></span><span class="command"><%= line.text %></span>
+              <span class="prompt" aria-hidden="true">{Map.get(line, :prompt, "> ")}</span><span class="command"><%= line.text %></span>
             <% else %>
-              <span class="output-text"><%= raw(format_output_html(line)) %></span>
+              <span class="output-text">{raw(format_output_html(line))}</span>
             <% end %>
           </div>
         </div>
@@ -108,9 +108,9 @@ defmodule Tau5Web.LuaShellLive do
       {:noreply, socket}
     else
       socket = add_output_line_with_prompt(socket, command, :input, "> ")
-      
+
       history = [command | socket.assigns.history] |> Enum.take(@max_history)
-      
+
       socket =
         socket
         |> assign(:history, history)
@@ -118,19 +118,20 @@ defmodule Tau5Web.LuaShellLive do
         |> assign(:input, "")
         |> execute_lua(command)
         |> push_event("clear_input", %{})
-      
+
       {:noreply, push_event(socket, "scroll_to_bottom", %{})}
     end
   end
-  
 
   defp execute_lua(socket, code) do
-    {result, was_expression} = case LuaEvaluator.evaluate("return " <> code) do
-      {:ok, _} = success -> 
-        {success, true}
-      {:error, _} ->
-        {LuaEvaluator.evaluate(code), false}
-    end
+    {result, was_expression} =
+      case LuaEvaluator.evaluate("return " <> code) do
+        {:ok, _} = success ->
+          {success, true}
+
+        {:error, _} ->
+          {LuaEvaluator.evaluate(code), false}
+      end
 
     case result do
       {:ok, result_value} ->
@@ -145,14 +146,13 @@ defmodule Tau5Web.LuaShellLive do
     end
   end
 
-
   defp add_output_line(socket, text, type) do
     id = System.unique_integer([:positive])
     line = %{id: id, text: text, type: type}
 
     stream_insert(socket, :output_lines, line, limit: @max_output_lines)
   end
-  
+
   defp add_output_line_with_prompt(socket, text, type, prompt) do
     id = System.unique_integer([:positive])
     line = %{id: id, text: text, type: type, prompt: prompt}
@@ -164,10 +164,10 @@ defmodule Tau5Web.LuaShellLive do
     case type do
       :error ->
         Phoenix.HTML.html_escape(text) |> Phoenix.HTML.safe_to_string()
-      
+
       :result ->
         format_lua_value(text)
-      
+
       _ ->
         Phoenix.HTML.html_escape(text) |> Phoenix.HTML.safe_to_string()
     end
@@ -175,13 +175,15 @@ defmodule Tau5Web.LuaShellLive do
 
   defp format_lua_value(text) do
     escaped = Phoenix.HTML.html_escape(text) |> Phoenix.HTML.safe_to_string()
-    
+
     escaped
     |> String.replace(~r/\b(true|false)\b/, "<span class=\"lua-boolean\">\\1</span>")
     |> String.replace(~r/\bnil\b/, "<span class=\"lua-nil\">nil</span>")
     |> String.replace(~r/\b(\d+\.?\d*)\b/, "<span class=\"lua-number\">\\1</span>")
-    |> String.replace(~r/&quot;([^&]*)&quot;/, "<span class=\"lua-string\">&quot;\\1&quot;</span>")
+    |> String.replace(
+      ~r/&quot;([^&]*)&quot;/,
+      "<span class=\"lua-string\">&quot;\\1&quot;</span>"
+    )
     |> String.replace(~r/&#39;([^&]*)&#39;/, "<span class=\"lua-string\">&#39;\\1&#39;</span>")
   end
-
 end

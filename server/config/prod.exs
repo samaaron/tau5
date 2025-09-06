@@ -16,6 +16,5 @@ config :logger, :console,
 # Disable development routes in production
 config :tau5, dev_routes: false
 
-
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

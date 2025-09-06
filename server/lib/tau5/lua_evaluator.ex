@@ -8,13 +8,14 @@ defmodule Tau5.LuaEvaluator do
   import :erlang, only: [spawn_opt: 2]
 
   @config %{
-    eval_timeout_ms: 30,  # Timeout for Lua evaluation only
-    setup_timeout_ms: 500, # Timeout for process setup
+    # Timeout for Lua evaluation only
+    eval_timeout_ms: 30,
+    # Timeout for process setup
+    setup_timeout_ms: 500,
     max_heap_size: 100_000,
     max_output_size: 10_000,
     check_interval_ms: 20
   }
-  
 
   @lua_denylist [
     [:io],
@@ -113,14 +114,14 @@ defmodule Tau5.LuaEvaluator do
       @config.setup_timeout_ms ->
         Process.exit(pid, :kill)
         Process.demonitor(ref, [:flush])
-        
+
         receive do
           {:lua_result, _} -> :ok
           {:DOWN, ^ref, :process, ^pid, _} -> :ok
         after
           0 -> :ok
         end
-        
+
         {:error, "Process setup timed out"}
     end
   end
@@ -155,33 +156,33 @@ defmodule Tau5.LuaEvaluator do
       catch
         :exit, {:memory_exceeded, bytes} ->
           {:error, "Memory limit exceeded: #{bytes} bytes"}
-          
+
         kind, reason ->
           {:error, "Process #{kind}: #{inspect(reason)}"}
       end
 
     send(parent, {:lua_result, result})
   end
-  
+
   defp eval_code(lua, code) do
     # Try as expression first, then as statement (parsing phase - not timed)
-    {code_to_eval, _is_expression} = 
+    {code_to_eval, _is_expression} =
       case Lua.parse_chunk("return " <> code) do
         {:ok, _} -> {"return " <> code, true}
         {:error, _} -> {code, false}
       end
-    
+
     # Time only the actual Lua evaluation
     start_time = System.monotonic_time(:millisecond)
     {values, _state} = Lua.eval!(lua, code_to_eval)
     elapsed = System.monotonic_time(:millisecond) - start_time
-    
+
     # Check if evaluation exceeded timeout
     if elapsed > @config.eval_timeout_ms do
       {:error, "Evaluation exceeded timeout (#{elapsed}ms > #{@config.eval_timeout_ms}ms)"}
     else
       formatted = format_result(values)
-      
+
       if byte_size(formatted) > @config.max_output_size do
         {:error, "Output too large (max #{@config.max_output_size} bytes)"}
       else
@@ -199,7 +200,6 @@ defmodule Tau5.LuaEvaluator do
     lua
     |> Lua.set!(["print"], fn _args -> [] end)
   end
-
 
   defp format_result(values) do
     result =

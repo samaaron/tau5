@@ -133,7 +133,6 @@ defmodule Tau5Web.ConsoleLive do
     end
   end
 
-
   @impl true
   def render(assigns) do
     ~H"""
@@ -142,7 +141,7 @@ defmodule Tau5Web.ConsoleLive do
       <div class="tau5-terminal-output" id="terminal-output" phx-hook="TerminalScroll">
         <pre class="whitespace-pre-wrap"><%= raw(@terminal_output) %></pre>
       </div>
-      
+
       <div class="tau5-input-line">
         <span class="tau5-prompt">{@prompt}</span>
         <form phx-submit="execute_command" class="flex-1">
@@ -190,19 +189,19 @@ defmodule Tau5Web.ConsoleLive do
     cond do
       String.trim(command) == "" and not socket.assigns.multiline_mode ->
         {:noreply, socket}
-      
+
       socket.assigns.multiline_mode ->
         cond do
           String.ends_with?(command, "\n\n") ->
             execute_code(socket, String.trim_trailing(command))
-          
+
           String.ends_with?(command, "\n") and code_complete?(String.trim_trailing(command)) ->
             execute_code(socket, String.trim_trailing(command))
-          
+
           true ->
             {:noreply, socket}
         end
-      
+
       true ->
         if code_complete?(command) do
           execute_code(socket, command)
@@ -226,18 +225,18 @@ defmodule Tau5Web.ConsoleLive do
   def handle_event("handle_keydown", %{"key" => "force_execute"}, socket) do
     execute_code(socket, socket.assigns.current_input)
   end
-  
+
   @impl true
   def handle_event("handle_keydown", %{"key" => "insert_newline"}, socket) do
     current = socket.assigns.current_input
-    
+
     if socket.assigns.multiline_mode do
       {:noreply, assign(socket, current_input: current <> "\n")}
     else
       enter_multiline_mode(socket, current)
     end
   end
-  
+
   @impl true
   def handle_event("handle_keydown", %{"key" => "cancel_multiline"}, socket) do
     if socket.assigns.multiline_mode do
@@ -254,7 +253,7 @@ defmodule Tau5Web.ConsoleLive do
   def handle_event("handle_keydown", _params, socket) do
     {:noreply, socket}
   end
-  
+
   defp enter_multiline_mode(socket, initial_line) do
     {:noreply,
      socket
@@ -262,39 +261,41 @@ defmodule Tau5Web.ConsoleLive do
      |> assign(current_input: initial_line <> "\n")
      |> push_event("focus_input", %{})}
   end
-  
+
   defp execute_code(socket, code) do
-    history = 
+    history =
       if String.trim(code) != "" do
         [code | socket.assigns.command_history] |> Enum.take(100)
       else
         socket.assigns.command_history
       end
-    
-    output = 
+
+    output =
       if socket.assigns.multiline_mode do
         lines = String.split(code, "\n")
-        
-        formatted_output = lines
-        |> Enum.with_index()
-        |> Enum.map_join("\n", fn {line, idx} ->
-          escaped = line |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
-          prompt = if idx == 0, do: socket.assigns.prompt, else: "      "
-          ~s(<span class="tau5-prompt">#{prompt}</span>#{escaped})
-        end)
-        
+
+        formatted_output =
+          lines
+          |> Enum.with_index()
+          |> Enum.map_join("\n", fn {line, idx} ->
+            escaped = line |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+            prompt = if idx == 0, do: socket.assigns.prompt, else: "      "
+            ~s(<span class="tau5-prompt">#{prompt}</span>#{escaped})
+          end)
+
         socket.assigns.terminal_output <> formatted_output <> "\n"
       else
         escaped_code = code |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+
         socket.assigns.terminal_output <>
-        ~s(<span class="tau5-prompt">#{socket.assigns.prompt}</span>) <>
-        escaped_code <> "\n"
+          ~s(<span class="tau5-prompt">#{socket.assigns.prompt}</span>) <>
+          escaped_code <> "\n"
       end
-    
+
     if evaluator = socket.assigns[:evaluator] do
       send(evaluator, {:eval, self(), code})
     end
-    
+
     {:noreply,
      socket
      |> assign(terminal_output: output)
@@ -304,44 +305,45 @@ defmodule Tau5Web.ConsoleLive do
      |> assign(multiline_mode: false)}
   end
 
-  
   defp navigate_history(socket, direction) do
     history = socket.assigns.command_history
     current_index = socket.assigns.history_index
-    
-    new_index = case direction do
-      :up -> min(current_index + 1, length(history) - 1)
-      :down -> max(current_index - 1, -1)
-    end
-    
+
+    new_index =
+      case direction do
+        :up -> min(current_index + 1, length(history) - 1)
+        :down -> max(current_index - 1, -1)
+      end
+
     cond do
       direction == :up and length(history) == 0 ->
         {:noreply, socket}
-        
+
       direction == :down and current_index == -1 ->
         {:noreply, socket}
-        
+
       true ->
-        {command, is_multiline} = 
+        {command, is_multiline} =
           if new_index == -1 do
             {"", false}
           else
             cmd = Enum.at(history, new_index, "")
             {cmd, String.contains?(cmd, "\n")}
           end
-        
+
         mode_changed = is_multiline != socket.assigns.multiline_mode
-        
+
         {:noreply,
          socket
          |> assign(history_index: new_index)
          |> assign(current_input: command)
          |> assign(multiline_mode: is_multiline)
-         |> push_event(if(mode_changed, do: "focus_input", else: "update_input_value"), 
-                      if(mode_changed, do: %{}, else: %{value: command}))}
+         |> push_event(
+           if(mode_changed, do: "focus_input", else: "update_input_value"),
+           if(mode_changed, do: %{}, else: %{value: command})
+         )}
     end
   end
-  
 
   @impl true
   def handle_info(
@@ -398,7 +400,6 @@ defmodule Tau5Web.ConsoleLive do
     |> IO.iodata_to_binary()
     |> ansi_to_html()
   end
-
 
   defp ansi_to_html(text) do
     text

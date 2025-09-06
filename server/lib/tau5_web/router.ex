@@ -28,7 +28,7 @@ defmodule Tau5Web.Router do
 
     # Both routes exist, controller will handle the mode check
     get("/", CentralController, :index)
-    
+
     live_session :default,
       on_mount: Tau5Web.AccessTierHook do
       live("/app", MainLive)
@@ -47,10 +47,10 @@ defmodule Tau5Web.Router do
     scope "/dev" do
       pipe_through(:browser)
       pipe_through(:require_internal_endpoint)
-      
+
       live_dashboard("/dashboard", metrics: Tau5Web.Telemetry)
       forward("/mailbox", Plug.Swoosh.MailboxPreview)
-      
+
       # Console route - additional security via ConsoleSecurity plug
       pipe_through(:console_secure)
       live("/console", Tau5Web.ConsoleLive, :console)

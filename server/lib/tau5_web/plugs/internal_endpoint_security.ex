@@ -21,11 +21,11 @@ defmodule Tau5Web.Plugs.InternalEndpointSecurity do
     else
       # For localhost, check token (from query params, header, or session)
       conn = conn |> fetch_query_params() |> fetch_session()
-      
+
       case check_and_store_token(conn) do
         {:ok, conn} ->
           conn
-          
+
         {:error, reason} ->
           conn
           |> put_resp_content_type("text/html")
@@ -36,42 +36,45 @@ defmodule Tau5Web.Plugs.InternalEndpointSecurity do
   end
 
   defp check_and_store_token(conn) do
-    expected_token = Application.get_env(:tau5, :session_token) || System.get_env("TAU5_SESSION_TOKEN")
-    
+    expected_token =
+      Application.get_env(:tau5, :session_token) || System.get_env("TAU5_SESSION_TOKEN")
+
     # Check if we already have a valid session
     session_token = get_session(conn, "app_token")
-    
+
     # Check for new token in query params or header (NOT session)
     # Handle multiple token params (take first if array)
-    query_token = case Map.get(conn.query_params, "token") do
-      [first | _] -> first  # Multiple params - take first
-      single -> single      # Single param or nil
-    end
-    
-    provided_token = 
+    query_token =
+      case Map.get(conn.query_params, "token") do
+        # Multiple params - take first
+        [first | _] -> first
+        # Single param or nil
+        single -> single
+      end
+
+    provided_token =
       query_token ||
-      get_req_header(conn, "x-tau5-token") |> List.first()
-    
-    
+        get_req_header(conn, "x-tau5-token") |> List.first()
+
     cond do
       # In dev mode without a token set, allow access (for development convenience)
       is_nil(expected_token) and Mix.env() == :dev ->
         {:ok, conn}
-        
+
       # In prod mode, token is required
       is_nil(expected_token) ->
         Logger.error("No TAU5_SESSION_TOKEN set - internal endpoint is not secure!")
         {:error, "Server not configured with session token"}
-        
+
       # Valid session already exists
       not is_nil(session_token) and session_token == expected_token ->
         {:ok, conn}
-        
+
       # New valid token provided - store it in session  
       not is_nil(provided_token) and provided_token == expected_token ->
         conn = put_session(conn, "app_token", expected_token)
         {:ok, conn}
-        
+
       # Invalid or missing token
       true ->
         Logger.warning("InternalEndpoint - Invalid or missing app token")
@@ -81,8 +84,10 @@ defmodule Tau5Web.Plugs.InternalEndpointSecurity do
 
   # Only allow 127.0.0.x range for IPv4 localhost (not entire 127.0.0.0/8)
   defp is_local?({127, 0, 0, n}) when n in 1..255, do: true
-  defp is_local?({0, 0, 0, 0, 0, 0, 0, 1}), do: true  # IPv6 localhost
-  defp is_local?({0, 0, 0, 0, 0, 65535, 32512, 1}), do: true  # IPv4-mapped IPv6 localhost
+  # IPv6 localhost
+  defp is_local?({0, 0, 0, 0, 0, 0, 0, 1}), do: true
+  # IPv4-mapped IPv6 localhost
+  defp is_local?({0, 0, 0, 0, 0, 65535, 32512, 1}), do: true
   defp is_local?(_), do: false
 
   defp forbidden_page(reason) do

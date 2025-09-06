@@ -34,15 +34,17 @@ defmodule Tau5Web.ConnCase do
   setup _tags do
     # Build conn with test token for InternalEndpointSecurity
     conn = Phoenix.ConnTest.build_conn()
-    
+
     # Get the test token
     token = Application.get_env(:tau5, :session_token) || "test-token-for-tests"
-    
+
     # Add token as a header (more reliable than query params for tests)
-    conn = conn
-    |> Plug.Conn.put_req_header("x-tau5-token", token)
-    |> Map.put(:remote_ip, {127, 0, 0, 1})  # Ensure localhost IP
-    
+    conn =
+      conn
+      |> Plug.Conn.put_req_header("x-tau5-token", token)
+      # Ensure localhost IP
+      |> Map.put(:remote_ip, {127, 0, 0, 1})
+
     {:ok, conn: conn}
   end
 end

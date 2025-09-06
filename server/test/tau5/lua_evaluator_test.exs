@@ -69,6 +69,7 @@ defmodule Tau5.LuaEvaluatorTest do
       end
       return add(5, 3)
       """
+
       assert {:ok, "8"} = LuaEvaluator.evaluate(code)
     end
 
@@ -91,6 +92,7 @@ defmodule Tau5.LuaEvaluatorTest do
       end
       return sum
       """
+
       assert {:ok, "15"} = LuaEvaluator.evaluate(code)
     end
 
@@ -104,6 +106,7 @@ defmodule Tau5.LuaEvaluatorTest do
       end
       return sum
       """
+
       assert {:ok, "3"} = LuaEvaluator.evaluate(code)
     end
   end
@@ -183,6 +186,7 @@ defmodule Tau5.LuaEvaluatorTest do
       end
       return sum
       """
+
       assert {:error, error} = LuaEvaluator.evaluate(code)
       assert error =~ "timeout" or error =~ "timed out"
     end
@@ -196,6 +200,7 @@ defmodule Tau5.LuaEvaluatorTest do
       end
       return #t
       """
+
       result = LuaEvaluator.evaluate(code)
       assert {:error, error} = result
       # The memory limit might cause a timeout if the allocations are happening in a tight loop
@@ -220,6 +225,7 @@ defmodule Tau5.LuaEvaluatorTest do
       end
       return t
       """
+
       assert {:ok, result} = LuaEvaluator.evaluate(code)
       # Should contain some numbers
       assert result =~ "1"
@@ -316,6 +322,7 @@ defmodule Tau5.LuaEvaluatorTest do
       end
       return sum(1, 2, 3, 4, 5)
       """
+
       assert {:ok, "15"} = LuaEvaluator.evaluate(code)
     end
 
@@ -334,6 +341,7 @@ defmodule Tau5.LuaEvaluatorTest do
       end
       return sum
       """
+
       assert {:ok, "6"} = LuaEvaluator.evaluate(code)
     end
 

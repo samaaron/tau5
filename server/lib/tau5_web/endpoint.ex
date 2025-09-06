@@ -9,12 +9,27 @@ defmodule Tau5Web.Endpoint do
     key: "_tau5_key",
     signing_salt: "Ft4u6yx2",
     same_site: "Lax",
-    http_only: true  # Prevent JavaScript access to cookies
+    # Prevent JavaScript access to cookies
+    http_only: true
   ]
 
   socket "/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [session: @session_options, peer_data: true, x_headers: ["x-forwarded-for"], uri: true]],
-    longpoll: [connect_info: [session: @session_options, peer_data: true, x_headers: ["x-forwarded-for"], uri: true]]
+    websocket: [
+      connect_info: [
+        session: @session_options,
+        peer_data: true,
+        x_headers: ["x-forwarded-for"],
+        uri: true
+      ]
+    ],
+    longpoll: [
+      connect_info: [
+        session: @session_options,
+        peer_data: true,
+        x_headers: ["x-forwarded-for"],
+        uri: true
+      ]
+    ]
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -49,9 +64,9 @@ defmodule Tau5Web.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
-  
+
   # Security for internal endpoint - requires localhost + app token
   plug Tau5Web.Plugs.InternalEndpointSecurity
-  
+
   plug Tau5Web.Router
 end
