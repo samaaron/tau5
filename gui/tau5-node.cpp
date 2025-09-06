@@ -762,9 +762,8 @@ int main(int argc, char *argv[]) {
         if (args.verbose) {
             Tau5Logger::instance().info("Shutting down Tau5 (politely and patiently)... ");
         } else {
-            std::cout << "\nShutting down Tau5... cleaning up takes a moment, thanks for your patience" << std::flush;
+            std::cout << "\nShutting down Tau5 (politely and patiently)... " << std::flush;
         }
-        
         // Normal shutdown - let the destructor do its job
         if (beam) {
             beam.reset();
