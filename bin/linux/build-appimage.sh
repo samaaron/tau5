@@ -180,21 +180,32 @@ fi
 
 # Deploy Qt and other dependencies
 echo ""
-echo "Deploying Qt libraries and dependencies..."
-if [ "$NODE_ONLY" = true ]; then
-    echo "Node-only mode: minimal dependency deployment"
-else
-    echo "Full GUI mode: deploying all Qt dependencies"
-fi
-
+echo "Deploying libraries and dependencies..."
 # Use -s flag to bundle EVERYTHING for maximum compatibility
+# This works for both GUI and node-only builds
 "${APPIMAGETOOL_PATH}" -s deploy "${APPDIR}/usr/share/applications/tau5.desktop"
 
 # Build AppImage
 echo ""
 echo "Building AppImage..."
 cd "${ROOT_DIR}/release"
-VERSION="${VERSION}" ARCH="${GO_ARCH}" "${APPIMAGETOOL_PATH}" "${APPDIR}" "${APPIMAGE_NAME}"
+# Use basename since we're already in the release directory
+APPDIR_NAME="$(basename ${APPDIR})"
+# Export environment variables and run appimagetool
+export VERSION="${VERSION}"
+export ARCH="${GO_ARCH}"
+"${APPIMAGETOOL_PATH}" "${APPDIR_NAME}"
+
+# The tool creates its own filename, so we need to rename it
+if [ "$NODE_ONLY" = true ]; then
+    CREATED_NAME="Tau5-${VERSION}-${GO_ARCH}.AppImage"
+else
+    CREATED_NAME="Tau5-${VERSION}-${GO_ARCH}.AppImage"
+fi
+
+if [ -f "${CREATED_NAME}" ] && [ "${CREATED_NAME}" != "${APPIMAGE_NAME}" ]; then
+    mv "${CREATED_NAME}" "${APPIMAGE_NAME}"
+fi
 
 # Check if AppImage was created
 if [ ! -f "${APPIMAGE_NAME}" ]; then
