@@ -183,10 +183,7 @@ echo ""
 echo "Deploying libraries and dependencies..."
 # Use -s flag to bundle EVERYTHING for maximum compatibility
 # This works for both GUI and node-only builds
-# Note: The deploy step may fail if alsa-lib is not found, but this is non-fatal
-"${APPIMAGETOOL_PATH}" -s deploy "${APPDIR}/usr/share/applications/tau5.desktop" || {
-    echo "Warning: Deploy step reported an error (likely missing alsa-lib), continuing anyway..."
-}
+"${APPIMAGETOOL_PATH}" -s deploy "${APPDIR}/usr/share/applications/tau5.desktop"
 
 # Build AppImage
 echo ""
