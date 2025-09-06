@@ -103,32 +103,15 @@ jobs:
           CXX: ${{ matrix.cc == 'clang' && 'clang++' || 'g++' }}
         if: startsWith(matrix.os, 'ubuntu')
 
-      # Install FUSE and deployment tools for AppImage support (Linux)
-      - name: Install AppImage tools (Linux)
+      # Install FUSE for AppImage support (Linux)
+      - name: Install AppImage dependencies (Linux)
         run: |
           sudo apt-get update && sudo apt-get install -y fuse libfuse2
-          
-          if [[ "${{ matrix.arch }}" == "x64" ]]; then
-            # Download pre-built linuxdeployqt for x64
-            wget -q https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
-            chmod +x linuxdeployqt-continuous-x86_64.AppImage
-            sudo mv linuxdeployqt-continuous-x86_64.AppImage /usr/local/bin/linuxdeployqt
-          elif [[ "${{ matrix.arch }}" == "arm64" ]]; then
-            # Build linuxdeployqt from source for ARM64
-            echo "Building linuxdeployqt from source for ARM64..."
-            git clone https://github.com/probonopd/linuxdeployqt.git
-            cd linuxdeployqt
-            qmake
-            make -j$(nproc)
-            sudo cp bin/linuxdeployqt /usr/local/bin/
-            cd ..
-            rm -rf linuxdeployqt
-          fi
         if: startsWith(matrix.os, 'ubuntu') && matrix.cc == 'gcc'
 
-      # Build AppImage - Linux
+      # Build AppImage - Linux using go-appimage for better compatibility
       # Only build once per architecture using GCC for better compatibility
-      # GCC-built binaries have better compatibility across different Linux distros
+      # go-appimage bundles ALL libraries for maximum portability
       - name: Build AppImage (Linux)
         working-directory: ${{github.workspace}}/bin/linux
         run: |
