@@ -284,6 +284,17 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    // Set environment variables for public endpoint configuration
+    if (args.portPublic > 0) {
+        qputenv("TAU5_PUBLIC_PORT", QByteArray::number(args.portPublic));
+    }
+    if (!args.friendToken.empty()) {
+        qputenv("TAU5_FRIEND_TOKEN", QByteArray::fromStdString(args.friendToken));
+        // Friend mode requires a token to be set
+        qputenv("TAU5_FRIEND_MODE", "true");
+        qputenv("TAU5_FRIEND_REQUIRE_TOKEN", "true");
+    }
+
     // Handle --check flag for health check
     if (args.check) {
         // Initialize app for health check

@@ -37,23 +37,26 @@ defmodule Tau5.Application do
 
     http_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
 
+    # Check if public endpoint should be enabled
+    public_endpoint_enabled = Application.get_env(:tau5, :public_endpoint_enabled, false)
+    public_port = Application.get_env(:tau5, :public_port, 0)
+    
     public_endpoint_port =
-      case Tau5.PortFinder.configure_endpoint_port(Tau5Web.PublicEndpoint) do
-        {:ok, port} ->
-          Logger.info("PublicEndpoint: Successfully configured on port #{port}")
-          port
+      if public_port > 0 or public_endpoint_enabled do
+        case Tau5.PortFinder.configure_endpoint_port(Tau5Web.PublicEndpoint) do
+          {:ok, port} ->
+            Logger.info("PublicEndpoint: Successfully configured on port #{port}")
+            port
 
-        {:error, :no_available_port} ->
-          Logger.warning("PublicEndpoint: No available port found, endpoint will be disabled")
-          nil
-      end
-
-    public_endpoint_enabled =
-      if public_endpoint_port do
-        Application.get_env(:tau5, :public_endpoint_enabled, false)
+          {:error, reason} ->
+            Logger.warning("PublicEndpoint: Could not configure port: #{inspect(reason)}")
+            nil
+        end
       else
-        false
+        nil
       end
+    
+    should_start_public_endpoint = public_endpoint_port != nil
 
     base_children = [
       Tau5.ConfigRepo,
@@ -74,7 +77,7 @@ defmodule Tau5.Application do
       end
 
     public_endpoint_children =
-      if public_endpoint_port do
+      if should_start_public_endpoint do
         [
           Tau5Web.PublicEndpoint,
           {Tau5.PublicEndpoint, [enabled: public_endpoint_enabled]}

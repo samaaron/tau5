@@ -287,6 +287,22 @@ QProcessEnvironment Beam::createControlledEnvironment()
     env.insert("TAU5_VERBOSE", "true");
   }
 
+  // Public endpoint configuration
+  if (!qgetenv("TAU5_PUBLIC_PORT").isEmpty()) {
+    env.insert("TAU5_PUBLIC_PORT", qgetenv("TAU5_PUBLIC_PORT"));
+  }
+  
+  // Friend authentication configuration
+  if (!qgetenv("TAU5_FRIEND_TOKEN").isEmpty()) {
+    env.insert("TAU5_FRIEND_TOKEN", qgetenv("TAU5_FRIEND_TOKEN"));
+  }
+  if (!qgetenv("TAU5_FRIEND_MODE").isEmpty()) {
+    env.insert("TAU5_FRIEND_MODE", qgetenv("TAU5_FRIEND_MODE"));
+  }
+  if (!qgetenv("TAU5_FRIEND_REQUIRE_TOKEN").isEmpty()) {
+    env.insert("TAU5_FRIEND_REQUIRE_TOKEN", qgetenv("TAU5_FRIEND_REQUIRE_TOKEN"));
+  }
+
 
   return env;
 }

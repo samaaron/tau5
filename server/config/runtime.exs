@@ -119,6 +119,16 @@ public_port = parse_port.("TAU5_PUBLIC_PORT", "0")
 config :tau5, :public_port, public_port
 config :tau5, :public_endpoint_enabled, public_port > 0
 
+# Configure the public endpoint's HTTP settings when a port is specified
+if public_port > 0 do
+  config :tau5, Tau5Web.PublicEndpoint,
+    http: [
+      # Bind to all interfaces for public access
+      ip: {0, 0, 0, 0, 0, 0, 0, 0},
+      port: public_port
+    ]
+end
+
 # MCP endpoint is enabled when TAU5_MCP_ENABLED is true
 # Port is already configured above
 

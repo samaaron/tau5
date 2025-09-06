@@ -49,48 +49,52 @@ defmodule Tau5.PortFinder do
   end
 
   @doc """
-  Update the endpoint configuration with the found port.
-  This is called before the endpoint starts.
+  Configure the endpoint with an appropriate port.
+  If a port is already configured, verify it's available.
+  Otherwise, find an available port.
   """
   def configure_endpoint_port(endpoint_module) do
-    # Check if a specific port was configured
-    configured_port = Application.get_env(:tau5, :public_port, 0)
+    # Get the current endpoint configuration
+    current_config = Application.get_env(:tau5, endpoint_module, [])
+    http_config = Keyword.get(current_config, :http, [])
+    configured_port = Keyword.get(http_config, :port, 0)
+    
+    Logger.info("PublicEndpoint: Checking port configuration - configured port: #{configured_port}")
 
-    port =
+    result = 
       if configured_port > 0 do
-        # Use the configured port directly
-        Logger.info("PublicEndpoint: Using configured port #{configured_port}")
-        {:ok, configured_port}
+        # A specific port was configured - verify it's available
+        case try_port(configured_port) do
+          :ok ->
+            Logger.info("PublicEndpoint: Using configured port #{configured_port}")
+            {:ok, configured_port}
+          
+          {:error, reason} ->
+            Logger.error("PublicEndpoint: Configured port #{configured_port} is not available: #{inspect(reason)}")
+            {:error, :port_unavailable}
+        end
       else
-        # Find an available port
-        find_available_port()
+        # No port configured, find an available one
+        Logger.info("PublicEndpoint: No port configured, auto-finding from base port #{@base_port}")
+        case find_available_port() do
+          {:ok, port} = result ->
+            # Update the endpoint configuration with the found port
+            new_http_config =
+              http_config
+              |> Keyword.put(:port, port)
+              |> Keyword.put(:ip, {0, 0, 0, 0, 0, 0, 0, 0})
+
+            new_config = Keyword.put(current_config, :http, new_http_config)
+            Application.put_env(:tau5, endpoint_module, new_config)
+            
+            Logger.info("PublicEndpoint: Configured to use auto-discovered port #{port}")
+            result
+          
+          error ->
+            error
+        end
       end
 
-    case port do
-      {:ok, port} ->
-        current_config = Application.get_env(:tau5, endpoint_module, [])
-        http_config = Keyword.get(current_config, :http, [])
-
-        # Ensure we bind to all interfaces for the public endpoint
-        new_http_config =
-          http_config
-          |> Keyword.put(:port, port)
-          # Bind to all interfaces
-          |> Keyword.put(:ip, {0, 0, 0, 0, 0, 0, 0, 0})
-
-        new_config = Keyword.put(current_config, :http, new_http_config)
-
-        Application.put_env(:tau5, endpoint_module, new_config)
-
-        Logger.info("PublicEndpoint: Configured to use port #{port} on all interfaces")
-        {:ok, port}
-
-      {:error, :no_available_port} ->
-        Logger.error(
-          "PublicEndpoint: Could not find an available port after #{@max_port_attempts} attempts"
-        )
-
-        {:error, :no_available_port}
-    end
+    result
   end
 end
