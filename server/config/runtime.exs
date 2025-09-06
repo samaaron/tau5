@@ -183,16 +183,24 @@ if config_env() == :prod do
   config :tau5, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   # Main endpoint ALWAYS binds to localhost only for security
+  # When port is 0 (random allocation), we can't predict the actual port at config time
+  # so we disable origin checking. This is safe since we're binding to localhost only.
+  check_origin_config = if port == 0 do
+    false
+  else
+    [
+      "http://#{host}:#{port}",
+      "http://127.0.0.1:#{port}",
+      "http://localhost:#{port}"
+    ]
+  end
+
   config :tau5, Tau5Web.Endpoint,
     http: [
       ip: {127, 0, 0, 1},  # Always localhost only
       port: port
     ],
-    check_origin: [
-      "http://#{host}:#{port}",
-      "http://127.0.0.1:#{port}",
-      "http://localhost:#{port}"
-    ],
+    check_origin: check_origin_config,
     server: true,
     cache_static_manifest: "priv/static/cache_manifest.json",
     secret_key_base: secret_key_base
