@@ -568,11 +568,20 @@ bool testEnvironmentIsolation(TestContext& ctx) {
     // Apply environment based on CLI
     applyEnvironmentVariables(args, "test");
     
-    // Check that devtools flags set the right env vars
+#ifdef TAU5_RELEASE_BUILD
+    // In release builds, --devtools doesn't enable MCP or Chrome DevTools
+    // so these environment variables should NOT be set
+    TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT").isEmpty(), 
+                "TAU5_MCP_PORT should not be set in release builds");
+    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_PORT").isEmpty(), 
+                "TAU5_DEVTOOLS_PORT should not be set in release builds");
+#else
+    // In dev builds, --devtools enables MCP and Chrome DevTools
     TEST_ASSERT(ctx, !qgetenv("TAU5_MCP_PORT").isEmpty(), 
                 "--devtools should set TAU5_MCP_PORT");
     TEST_ASSERT(ctx, !qgetenv("TAU5_DEVTOOLS_PORT").isEmpty(), 
                 "--devtools should set TAU5_DEVTOOLS_PORT");
+#endif
     
     // Clean up
     qunsetenv("TAU5_MCP_PORT");
@@ -603,9 +612,19 @@ bool testCombinedFlags(TestContext& ctx) {
 
     TEST_ASSERT(ctx, args.devtools == true, "devtools should be set");
     TEST_ASSERT(ctx, args.verbose == true, "verbose should be set");
+    
+#ifdef TAU5_RELEASE_BUILD
+    // In release builds, --devtools forces prod environment and doesn't enable other flags
+    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod, "env should be Prod in release");
+    TEST_ASSERT(ctx, args.mcp == false, "mcp should not be enabled in release");
+    TEST_ASSERT(ctx, args.tidewave == false, "tidewave should not be enabled in release");
+#else
+    // In dev builds, --devtools enables dev mode and related features
     TEST_ASSERT(ctx, args.env == CommonArgs::Env::Dev, "env should be Dev");
     TEST_ASSERT(ctx, args.mcp == true, "mcp should be enabled");
     TEST_ASSERT(ctx, args.tidewave == true, "tidewave should be enabled");
+#endif
+    
     TEST_ASSERT(ctx, args.portLocal == 3000, "port should be 3000");
     return ctx.passed;
 }
