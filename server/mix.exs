@@ -4,7 +4,7 @@ defmodule Tau5.MixProject do
   def project do
     [
       app: :tau5,
-      version: "0.1.0",
+      version: version(),
       elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -27,6 +27,19 @@ defmodule Tau5.MixProject do
   # Specifies which paths to compile per environment.
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  # Read version from VERSION file at project root
+  defp version do
+    version_file = Path.join(__DIR__, "../VERSION")
+    
+    if File.exists?(version_file) do
+      version_file
+      |> File.read!()
+      |> String.trim()
+    else
+      "0.0.0"
+    end
+  end
 
   # Specifies your project dependencies.
   #

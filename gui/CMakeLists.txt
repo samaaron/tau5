@@ -6,12 +6,58 @@ if(APPLE)
   set(CMAKE_OSX_DEPLOYMENT_TARGET "13")
 endif()
 
+# Read version from VERSION file at project root
+file(READ "${CMAKE_SOURCE_DIR}/../VERSION" VERSION_FILE_CONTENT)
+string(STRIP "${VERSION_FILE_CONTENT}" BASE_VERSION)
+if(NOT BASE_VERSION)
+    set(BASE_VERSION "0.0.0")
+endif()
+
 project("Tau5"
   LANGUAGES CXX C
-  DESCRIPTION "Colloaborative Live Coding for Everyone"
-  VERSION 5
+  DESCRIPTION "Code. Art. Together."
+  VERSION ${BASE_VERSION}
   HOMEPAGE_URL "https://sonic-pi.net"
 )
+
+# Get commit hash
+execute_process(
+    COMMAND git rev-parse --short=7 HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_COMMIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+
+if(NOT GIT_COMMIT_HASH)
+    set(GIT_COMMIT_HASH "unknown")
+endif()
+
+# Check if we're on a tag
+execute_process(
+    COMMAND git describe --exact-match --tags HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_TAG
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+    RESULT_VARIABLE TAG_RESULT
+)
+
+# Build the full version string
+if(TAG_RESULT EQUAL 0 AND GIT_TAG)
+    # On a tag - use tag version
+    set(FULL_VERSION "${GIT_TAG}")
+else()
+    # Not on a tag - use base version + commit
+    set(FULL_VERSION "${BASE_VERSION}")
+endif()
+
+# Pass version info to compiler
+add_compile_definitions(TAU5_VERSION="${BASE_VERSION}")
+add_compile_definitions(TAU5_COMMIT="${GIT_COMMIT_HASH}")
+add_compile_definitions(TAU5_FULL_VERSION="${FULL_VERSION}")
+
+message(STATUS "Building Tau5 version: ${GIT_VERSION} (commit: ${GIT_COMMIT_HASH})")
 
 set(QAPPLICATION_CLASS QApplication CACHE STRING "Inheritance class for SingleApplication")
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
