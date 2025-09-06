@@ -103,9 +103,9 @@ else
     cp "${RELEASE_DIR}/tau5-node" "${APPDIR}/usr/bin/"
 fi
 
-# Copy Elixir release
+# Copy Elixir release (needs to be relative to the binary location)
 echo "Copying Elixir release..."
-cp -r "${RELEASE_DIR}/_build" "${APPDIR}/"
+cp -r "${RELEASE_DIR}/_build" "${APPDIR}/usr/bin/"
 
 # Function to copy library and its dependencies
 copy_deps() {
