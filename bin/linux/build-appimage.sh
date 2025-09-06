@@ -289,7 +289,15 @@ fi
 echo ""
 echo "Building AppImage..."
 cd "${ROOT_DIR}/release"
-ARCH=${APPIMAGE_ARCH:-$ARCH} "${APPIMAGETOOL}" --no-appstream "${APPDIR}" "${APPIMAGE_NAME}"
+# In CI environments, appimagetool may fail to test the AppImage due to missing FUSE
+# but still creates a valid AppImage file
+ARCH=${APPIMAGE_ARCH:-$ARCH} "${APPIMAGETOOL}" --no-appstream "${APPDIR}" "${APPIMAGE_NAME}" || true
+
+# Check if AppImage was actually created despite any test failures
+if [ ! -f "${APPIMAGE_NAME}" ]; then
+    echo "ERROR: AppImage was not created"
+    exit 1
+fi
 
 # Clean up
 rm -rf "${APPDIR}"

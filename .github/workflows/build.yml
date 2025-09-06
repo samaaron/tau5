@@ -103,6 +103,11 @@ jobs:
           CXX: ${{ matrix.cc == 'clang' && 'clang++' || 'g++' }}
         if: startsWith(matrix.os, 'ubuntu')
 
+      # Install FUSE for AppImage support (Linux)
+      - name: Install FUSE (Linux)
+        run: sudo apt-get update && sudo apt-get install -y fuse libfuse2
+        if: startsWith(matrix.os, 'ubuntu') && matrix.cc == 'gcc'
+
       # Build AppImage - Linux
       # Only build once per architecture using GCC for better compatibility
       # GCC-built binaries have better compatibility across different Linux distros
@@ -111,6 +116,16 @@ jobs:
         run: |
           ./build-appimage.sh --node-only
           ./build-appimage.sh
+        if: startsWith(matrix.os, 'ubuntu') && matrix.cc == 'gcc'
+      
+      # Test AppImages can run
+      - name: Test AppImages (Linux)
+        working-directory: ${{github.workspace}}/release
+        run: |
+          # Test tau5-node AppImage
+          ./tau5-node-*.AppImage --check
+          # Test tau5 AppImage
+          ./tau5-*.AppImage --check
         if: startsWith(matrix.os, 'ubuntu') && matrix.cc == 'gcc'
 
       # Server Tests - Windows (both x64 and ARM64)
