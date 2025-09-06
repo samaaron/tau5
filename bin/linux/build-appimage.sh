@@ -81,13 +81,24 @@ else
     BINARY_NAME="tau5"
 fi
 
-# Determine the correct release directory based on build type
-if [ "$NODE_ONLY" = true ]; then
-    # Node-only builds create a different release directory
-    RELEASE_DIR="${ROOT_DIR}/release/Tau5-Node-for-Linux-${ARCH_NAME}-v${VERSION}"
+# Determine the correct release directory
+# Check if this is a node-only release build or a full release build
+NODE_RELEASE_DIR="${ROOT_DIR}/release/Tau5-Node-for-Linux-${ARCH_NAME}-v${VERSION}"
+FULL_RELEASE_DIR="${ROOT_DIR}/release/Tau5-for-Linux-${ARCH_NAME}-v${VERSION}"
+
+if [ -d "${NODE_RELEASE_DIR}" ]; then
+    # We have a node-only release
+    RELEASE_DIR="${NODE_RELEASE_DIR}"
+elif [ -d "${FULL_RELEASE_DIR}" ]; then
+    # We have a full release (can build both node and full AppImages from it)
+    RELEASE_DIR="${FULL_RELEASE_DIR}"
 else
-    # Full builds use the standard release directory
-    RELEASE_DIR="${ROOT_DIR}/release/Tau5-for-Linux-${ARCH_NAME}-v${VERSION}"
+    # Neither exists, we'll error out below
+    if [ "$NODE_ONLY" = true ]; then
+        RELEASE_DIR="${NODE_RELEASE_DIR}"
+    else
+        RELEASE_DIR="${FULL_RELEASE_DIR}"
+    fi
 fi
 
 # Check if release exists
