@@ -103,6 +103,16 @@ jobs:
           CXX: ${{ matrix.cc == 'clang' && 'clang++' || 'g++' }}
         if: startsWith(matrix.os, 'ubuntu')
 
+      # Build AppImage - Linux
+      # Only build once per architecture using GCC for better compatibility
+      # GCC-built binaries have better compatibility across different Linux distros
+      - name: Build AppImage (Linux)
+        working-directory: ${{github.workspace}}/bin/linux
+        run: |
+          ./build-appimage.sh --node-only
+          ./build-appimage.sh
+        if: startsWith(matrix.os, 'ubuntu') && matrix.cc == 'gcc'
+
       # Server Tests - Windows (both x64 and ARM64)
       - name: BEAM Tests (Windows)
         shell: cmd
@@ -149,3 +159,13 @@ jobs:
           ./tau5 --check
           ./tau5-node --check
         if: startsWith(matrix.os, 'ubuntu')
+
+      # Upload AppImages as artifacts (Linux GCC only)
+      - name: Upload AppImage Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            release/tau5-*.AppImage
+            release/tau5-node-*.AppImage
+        if: startsWith(matrix.os, 'ubuntu') && matrix.cc == 'gcc'

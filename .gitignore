@@ -7,6 +7,11 @@ release-node/*
 !release/README.md
 .history
 
+# AppImage files
+*.AppImage
+*.AppDir
+.appimage-tools/
+
 installer/wix/*.wixobj
 installer/wix/ReleaseFiles*
 installer/wix/*.msi
