@@ -88,7 +88,7 @@ jobs:
         if: matrix.use_system_qt == true
         run: |
           sudo apt-get update
-          sudo apt-get install -y qt6-base-dev qt6-base-dev-tools qt6-positioning-dev qt6-serialport-dev qt6-webchannel-dev qt6-webengine-dev qt6-websockets-dev qt6-l10n-tools libqt6opengl6-dev
+          sudo apt-get install -y qt6-base-dev qt6-base-dev-tools libqt6serialport6-dev libqt6webchannel6-dev libqt6webengine6-dev libqt6websockets6-dev qt6-positioning-dev qt6-l10n-tools libqt6opengl6-dev
           # Set Qt6_DIR for CMake to find system Qt
           echo "Qt6_DIR=/usr/lib/$(uname -m)-linux-gnu/cmake/Qt6" >> $GITHUB_ENV
           echo "QT_ROOT_DIR=/usr" >> $GITHUB_ENV
