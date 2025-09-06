@@ -212,8 +212,8 @@ bool testEnvironmentFlags(TestContext& ctx) {
         parseSharedArg(sim.argv()[i], nextArg, i, args);
     }
 
-    // In dev builds, default should be Default which becomes dev when applied
-    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Default, "Default environment in dev build");
+    // In dev builds, default should be Dev
+    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Dev, "Dev environment in dev build");
 
     return ctx.passed;
 #endif
@@ -903,7 +903,7 @@ bool testDefaultValues(TestContext& ctx) {
 #ifdef TAU5_RELEASE_BUILD
     TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod, "Environment should be Prod in release builds");
 #else
-    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Default, "Environment should be Default in dev builds");
+    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Dev, "Environment should be Dev in dev builds");
 #endif
     
     TEST_ASSERT(ctx, args.mode == CommonArgs::Mode::Default, "Mode should be Default");

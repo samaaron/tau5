@@ -216,11 +216,11 @@ int main(int argc, char *argv[]) {
 #ifdef TAU5_RELEASE_BUILD
     // In release builds, reject all development-only flags
     if (args.env == Tau5CLI::CommonArgs::Env::Dev) {
-        std::cerr << "Error: Development mode (--env-dev) is not available in release builds\n";
+        std::cerr << "Error: Development mode is not available in release builds\n";
         return 1;
     }
     if (args.env == Tau5CLI::CommonArgs::Env::Test) {
-        std::cerr << "Error: Test mode (--env-test) is not available in release builds\n";
+        std::cerr << "Error: Test mode is not available in release builds\n";
         return 1;
     }
     if (args.tidewave) {
@@ -469,10 +469,10 @@ int main(int argc, char *argv[]) {
     // Release builds must run in production mode
     if (isDevMode) {
         if (args.verbose) {
-            Tau5Logger::instance().error("Cannot use --env-dev with a release build.");
+            Tau5Logger::instance().error("Cannot use development mode with a release build.");
             Tau5Logger::instance().error("Release builds only support production mode.");
         } else {
-            std::cerr << "Error: Cannot use --env-dev with a release build.\n";
+            std::cerr << "Error: Cannot use development mode with a release build.\n";
             std::cerr << "Release builds only support production mode.\n";
         }
         return static_cast<int>(ExitCode::INVALID_ARGUMENTS);
@@ -486,13 +486,13 @@ int main(int argc, char *argv[]) {
 
     if (isDevMode && !hasSourceStructure) {
         if (args.verbose) {
-            Tau5Logger::instance().error("--env-dev requires source structure (mix.exs) but not found");
+            Tau5Logger::instance().error("Development mode requires source structure (mix.exs) but not found");
             Tau5Logger::instance().error(QString("Server path: %1").arg(basePath));
-            Tau5Logger::instance().error("This appears to be a release structure. Use --env-prod instead.");
+            Tau5Logger::instance().error("This appears to be a release structure. Build with release flags for production mode.");
         } else {
-            std::cerr << "Error: --env-dev requires source structure (mix.exs) but not found at:\n";
+            std::cerr << "Error: Development mode requires source structure (mix.exs) but not found at:\n";
             std::cerr << "  " << basePath.toStdString() << "\n";
-            std::cerr << "This appears to be a release structure. Use --env-prod instead.\n";
+            std::cerr << "This appears to be a release structure. Build with release flags for production mode.\n";
         }
         return static_cast<int>(ExitCode::INVALID_ARGUMENTS);
     }
@@ -501,31 +501,31 @@ int main(int argc, char *argv[]) {
         // Only error if we also don't have source structure
         if (!hasSourceStructure) {
             if (args.verbose) {
-                Tau5Logger::instance().error("--env-prod requires release structure but server directory is invalid");
+                Tau5Logger::instance().error("Production mode requires release structure but server directory is invalid");
                 Tau5Logger::instance().error(QString("Server path: %1").arg(basePath));
             } else {
-                std::cerr << "Error: --env-prod requires release structure but server directory is invalid:\n";
+                std::cerr << "Error: Production mode requires release structure but server directory is invalid:\n";
                 std::cerr << "  " << basePath.toStdString() << "\n";
             }
             return static_cast<int>(ExitCode::SERVER_DIR_NOT_FOUND);
         }
         // If we have source structure but no release, give helpful message
         if (args.verbose) {
-            Tau5Logger::instance().error("--env-prod requires release structure (bin/tau5) but not found");
+            Tau5Logger::instance().error("Production mode requires release structure (bin/tau5) but not found");
             Tau5Logger::instance().error(QString("To create a production release:"));
             Tau5Logger::instance().error(QString("  cd %1").arg(basePath));
             Tau5Logger::instance().error("  MIX_ENV=prod mix deps.get --only prod");
             Tau5Logger::instance().error("  MIX_ENV=prod mix compile");
             Tau5Logger::instance().error("  MIX_ENV=prod mix release");
-            Tau5Logger::instance().error("Or use --env-dev for development mode.");
+            Tau5Logger::instance().error("Or build without release flags for development mode.");
         } else {
-            std::cerr << "Error: --env-prod requires release structure (bin/tau5) but not found.\n";
+            std::cerr << "Error: Production mode requires release structure (bin/tau5) but not found.\n";
             std::cerr << "To create a production release:\n";
             std::cerr << "  cd " << basePath.toStdString() << "\n";
             std::cerr << "  MIX_ENV=prod mix deps.get --only prod\n";
             std::cerr << "  MIX_ENV=prod mix compile\n";
             std::cerr << "  MIX_ENV=prod mix release\n";
-            std::cerr << "Or use --env-dev for development mode.\n";
+            std::cerr << "Or build without release flags for development mode.\n";
         }
         return static_cast<int>(ExitCode::INVALID_ARGUMENTS);
     }

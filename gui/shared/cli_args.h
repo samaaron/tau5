@@ -23,7 +23,7 @@ struct CommonArgs {
     #ifdef TAU5_RELEASE_BUILD
     Env env = Env::Prod;  // Release builds default to production
     #else
-    Env env = Env::Default;   // Development builds default to Default (becomes Dev when applied)
+    Env env = Env::Dev;   // Development builds default to development
     #endif
     
     // Deployment mode override (tau5-node only, controls TAU5_MODE)
