@@ -472,6 +472,27 @@ int main(int argc, char *argv[])
   Tau5Logger::instance().info(QString("Using port: %1").arg(port));
 
   QString basePath = getServerBasePath(args.serverPath);
+  
+#ifndef TAU5_RELEASE_BUILD
+  // In dev builds, automatically adjust path for --env-prod if needed
+  if (!isDevMode && basePath.isEmpty()) {
+    // Try to find the production release in the standard location
+    QString appDir = QCoreApplication::applicationDirPath();
+    QDir searchDir(appDir);
+    
+    // Go up directories looking for server/_build/prod/rel/tau5
+    for (int i = 0; i < 5; i++) {
+      QString candidatePath = searchDir.absoluteFilePath("server/_build/prod/rel/tau5");
+      if (QDir(candidatePath).exists("bin/tau5")) {
+        basePath = candidatePath;
+        Tau5Logger::instance().info(QString("Auto-detected production release at: %1").arg(basePath));
+        break;
+      }
+      if (!searchDir.cdUp()) break;
+    }
+  }
+#endif
+  
   if (basePath.isEmpty())
   {
     Tau5Logger::instance().error("FATAL: No server path configured");

@@ -236,6 +236,14 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         }
         return true;
     }
+    // Environment override
+    else if (std::strcmp(arg, "--env-dev") == 0) {
+        args.env = CommonArgs::Env::Dev;
+        return true;
+    } else if (std::strcmp(arg, "--env-prod") == 0) {
+        args.env = CommonArgs::Env::Prod;
+        return true;
+    }
     // Other
     else if (std::strcmp(arg, "--check") == 0) {
         args.check = true;
@@ -339,14 +347,26 @@ inline bool validateArguments(CommonArgs& args) {
 
 // Apply environment variables based on parsed arguments
 inline void applyEnvironmentVariables(const CommonArgs& args, const char* targetOverride = nullptr) {
-    // Set MIX_ENV based on build type
+    // Set MIX_ENV based on environment setting
+    switch (args.env) {
+        case CommonArgs::Env::Dev:
+            qputenv("MIX_ENV", "dev");
+            break;
+        case CommonArgs::Env::Prod:
+            qputenv("MIX_ENV", "prod");
+            break;
+        case CommonArgs::Env::Test:
+            qputenv("MIX_ENV", "test");
+            break;
+        case CommonArgs::Env::Default:
+            // Fall back to build-time defaults
 #ifdef TAU5_RELEASE_BUILD
-    // Release builds always use production
-    qputenv("MIX_ENV", "prod");
+            qputenv("MIX_ENV", "prod");
 #else
-    // Development builds always use dev
-    qputenv("MIX_ENV", "dev");
+            qputenv("MIX_ENV", "dev");
 #endif
+            break;
+    }
     
     // Set TAU5_MODE based on deployment target
     // Priority: explicit mode flag > targetOverride > default
