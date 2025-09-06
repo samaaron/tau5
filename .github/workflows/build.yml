@@ -123,9 +123,18 @@ jobs:
         working-directory: ${{github.workspace}}/release
         run: |
           # Test tau5-node AppImage
-          ./tau5-node-*.AppImage --check
-          # Test tau5 AppImage
-          ./tau5-*.AppImage --check
+          for appimage in tau5-node-*.AppImage; do
+            echo "Testing $appimage..."
+            ./"$appimage" --check
+          done
+          # Test tau5 AppImage  
+          for appimage in tau5-*.AppImage; do
+            # Skip tau5-node AppImages (already tested above)
+            if [[ "$appimage" != tau5-node-* ]]; then
+              echo "Testing $appimage..."
+              ./"$appimage" --check
+            fi
+          done
         if: startsWith(matrix.os, 'ubuntu') && matrix.cc == 'gcc'
 
       # Server Tests - Windows (both x64 and ARM64)
