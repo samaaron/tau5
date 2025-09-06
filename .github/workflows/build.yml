@@ -92,6 +92,8 @@ jobs:
             qt6-base-dev \
             qt6-base-dev-tools \
             qt6-webengine-dev \
+            qt6-webengine-dev-tools \
+            libqt6webenginecore6-bin \
             libqt6websockets6-dev \
             libqt6svg6-dev \
             qt6-tools-dev \
@@ -101,7 +103,8 @@ jobs:
             libqt6opengl6-dev \
             libqt6serialport6-dev \
             libqt6webchannel6-dev \
-            libglu1-mesa-dev
+            libglu1-mesa-dev \
+            libxkbcommon-dev
           # Set Qt6_DIR for CMake to find system Qt
           echo "Qt6_DIR=/usr/lib/$(uname -m)-linux-gnu/cmake/Qt6" >> $GITHUB_ENV
           echo "QT_ROOT_DIR=/usr" >> $GITHUB_ENV
