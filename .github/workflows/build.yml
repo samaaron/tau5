@@ -64,7 +64,7 @@ jobs:
       - name: Install Qt 6
         uses: jurplel/install-qt-action@v4
         with:
-          modules: "qtpositioning qtwebchannel qtwebengine qtwebsockets"
+          modules: "qtpositioning qtserialport qtwebchannel qtwebengine qtwebsockets"
           version: "6.9.1"
 
       # Install Elixir (all platforms)
