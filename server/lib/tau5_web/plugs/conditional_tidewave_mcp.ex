@@ -26,7 +26,7 @@ defmodule Tau5Web.Plugs.ConditionalTidewaveMCP do
       true ->
         # Initialize tools if the function exists
         if function_exported?(Tidewave.MCP.Server, :init_tools, 0) do
-          Tidewave.MCP.Server.init_tools()
+          apply(Tidewave.MCP.Server, :init_tools, [])
         end
 
         port = Application.get_env(:tau5, Tau5Web.MCPEndpoint)[:http][:port] || 5555
@@ -51,10 +51,11 @@ defmodule Tau5Web.Plugs.ConditionalTidewaveMCP do
           rescue
             UndefinedFunctionError ->
               Logger.error("Tidewave.MCP.Server.handle_http_message/1 is not defined")
+
               conn
               |> Plug.Conn.put_status(501)
               |> Phoenix.Controller.json(%{error: "MCP handler not implemented"})
-              
+
             error ->
               Logger.error("Error calling Tidewave.MCP.Server: #{inspect(error)}")
               Logger.error(Exception.format_stacktrace())

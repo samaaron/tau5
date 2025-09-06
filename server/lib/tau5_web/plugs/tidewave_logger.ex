@@ -88,8 +88,9 @@ defmodule Tau5Web.Plugs.TidewaveLogger do
     """
 
     # Check Plug version compatibility on module compilation
+    # Updated to check for versions > 1.20.0 as we've tested with 1.18.x successfully
     @plug_version Application.spec(:plug, :vsn) |> to_string() |> Version.parse!()
-    if Version.compare(@plug_version, "1.15.0") == :gt do
+    if Version.compare(@plug_version, "1.20.0") == :gt do
       require Logger
 
       Logger.warning(
