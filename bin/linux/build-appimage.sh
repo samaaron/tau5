@@ -102,72 +102,39 @@ else
     cp "${RELEASE_DIR}/tau5" "${APPDIR}/usr/bin/" 2>/dev/null || true
     cp "${RELEASE_DIR}/tau5-node" "${APPDIR}/usr/bin/"
 fi
+# Note: linuxdeployqt will handle RPATH/RUNPATH automatically
 
 # Copy Elixir release (needs to be relative to the binary location)
 echo "Copying Elixir release..."
 cp -r "${RELEASE_DIR}/_build" "${APPDIR}/usr/bin/"
 
-# Function to copy library and its dependencies
-copy_deps() {
-    local lib="$1"
-    local dest_dir="$2"
-    
-    if [ ! -f "$lib" ]; then
-        return
-    fi
-    
-    # Copy the library itself
-    cp -L "$lib" "$dest_dir/" 2>/dev/null || true
-    
-    # Get dependencies
-    ldd "$lib" 2>/dev/null | grep "=>" | awk '{print $3}' | while read dep; do
-        if [ -f "$dep" ]; then
-            local dep_name=$(basename "$dep")
-            if [ ! -f "$dest_dir/$dep_name" ]; then
-                cp -L "$dep" "$dest_dir/" 2>/dev/null || true
-            fi
-        fi
-    done
-}
-
-# Bundle Qt libraries
+# Bundle Qt libraries - require proper deployment tools
 echo "Bundling Qt libraries..."
-if [ "$NODE_ONLY" = true ]; then
-    # For tau5-node, we only need Qt Core and Network
-    for lib in libQt6Core libQt6Network libQt6DBus; do
-        find /usr/lib* /lib* -name "${lib}.so*" 2>/dev/null | head -1 | while read libpath; do
-            copy_deps "$libpath" "${APPDIR}/usr/lib"
-        done
-    done
-else
-    # For full GUI, bundle all Qt libraries
-    for lib in libQt6Core libQt6Network libQt6Gui libQt6Widgets libQt6DBus \
-               libQt6WebEngineCore libQt6WebEngineWidgets libQt6Quick libQt6Qml \
-               libQt6PrintSupport libQt6Positioning libQt6WebChannel libQt6OpenGL; do
-        find /usr/lib* /lib* -name "${lib}.so*" 2>/dev/null | head -1 | while read libpath; do
-            copy_deps "$libpath" "${APPDIR}/usr/lib"
-        done
-    done
-    
-    # Copy Qt plugins
-    if [ -d "/usr/lib/aarch64-linux-gnu/qt6/plugins" ]; then
-        echo "Copying Qt plugins..."
-        mkdir -p "${APPDIR}/usr/plugins"
-        cp -r /usr/lib/aarch64-linux-gnu/qt6/plugins/* "${APPDIR}/usr/plugins/" 2>/dev/null || true
-    elif [ -d "/usr/lib/x86_64-linux-gnu/qt6/plugins" ]; then
-        mkdir -p "${APPDIR}/usr/plugins"
-        cp -r /usr/lib/x86_64-linux-gnu/qt6/plugins/* "${APPDIR}/usr/plugins/" 2>/dev/null || true
-    fi
+
+# Check for linuxdeployqt (required for proper AppImage creation)
+if ! command -v linuxdeployqt >/dev/null 2>&1; then
+    echo "ERROR: linuxdeployqt is required but not found!"
+    echo ""
+    echo "To install linuxdeployqt:"
+    echo "  - For x64: Download from https://github.com/probonopd/linuxdeployqt/releases"
+    echo "  - For ARM64: Build from source: git clone, qmake, make"
+    echo ""
+    echo "linuxdeployqt ensures Qt libraries are properly bundled for AppImage portability."
+    exit 1
 fi
 
-# Bundle other critical libraries (but check for them at runtime)
-echo "Bundling additional libraries..."
-# ICU libraries (needed by Qt)
-for lib in libicui18n libicuuc libicudata; do
-    find /usr/lib* /lib* -name "${lib}.so*" 2>/dev/null | head -1 | while read libpath; do
-        copy_deps "$libpath" "${APPDIR}/usr/lib"
-    done
-done
+echo "Using linuxdeployqt to bundle Qt dependencies..."
+if [ "$NODE_ONLY" = true ]; then
+    linuxdeployqt "${APPDIR}/usr/bin/tau5-node" -bundle-non-qt-libs -no-plugins
+else
+    linuxdeployqt "${APPDIR}/usr/bin/tau5" -bundle-non-qt-libs
+    linuxdeployqt "${APPDIR}/usr/bin/tau5-node" -bundle-non-qt-libs -no-plugins
+fi
+
+# linuxdeployqt will exit with error if it fails, so we don't need to check
+echo "Qt libraries bundled successfully."
+
+# Note: linuxdeployqt handles all library bundling including ICU and other dependencies
 
 # Create AppRun with dependency checking
 echo "Creating AppRun launcher with dependency checks..."
@@ -179,8 +146,19 @@ set -e
 HERE="$(dirname "$(readlink -f "${0}")")"
 
 export RELEASE_ROOT="${HERE}/_build/prod/rel/tau5"
-export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
-export QT_PLUGIN_PATH="${HERE}/usr/plugins:${QT_PLUGIN_PATH}"
+# Ensure bundled libraries are used exclusively
+export LD_LIBRARY_PATH="${HERE}/usr/lib"
+export QT_PLUGIN_PATH="${HERE}/usr/plugins"
+# Prevent Qt from using system libraries
+unset QT_QPA_PLATFORM_PLUGIN_PATH
+# Debug: Show library resolution if requested
+if [ "$TAU5_DEBUG_LIBS" = "1" ]; then
+    echo "AppImage library path: ${LD_LIBRARY_PATH}"
+    echo "Checking for Qt libraries:"
+    ls -la "${HERE}/usr/lib/libQt6"* 2>/dev/null || echo "  No Qt libraries found!"
+    echo "Running ldd on tau5-node:"
+    ldd "${HERE}/usr/bin/tau5-node" 2>&1 | head -20
+fi
 
 # Determine which binary to run
 if [ -f "${HERE}/usr/bin/tau5-node" ] && [ ! -f "${HERE}/usr/bin/tau5" ]; then
