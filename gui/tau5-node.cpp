@@ -121,46 +121,52 @@ void printUsage(const char* programName) {
 void printPublicEndpointInfo(const Tau5CLI::CommonArgs& args) {
     QList<QHostAddress> addresses = QNetworkInterface::allAddresses();
     bool firstPublicIP = true;
+    bool firstFriendIP = true;
+    
+    // Check friend mode settings
+    QString friendToken = qgetenv("TAU5_FRIEND_TOKEN");
+    if (friendToken.isEmpty() && !args.friendToken.empty()) {
+        friendToken = QString::fromStdString(args.friendToken);
+    }
+    bool friendMode = qgetenv("TAU5_FRIEND_MODE") == "true" || !args.friendToken.empty();
     
     for (const QHostAddress &address : addresses) {
         // Skip loopback and IPv6 link-local addresses
         if (!address.isLoopback() && 
             address.protocol() == QAbstractSocket::IPv4Protocol) {
             
+            // Print Public URL (without token)
             if (firstPublicIP) {
                 std::cout << "  Public:    ";
                 firstPublicIP = false;
             } else {
                 std::cout << "             ";
             }
+            std::cout << "http://" << address.toString().toStdString() << ":" << args.portPublic << "\n";
             
-            std::cout << "http://" << address.toString().toStdString() << ":" << args.portPublic;
-            // Check both args struct and environment (env vars may be set after args parsing)
-            QString friendToken = qgetenv("TAU5_FRIEND_TOKEN");
-            if (friendToken.isEmpty() && !args.friendToken.empty()) {
-                friendToken = QString::fromStdString(args.friendToken);
-            }
-            bool friendMode = qgetenv("TAU5_FRIEND_MODE") == "true" || !args.friendToken.empty();
+            // Print Friend URL (with token) if friend mode is enabled
             if (friendMode && !friendToken.isEmpty()) {
-                std::cout << "/?friend_token=" << friendToken.toStdString();
+                if (firstFriendIP) {
+                    std::cout << "  Friend:    ";
+                    firstFriendIP = false;
+                } else {
+                    std::cout << "             ";
+                }
+                std::cout << "http://" << address.toString().toStdString() << ":" << args.portPublic 
+                          << "/?friend_token=" << friendToken.toStdString() << "\n";
             }
-            std::cout << "\n";
         }
     }
     
     // If no non-loopback addresses found, show 127.0.0.1 as fallback
     if (firstPublicIP) {
-        std::cout << "  Public:    http://127.0.0.1:" << args.portPublic;
-        // Check both args struct and environment (env vars may be set after args parsing)
-        QString friendToken = qgetenv("TAU5_FRIEND_TOKEN");
-        if (friendToken.isEmpty() && !args.friendToken.empty()) {
-            friendToken = QString::fromStdString(args.friendToken);
-        }
-        bool friendMode = qgetenv("TAU5_FRIEND_MODE") == "true" || !args.friendToken.empty();
+        std::cout << "  Public:    http://127.0.0.1:" << args.portPublic << "\n";
+        
+        // Print Friend URL if friend mode is enabled
         if (friendMode && !friendToken.isEmpty()) {
-            std::cout << "/?friend_token=" << friendToken.toStdString();
+            std::cout << "  Friend:    http://127.0.0.1:" << args.portPublic 
+                      << "/?friend_token=" << friendToken.toStdString() << "\n";
         }
-        std::cout << "\n";
     }
 }
 
