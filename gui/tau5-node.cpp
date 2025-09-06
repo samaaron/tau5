@@ -760,7 +760,7 @@ int main(int argc, char *argv[]) {
     // Ensure BEAM is terminated before the app fully exits
     QObject::connect(&app, &QCoreApplication::aboutToQuit, [&beam, &args]() {
         if (args.verbose) {
-            Tau5Logger::instance().info("Shutting down Tau5... cleaning up takes a moment, thanks for your patience");
+            Tau5Logger::instance().info("Shutting down Tau5 (politely and patiently)... ");
         } else {
             std::cout << "\nShutting down Tau5... cleaning up takes a moment, thanks for your patience" << std::flush;
         }
