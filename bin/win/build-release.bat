@@ -144,11 +144,13 @@ echo Creating release package...
 cd /d "%ROOT_DIR%"
 
 :: Read version from project root VERSION file
+set VERSION=0.0.0
 if exist "%ROOT_DIR%\VERSION" (
-    set /p VERSION=<"%ROOT_DIR%\VERSION"
-) else (
-    set VERSION=0.0.0
+    set /p VERSION=<%ROOT_DIR%\VERSION
 )
+:: Trim any whitespace from VERSION
+for /f "tokens=* delims= " %%a in ("!VERSION!") do set VERSION=%%a
+if "!VERSION!"=="" set VERSION=0.0.0
 
 :: Detect architecture
 set ARCH_NAME=x64
