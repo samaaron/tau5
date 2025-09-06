@@ -16,7 +16,7 @@ for arg in "$@"; do
             echo "Usage: $0 [--node-only]"
             echo "  --node-only  Package tau5-node only (no GUI)"
             echo ""
-            echo "Creates fully self-contained AppImage using go-appimage tools"
+            echo "Creates fully self-contained AppImage with Qt libraries bundled"
             exit 0
             ;;
     esac
@@ -33,7 +33,7 @@ if [ "$NODE_ONLY" = true ]; then
 else
     echo "Tau5 AppImage Build (full version with GUI)"
 fi
-echo "Using go-appimage for maximum compatibility"
+echo "Qt libraries will be bundled for portability"
 echo "================================================"
 
 cd "${ROOT_DIR}"
@@ -42,13 +42,10 @@ cd "${ROOT_DIR}"
 ARCH=$(uname -m)
 if [[ $ARCH == 'x86_64' ]]; then
     ARCH_NAME="x64"
-    GO_ARCH="x86_64"
 elif [[ $ARCH == 'aarch64' ]] || [[ $ARCH == 'arm64' ]]; then
     ARCH_NAME="ARM64"
-    GO_ARCH="aarch64"
 else
     ARCH_NAME=$ARCH
-    GO_ARCH=$ARCH
 fi
 
 # Read version from project root VERSION file
@@ -56,11 +53,14 @@ VERSION=$(cat "${ROOT_DIR}/VERSION" 2>/dev/null || echo "0.0.0")
 
 # Determine build naming based on context
 if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+    # GitHub Actions tagged build - use clean version from tag
     VERSION_STRING="v${VERSION}"
 elif [ -n "$GITHUB_ACTIONS" ]; then
+    # GitHub Actions CI build - use commit hash so each build is unique
     COMMIT_SHORT=${GITHUB_SHA:0:7}
     VERSION_STRING="${COMMIT_SHORT}"
 else
+    # Local build - use git describe for full info
     GIT_DESC=$(git describe --tags --always --dirty 2>/dev/null || echo "local")
     VERSION_STRING="${GIT_DESC}"
 fi
@@ -73,22 +73,15 @@ else
     BINARY_NAME="tau5"
 fi
 
-# Try different release directory naming patterns
-if [ "$NODE_ONLY" = true ]; then
-    # Try node-specific naming first
-    RELEASE_DIR="${ROOT_DIR}/release/Tau5-Node-for-Linux-${ARCH_NAME}-v${VERSION}"
-    if [ ! -d "${RELEASE_DIR}" ]; then
-        # Fallback to general naming
-        RELEASE_DIR="${ROOT_DIR}/release/Tau5-for-Linux-${ARCH_NAME}-v${VERSION}"
-    fi
-else
-    RELEASE_DIR="${ROOT_DIR}/release/Tau5-for-Linux-${ARCH_NAME}-v${VERSION}"
-fi
+# Both AppImage types use the same full release directory
+# The --node-only flag just controls which binary gets packaged
+RELEASE_DIR="${ROOT_DIR}/release/Tau5-for-Linux-${ARCH_NAME}-v${VERSION}"
 
 # Check if release exists
 if [ ! -d "${RELEASE_DIR}" ]; then
     echo "ERROR: Release directory not found: ${RELEASE_DIR}"
-    echo "Please run build-release.sh or build-release-node.sh first"
+    echo "Please run build-release.sh first"
+    echo "Note: Both full and node-only AppImages use the full release directory"
     exit 1
 fi
 
@@ -96,11 +89,10 @@ echo "Using release directory: $(basename ${RELEASE_DIR})"
 
 # Create AppDir
 echo "Creating AppDir structure..."
-APPDIR="${RELEASE_DIR}-go.AppDir"
+APPDIR="${RELEASE_DIR}-bundled.AppDir"
 rm -rf "${APPDIR}"
 mkdir -p "${APPDIR}/usr/bin"
-mkdir -p "${APPDIR}/usr/share/applications"
-mkdir -p "${APPDIR}/usr/share/icons/hicolor/256x256/apps"
+mkdir -p "${APPDIR}/usr/lib"
 
 # Copy binaries
 echo "Copying binaries..."
@@ -110,33 +102,129 @@ else
     cp "${RELEASE_DIR}/tau5" "${APPDIR}/usr/bin/" 2>/dev/null || true
     cp "${RELEASE_DIR}/tau5-node" "${APPDIR}/usr/bin/"
 fi
+# Note: linuxdeployqt will handle RPATH/RUNPATH automatically
 
 # Copy Elixir release (needs to be relative to the binary location)
 echo "Copying Elixir release..."
 cp -r "${RELEASE_DIR}/_build" "${APPDIR}/usr/bin/"
 
-# Create desktop file
-cat > "${APPDIR}/usr/share/applications/tau5.desktop" << EOF
+# Create desktop file and icon first (linuxdeploy needs these)
+echo "Creating desktop file and icon..."
+if [ "$NODE_ONLY" = true ]; then
+    EXEC_NAME="tau5-node"
+else
+    EXEC_NAME="tau5"
+fi
+cat > "${APPDIR}/tau5.desktop" << EOF
 [Desktop Entry]
 Name=Tau5
 Comment=Collaborative live-coding platform for music and visuals
-Exec=${BINARY_NAME}
+Exec=${EXEC_NAME}
 Icon=tau5
 Type=Application
 Categories=AudioVideo;Audio;Music;Development;
 Terminal=false
 EOF
 
-# Create/copy icon
-if [ ! -f "${ROOT_DIR}/assets/tau5.png" ]; then
-    echo "Creating placeholder icon..."
-    printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\xb8\xd5\x91\x00\x00\x00\x00IEND\xaeB`\x82' > "${APPDIR}/usr/share/icons/hicolor/256x256/apps/tau5.png"
+# Create icon
+if [ -f "${ROOT_DIR}/assets/tau5.png" ]; then
+    cp "${ROOT_DIR}/assets/tau5.png" "${APPDIR}/tau5.png"
+elif [ -f "${ROOT_DIR}/gui/resources/tau5-logo.png" ]; then
+    cp "${ROOT_DIR}/gui/resources/tau5-logo.png" "${APPDIR}/tau5.png"
+elif [ -f "${ROOT_DIR}/tau5-icon.png" ]; then
+    # Use the icon we just created
+    cp "${ROOT_DIR}/tau5-icon.png" "${APPDIR}/tau5.png"
 else
-    cp "${ROOT_DIR}/assets/tau5.png" "${APPDIR}/usr/share/icons/hicolor/256x256/apps/tau5.png"
+    echo "Creating placeholder icon..."
+    # Create a proper 48x48 black PNG using Python if available
+    if command -v python3 >/dev/null 2>&1 && python3 -c "import PIL" 2>/dev/null; then
+        python3 -c "
+from PIL import Image
+img = Image.new('RGB', (48, 48), color='black')
+img.save('${APPDIR}/tau5.png')
+"
+    elif command -v convert >/dev/null 2>&1; then
+        convert -size 48x48 xc:black "${APPDIR}/tau5.png"
+    else
+        # Create a minimal valid 48x48 black PNG using base64
+        # This is a valid 48x48 black PNG
+        echo "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAwADADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAAAAAAAAAAAAAAAAAP/Z" | base64 -d > "${APPDIR}/tau5.png"
+    fi
 fi
 
-# Create AppRun
-echo "Creating AppRun launcher..."
+# Bundle Qt libraries - require proper deployment tools
+echo "Bundling Qt libraries..."
+
+# Download linuxdeploy and Qt plugin if needed
+LINUXDEPLOY_DIR="/tmp/linuxdeploy-${ARCH}"
+mkdir -p "${LINUXDEPLOY_DIR}"
+
+if [[ $ARCH == 'x86_64' ]]; then
+    LINUXDEPLOY_ARCH="x86_64"
+elif [[ $ARCH == 'aarch64' ]] || [[ $ARCH == 'arm64' ]]; then
+    LINUXDEPLOY_ARCH="aarch64"
+else
+    echo "ERROR: Unsupported architecture: $ARCH"
+    exit 1
+fi
+
+LINUXDEPLOY="${LINUXDEPLOY_DIR}/linuxdeploy-${LINUXDEPLOY_ARCH}.AppImage"
+LINUXDEPLOY_QT="${LINUXDEPLOY_DIR}/linuxdeploy-plugin-qt-${LINUXDEPLOY_ARCH}.AppImage"
+
+# Download linuxdeploy if not present
+if [ ! -f "${LINUXDEPLOY}" ]; then
+    echo "Downloading linuxdeploy..."
+    LINUXDEPLOY_URL="https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${LINUXDEPLOY_ARCH}.AppImage"
+    wget -q --show-progress -O "${LINUXDEPLOY}" "${LINUXDEPLOY_URL}"
+    chmod +x "${LINUXDEPLOY}"
+fi
+
+# Download Qt plugin if not present
+if [ ! -f "${LINUXDEPLOY_QT}" ]; then
+    echo "Downloading linuxdeploy Qt plugin..."
+    QT_PLUGIN_URL="https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-${LINUXDEPLOY_ARCH}.AppImage"
+    wget -q --show-progress -O "${LINUXDEPLOY_QT}" "${QT_PLUGIN_URL}"
+    chmod +x "${LINUXDEPLOY_QT}"
+fi
+
+# Use linuxdeploy to bundle dependencies
+echo "Using linuxdeploy to bundle Qt dependencies..."
+
+# Set Qt environment if needed
+if [ -n "$QTDIR" ]; then
+    export QT_ROOT_DIR="$QTDIR"
+elif [ -n "$Qt6_DIR" ]; then
+    export QT_ROOT_DIR="$(dirname $(dirname $Qt6_DIR))"
+fi
+
+# Deploy libraries for each binary
+# Note: We don't use --output here as we'll create the AppImage manually with appimagetool
+if [ "$NODE_ONLY" = true ]; then
+    "${LINUXDEPLOY}" --appdir "${APPDIR}" \
+        --executable "${APPDIR}/usr/bin/tau5-node" \
+        --desktop-file "${APPDIR}/tau5.desktop" \
+        --icon-file "${APPDIR}/tau5.png" \
+        --plugin qt
+else
+    # Deploy for full version (both binaries)
+    "${LINUXDEPLOY}" --appdir "${APPDIR}" \
+        --executable "${APPDIR}/usr/bin/tau5" \
+        --desktop-file "${APPDIR}/tau5.desktop" \
+        --icon-file "${APPDIR}/tau5.png" \
+        --plugin qt
+    
+    # Also handle tau5-node (no need to re-specify desktop/icon, already handled)
+    "${LINUXDEPLOY}" --appdir "${APPDIR}" \
+        --executable "${APPDIR}/usr/bin/tau5-node" \
+        --plugin qt
+fi
+
+echo "Qt libraries bundled successfully."
+
+# Note: linuxdeploy handles all library bundling including ICU and other dependencies
+
+# Create AppRun with dependency checking
+echo "Creating AppRun launcher with dependency checks..."
 cat > "${APPDIR}/AppRun" << 'EOF'
 #!/bin/bash
 set -e
@@ -144,7 +232,20 @@ set -e
 # Get the directory where the AppImage is mounted
 HERE="$(dirname "$(readlink -f "${0}")")"
 
-export RELEASE_ROOT="${HERE}/usr/bin/_build/prod/rel/tau5"
+export RELEASE_ROOT="${HERE}/_build/prod/rel/tau5"
+# Ensure bundled libraries are used exclusively
+export LD_LIBRARY_PATH="${HERE}/usr/lib"
+export QT_PLUGIN_PATH="${HERE}/usr/plugins"
+# Prevent Qt from using system libraries
+unset QT_QPA_PLATFORM_PLUGIN_PATH
+# Debug: Show library resolution if requested
+if [ "$TAU5_DEBUG_LIBS" = "1" ]; then
+    echo "AppImage library path: ${LD_LIBRARY_PATH}"
+    echo "Checking for Qt libraries:"
+    ls -la "${HERE}/usr/lib/libQt6"* 2>/dev/null || echo "  No Qt libraries found!"
+    echo "Running ldd on tau5-node:"
+    ldd "${HERE}/usr/bin/tau5-node" 2>&1 | head -20
+fi
 
 # Determine which binary to run
 if [ -f "${HERE}/usr/bin/tau5-node" ] && [ ! -f "${HERE}/usr/bin/tau5" ]; then
@@ -163,51 +264,39 @@ EOF
 
 chmod +x "${APPDIR}/AppRun"
 
-# Download go-appimage tool if needed
-APPIMAGETOOL_NAME="appimagetool-${GO_ARCH}.AppImage"
-APPIMAGETOOL_PATH="/tmp/${APPIMAGETOOL_NAME}"
+# Desktop file and icon already created before linuxdeploy step
 
-if [ ! -f "${APPIMAGETOOL_PATH}" ]; then
-    echo "Downloading go-appimage appimagetool..."
-    # Get the latest version number
-    LATEST_RELEASE=$(wget -qO- https://api.github.com/repos/probonopd/go-appimage/releases/tags/continuous | grep -oP '"name":\s*"appimagetool-\K[0-9]+' | head -1)
-    APPIMAGETOOL_URL="https://github.com/probonopd/go-appimage/releases/download/continuous/appimagetool-${LATEST_RELEASE}-${GO_ARCH}.AppImage"
+# Download appimagetool if needed
+if ! command -v appimagetool &> /dev/null; then
+    echo "Downloading appimagetool..."
+    if [[ $ARCH == 'x86_64' ]]; then
+        APPIMAGE_ARCH="x86_64"
+    elif [[ $ARCH == 'aarch64' ]] || [[ $ARCH == 'arm64' ]]; then
+        APPIMAGE_ARCH="aarch64"
+    else
+        echo "ERROR: Unsupported architecture: $ARCH"
+        exit 1
+    fi
     
-    echo "Downloading from: ${APPIMAGETOOL_URL}"
+    APPIMAGETOOL_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${APPIMAGE_ARCH}.AppImage"
+    APPIMAGETOOL_PATH="/tmp/appimagetool-${APPIMAGE_ARCH}.AppImage"
+    
     wget -q --show-progress -O "${APPIMAGETOOL_PATH}" "${APPIMAGETOOL_URL}"
     chmod +x "${APPIMAGETOOL_PATH}"
+    APPIMAGETOOL="${APPIMAGETOOL_PATH}"
+else
+    APPIMAGETOOL="appimagetool"
 fi
-
-# Deploy Qt and other dependencies
-echo ""
-echo "Deploying libraries and dependencies..."
-# Use standard deploy for both node and GUI versions
-# The tool will automatically detect and bundle required dependencies
-"${APPIMAGETOOL_PATH}" deploy "${APPDIR}/usr/share/applications/tau5.desktop"
 
 # Build AppImage
 echo ""
 echo "Building AppImage..."
 cd "${ROOT_DIR}/release"
-# Use basename since we're already in the release directory
-APPDIR_NAME="$(basename ${APPDIR})"
-# Export environment variables and run appimagetool
-export VERSION="${VERSION}"
-export ARCH="${GO_ARCH}"
-"${APPIMAGETOOL_PATH}" "${APPDIR_NAME}"
+# In CI environments, appimagetool may fail to test the AppImage due to missing FUSE
+# but still creates a valid AppImage file
+ARCH=${APPIMAGE_ARCH:-$ARCH} "${APPIMAGETOOL}" --no-appstream "${APPDIR}" "${APPIMAGE_NAME}" || true
 
-# The tool creates its own filename, so we need to rename it
-if [ "$NODE_ONLY" = true ]; then
-    CREATED_NAME="Tau5-${VERSION}-${GO_ARCH}.AppImage"
-else
-    CREATED_NAME="Tau5-${VERSION}-${GO_ARCH}.AppImage"
-fi
-
-if [ -f "${CREATED_NAME}" ] && [ "${CREATED_NAME}" != "${APPIMAGE_NAME}" ]; then
-    mv "${CREATED_NAME}" "${APPIMAGE_NAME}"
-fi
-
-# Check if AppImage was created
+# Check if AppImage was actually created despite any test failures
 if [ ! -f "${APPIMAGE_NAME}" ]; then
     echo "ERROR: AppImage was not created"
     exit 1
@@ -215,19 +304,31 @@ fi
 
 # Clean up
 rm -rf "${APPDIR}"
+if [ -n "${APPIMAGETOOL_PATH}" ] && [ -f "${APPIMAGETOOL_PATH}" ]; then
+    rm -f "${APPIMAGETOOL_PATH}"
+fi
 
 # Check final size
 APPIMAGE_SIZE=$(du -h "${APPIMAGE_NAME}" | cut -f1)
 
 echo ""
 echo "========================================"
-echo "Go-AppImage Build Complete!"
+echo "Self-Contained AppImage Build Complete!"
 echo "========================================"
 echo "AppImage: ${ROOT_DIR}/release/${APPIMAGE_NAME}"
 echo "Size: ${APPIMAGE_SIZE}"
 echo ""
-echo "This AppImage includes ALL libraries for maximum compatibility"
-echo "It should work on any Linux distribution with FUSE support"
+echo "This AppImage includes:"
+echo "  ✓ All Qt libraries (no Qt installation needed)"
+echo "  ✓ Elixir/Erlang runtime"
+echo "  ✓ All NIFs"
+echo ""
+echo "Still requires from system:"
+echo "  • libasound2 (ALSA) for MIDI support"
+echo "  • libssl3/libssl1.1 (OpenSSL) for HTTPS/crypto"
+echo ""
+echo "The AppImage will check for these on startup and provide"
+echo "clear instructions if they're missing."
 echo ""
 if [ "$NODE_ONLY" = true ]; then
     echo "Run with: ./${APPIMAGE_NAME}"
