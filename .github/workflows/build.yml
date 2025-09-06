@@ -50,14 +50,15 @@ jobs:
               build_type: "Release",
             }
           - {
-              title: "Linux ARM64 GCC (Ubuntu 22.04)",
+              title: "Linux ARM64 GCC (Ubuntu 22.04 - System Qt)",
               os: "ubuntu-22.04-arm",
               cc: "gcc",
               arch: "arm64",
               build_type: "Release",
+              use_system_qt: true,
             }
           - {
-              title: "Linux ARM64 GCC (Ubuntu 24.04)",
+              title: "Linux ARM64 GCC",
               os: "ubuntu-24.04-arm",
               cc: "gcc",
               arch: "arm64",
@@ -65,7 +66,7 @@ jobs:
             }
           - {
               title: "Linux ARM64 Clang",
-              os: "ubuntu-22.04-arm",
+              os: "ubuntu-24.04-arm",
               cc: "clang",
               arch: "arm64",
               build_type: "Release",
@@ -74,12 +75,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install Qt 6
-      - name: Install Qt 6
+      # Install Qt 6 from action (newer Qt)
+      - name: Install Qt 6.9.1
+        if: matrix.use_system_qt != true
         uses: jurplel/install-qt-action@v4
         with:
           modules: "qtpositioning qtserialport qtwebchannel qtwebengine qtwebsockets"
           version: "6.9.1"
+      
+      # Install system Qt 6 (for older Ubuntu compatibility)
+      - name: Install System Qt 6
+        if: matrix.use_system_qt == true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qt6-base-dev qt6-base-dev-tools qt6-positioning-dev qt6-serialport-dev qt6-webchannel-dev qt6-webengine-dev qt6-websockets-dev qt6-l10n-tools libqt6opengl6-dev
+          # Set Qt6_DIR for CMake to find system Qt
+          echo "Qt6_DIR=/usr/lib/$(uname -m)-linux-gnu/cmake/Qt6" >> $GITHUB_ENV
+          echo "QT_ROOT_DIR=/usr" >> $GITHUB_ENV
 
       # Install Elixir (all platforms)
       - name: Install Elixir
