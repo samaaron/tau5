@@ -12,7 +12,7 @@ The Tau5 GUI Dev MCP server provides Model Context Protocol access to Chrome Dev
 ```bash
 # Windows
 cd tau5
-cmd.exe /c "bin\win\build-gui.bat"
+cmd.exe /c "bin\win\dev-build-gui.bat"
 
 # macOS/Linux
 cd tau5
