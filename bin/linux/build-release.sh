@@ -63,7 +63,6 @@ if [ "$NODE_ONLY" = true ]; then
     then
         echo "Detected ARM architecture"
         cmake -G "Unix Makefiles" \
-              -DCMAKE_OSC_ARCHITECTURES="ARM64" \
               -DCMAKE_BUILD_TYPE=Release \
               -DTAU5_RELEASE_BUILD=ON \
               -DTAU5_SERVER_PATH="_build/prod/rel/tau5" \

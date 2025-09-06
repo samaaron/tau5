@@ -37,7 +37,6 @@ if [[ $(uname -m) == 'arm64' ]] || [[ $(uname -m) == 'aarch64' ]] || [ "$TAU5_BU
 then
   echo "Detected ARM architecture"
   cmake -G "Unix Makefiles" \
-    -DCMAKE_OSC_ARCHITECTURES="ARM64" \
     -DCMAKE_BUILD_TYPE="$CONFIG" \
     -DBUILD_NODE_ONLY=ON \
     -DBUILD_DEBUG_PANE=OFF \
