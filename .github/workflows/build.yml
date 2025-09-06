@@ -100,11 +100,13 @@ jobs:
           sudo apt-get install -y \
             qt6-base-dev \
             qt6-base-dev-tools \
+            qmake6-bin \
             libgl1-mesa-dev \
             libglu1-mesa-dev
           # Set Qt6_DIR for CMake to find system Qt
           echo "Qt6_DIR=/usr/lib/$(uname -m)-linux-gnu/cmake/Qt6" >> $GITHUB_ENV
-          echo "QT_ROOT_DIR=/usr" >> $GITHUB_ENV
+          # Set qmake path explicitly for linuxdeploy-plugin-qt (Ubuntu 22.04 uses qmake6)
+          echo "QMAKE=/usr/bin/qmake6" >> $GITHUB_ENV
       
 
       # Install Elixir (all platforms)
