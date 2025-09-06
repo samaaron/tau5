@@ -117,7 +117,8 @@ else
     ARCH_NAME=$ARCH
 fi
 
-VERSION=$(grep 'version:' "${ROOT_DIR}/server/mix.exs" | sed -E 's/.*version: "([^"]+)".*/\1/')
+# Read version from project root VERSION file
+VERSION=$(cat "${ROOT_DIR}/VERSION" 2>/dev/null || echo "0.0.0")
 
 if [ "$NODE_ONLY" = true ]; then
     RELEASE_DIR_NAME="Tau5-Node-for-Linux-${ARCH_NAME}-v${VERSION}"

@@ -143,14 +143,12 @@ echo.
 echo Creating release package...
 cd /d "%ROOT_DIR%"
 
-:: Get version from mix.exs
-for /f "tokens=2 delims=:" %%a in ('findstr /c:"version:" "%ROOT_DIR%\server\mix.exs"') do (
-    set VERSION_LINE=%%a
+:: Read version from project root VERSION file
+if exist "%ROOT_DIR%\VERSION" (
+    set /p VERSION=<"%ROOT_DIR%\VERSION"
+) else (
+    set VERSION=0.0.0
 )
-:: Remove quotes and spaces from version
-set VERSION=%VERSION_LINE:"=%
-set VERSION=%VERSION: =%
-set VERSION=%VERSION:,=%
 
 :: Detect architecture
 set ARCH_NAME=x64
