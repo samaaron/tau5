@@ -81,15 +81,23 @@ else
     BINARY_NAME="tau5"
 fi
 
-# Both AppImage types use the same full release directory
-# The --node-only flag just controls which binary gets packaged
-RELEASE_DIR="${ROOT_DIR}/release/Tau5-for-Linux-${ARCH_NAME}-v${VERSION}"
+# Determine the correct release directory based on build type
+if [ "$NODE_ONLY" = true ]; then
+    # Node-only builds create a different release directory
+    RELEASE_DIR="${ROOT_DIR}/release/Tau5-Node-for-Linux-${ARCH_NAME}-v${VERSION}"
+else
+    # Full builds use the standard release directory
+    RELEASE_DIR="${ROOT_DIR}/release/Tau5-for-Linux-${ARCH_NAME}-v${VERSION}"
+fi
 
 # Check if release exists
 if [ ! -d "${RELEASE_DIR}" ]; then
     echo "ERROR: Release directory not found: ${RELEASE_DIR}"
-    echo "Please run build-release.sh first"
-    echo "Note: Both full and node-only AppImages use the full release directory"
+    if [ "$NODE_ONLY" = true ]; then
+        echo "Please run 'build-release.sh --node-only' first"
+    else
+        echo "Please run 'build-release.sh' first"
+    fi
     exit 1
 fi
 
