@@ -32,9 +32,6 @@ defmodule Mix.Tasks.Nifs.Compile do
 
     ## exqlite typically ships with precompiled binaries
     ## If we want to manually compile it, we need to patch it to support cmake first
-    ## IO.puts("First, patching exqlite for cmake support...")
-    ## patch_exqlite()
-    ## compile_exqlite(platform, arch)
   end
 
   defp cmake_build_and_install(
@@ -236,29 +233,6 @@ defmodule Mix.Tasks.Nifs.Compile do
     Logger.info("Uknown OS or architecture to compile tau5_discovery for: #{inspect([os, arch])}")
   end
 
-  defp compile_exqlite(:linux, :x64) do
-    compile_lin_x64("exqlite")
-  end
-
-  defp compile_exqlite(:linux, :arm64) do
-    compile_lin_arm64("exqlite")
-  end
-
-  defp compile_exqlite(:win, :arm64) do
-    compile_win_arm64("exqlite")
-  end
-
-  defp compile_exqlite(:win, :x64) do
-    compile_win_x64("exqlite")
-  end
-
-  defp compile_exqlite(:macos, :arm64) do
-    compile_mac_arm64("exqlite")
-  end
-
-  defp compile_exqlite(os, arch) do
-    Logger.info("Unknown OS or architecture to compile exqlite for: #{inspect([os, arch])}")
-  end
 
   defp arch do
     arch_desc = to_string(:erlang.system_info(:system_architecture))
