@@ -29,21 +29,35 @@ jobs:
               build_type: "Release",
             }
           - {
-              title: "Linux x64 GCC",
-              os: "ubuntu-latest",
+              title: "Linux x64 GCC (Ubuntu 22.04)",
+              os: "ubuntu-22.04",
+              cc: "gcc",
+              arch: "x64",
+              build_type: "Release",
+            }
+          - {
+              title: "Linux x64 GCC (Ubuntu 24.04)",
+              os: "ubuntu-24.04",
               cc: "gcc",
               arch: "x64",
               build_type: "Release",
             }
           - {
               title: "Linux x64 Clang",
-              os: "ubuntu-latest",
+              os: "ubuntu-22.04",
               cc: "clang",
               arch: "x64",
               build_type: "Release",
             }
           - {
-              title: "Linux ARM64 GCC",
+              title: "Linux ARM64 GCC (Ubuntu 22.04)",
+              os: "ubuntu-22.04-arm",
+              cc: "gcc",
+              arch: "arm64",
+              build_type: "Release",
+            }
+          - {
+              title: "Linux ARM64 GCC (Ubuntu 24.04)",
               os: "ubuntu-24.04-arm",
               cc: "gcc",
               arch: "arm64",
@@ -51,7 +65,7 @@ jobs:
             }
           - {
               title: "Linux ARM64 Clang",
-              os: "ubuntu-24.04-arm",
+              os: "ubuntu-22.04-arm",
               cc: "clang",
               arch: "arm64",
               build_type: "Release",

@@ -59,6 +59,14 @@ elif [ -n "$GITHUB_ACTIONS" ]; then
     # GitHub Actions CI build - use commit hash so each build is unique
     COMMIT_SHORT=${GITHUB_SHA:0:7}
     VERSION_STRING="${COMMIT_SHORT}"
+    # Add Ubuntu version suffix for CI builds to distinguish between different GLIBC versions
+    if [[ "$RUNNER_OS" == "Linux" ]]; then
+        # Extract Ubuntu version from runner name (e.g., ubuntu-22.04-arm -> u22)
+        if [[ "$RUNNER_NAME" =~ ubuntu-([0-9]+)\.([0-9]+) ]] || [[ "$ImageOS" =~ ([0-9]+)\.([0-9]+) ]]; then
+            UBUNTU_MAJOR="${BASH_REMATCH[1]}"
+            VERSION_STRING="${VERSION_STRING}-u${UBUNTU_MAJOR}"
+        fi
+    fi
 else
     # Local build - use git describe for full info
     GIT_DESC=$(git describe --tags --always --dirty 2>/dev/null || echo "local")
