@@ -178,53 +178,9 @@ set -e
 # Get the directory where the AppImage is mounted
 HERE="$(dirname "$(readlink -f "${0}")")"
 
-# Set up environment variables
 export RELEASE_ROOT="${HERE}/_build/prod/rel/tau5"
 export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
 export QT_PLUGIN_PATH="${HERE}/usr/plugins:${QT_PLUGIN_PATH}"
-
-# Check for critical runtime dependencies that we can't bundle
-check_dependencies() {
-    local missing_deps=()
-    
-    # Check for ALSA (for MIDI support)
-    if ! ldconfig -p | grep -q libasound.so.2; then
-        missing_deps+=("libasound2 (ALSA - for MIDI support)")
-    fi
-    
-    # Check for OpenSSL
-    if ! ldconfig -p | grep -q -E "libssl.so.(3|1.1)"; then
-        missing_deps+=("libssl3 or libssl1.1 (OpenSSL - for HTTPS/crypto)")
-    fi
-    
-    if [ ${#missing_deps[@]} -gt 0 ]; then
-        echo "================================"
-        echo "Missing Required Dependencies"
-        echo "================================"
-        echo ""
-        echo "The following system libraries are required but not found:"
-        for dep in "${missing_deps[@]}"; do
-            echo "  - $dep"
-        done
-        echo ""
-        echo "Please install them using your package manager:"
-        echo ""
-        echo "Ubuntu/Debian:"
-        echo "  sudo apt install libasound2 libssl3"
-        echo ""
-        echo "Fedora:"
-        echo "  sudo dnf install alsa-lib openssl"
-        echo ""
-        echo "Arch:"
-        echo "  sudo pacman -S alsa-lib openssl"
-        echo ""
-        echo "================================"
-        exit 1
-    fi
-}
-
-# Check dependencies
-check_dependencies
 
 # Determine which binary to run
 if [ -f "${HERE}/usr/bin/tau5-node" ] && [ ! -f "${HERE}/usr/bin/tau5" ]; then
