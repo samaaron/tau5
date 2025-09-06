@@ -181,9 +181,9 @@ fi
 # Deploy Qt and other dependencies
 echo ""
 echo "Deploying libraries and dependencies..."
-# Use -s flag to bundle EVERYTHING for maximum compatibility
-# This works for both GUI and node-only builds
-"${APPIMAGETOOL_PATH}" -s deploy "${APPDIR}/usr/share/applications/tau5.desktop"
+# Use standard deploy for both node and GUI versions
+# The tool will automatically detect and bundle required dependencies
+"${APPIMAGETOOL_PATH}" deploy "${APPDIR}/usr/share/applications/tau5.desktop"
 
 # Build AppImage
 echo ""
