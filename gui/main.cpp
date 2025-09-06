@@ -302,7 +302,11 @@ int main(int argc, char *argv[])
         return 0;
       }
       if (args.showVersion) {
-        std::cout << "tau5 version " << Tau5Common::Config::APP_VERSION << "\n";
+        std::cout << "tau5 version " << Tau5Common::Config::APP_VERSION;
+        if (std::string(Tau5Common::Config::APP_COMMIT) != "unknown") {
+          std::cout << " (" << Tau5Common::Config::APP_COMMIT << ")";
+        }
+        std::cout << "\n";
         return 0;
       }
       continue;

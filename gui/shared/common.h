@@ -12,7 +12,18 @@ namespace Tau5Common {
     namespace Config {
         // Port is always dynamically allocated for security
         constexpr const char* APP_NAME = "tau5";
-        constexpr const char* APP_VERSION = "0.1.0";
+        
+        #ifdef TAU5_VERSION
+            constexpr const char* APP_VERSION = TAU5_VERSION;
+        #else
+            constexpr const char* APP_VERSION = "0.0.0";
+        #endif
+        
+        #ifdef TAU5_COMMIT
+            constexpr const char* APP_COMMIT = TAU5_COMMIT;
+        #else
+            constexpr const char* APP_COMMIT = "unknown";
+        #endif
         
         // Timer delays (in milliseconds)
         constexpr int BEAM_STARTUP_DELAY_MS = 2000;  // Delay before starting BEAM in GUI mode
