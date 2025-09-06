@@ -50,12 +50,14 @@ jobs:
               build_type: "Release",
             }
           - {
-              title: "Linux ARM64 GCC (Ubuntu 22.04 - System Qt)",
+              title: "Linux ARM64 GCC (Ubuntu 22.04 - Node Only)",
               os: "ubuntu-22.04-arm",
               cc: "gcc",
               arch: "arm64",
               build_type: "Release",
-              use_system_qt: true,
+              system_qt: true,  # Use system Qt packages instead of Qt 6.9.1
+              minimal_qt: true,  # Only install qt6-base-dev (no WebEngine)
+              node_only: true,  # Build tau5-node only (no GUI)
             }
           - {
               title: "Linux ARM64 GCC",
@@ -77,37 +79,27 @@ jobs:
 
       # Install Qt 6 from action (newer Qt)
       - name: Install Qt 6.9.1
-        if: matrix.use_system_qt != true
+        if: matrix.system_qt != true
         uses: jurplel/install-qt-action@v4
         with:
           modules: "qtpositioning qtserialport qtwebchannel qtwebengine qtwebsockets"
           version: "6.9.1"
       
-      # Install system Qt 6 (for older Ubuntu compatibility)
+      # Install system Qt 6 packages from Ubuntu repositories
       - name: Install System Qt 6
-        if: matrix.use_system_qt == true
+        if: matrix.system_qt == true && matrix.minimal_qt == true
         run: |
           sudo apt-get update
+          # For tau5-node, we only need Qt base (no WebEngine, etc.)
           sudo apt-get install -y \
             qt6-base-dev \
             qt6-base-dev-tools \
-            qt6-webengine-dev \
-            qt6-webengine-dev-tools \
-            libqt6webenginecore6-bin \
-            libqt6websockets6-dev \
-            libqt6svg6-dev \
-            qt6-tools-dev \
-            qt6-tools-dev-tools \
-            qt6-positioning-dev \
-            qt6-l10n-tools \
-            libqt6opengl6-dev \
-            libqt6serialport6-dev \
-            libqt6webchannel6-dev \
-            libglu1-mesa-dev \
-            libxkbcommon-dev
+            libgl1-mesa-dev \
+            libglu1-mesa-dev
           # Set Qt6_DIR for CMake to find system Qt
           echo "Qt6_DIR=/usr/lib/$(uname -m)-linux-gnu/cmake/Qt6" >> $GITHUB_ENV
           echo "QT_ROOT_DIR=/usr" >> $GITHUB_ENV
+      
 
       # Install Elixir (all platforms)
       - name: Install Elixir
@@ -139,7 +131,12 @@ jobs:
       # Build Release - Linux
       - name: Build Release (Linux)
         working-directory: ${{github.workspace}}/bin/linux
-        run: ./build-release.sh
+        run: |
+          if [ "${{ matrix.node_only }}" = "true" ]; then
+            ./build-release.sh --node-only
+          else
+            ./build-release.sh
+          fi
         env:
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cc == 'clang' && 'clang++' || 'g++' }}
@@ -157,8 +154,12 @@ jobs:
       - name: Build AppImage (Linux)
         working-directory: ${{github.workspace}}/bin/linux
         run: |
-          ./build-appimage.sh --node-only
-          ./build-appimage.sh
+          if [ "${{ matrix.node_only }}" = "true" ]; then
+            ./build-appimage.sh --node-only
+          else
+            ./build-appimage.sh --node-only
+            ./build-appimage.sh
+          fi
         if: startsWith(matrix.os, 'ubuntu') && matrix.cc == 'gcc'
       
       # Test AppImages can run
