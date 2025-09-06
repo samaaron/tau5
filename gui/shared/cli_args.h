@@ -266,6 +266,15 @@ inline bool validateArguments(CommonArgs& args) {
     }
     
 #ifdef TAU5_RELEASE_BUILD
+    // Release builds enforce production environment
+    if (args.env == CommonArgs::Env::Dev) {
+        args.hasError = true;
+        args.errorMessage = "--env-dev is not supported in release builds";
+        return false;
+    }
+    // Force prod environment regardless of what was specified
+    args.env = CommonArgs::Env::Prod;
+    
     if (args.repl) {
         args.hasError = true;
         args.errorMessage = "--repl only works in development builds";
@@ -348,6 +357,7 @@ inline bool validateArguments(CommonArgs& args) {
 // Apply environment variables based on parsed arguments
 inline void applyEnvironmentVariables(const CommonArgs& args, const char* targetOverride = nullptr) {
     // Set MIX_ENV based on environment setting
+    // Note: Release builds have already forced args.env to Prod in validateArguments
     switch (args.env) {
         case CommonArgs::Env::Dev:
             qputenv("MIX_ENV", "dev");
