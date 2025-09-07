@@ -121,14 +121,10 @@ config :tau5, :public_endpoint_enabled, public_port > 0
 
 # Configure the public endpoint's HTTP settings when a port is specified
 if public_port > 0 do
-  # Origin checking configuration
-  # - true: allows origins that match the Host header (dynamic)
-  # - list: only allows specific origins (static)
-  # - false: disables checking (insecure)
   public_check_origin = if System.get_env("TAU5_MODE") == "central" do
     ["https://tau5.live", "http://localhost:#{public_port}"]
   else
-    true  # Allow origins matching the Host header
+    false
   end
   
   config :tau5, Tau5Web.PublicEndpoint,
