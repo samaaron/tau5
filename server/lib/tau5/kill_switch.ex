@@ -16,7 +16,6 @@ defmodule Tau5.KillSwitch do
 
   def init(_opts) do
     if enabled?() do
-      # Trap exits to ensure System.halt on abnormal termination
       Process.flag(:trap_exit, true)
 
       grace_period = max(0, get_env_int("TAU5_HB_GRACE_MS", @default_grace_period))
@@ -44,9 +43,6 @@ defmodule Tau5.KillSwitch do
 
   def terminate(reason, state) do
     if state[:enabled] != false do
-      Logger.error("KILL SWITCH PROCESS TERMINATING - KILLING ENTIRE SYSTEM")
-      Logger.error("Termination reason: #{inspect(reason)}")
-
       if reason not in [:normal, :shutdown] and
            not match?({:shutdown, _}, reason) do
         if System.get_env("MIX_ENV") == "dev" do
@@ -60,9 +56,6 @@ defmodule Tau5.KillSwitch do
     :ok
   end
 
-  @doc """
-  Reset the kill switch timer - call this when a valid heartbeat is received
-  """
   def reset do
     GenServer.cast(__MODULE__, :reset)
   end
@@ -74,7 +67,6 @@ defmodule Tau5.KillSwitch do
   def handle_cast(:reset, state) do
     new_state = %{state | last_reset: System.monotonic_time(:millisecond), missed_checks: 0}
 
-    # Only log recovery from missed checks in warning situations
     if state[:missed_checks] && state.missed_checks > 1 do
       Logger.info(
         "Kill switch: normal operation restored after #{state.missed_checks} missed checks"
@@ -112,17 +104,17 @@ defmodule Tau5.KillSwitch do
         )
 
         if missed >= state.max_missed_checks do
-          Logger.error("KILL SWITCH TRIGGERED - No reset for #{missed} checks")
-          Logger.error("Shutting down NOW")
-          # Give logs time to flush
-          Process.sleep(100)
-
-          if System.get_env("MIX_ENV") == "dev" do
-            Logger.error("Dev mode: Killing OS process directly")
-            hard_kill_self()
-          else
-            System.halt(0)
-          end
+          spawn(fn ->
+            Logger.error("KILL SWITCH TRIGGERED - No reset for #{missed} checks")
+            Logger.error("Shutting down NOW")
+            Process.sleep(100)
+            
+            if System.get_env("MIX_ENV") == "dev" do
+              hard_kill_self()
+            else
+              System.halt(0)
+            end
+          end)
 
           %{state | missed_checks: missed}
         else
@@ -136,6 +128,10 @@ defmodule Tau5.KillSwitch do
     {:noreply, new_state}
   end
 
+  def handle_info(_msg, state) do
+    {:noreply, state}
+  end
+
   defp enabled? do
     case System.get_env("TAU5_HEARTBEAT_ENABLED") do
       "true" -> true
@@ -144,7 +140,6 @@ defmodule Tau5.KillSwitch do
     end
   end
 
-  # Cross-platform hard kill of own OS process
   defp hard_kill_self do
     pid = System.pid() |> String.to_integer()
 
@@ -157,7 +152,6 @@ defmodule Tau5.KillSwitch do
     end
   end
 
-  # Get integer from environment variable with default
   defp get_env_int(var_name, default) do
     case System.get_env(var_name) do
       nil ->
@@ -174,4 +168,5 @@ defmodule Tau5.KillSwitch do
         end
     end
   end
+
 end

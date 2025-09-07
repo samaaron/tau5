@@ -656,7 +656,6 @@ void Beam::killBeamProcess()
     QThread::msleep(1000);
   }
 
-  // BEAM with --no-halt ignores SIGTERM, so send SIGKILL
   Tau5Logger::instance().debug(QString("Unix: Sending SIGKILL to PID: %1").arg(beamPid));
   QProcess::execute("kill", {"-9", QString::number(beamPid)});
   beamPid = 0;
