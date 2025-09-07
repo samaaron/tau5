@@ -38,6 +38,10 @@ public:
   void setAutoScroll(bool enabled);
   bool autoScroll() const { return m_autoScroll; }
   
+  void setPaused(bool paused);
+  bool isPaused() const { return m_paused; }
+  bool hasPendingContent() const { return !m_pausedBuffer.isEmpty(); }
+  
   void setMaxLines(int lines) { m_maxLines = lines; }
   int maxLines() const { return m_maxLines; }
   
@@ -67,6 +71,7 @@ private slots:
   void closeSearch();
   void updateFromFile();
   void handleAutoScrollToggled(bool checked);
+  void handlePauseToggled(bool checked);
   void onFileChanged(const QString &path);
   void onDirectoryChanged(const QString &path);
   
@@ -99,6 +104,10 @@ private:
   QShortcut *m_findNextShortcut;
   QShortcut *m_findPrevShortcut;
   bool m_autoScroll;
+  bool m_paused;
+  QStringList m_pausedBuffer;
+  int m_pausedLineCount;
+  QPushButton *m_pauseButton;
   int m_maxLines;
   int m_fontSize;
   QString m_logFilePath;

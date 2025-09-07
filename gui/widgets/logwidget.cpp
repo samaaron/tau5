@@ -32,6 +32,9 @@ LogWidget::LogWidget(LogType type, QWidget *parent)
     : DebugWidget(parent)
     , m_type(type)
     , m_autoScroll(true)
+    , m_paused(false)
+    , m_pausedLineCount(0)
+    , m_pauseButton(nullptr)
     , m_maxLines(5000)
     , m_fontSize(12)
     , m_fileWatcher(nullptr)
@@ -57,6 +60,12 @@ void LogWidget::setupToolbar()
   QPushButton *searchButton = createToolButton(QChar(0xEA6D), "Search (Ctrl+S)", true);
   connect(searchButton, &QPushButton::clicked, this, &LogWidget::toggleSearch);
   m_toolbarLayout->addWidget(searchButton);
+  
+  m_pauseButton = createToolButton(QChar(0xEB2B), "Pause log updates", true);
+  m_pauseButton->setChecked(m_paused);
+  connect(m_pauseButton, &QPushButton::toggled, this, &LogWidget::handlePauseToggled);
+  m_toolbarLayout->addWidget(m_pauseButton);
+  
   QPushButton *autoScrollButton = createToolButton(QChar(0xEA9A), "Auto-scroll", true);
   autoScrollButton->setChecked(m_autoScroll);
   connect(autoScrollButton, &QPushButton::toggled, this, &LogWidget::handleAutoScrollToggled);
@@ -179,6 +188,22 @@ void LogWidget::appendLog(const QString &text, bool isError)
 
 void LogWidget::appendLogWithTimestamp(const QString &timestamp, const QString &text, bool isError)
 {
+  if (m_paused) {
+    QString fullLine = timestamp + text;
+    if (!text.endsWith('\n')) {
+      fullLine += '\n';
+    }
+    m_pausedBuffer.append(fullLine);
+    m_pausedLineCount++;
+    
+    if (m_pauseButton) {
+      m_pauseButton->setToolTip(QString("Resume log updates (%1 lines buffered)").arg(m_pausedLineCount));
+    }
+    
+    emit logActivity();
+    return;
+  }
+  
   QTextCursor cursor(m_textEdit->document());
   cursor.movePosition(QTextCursor::End);
   
@@ -213,6 +238,28 @@ void LogWidget::appendLogWithTimestamp(const QString &timestamp, const QString &
 
 void LogWidget::appendFormattedText(const std::function<void(QTextCursor&)> &formatter)
 {
+  if (m_paused) {
+    QTextDocument tempDoc;
+    QTextCursor tempCursor(&tempDoc);
+    formatter(tempCursor);
+    
+    QString bufferedText = tempDoc.toPlainText();
+    if (!bufferedText.isEmpty()) {
+      m_pausedBuffer.append(bufferedText);
+      m_pausedLineCount += bufferedText.count('\n');
+      if (!bufferedText.endsWith('\n')) {
+        m_pausedLineCount++;
+      }
+      
+      if (m_pauseButton) {
+        m_pauseButton->setToolTip(QString("Resume log updates (%1 lines buffered)").arg(m_pausedLineCount));
+      }
+    }
+    
+    emit logActivity();
+    return;
+  }
+  
   QTextCursor cursor(m_textEdit->document());
   cursor.movePosition(QTextCursor::End);
   
@@ -715,6 +762,62 @@ void LogWidget::updateFromFile()
 void LogWidget::handleAutoScrollToggled(bool checked)
 {
   setAutoScroll(checked);
+}
+
+void LogWidget::handlePauseToggled(bool checked)
+{
+  setPaused(checked);
+}
+
+void LogWidget::setPaused(bool paused)
+{
+  if (m_paused == paused) {
+    return;
+  }
+  
+  m_paused = paused;
+  
+  if (!m_paused) {
+    if (!m_pausedBuffer.isEmpty()) {
+      QTextCursor cursor(m_textEdit->document());
+      cursor.movePosition(QTextCursor::End);
+      
+      QTextCharFormat separatorFormat;
+      separatorFormat.setForeground(QColor(StyleManager::Colors::ACCENT_HIGHLIGHT));
+      cursor.setCharFormat(separatorFormat);
+      cursor.insertText(QString("\n══════ %1 lines buffered while paused ══════\n").arg(m_pausedLineCount));
+      
+      QTextCharFormat normalFormat;
+      normalFormat.setForeground(QColor(StyleManager::Colors::PRIMARY_ORANGE));
+      cursor.setCharFormat(normalFormat);
+      
+      for (const QString &bufferedLine : m_pausedBuffer) {
+        cursor.insertText(bufferedLine);
+      }
+      
+      m_pausedBuffer.clear();
+      m_pausedLineCount = 0;
+      
+      enforceMaxLines();
+      
+      if (m_autoScroll) {
+        QScrollBar *scrollBar = m_textEdit->verticalScrollBar();
+        scrollBar->setValue(scrollBar->maximum());
+      }
+    }
+  }
+  
+  if (m_pauseButton) {
+    if (m_paused) {
+      if (m_pausedLineCount > 0) {
+        m_pauseButton->setToolTip(QString("Resume log updates (%1 lines buffered)").arg(m_pausedLineCount));
+      } else {
+        m_pauseButton->setToolTip("Resume log updates");
+      }
+    } else {
+      m_pauseButton->setToolTip("Pause log updates");
+    }
+  }
 }
 
 void LogWidget::updateIfNeeded()
