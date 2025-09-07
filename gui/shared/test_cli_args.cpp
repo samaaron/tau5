@@ -201,29 +201,69 @@ bool testDevtoolsFlag(TestContext& ctx) {
 #endif
 }
 
-bool testEnvironmentFlags(TestContext& ctx) {
+bool testServerModeControl(TestContext& ctx) {
+    // Test --with-release-server flag
 #ifdef TAU5_RELEASE_BUILD
-    // Environment flags have been removed - environment is determined by build type
-    // Release builds always use prod, dev builds always use dev
-    // This test is not applicable to the new design
-    return true;
-#else
-    // In development builds, environment flags are also removed
-    // but we can test that the default is dev mode
-    ArgSimulator sim;
-    sim.add("tau5");
+    // In release builds, server is always in prod mode
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--with-release-server");
 
-    CommonArgs args;
-    for (int i = 1; i < sim.argc(); ++i) {
-        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
-        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod, 
+                    "Release build always uses prod server");
     }
+#else
+    // In dev builds, test server mode control
+    {
+        // Default should be dev mode
+        ArgSimulator sim;
+        sim.add("tau5");
 
-    // In dev builds, default should be Dev
-    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Dev, "Dev environment in dev build");
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
 
-    return ctx.passed;
+        TEST_ASSERT(ctx, args.env == CommonArgs::Env::Dev, 
+                    "Default server mode should be dev in dev builds");
+    }
+    
+    {
+        // --with-release-server should set prod mode
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--with-release-server");
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod, 
+                    "--with-release-server should set prod server mode");
+        TEST_ASSERT(ctx, args.serverModeExplicitlySet == true,
+                    "--with-release-server should mark server mode as explicitly set");
+    }
 #endif
+    return ctx.passed;
 }
 
 bool testPortArguments(TestContext& ctx) {
@@ -1002,45 +1042,6 @@ bool testReleaseBuildFlagRejection(TestContext& ctx) {
 #ifdef TAU5_RELEASE_BUILD
     // Test that development flags are properly rejected in release builds
 
-    // Test --env-dev rejection
-    {
-        ArgSimulator sim;
-        sim.add("tau5");
-        sim.add("--env-dev");
-
-        CommonArgs args;
-        int i = 1;
-        while (i < sim.argc()) {
-            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
-            int oldI = i;
-            parseSharedArg(sim.argv()[i], nextArg, i, args);
-            if (i == oldI) i++;
-        }
-
-        // In release mode, dev environment should be forced to prod
-        TEST_ASSERT(ctx, args.env != CommonArgs::Env::Dev,
-                    "Release build should not allow dev environment");
-    }
-
-    // Test --env-test rejection
-    {
-        ArgSimulator sim;
-        sim.add("tau5");
-        sim.add("--env-test");
-
-        CommonArgs args;
-        int i = 1;
-        while (i < sim.argc()) {
-            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
-            int oldI = i;
-            parseSharedArg(sim.argv()[i], nextArg, i, args);
-            if (i == oldI) i++;
-        }
-
-        TEST_ASSERT(ctx, args.env != CommonArgs::Env::Test,
-                    "Release build should not allow test environment");
-    }
-
     // Test --with-tidewave rejection
     {
         ArgSimulator sim;
@@ -1122,6 +1123,50 @@ bool testReleaseBuildFlagRejection(TestContext& ctx) {
         // Chrome DevTools flag is parsed but not enabled in prod environment
         TEST_ASSERT(ctx, args.chromeDevtools == true,
                     "Chrome DevTools flag is parsed");
+    }
+
+    // Test that --with-release-server + --devtools still doesn't enable dev features in release
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--with-release-server");
+        sim.add("--devtools");
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        // In release builds, server is always prod mode
+        TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod,
+                    "Release build forces prod environment even with --with-release-server");
+        
+        // Dev features should NOT be enabled in release builds
+        TEST_ASSERT(ctx, !args.mcp,
+                    "MCP should not be enabled in release build");
+        TEST_ASSERT(ctx, !args.tidewave,
+                    "Tidewave should not be enabled in release build");
+        TEST_ASSERT(ctx, !args.chromeDevtools,
+                    "Chrome DevTools should not be enabled in release build");
+        TEST_ASSERT(ctx, !args.repl,
+                    "REPL should not be enabled in release build");
+        
+        // Verify via environment variables too
+        applyEnvironmentVariables(args, "gui");
+        TEST_ASSERT(ctx, qgetenv("MIX_ENV") == "prod",
+                    "MIX_ENV should be prod in release");
+        TEST_ASSERT(ctx, qgetenv("TAU5_ELIXIR_REPL_ENABLED") != "true",
+                    "REPL should not be enabled via environment");
+        TEST_ASSERT(ctx, qgetenv("TAU5_TIDEWAVE_ENABLED") != "true",
+                    "Tidewave should not be enabled via environment");
+        
+        qunsetenv("MIX_ENV");
+        qunsetenv("TAU5_ELIXIR_REPL_ENABLED");
+        qunsetenv("TAU5_TIDEWAVE_ENABLED");
     }
 
     // Test --check is ALLOWED in release builds (for CI/CD)
@@ -1337,6 +1382,80 @@ bool testFriendTokenOrderIndependence(TestContext& ctx) {
 
 // Main test runner
 // Returns 0 if all pass, or the number of failures
+// Test that --with-release-server overrides server mode from --devtools
+// but keeps GUI in dev mode
+bool testReleaseServerWithDevtools(TestContext& ctx) {
+#ifndef TAU5_RELEASE_BUILD
+    // This test only makes sense in dev builds where we can choose server mode
+    {
+        // Test --devtools --with-release-server (order 1)
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--devtools");
+        sim.add("--with-release-server");
+        
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+        
+        // Server should be in prod mode due to --with-release-server
+        TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod,
+                    "--with-release-server should force server to prod mode even with --devtools");
+        
+        // But GUI dev features should still be enabled from --devtools
+        TEST_ASSERT(ctx, args.mcp == true,
+                    "MCP should still be enabled from --devtools");
+        TEST_ASSERT(ctx, args.tidewave == true,
+                    "Tidewave should still be enabled from --devtools");
+        TEST_ASSERT(ctx, args.chromeDevtools == true,
+                    "Chrome DevTools should still be enabled from --devtools");
+        TEST_ASSERT(ctx, args.repl == true,
+                    "REPL should still be enabled from --devtools");
+        TEST_ASSERT(ctx, args.debugPane == true,
+                    "Debug pane should still be enabled from --devtools");
+    }
+    
+    {
+        // Test reverse order: --with-release-server --devtools
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--with-release-server");
+        sim.add("--devtools");
+        
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+        
+        // Server should still be in prod mode (--with-release-server takes precedence)
+        TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod,
+                    "--with-release-server should force server to prod mode regardless of order");
+        
+        // GUI dev features should still be enabled
+        TEST_ASSERT(ctx, args.mcp == true,
+                    "MCP should be enabled (reverse order)");
+        TEST_ASSERT(ctx, args.tidewave == true,
+                    "Tidewave should be enabled (reverse order)");
+        TEST_ASSERT(ctx, args.chromeDevtools == true,
+                    "Chrome DevTools should be enabled (reverse order)");
+        TEST_ASSERT(ctx, args.repl == true,
+                    "REPL should be enabled (reverse order)");
+        TEST_ASSERT(ctx, args.debugPane == true,
+                    "Debug pane should be enabled (reverse order)");
+    }
+#endif
+    return ctx.passed;
+}
+
 int runCliArgumentTests(int& totalTests, int& passedTests) {
     Tau5Logger::instance().info("\n[CLI Argument Tests]");
 
@@ -1347,7 +1466,7 @@ int runCliArgumentTests(int& totalTests, int& passedTests) {
     RUN_TEST(testVersionFlag);
     RUN_TEST(testDefaultValues);
     RUN_TEST(testDevtoolsFlag);
-    RUN_TEST(testEnvironmentFlags);
+    RUN_TEST(testServerModeControl);
     RUN_TEST(testPortArguments);
     RUN_TEST(testInvalidPort);
     RUN_TEST(testModeFlags);
@@ -1377,6 +1496,9 @@ int runCliArgumentTests(int& totalTests, int& passedTests) {
     RUN_TEST(testFriendTokenWithExplicitPort);
     RUN_TEST(testFriendTokenAutoGeneration);
     RUN_TEST(testFriendTokenOrderIndependence);
+    
+    // Server mode precedence tests
+    RUN_TEST(testReleaseServerWithDevtools);
 
     // Count results
     int passed = 0;

@@ -25,6 +25,7 @@ struct CommonArgs {
     #else
     Env env = Env::Dev;   // Development builds default to development
     #endif
+    bool serverModeExplicitlySet = false; // Track if server mode was explicitly set via --with-release-server
     
     // Deployment mode override (tau5-node only, controls TAU5_MODE)
     enum class Mode {
@@ -135,7 +136,11 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         args.env = CommonArgs::Env::Prod;
         // Other devtools flags are ignored in release
 #else
-        args.env = CommonArgs::Env::Dev;
+        // Only set server to dev mode if not explicitly set to prod by --with-release-server
+        if (!args.serverModeExplicitlySet) {
+            args.env = CommonArgs::Env::Dev;
+        }
+        // GUI dev features are always enabled with --devtools
         args.mcp = true;
         args.tidewave = true;
         args.chromeDevtools = true;
@@ -242,25 +247,10 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         }
         return true;
     }
-    // Environment override
-    else if (std::strcmp(arg, "--env-dev") == 0) {
-#ifdef TAU5_RELEASE_BUILD
-        // Release builds force prod, ignore dev flag
+    // Server mode override
+    else if (std::strcmp(arg, "--with-release-server") == 0) {
         args.env = CommonArgs::Env::Prod;
-#else
-        args.env = CommonArgs::Env::Dev;
-#endif
-        return true;
-    } else if (std::strcmp(arg, "--env-prod") == 0) {
-        args.env = CommonArgs::Env::Prod;
-        return true;
-    } else if (std::strcmp(arg, "--env-test") == 0) {
-#ifdef TAU5_RELEASE_BUILD
-        // Release builds force prod, ignore test flag
-        args.env = CommonArgs::Env::Prod;
-#else
-        args.env = CommonArgs::Env::Test;
-#endif
+        args.serverModeExplicitlySet = true;
         return true;
     }
     // Other

@@ -260,7 +260,11 @@ int main(int argc, char *argv[])
                   << "  --devtools               All-in-one dev setup (MCP + Chrome DevTools + Tidewave + REPL)\n"
                   << "\n";
 #endif
-        std::cout << "Port Configuration:\n"
+        std::cout << "Server Configuration:\n"
+                  << "  --with-release-server    Use compiled release server in production mode\n"
+                  << "                           (default: development server from source)\n"
+                  << "\n"
+                  << "Port Configuration:\n"
                   << "  --port-local <n>         Local web UI port (default: random)\n"
                   << "  --port-public <n>        Public endpoint port (default: disabled)\n"
                   << "  --port-mcp <n>           MCP services port (default: 5555 when enabled)\n"
@@ -278,11 +282,8 @@ int main(int argc, char *argv[])
                   << "  --chrome-devtools        Enable Chrome DevTools\n"
                   << "  --repl                   Enable Elixir REPL\n";
 #endif
-        std::cout << "  --verbose                Enable verbose logging\n";
-#ifndef TAU5_RELEASE_BUILD
-        std::cout << "  --debug-pane             Enable debug pane [default]\n";
-#endif
-        std::cout << "\n"
+        std::cout << "  --verbose                Enable verbose logging\n"
+                  << "\n"
                   << "Disable Features:\n"
                   << "  --no-midi                Disable MIDI support\n"
                   << "  --no-link                Disable Ableton Link support\n"
@@ -329,20 +330,15 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  // Check if we're in dev environment from the parsed arguments
-  bool isDevMode = (args.env == Tau5CLI::CommonArgs::Env::Dev);
+  // Separate GUI mode from server mode
+  // GUI stays in dev mode for dev builds unless explicitly overridden
+  // Server mode can be changed independently with --with-release-server
+  bool isServerDevMode = (args.env == Tau5CLI::CommonArgs::Env::Dev);
+  bool isGuiDevMode = true; // Always true for dev builds
   
   // Validate that the requested mode matches the build type
 #ifdef TAU5_RELEASE_BUILD
   // In release builds, reject all development-only flags
-  if (args.env == Tau5CLI::CommonArgs::Env::Dev) {
-    std::cerr << "Error: Development mode (--env-dev) is not available in release builds\n";
-    return 1;
-  }
-  if (args.env == Tau5CLI::CommonArgs::Env::Test) {
-    std::cerr << "Error: Test mode (--env-test) is not available in release builds\n";
-    return 1;
-  }
   if (args.tidewave) {
     std::cerr << "Error: Tidewave MCP server (--with-tidewave) is not available in release builds\n";
     return 1;
@@ -369,10 +365,11 @@ int main(int argc, char *argv[])
   }
   // Force production settings
   args.env = Tau5CLI::CommonArgs::Env::Prod;
-  isDevMode = false;
+  isServerDevMode = false;
+  isGuiDevMode = false; // Release builds force GUI to prod mode too
 #endif
 
-  if (isDevMode)
+  if (isGuiDevMode)
   {
     setupConsoleOutput();
   }
@@ -389,7 +386,7 @@ int main(int argc, char *argv[])
   };
   logConfig.emitQtSignals = args.debugPane;
   logConfig.consoleEnabled = true;
-  logConfig.consoleColors = isDevMode;
+  logConfig.consoleColors = isGuiDevMode;
   logConfig.reuseRecentSession = false;
   logConfig.baseLogDir = Tau5Logger::getBaseLogDir();
 
@@ -425,7 +422,7 @@ int main(int argc, char *argv[])
   Tau5Logger::initialize(logConfig);
   Tau5Logger::instance().info("Starting Tau5...");
   
-  if (isDevMode)
+  if (isGuiDevMode)
   {
     Tau5Logger::instance().info("Development mode enabled.");
     // In dev mode, also allocate a random port for security unless custom port specified
@@ -442,7 +439,9 @@ int main(int argc, char *argv[])
   }
   else
   {
-    Tau5Logger::instance().info("Production mode enabled.");
+    if (!isServerDevMode) {
+      Tau5Logger::instance().info("Server will run in production mode.");
+    }
     if (!args.portLocal) {
       auto portHolder = allocatePort(port);
       if (!portHolder || port == 0)
@@ -474,21 +473,32 @@ int main(int argc, char *argv[])
   QString basePath = getServerBasePath(args.serverPath);
   
 #ifndef TAU5_RELEASE_BUILD
-  // In dev builds, automatically adjust path for --env-prod if needed
-  if (!isDevMode && basePath.isEmpty()) {
-    // Try to find the production release in the standard location
-    QString appDir = QCoreApplication::applicationDirPath();
-    QDir searchDir(appDir);
-    
-    // Go up directories looking for server/_build/prod/rel/tau5
-    for (int i = 0; i < 5; i++) {
-      QString candidatePath = searchDir.absoluteFilePath("server/_build/prod/rel/tau5");
-      if (QDir(candidatePath).exists("bin/tau5")) {
-        basePath = candidatePath;
-        Tau5Logger::instance().info(QString("Auto-detected production release at: %1").arg(basePath));
-        break;
+  // In dev builds, automatically adjust path for --with-release-server if needed
+  Tau5Logger::instance().debug(QString("isServerDevMode: %1, serverPath empty: %2").arg(isServerDevMode).arg(args.serverPath.empty()));
+  if (!isServerDevMode) {
+    // User is requesting production mode with --with-release-server
+    // Check if the server path (default or provided) has a release build
+    if (!basePath.isEmpty()) {
+      QString releasePath = QDir(basePath).absoluteFilePath("_build/prod/rel/tau5");
+      if (QDir(releasePath).exists("bin/tau5")) {
+        basePath = releasePath;
+        Tau5Logger::instance().info(QString("Using production release at: %1").arg(basePath));
       }
-      if (!searchDir.cdUp()) break;
+    } else {
+      // No default path, try to auto-detect
+      QString appDir = QCoreApplication::applicationDirPath();
+      QDir searchDir(appDir);
+      
+      // Go up directories looking for server/_build/prod/rel/tau5
+      for (int i = 0; i < 5; i++) {
+        QString candidatePath = searchDir.absoluteFilePath("server/_build/prod/rel/tau5");
+        if (QDir(candidatePath).exists("bin/tau5")) {
+          basePath = candidatePath;
+          Tau5Logger::instance().info(QString("Auto-detected production release at: %1").arg(basePath));
+          break;
+        }
+        if (!searchDir.cdUp()) break;
+      }
     }
   }
 #endif
@@ -519,20 +529,20 @@ int main(int argc, char *argv[])
   bool hasSourceStructure = serverDir.exists("mix.exs");
   bool hasReleaseStructure = serverDir.exists("bin/tau5");
   
-  if (isDevMode && !hasSourceStructure) {
-    Tau5Logger::instance().error("--env-dev requires source structure (mix.exs) but not found");
+  if (isServerDevMode && !hasSourceStructure) {
+    Tau5Logger::instance().error("Development server requires source structure (mix.exs) but not found");
     Tau5Logger::instance().error(QString("Server path: %1").arg(basePath));
     QMessageBox::critical(nullptr, "Error", 
                           "Development mode requires source structure.\n\n"
                           "mix.exs not found in:\n" + basePath + "\n\n"
-                          "This appears to be a release structure. Use --env-prod instead.");
+                          "This appears to be a release structure. Use --with-release-server instead.");
     return 1;
   }
   
-  if (!isDevMode && !hasReleaseStructure) {
+  if (!isServerDevMode && !hasReleaseStructure) {
     // Only error if we also don't have source structure
     if (!hasSourceStructure) {
-      Tau5Logger::instance().error("--env-prod requires release structure but server directory is invalid");
+      Tau5Logger::instance().error("Production server requires release structure but server directory is invalid");
       Tau5Logger::instance().error(QString("Server path: %1").arg(basePath));
       QMessageBox::critical(nullptr, "Error", 
                             "Production mode requires release structure.\n\n"
@@ -540,7 +550,7 @@ int main(int argc, char *argv[])
       return 1;
     }
     // If we have source structure but no release, give helpful message
-    Tau5Logger::instance().error("--env-prod requires release structure (bin/tau5) but not found");
+    Tau5Logger::instance().error("Production server requires release structure (bin/tau5) but not found");
     QString helpMessage = QString(
       "Production mode requires a compiled release.\n\n"
       "To create a production release:\n"
@@ -548,7 +558,7 @@ int main(int argc, char *argv[])
       "2. MIX_ENV=prod mix deps.get --only prod\n"
       "3. MIX_ENV=prod mix compile\n"
       "4. MIX_ENV=prod mix release\n\n"
-      "Or use --env-dev for development mode."
+      "Or run without --with-release-server for development mode."
     ).arg(basePath);
     QMessageBox::critical(nullptr, "Error", helpMessage);
     return 1;
@@ -558,7 +568,7 @@ int main(int argc, char *argv[])
   // Map environment variables to mainwindow constructor parameters
   bool enableMcp = (qgetenv("TAU5_MCP_PORT") != "0" && !qgetenv("TAU5_MCP_PORT").isEmpty());
   bool enableRepl = (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
-  MainWindow mainWindow(isDevMode, args.debugPane, enableMcp, enableRepl);
+  MainWindow mainWindow(isGuiDevMode, args.debugPane, enableMcp, enableRepl);
 
   if (args.debugPane) {
     QObject::connect(&Tau5Logger::instance(), &Tau5Logger::logMessage,
@@ -595,12 +605,12 @@ int main(int argc, char *argv[])
 
   Tau5Logger::instance().info("Delaying BEAM server startup by 1 second...");
 
-  QTimer::singleShot(Tau5Common::Config::BEAM_STARTUP_DELAY_MS, [&app, &beam, &mainWindow, basePath, port, isDevMode]() {
+  QTimer::singleShot(Tau5Common::Config::BEAM_STARTUP_DELAY_MS, [&app, &beam, &mainWindow, basePath, port, isServerDevMode]() {
     Tau5Logger::instance().info("Starting BEAM server...");
     bool beamEnableMcp = (qgetenv("TAU5_MCP_PORT") != "0" && !qgetenv("TAU5_MCP_PORT").isEmpty());
     bool beamEnableRepl = (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
     beam = std::make_shared<Beam>(&app, basePath, Tau5Common::Config::APP_NAME,
-                                  Tau5Common::Config::APP_VERSION, port, isDevMode, beamEnableMcp, beamEnableRepl, Beam::DeploymentMode::Gui);
+                                  Tau5Common::Config::APP_VERSION, port, isServerDevMode, beamEnableMcp, beamEnableRepl, Beam::DeploymentMode::Gui);
 
     mainWindow.setBeamInstance(beam.get());
 
