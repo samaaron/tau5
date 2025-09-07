@@ -19,14 +19,6 @@
 #include "tau5logger.h"
 #include "error_codes.h"
 
-#ifndef Q_OS_WIN
-#include <signal.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <errno.h>
-#include <cstring>
-#endif
-
 using namespace Tau5Common;
 
 Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp, bool enableRepl, DeploymentMode deploymentMode)
@@ -637,51 +629,38 @@ void Beam::killBeamProcess()
   }
 
 #else
-  auto still_running = [](pid_t pid) {
-    if (::kill(pid, 0) == 0) return true;
-    return errno == EPERM;
-  };
-
-  auto pid = static_cast<pid_t>(beamPid);
-
+  // Use synchronous QProcess::execute for reliable kill during shutdown
+  // This ensures the kill commands complete before the GUI process exits
   Tau5Logger::instance().debug(QString("Unix: Sending SIGTERM to PID: %1").arg(beamPid));
-  if (::kill(pid, SIGTERM) == -1) {
-    if (errno == ESRCH) {
-      Tau5Logger::instance().debug(QString("Process %1 not found").arg(beamPid));
+  int result = QProcess::execute("kill", {"-TERM", QString::number(beamPid)});
+
+  if (result != 0)
+  {
+    Tau5Logger::instance().debug(QString("Process %1 not found or already terminated").arg(beamPid));
+    beamPid = 0;
+    return;
+  }
+
+  // Wait briefly for SIGTERM (1 second) - BEAM with --no-halt typically ignores it
+  for (int i = 1; i > 0; --i)
+  {
+    result = QProcess::execute("kill", {"-0", QString::number(beamPid)});
+
+    if (result != 0)
+    {
+      Tau5Logger::instance().debug(QString("Process %1 terminated gracefully").arg(beamPid));
       beamPid = 0;
       return;
-    } else if (errno == EPERM) {
-      Tau5Logger::instance().debug(QString("Permission denied sending SIGTERM to %1").arg(beamPid));
-    } else {
-      Tau5Logger::instance().debug(QString("Failed to send SIGTERM to %1: %2")
-        .arg(beamPid).arg(QString::fromLocal8Bit(std::strerror(errno))));
-    }
-  }
-
-  for (int i = 0; i < 50 && still_running(pid); ++i) {
-    QThread::msleep(100);
-  }
-
-  if (still_running(pid)) {
-    Tau5Logger::instance().debug(QString("Unix: Sending SIGKILL to PID: %1").arg(beamPid));
-    if (::kill(pid, SIGKILL) == -1 && errno != ESRCH) {
-      Tau5Logger::instance().debug(QString("Failed to send SIGKILL to %1: %2")
-        .arg(beamPid).arg(QString::fromLocal8Bit(std::strerror(errno))));
     }
 
-    for (int i = 0; i < 20 && still_running(pid); ++i) {
-      QThread::msleep(50);
-    }
+    Tau5Logger::instance().debug(QString("Process %1 still running, waiting... %2").arg(beamPid).arg(i));
+    QThread::msleep(1000);
   }
 
-  if (!still_running(pid)) {
-    Tau5Logger::instance().debug(QString("Process %1 terminated").arg(beamPid));
-    beamPid = 0;
-  } else {
-    (void)::kill(pid, 0);
-    Tau5Logger::instance().warning(QString("Process %1 still running after SIGKILL (errno=%2: %3)")
-      .arg(beamPid).arg(errno).arg(QString::fromLocal8Bit(std::strerror(errno))));
-  }
+  // BEAM with --no-halt ignores SIGTERM, so send SIGKILL
+  Tau5Logger::instance().debug(QString("Unix: Sending SIGKILL to PID: %1").arg(beamPid));
+  QProcess::execute("kill", {"-9", QString::number(beamPid)});
+  beamPid = 0;
 #endif
 }
 
