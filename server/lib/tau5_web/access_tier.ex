@@ -61,8 +61,8 @@ defmodule Tau5Web.AccessTier do
        fs_access: true,
        # Can modify state
        mutate: true,
-       # No direct console for security
-       console_access: false,
+       # Friend users can access Lua console
+       console_access: true,
        # Extended Lua capabilities
        lua_privileged: true,
        # Can use MIDI
