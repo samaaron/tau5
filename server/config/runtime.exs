@@ -126,6 +126,14 @@ if public_port > 0 do
       # Bind to all interfaces for public access
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: public_port
+    ],
+    check_origin: [
+      "http://localhost:#{public_port}",
+      "http://127.0.0.1:#{public_port}",
+      "http://[::1]:#{public_port}",
+      "http://[::]:#{public_port}",
+      "//localhost:#{public_port}",
+      "//127.0.0.1:#{public_port}"
     ]
 end
 
