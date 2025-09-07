@@ -41,6 +41,13 @@ defmodule Tau5.Application do
     public_endpoint_enabled = Application.get_env(:tau5, :public_endpoint_enabled, false)
     public_port = Application.get_env(:tau5, :public_port, 0)
     
+    # Log friend authentication configuration
+    friend_mode = Application.get_env(:tau5, :friend_mode_enabled, false)
+    friend_token = Application.get_env(:tau5, :friend_token)
+    if friend_mode do
+      Logger.info("Friend mode enabled with token: #{if friend_token, do: "[CONFIGURED]", else: "[NOT SET]"}")
+    end
+    
     public_endpoint_port =
       if public_port > 0 or public_endpoint_enabled do
         case Tau5.PortFinder.configure_endpoint_port(Tau5Web.PublicEndpoint) do

@@ -20,7 +20,10 @@ defmodule Tau5Web.Plugs.FriendAuthentication do
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    if friend_mode_enabled?() do
+    friend_enabled = friend_mode_enabled?()
+    Logger.debug("FriendAuth: Friend mode enabled: #{inspect(friend_enabled)}")
+    
+    if friend_enabled do
       conn
       |> fetch_session()
       |> authenticate_friend()
@@ -35,22 +38,35 @@ defmodule Tau5Web.Plugs.FriendAuthentication do
 
   defp authenticate_friend(conn) do
     expected_token = Application.get_env(:tau5, :friend_token)
+    
+    Logger.debug("FriendAuth: Expected token configured: #{inspect(not is_nil(expected_token))}")
 
     cond do
       # No token configured - skip authentication
       is_nil(expected_token) or expected_token == "" ->
+        Logger.debug("FriendAuth: No token configured, skipping auth")
         conn
+
+      # Check if already authenticated in session
+      get_session(conn, "friend_authenticated") == true ->
+        Logger.debug("FriendAuth: Already authenticated via session")
+        conn
+        |> assign(:friend_authenticated, true)
+        |> assign(:access_tier, "friend")
 
       # Check authentication methods in order
       true ->
         provided_token = get_provided_token(conn)
+        Logger.debug("FriendAuth: Provided token: #{inspect(provided_token)}")
 
         if secure_compare(provided_token, expected_token) do
+          Logger.info("FriendAuth: Token matched, granting friend access")
           conn
           |> set_friend_session()
           |> assign(:friend_authenticated, true)
           |> assign(:access_tier, "friend")
         else
+          Logger.debug("FriendAuth: Token mismatch or missing")
           # Check if friend token is required for all access
           if Application.get_env(:tau5, :friend_require_token, false) && provided_token == nil do
             conn
