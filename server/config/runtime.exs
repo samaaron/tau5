@@ -121,20 +121,23 @@ config :tau5, :public_endpoint_enabled, public_port > 0
 
 # Configure the public endpoint's HTTP settings when a port is specified
 if public_port > 0 do
+  # Origin checking configuration
+  # - true: allows origins that match the Host header (dynamic)
+  # - list: only allows specific origins (static)
+  # - false: disables checking (insecure)
+  public_check_origin = if System.get_env("TAU5_MODE") == "central" do
+    ["https://tau5.live", "http://localhost:#{public_port}"]
+  else
+    true  # Allow origins matching the Host header
+  end
+  
   config :tau5, Tau5Web.PublicEndpoint,
     http: [
       # Bind to all interfaces for public access
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: public_port
     ],
-    check_origin: [
-      "http://localhost:#{public_port}",
-      "http://127.0.0.1:#{public_port}",
-      "http://[::1]:#{public_port}",
-      "http://[::]:#{public_port}",
-      "//localhost:#{public_port}",
-      "//127.0.0.1:#{public_port}"
-    ]
+    check_origin: public_check_origin
 end
 
 # MCP endpoint is enabled when TAU5_MCP_ENABLED is true
