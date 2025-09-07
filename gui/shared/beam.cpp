@@ -641,8 +641,7 @@ void Beam::killBeamProcess()
     return;
   }
 
-  // Wait briefly for SIGTERM (1 second) - BEAM with --no-halt typically ignores it
-  for (int i = 1; i > 0; --i)
+  for (int i = 5; i > 0; --i)
   {
     result = QProcess::execute("kill", {"-0", QString::number(beamPid)});
 
