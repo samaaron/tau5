@@ -1,4 +1,5 @@
 #include "common.h"
+#include "tau5logger.h"
 #include <QTcpServer>
 #include <QDir>
 #include <QThread>
@@ -265,6 +266,38 @@ void cleanupSignalHandlers() {
         ::close(signalPipeFd[1]);
         signalPipeFd[1] = -1;
     }
+#endif
+}
+
+QString resolveProductionServerPath(const QString& basePath, bool verbose) {
+#ifndef TAU5_RELEASE_BUILD
+    if (!basePath.isEmpty()) {
+        QString releasePath = QDir(basePath).absoluteFilePath("_build/prod/rel/tau5");
+        if (QDir(releasePath).exists("bin/tau5")) {
+            if (verbose) {
+                Tau5Logger::instance().info(QString("Using production release at: %1").arg(releasePath));
+            }
+            return releasePath;
+        }
+        return basePath;
+    } else {
+        QString appDir = QCoreApplication::applicationDirPath();
+        QDir searchDir(appDir);
+        
+        for (int i = 0; i < 5; i++) {
+            QString candidatePath = searchDir.absoluteFilePath("server/_build/prod/rel/tau5");
+            if (QDir(candidatePath).exists("bin/tau5")) {
+                if (verbose) {
+                    Tau5Logger::instance().info(QString("Auto-detected production release at: %1").arg(candidatePath));
+                }
+                return candidatePath;
+            }
+            if (!searchDir.cdUp()) break;
+        }
+        return QString();
+    }
+#else
+    return basePath;
 #endif
 }
 

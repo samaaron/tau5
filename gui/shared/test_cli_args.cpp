@@ -1456,6 +1456,32 @@ bool testReleaseServerWithDevtools(TestContext& ctx) {
     return ctx.passed;
 }
 
+bool testCheckWithReleaseServer(TestContext& ctx) {
+#ifndef TAU5_RELEASE_BUILD
+    ArgSimulator sim;
+    sim.add("tau5-node");
+    sim.add("--check");
+    sim.add("--with-release-server");
+    
+    CommonArgs args;
+    int i = 1;
+    while (i < sim.argc()) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        int oldI = i;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        if (i == oldI) i++;
+    }
+    
+    TEST_ASSERT(ctx, args.check == true, "--check flag should be set");
+    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod, 
+                "--with-release-server should set env to Prod");
+    TEST_ASSERT(ctx, args.serverModeExplicitlySet == true,
+                "serverModeExplicitlySet should be true with --with-release-server");
+    TEST_ASSERT(ctx, !args.hasError, "No errors should occur with valid flags");
+#endif
+    return ctx.passed;
+}
+
 int runCliArgumentTests(int& totalTests, int& passedTests) {
     Tau5Logger::instance().info("\n[CLI Argument Tests]");
 
@@ -1499,6 +1525,7 @@ int runCliArgumentTests(int& totalTests, int& passedTests) {
     
     // Server mode precedence tests
     RUN_TEST(testReleaseServerWithDevtools);
+    RUN_TEST(testCheckWithReleaseServer);
 
     // Count results
     int passed = 0;

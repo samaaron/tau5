@@ -321,8 +321,13 @@ int main(int argc, char *argv[]) {
         logConfig.baseLogDir = Tau5Logger::getBaseLogDir();
         Tau5Logger::initialize(logConfig);
 
-        // Get server path
         QString basePath = getServerBasePath(args.serverPath);
+        
+#ifndef TAU5_RELEASE_BUILD
+        if (args.env == Tau5CLI::CommonArgs::Env::Prod) {
+            basePath = resolveProductionServerPath(basePath, args.verbose);
+        }
+#endif
 
         // Run health check
         Tau5HealthCheck::HealthCheckConfig checkConfig;
@@ -437,8 +442,13 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Get server base path
     QString basePath = getServerBasePath(args.serverPath);
+
+#ifndef TAU5_RELEASE_BUILD
+    if (!isDevMode) {
+        basePath = resolveProductionServerPath(basePath, args.verbose);
+    }
+#endif
 
     // Check if server path is configured
     if (basePath.isEmpty()) {

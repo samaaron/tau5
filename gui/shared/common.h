@@ -38,8 +38,8 @@ namespace Tau5Common {
     // Returns a TcpServer that holds the port until you're ready to use it
     std::unique_ptr<QTcpServer> allocatePort(quint16& outPort, const QHostAddress& address = QHostAddress::Any);
 
-    // Get the server base path (from command-line override, environment variable, or default)
     QString getServerBasePath(const std::string& commandLineOverride = "");
+    QString resolveProductionServerPath(const QString& basePath, bool verbose = false);
 
     // Setup console output on Windows
     bool setupConsoleOutput();

@@ -402,8 +402,13 @@ int main(int argc, char *argv[])
     // Use QCoreApplication for headless check mode - no GUI required
     QCoreApplication tempApp(argc, argv);
     
-    // Get server base path
     QString basePath = getServerBasePath(args.serverPath);
+    
+#ifndef TAU5_RELEASE_BUILD
+    if (!isServerDevMode) {
+      basePath = resolveProductionServerPath(basePath, args.verbose);
+    }
+#endif
     
     // Run the shared health check
     Tau5HealthCheck::HealthCheckConfig checkConfig;
@@ -473,33 +478,9 @@ int main(int argc, char *argv[])
   QString basePath = getServerBasePath(args.serverPath);
   
 #ifndef TAU5_RELEASE_BUILD
-  // In dev builds, automatically adjust path for --with-release-server if needed
   Tau5Logger::instance().debug(QString("isServerDevMode: %1, serverPath empty: %2").arg(isServerDevMode).arg(args.serverPath.empty()));
   if (!isServerDevMode) {
-    // User is requesting production mode with --with-release-server
-    // Check if the server path (default or provided) has a release build
-    if (!basePath.isEmpty()) {
-      QString releasePath = QDir(basePath).absoluteFilePath("_build/prod/rel/tau5");
-      if (QDir(releasePath).exists("bin/tau5")) {
-        basePath = releasePath;
-        Tau5Logger::instance().info(QString("Using production release at: %1").arg(basePath));
-      }
-    } else {
-      // No default path, try to auto-detect
-      QString appDir = QCoreApplication::applicationDirPath();
-      QDir searchDir(appDir);
-      
-      // Go up directories looking for server/_build/prod/rel/tau5
-      for (int i = 0; i < 5; i++) {
-        QString candidatePath = searchDir.absoluteFilePath("server/_build/prod/rel/tau5");
-        if (QDir(candidatePath).exists("bin/tau5")) {
-          basePath = candidatePath;
-          Tau5Logger::instance().info(QString("Auto-detected production release at: %1").arg(basePath));
-          break;
-        }
-        if (!searchDir.cdUp()) break;
-      }
-    }
+    basePath = resolveProductionServerPath(basePath, args.verbose);
   }
 #endif
   
