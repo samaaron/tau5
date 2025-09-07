@@ -9,8 +9,10 @@
 #include <QJsonDocument>
 #include <QUuid>
 #include <QElapsedTimer>
+#include <QRegularExpression>
 #include <iostream>
 #include <memory>
+#include <algorithm>
 #include "mcpserver_stdio.h"
 #include "../shared/tau5logger.h"
 #include "cdpclient.h"
@@ -1402,35 +1404,53 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "chromium_devtools_getGuiLogs",
-        "Get GUI application logs from the debug pane",
+        "chromium_devtools_searchLogs",
+        "Advanced log search with regex, multi-session support, and flexible filtering",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{
-                {"tail", QJsonObject{
-                    {"type", "integer"},
-                    {"description", "Number of recent log lines to return (default: 100, ignored if offset is provided)"}
-                }},
-                {"offset", QJsonObject{
-                    {"type", "integer"},
-                    {"description", "Starting line number (1-based, optional)"}
-                }},
-                {"limit", QJsonObject{
-                    {"type", "integer"},
-                    {"description", "Maximum number of lines to return when using offset (default: 100)"}
-                }},
-                {"level", QJsonObject{
+                {"sessions", QJsonObject{
                     {"type", "string"},
-                    {"enum", QJsonArray{"all", "error", "warning", "info", "debug"}},
-                    {"description", "Filter by log level (default: all)"}
+                    {"description", "Session selection: 'latest', 'all', or comma-separated indices like '0,1,2' (default: 'latest')"}
                 }},
-                {"search", QJsonObject{
+                {"pattern", QJsonObject{
                     {"type", "string"},
-                    {"description", "Search term to filter logs"}
+                    {"description", "Search pattern - can be plain text or regex (use with isRegex:true)"}
                 }},
-                {"sessionIndex", QJsonObject{
+                {"isRegex", QJsonObject{
+                    {"type", "boolean"},
+                    {"description", "Treat pattern as regular expression (default: false)"}
+                }},
+                {"caseSensitive", QJsonObject{
+                    {"type", "boolean"},
+                    {"description", "Case-sensitive search (default: false)"}
+                }},
+                {"levels", QJsonObject{
+                    {"type", "array"},
+                    {"items", QJsonObject{{"type", "string"}, {"enum", QJsonArray{"error", "warning", "info", "debug"}}}},
+                    {"description", "Filter by log levels (empty = all levels)"}
+                }},
+                {"range", QJsonObject{
+                    {"type", "object"},
+                    {"properties", QJsonObject{
+                        {"start", QJsonObject{{"type", "integer"}, {"description", "Starting line number (1-based)"}}},
+                        {"end", QJsonObject{{"type", "integer"}, {"description", "Ending line number (inclusive)"}}},
+                        {"last", QJsonObject{{"type", "integer"}, {"description", "Last N lines from end"}}}
+                    }},
+                    {"description", "Line range to search (omit for entire file)"}
+                }},
+                {"context", QJsonObject{
                     {"type", "integer"},
-                    {"description", "Session index (0=latest, 1=next oldest, etc. Default: 0)"}
+                    {"description", "Number of context lines before/after matches (default: 0)"}
+                }},
+                {"maxResults", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Maximum results to return per session (default: 100)"}
+                }},
+                {"format", QJsonObject{
+                    {"type", "string"},
+                    {"enum", QJsonArray{"full", "compact", "json"}},
+                    {"description", "Output format: 'full' includes line numbers and session info, 'compact' is just matching lines, 'json' returns structured data (default: 'full')"}
                 }}
             }},
             {"required", QJsonArray{}}
@@ -1440,18 +1460,43 @@ int main(int argc, char *argv[])
             QElapsedTimer timer;
             timer.start();
             
-            bool hasOffset = params.contains("offset");
-            int offset = hasOffset ? params["offset"].toInt() : 0;
-            int limit = params.contains("limit") ? params["limit"].toInt() : 100;
-            int tail = params.contains("tail") ? params["tail"].toInt() : 100;
-            QString level = params.contains("level") ? params["level"].toString() : "all";
-            QString search = params.contains("search") ? params["search"].toString() : "";
-            int sessionIndex = params.contains("sessionIndex") ? params["sessionIndex"].toInt() : 0;
+            // Parse parameters
+            QString sessions = params.value("sessions").toString("latest");
+            QString pattern = params.value("pattern").toString();
+            bool isRegex = params.value("isRegex").toBool(false);
+            bool caseSensitive = params.value("caseSensitive").toBool(false);
+            QJsonArray levelsArray = params.value("levels").toArray();
+            QJsonObject range = params.value("range").toObject();
+            int contextLines = params.value("context").toInt(0);
+            int maxResults = params.value("maxResults").toInt(100);
+            QString format = params.value("format").toString("full");
+            
+            // Convert levels array to set for fast lookup
+            QSet<QString> levelFilter;
+            for (const auto& level : levelsArray) {
+                QString levelStr = level.toString().toUpper();
+                if (levelStr == "WARNING") levelStr = "WARN";
+                levelFilter.insert(QString("[%1]").arg(levelStr));
+            }
+            
+            // Prepare regex if needed
+            QRegularExpression regex;
+            if (isRegex && !pattern.isEmpty()) {
+                QRegularExpression::PatternOptions options = QRegularExpression::NoPatternOption;
+                if (!caseSensitive) options |= QRegularExpression::CaseInsensitiveOption;
+                regex = QRegularExpression(pattern, options);
+                if (!regex.isValid()) {
+                    return QJsonObject{
+                        {"type", "text"},
+                        {"text", QString("Invalid regex pattern: %1").arg(regex.errorString())}
+                    };
+                }
+            }
             
             QString tau5DataPath = Tau5Logger::getTau5DataPath();
             QString tau5LogsPath = QDir(tau5DataPath).absoluteFilePath("logs/gui");
             
-            // Find session folders - they're named YYYY-MM-DD_HHmmss_pPID
+            // Get session directories
             QDir logsDir(tau5LogsPath);
             QStringList sessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed);
             
@@ -1462,79 +1507,231 @@ int main(int argc, char *argv[])
                 };
             }
             
-            // Check if requested session index exists
-            if (sessionIndex >= sessionDirs.size()) {
-                return QJsonObject{
-                    {"type", "text"},
-                    {"text", QString("Session index %1 not found. Available sessions: 0-%2").arg(sessionIndex).arg(sessionDirs.size() - 1)}
-                };
-            }
-            
-            // Use the session at the specified index (0 = latest by alphabetical order)
-            QString sessionPath = QDir(tau5LogsPath).absoluteFilePath(sessionDirs.at(sessionIndex));
-            QString logFilePath = QDir(sessionPath).absoluteFilePath("gui.log");
-            
-            QFile logFile(logFilePath);
-            if (!logFile.exists()) {
-                return QJsonObject{
-                    {"type", "text"},
-                    {"text", QString("No GUI logs found. Looking at: %1").arg(logFilePath)}
-                };
-            }
-            
-            if (!logFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                return QJsonObject{
-                    {"type", "text"},
-                    {"text", QString("Error: Could not open log file: %1").arg(logFile.errorString())}
-                };
-            }
-            
-            QTextStream stream(&logFile);
-            QStringList allLines;
-            while (!stream.atEnd()) {
-                allLines.append(stream.readLine());
-            }
-            logFile.close();
-            
-            QStringList filteredLines;
-            for (const QString& line : allLines) {
-                if (level != "all") {
-                    QString levelTag = QString("[%1]").arg(level.toUpper());
-                    if (level == "warning") levelTag = "[WARN]";
-                    if (!line.contains(levelTag)) continue;
+            // Determine which sessions to search
+            QList<int> sessionIndices;
+            if (sessions == "all") {
+                for (int i = 0; i < sessionDirs.size(); ++i) {
+                    sessionIndices.append(i);
                 }
+            } else if (sessions == "latest") {
+                sessionIndices.append(0);
+            } else {
+                // Parse comma-separated indices
+                QStringList indexStrs = sessions.split(',', Qt::SkipEmptyParts);
+                for (const QString& indexStr : indexStrs) {
+                    bool ok;
+                    int idx = indexStr.trimmed().toInt(&ok);
+                    if (ok && idx >= 0 && idx < sessionDirs.size()) {
+                        sessionIndices.append(idx);
+                    }
+                }
+            }
+            
+            // Process each session
+            QJsonArray jsonResults;
+            QStringList textResults;
+            
+            for (int sessionIdx : sessionIndices) {
+                QString sessionName = sessionDirs.at(sessionIdx);
+                QString sessionPath = QDir(tau5LogsPath).absoluteFilePath(sessionName);
+                QString logFilePath = QDir(sessionPath).absoluteFilePath("gui.log");
                 
-                if (!search.isEmpty() && !line.contains(search, Qt::CaseInsensitive)) {
+                QFile logFile(logFilePath);
+                if (!logFile.exists() || !logFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
                     continue;
                 }
                 
-                filteredLines.append(line);
-            }
-            
-            QStringList resultLines;
-            if (hasOffset) {
-                // Use offset/limit for line range
-                int startIdx = qMax(0, offset - 1); // Convert to 0-based
-                int endIdx = qMin(filteredLines.size(), startIdx + limit);
-                resultLines = filteredLines.mid(startIdx, endIdx - startIdx);
-            } else {
-                // Use tail for last N lines
-                int startIndex = qMax(0, filteredLines.size() - tail);
-                resultLines = filteredLines.mid(startIndex);
-            }
-            
-            QString resultText = resultLines.join("\n");
-            if (resultText.isEmpty()) {
-                resultText = QString("No logs match the specified criteria. (Session: %1)").arg(sessionDirs.at(sessionIndex));
-            } else {
-                // Add session info header
-                resultText = QString("Session: %1\n%2").arg(sessionDirs.at(sessionIndex)).arg(resultText);
+                // Read file into memory with line numbers
+                QTextStream stream(&logFile);
+                QVector<QPair<int, QString>> lines;
+                int lineNum = 1;
+                while (!stream.atEnd()) {
+                    lines.append(qMakePair(lineNum++, stream.readLine()));
+                }
+                logFile.close();
+                
+                // Apply range filter if specified
+                if (!range.isEmpty()) {
+                    if (range.contains("last")) {
+                        int last = range["last"].toInt();
+                        int start = qMax(0, lines.size() - last);
+                        lines = lines.mid(start);
+                    } else {
+                        int start = range.value("start").toInt(1) - 1;
+                        int end = range.value("end").toInt(lines.size());
+                        start = qMax(0, start);
+                        end = qMin(lines.size(), end);
+                        lines = lines.mid(start, end - start);
+                    }
+                }
+                
+                // Search and filter
+                QVector<QPair<int, QString>> matches;
+                for (const auto& [lineNum, line] : lines) {
+                    // Check level filter
+                    if (!levelFilter.isEmpty()) {
+                        bool hasLevel = false;
+                        for (const QString& levelTag : levelFilter) {
+                            if (line.contains(levelTag)) {
+                                hasLevel = true;
+                                break;
+                            }
+                        }
+                        if (!hasLevel) continue;
+                    }
+                    
+                    // Check pattern
+                    if (!pattern.isEmpty()) {
+                        bool matched = false;
+                        if (isRegex) {
+                            matched = regex.match(line).hasMatch();
+                        } else {
+                            Qt::CaseSensitivity cs = caseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive;
+                            matched = line.contains(pattern, cs);
+                        }
+                        if (!matched) continue;
+                    }
+                    
+                    matches.append(qMakePair(lineNum, line));
+                    if (matches.size() >= maxResults) break;
+                }
+                
+                // Format results
+                if (format == "json") {
+                    QJsonObject sessionResult;
+                    sessionResult["session"] = sessionName;
+                    sessionResult["file"] = logFilePath;
+                    QJsonArray matchArray;
+                    for (const auto& [lineNum, line] : matches) {
+                        QJsonObject match;
+                        match["line"] = lineNum;
+                        match["text"] = line;
+                        
+                        // Add context if requested
+                        if (contextLines > 0) {
+                            QJsonArray beforeContext, afterContext;
+                            int matchIdx = -1;
+                            for (int i = 0; i < lines.size(); ++i) {
+                                if (lines[i].first == lineNum) {
+                                    matchIdx = i;
+                                    break;
+                                }
+                            }
+                            if (matchIdx >= 0) {
+                                for (int i = qMax(0, matchIdx - contextLines); i < matchIdx; ++i) {
+                                    beforeContext.append(lines[i].second);
+                                }
+                                for (int i = matchIdx + 1; i < qMin(lines.size(), matchIdx + contextLines + 1); ++i) {
+                                    afterContext.append(lines[i].second);
+                                }
+                            }
+                            if (!beforeContext.isEmpty()) match["before"] = beforeContext;
+                            if (!afterContext.isEmpty()) match["after"] = afterContext;
+                        }
+                        matchArray.append(match);
+                    }
+                    sessionResult["matches"] = matchArray;
+                    sessionResult["matchCount"] = matches.size();
+                    jsonResults.append(sessionResult);
+                } else {
+                    // Text format
+                    if (!matches.isEmpty()) {
+                        if (format == "full") {
+                            textResults.append(QString("\n=== Session: %1 ===").arg(sessionName));
+                        }
+                        for (const auto& [lineNum, line] : matches) {
+                            if (format == "full") {
+                                textResults.append(QString("[%1] %2").arg(lineNum, 6).arg(line));
+                            } else {
+                                textResults.append(line);
+                            }
+                        }
+                    }
+                }
             }
             
             qint64 duration = timer.elapsed();
             
-            // Log the activity
-            activityLogger.logActivity("chromium_devtools_getGuiLogs", requestId, params, "success", duration, QString(), resultText);
+            // Return results
+            if (format == "json") {
+                QJsonDocument doc(jsonResults);
+                QString resultText = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
+                activityLogger.logActivity("chromium_devtools_searchLogs", requestId, params, "success", duration, QString(), jsonResults);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", resultText}
+                };
+            } else {
+                QString resultText = textResults.isEmpty() 
+                    ? "No matches found" 
+                    : textResults.join("\n");
+                activityLogger.logActivity("chromium_devtools_searchLogs", requestId, params, "success", duration, QString(), resultText);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", resultText}
+                };
+            }
+        }
+    });
+    
+    server.registerTool({
+        "chromium_devtools_getLogSessions",
+        "List all available log sessions with metadata",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}},
+            {"required", QJsonArray{}}
+        },
+        [&activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+            Q_UNUSED(params);
+            
+            QString tau5DataPath = Tau5Logger::getTau5DataPath();
+            QString tau5LogsPath = QDir(tau5DataPath).absoluteFilePath("logs/gui");
+            
+            QDir logsDir(tau5LogsPath);
+            QStringList sessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed);
+            
+            QJsonArray sessions;
+            for (int i = 0; i < sessionDirs.size(); ++i) {
+                QString sessionName = sessionDirs.at(i);
+                QString sessionPath = QDir(tau5LogsPath).absoluteFilePath(sessionName);
+                QString logFilePath = QDir(sessionPath).absoluteFilePath("gui.log");
+                
+                QJsonObject sessionInfo;
+                sessionInfo["index"] = i;
+                sessionInfo["name"] = sessionName;
+                sessionInfo["path"] = logFilePath;
+                
+                QFile logFile(logFilePath);
+                if (logFile.exists()) {
+                    QFileInfo fileInfo(logFile);
+                    sessionInfo["size"] = fileInfo.size();
+                    sessionInfo["modified"] = fileInfo.lastModified().toString(Qt::ISODate);
+                    
+                    // Count lines
+                    if (logFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                        int lines = 0;
+                        QTextStream stream(&logFile);
+                        while (!stream.atEnd()) {
+                            stream.readLine();
+                            lines++;
+                        }
+                        logFile.close();
+                        sessionInfo["lines"] = lines;
+                    }
+                }
+                
+                sessions.append(sessionInfo);
+            }
+            
+            QJsonDocument doc(sessions);
+            QString resultText = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
+            
+            qint64 duration = timer.elapsed();
+            activityLogger.logActivity("chromium_devtools_getLogSessions", requestId, params, "success", duration, QString(), sessions);
             
             return QJsonObject{
                 {"type", "text"},
@@ -1544,79 +1741,72 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "chromium_devtools_getGuiLogLineCount",
-        "Get the total number of lines in the GUI log file",
+        "chromium_devtools_getGuiLogs",
+        "Simple tool to get recent GUI logs (use searchLogs for advanced features)",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{
-                {"sessionIndex", QJsonObject{
+                {"lines", QJsonObject{
                     {"type", "integer"},
-                    {"description", "Session index (0=latest, 1=next oldest, etc. Default: 0)"}
+                    {"description", "Number of recent lines to return (default: 100)"}
+                }},
+                {"session", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Session index to read from (default: 0 for latest)"}
                 }}
             }},
             {"required", QJsonArray{}}
         },
-        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&activityLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
             
-            int sessionIndex = params.contains("sessionIndex") ? params["sessionIndex"].toInt() : 0;
+            int numLines = params.value("lines").toInt(100);
+            int sessionIdx = params.value("session").toInt(0);
             
             QString tau5DataPath = Tau5Logger::getTau5DataPath();
             QString tau5LogsPath = QDir(tau5DataPath).absoluteFilePath("logs/gui");
             
-            // Find session folders - they're named YYYY-MM-DD_HHmmss_pPID
             QDir logsDir(tau5LogsPath);
             QStringList sessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed);
             
-            if (sessionDirs.isEmpty()) {
+            if (sessionDirs.isEmpty() || sessionIdx >= sessionDirs.size()) {
                 return QJsonObject{
                     {"type", "text"},
-                    {"text", QString("No log sessions found in: %1").arg(tau5LogsPath)}
+                    {"text", "No logs available"}
                 };
             }
             
-            // Check if requested session index exists
-            if (sessionIndex >= sessionDirs.size()) {
-                return QJsonObject{
-                    {"type", "text"},
-                    {"text", QString("Session index %1 not found. Available sessions: 0-%2").arg(sessionIndex).arg(sessionDirs.size() - 1)}
-                };
-            }
-            
-            // Use the session at the specified index
-            QString sessionPath = QDir(tau5LogsPath).absoluteFilePath(sessionDirs.at(sessionIndex));
+            QString sessionPath = QDir(tau5LogsPath).absoluteFilePath(sessionDirs.at(sessionIdx));
             QString logFilePath = QDir(sessionPath).absoluteFilePath("gui.log");
             
             QFile logFile(logFilePath);
-            if (!logFile.exists()) {
-                return QJsonObject{
-                    {"type", "text"},
-                    {"text", "0 lines (log file does not exist)"}
-                };
-            }
-            
             if (!logFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
                 return QJsonObject{
                     {"type", "text"},
-                    {"text", QString("Error: Could not open log file: %1").arg(logFile.errorString())}
+                    {"text", "Could not open log file"}
                 };
             }
             
-            int lineCount = 0;
+            // Read all lines
+            QStringList allLines;
             QTextStream stream(&logFile);
             while (!stream.atEnd()) {
-                stream.readLine();
-                lineCount++;
+                allLines.append(stream.readLine());
             }
             logFile.close();
             
-            qint64 duration = timer.elapsed();
-            QString resultText = QString("%1 lines (Session: %2)").arg(lineCount).arg(sessionDirs.at(sessionIndex));
+            // Get last N lines
+            int startIdx = qMax(0, allLines.size() - numLines);
+            QStringList resultLines = allLines.mid(startIdx);
             
-            // Log the activity
-            activityLogger.logActivity("chromium_devtools_getGuiLogLineCount", requestId, params, "success", duration, QString(), resultText);
+            QString resultText = QString("Session: %1\n%2")
+                .arg(sessionDirs.at(sessionIdx))
+                .arg(resultLines.join("\n"));
+            
+            qint64 duration = timer.elapsed();
+            activityLogger.logActivity("chromium_devtools_getGuiLogs", requestId, params, "success", duration, QString(), resultText);
             
             return QJsonObject{
                 {"type", "text"},
