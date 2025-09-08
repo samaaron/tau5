@@ -38,11 +38,11 @@ if errorlevel 1 (
     )
 )
 
-REM Build tau5-node target
-cmake --build . --config %CONFIG% --target tau5-node
+REM Build tau5-node-dev target
+cmake --build . --config %CONFIG% --target tau5-node-dev
 if errorlevel 1 (
-    echo Error: Failed to build tau5-node
+    echo Error: Failed to build tau5-node-dev
     exit /b 1
 )
 
-echo tau5-node build complete
+echo tau5-node-dev build complete

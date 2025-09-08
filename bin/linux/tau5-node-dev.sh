@@ -8,4 +8,4 @@ SERVER_DIR="${ROOT_DIR}/server"
 # Default to full development mode with all tools enabled
 # Use --server-path flag for development
 # The binary should be in bin/ on Linux
-"${BUILD_DIR}/bin/tau5-node" --server-path "${SERVER_DIR}" --devtools "$@"
+"${BUILD_DIR}/bin/tau5-node-dev" --server-path "${SERVER_DIR}" --devtools "$@"

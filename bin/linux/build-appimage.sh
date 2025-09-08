@@ -78,7 +78,7 @@ if [ "$NODE_ONLY" = true ]; then
     BINARY_NAME="tau5-node"
 else
     APPIMAGE_NAME="tau5-${ARCH_NAME}-${VERSION_STRING}.AppImage"
-    BINARY_NAME="tau5"
+    BINARY_NAME="tau5-gui"
 fi
 
 # Determine the correct release directory
@@ -126,7 +126,7 @@ echo "Copying binaries..."
 if [ "$NODE_ONLY" = true ]; then
     cp "${RELEASE_DIR}/tau5-node" "${APPDIR}/usr/bin/"
 else
-    cp "${RELEASE_DIR}/tau5" "${APPDIR}/usr/bin/" 2>/dev/null || true
+    cp "${RELEASE_DIR}/tau5-gui" "${APPDIR}/usr/bin/" 2>/dev/null || true
     cp "${RELEASE_DIR}/tau5-node" "${APPDIR}/usr/bin/"
 fi
 # Note: linuxdeployqt will handle RPATH/RUNPATH automatically
@@ -140,7 +140,7 @@ echo "Creating desktop file and icon..."
 if [ "$NODE_ONLY" = true ]; then
     EXEC_NAME="tau5-node"
 else
-    EXEC_NAME="tau5"
+    EXEC_NAME="tau5-gui"
 fi
 cat > "${APPDIR}/tau5.desktop" << EOF
 [Desktop Entry]

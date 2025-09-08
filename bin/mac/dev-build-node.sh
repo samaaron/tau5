@@ -44,6 +44,6 @@ else
   cmake -G "Unix Makefiles" -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_BUILD_TYPE="$CONFIG" -DBUILD_NODE_ONLY=ON ..
 fi
 
-cmake --build . --target tau5-node
+cmake --build . --target tau5-node-dev
 
-echo "tau5-node build complete"
+echo "tau5-node-dev build complete"

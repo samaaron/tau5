@@ -16,8 +16,8 @@ cd "${ROOT_DIR}"
 # If no arguments provided, default to --devtools for backward compatibility
 if [ $# -eq 0 ]; then
     # Default behavior when no arguments provided
-    exec ./gui/build/bin/tau5 --server-path "${ROOT_DIR}/server" --devtools
+    exec ./gui/build/bin/tau5-gui-dev --server-path "${ROOT_DIR}/server" --devtools
 else
     # Pass through all arguments as provided
-    exec ./gui/build/bin/tau5 --server-path "${ROOT_DIR}/server" "$@"
+    exec ./gui/build/bin/tau5-gui-dev --server-path "${ROOT_DIR}/server" "$@"
 fi

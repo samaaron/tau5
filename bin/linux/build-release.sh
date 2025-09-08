@@ -99,7 +99,7 @@ else
           ..
 
     echo "Building GUI and tau5-node..."
-    cmake --build . --target tau5
+    cmake --build . --target tau5-gui
     cmake --build . --target tau5-node
 fi
 
@@ -137,11 +137,11 @@ else
 
     # Copy binaries to release root
     echo "Copying binaries..."
-    cp "${ROOT_DIR}/gui/build-release/bin/tau5" .
+    cp "${ROOT_DIR}/gui/build-release/bin/tau5-gui" .
     cp "${ROOT_DIR}/gui/build-release/bin/tau5-node" .
 
     # Make binaries executable
-    chmod +x tau5 tau5-node
+    chmod +x tau5-gui tau5-node
 fi
 
 # Copy production server release

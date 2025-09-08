@@ -7,15 +7,15 @@ SERVER_DIR="${ROOT_DIR}/server"
 
 # Development build - check for standalone first (from build-node.sh)
 # If not found, try the app bundle (from build-gui.sh)
-if [ -f "${BUILD_DIR}/bin/tau5-node" ]; then
-    # Standalone tau5-node from build-node.sh
+if [ -f "${BUILD_DIR}/bin/tau5-node-dev" ]; then
+    # Standalone tau5-node-dev from build-node.sh
     # Use --server-path flag instead of environment variable
     # Default to development mode with devtools for easier development
-    "${BUILD_DIR}/bin/tau5-node" --server-path "${SERVER_DIR}" --devtools "$@"
-elif [ -f "${BUILD_DIR}/bin/Tau5.app/Contents/MacOS/tau5-node" ]; then
-    # tau5-node from within the app bundle (build-gui.sh)
+    "${BUILD_DIR}/bin/tau5-node-dev" --server-path "${SERVER_DIR}" --devtools "$@"
+elif [ -f "${BUILD_DIR}/bin/Tau5.app/Contents/MacOS/tau5-node-dev" ]; then
+    # tau5-node-dev from within the app bundle (build-gui.sh)
     # Note: This is primarily for testing - normally you'd use tau5 itself
-    "${BUILD_DIR}/bin/Tau5.app/Contents/MacOS/tau5-node" --server-path "${SERVER_DIR}" --devtools "$@"
+    "${BUILD_DIR}/bin/Tau5.app/Contents/MacOS/tau5-node-dev" --server-path "${SERVER_DIR}" --devtools "$@"
 else
     echo "Error: tau5-node executable not found!"
     echo "Please build tau5-node first using:"

@@ -51,6 +51,6 @@ else
     ..
 fi
 
-cmake --build . --target tau5-node
+cmake --build . --target tau5-node-dev
 
-echo "tau5-node build complete"
+echo "tau5-node-dev build complete"

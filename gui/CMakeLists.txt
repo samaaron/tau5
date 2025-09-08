@@ -179,9 +179,15 @@ if(NOT BUILD_NODE_ONLY)
 endif()
 
 
-set(APP_NAME tau5)
+# Set executable names based on build type
+if(TAU5_RELEASE_BUILD)
+  set(APP_NAME tau5-gui)
+  set(NODE_APP_NAME tau5-node)
+else()
+  set(APP_NAME tau5-gui-dev)
+  set(NODE_APP_NAME tau5-node-dev)
+endif()
 set(MACOS_APP_NAME "Tau5")
-set(NODE_APP_NAME tau5-node)
 
 # Add the shared library subdirectory
 add_subdirectory(shared)

@@ -115,9 +115,9 @@ else
               ..
     fi
     
-    # Build both tau5 and tau5-node
+    # Build both tau5-gui and tau5-node
     echo "Building GUI and tau5-node..."
-    cmake --build . --target tau5
+    cmake --build . --target tau5-gui
     cmake --build . --target tau5-node
 fi
 

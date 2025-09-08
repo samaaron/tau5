@@ -130,7 +130,8 @@ if "%NODE_ONLY%"=="true" (
     )
     
     :: Build the project
-    cmake --build . --config Release
+    cmake --build . --config Release --target tau5-gui
+    cmake --build . --config Release --target tau5-node
     if %errorlevel% neq 0 (
         echo CMake build failed with exit code %errorlevel%
         cd /d "%WORKING_DIR%"
@@ -199,11 +200,11 @@ if "%NODE_ONLY%"=="true" (
     cd !RELEASE_DIR_NAME!
     
     echo Copying binaries...
-    copy "%ROOT_DIR%\gui\build-release\bin\tau5.exe" . /Y 2>NUL
+    copy "%ROOT_DIR%\gui\build-release\bin\tau5-gui.exe" . /Y 2>NUL
     if %errorlevel% neq 0 (
-        copy "%ROOT_DIR%\gui\build-release\bin\Release\tau5.exe" . /Y
+        copy "%ROOT_DIR%\gui\build-release\bin\Release\tau5-gui.exe" . /Y
         if %errorlevel% neq 0 (
-            echo Failed to copy tau5.exe
+            echo Failed to copy tau5-gui.exe
             cd /d "%WORKING_DIR%"
             exit /b %errorlevel%
         )
@@ -230,9 +231,9 @@ if "%NODE_ONLY%"=="true" (
     
     :: Deploy Qt dependencies if windeployqt is available
     if exist "%QT_INSTALL_LOCATION%\bin\windeployqt.exe" (
-        "%QT_INSTALL_LOCATION%\bin\windeployqt.exe" tau5.exe
+        "%QT_INSTALL_LOCATION%\bin\windeployqt.exe" tau5-gui.exe
     ) else if exist "%Qt6_DIR%\bin\windeployqt.exe" (
-        "%Qt6_DIR%\bin\windeployqt.exe" tau5.exe
+        "%Qt6_DIR%\bin\windeployqt.exe" tau5-gui.exe
     ) else (
         echo WARNING: windeployqt not found, Qt dependencies may not be deployed
     )
