@@ -24,11 +24,6 @@ defmodule Tau5Web.Plugs.ConditionalTidewaveMCP do
         |> Phoenix.Controller.json(%{error: "Tidewave MCP server module not available"})
 
       true ->
-        # Initialize tools if the function exists
-        if function_exported?(Tidewave.MCP.Server, :init_tools, 0) do
-          apply(Tidewave.MCP.Server, :init_tools, [])
-        end
-
         port = Application.get_env(:tau5, Tau5Web.MCPEndpoint)[:http][:port] || 5555
 
         tidewave_config = %{
