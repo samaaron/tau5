@@ -1,10 +1,13 @@
 #include <iostream>
 #include <memory>
 #include <cstdlib>
-#ifdef Q_OS_WIN
+#ifndef Q_OS_WIN
+#include <unistd.h>
+#else
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
+#include <process.h>
 #endif
 #include <QApplication>
 #include <QCoreApplication>
@@ -23,6 +26,9 @@
 #include "shared/common.h"
 #include "shared/cli_args.h"
 #include "shared/health_check.h"
+#include "shared/qt_message_handler.h"
+#include "shared/server_info.h"
+#include "shared/cli_help.h"
 #include "styles/StyleManager.h"
 
 using namespace Tau5Common;
@@ -97,35 +103,10 @@ namespace GuiConfig
       // Note: --remote-debugging-port will be added dynamically
 }
 
-static QtMessageHandler originalMessageHandler = nullptr;
-
-
-void tau5MessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
-{
-  if (originalMessageHandler) {
-    originalMessageHandler(type, context, msg);
-  }
-
-  switch (type) {
-  case QtDebugMsg:
-    Tau5Logger::instance().debug(QString("[Qt] %1").arg(msg));
-    break;
-  case QtInfoMsg:
-    Tau5Logger::instance().info(QString("[Qt] %1").arg(msg));
-    break;
-  case QtWarningMsg:
-    Tau5Logger::instance().warning(QString("[Qt] %1").arg(msg));
-    break;
-  case QtCriticalMsg:
-  case QtFatalMsg:
-    Tau5Logger::instance().error(QString("[Qt] %1").arg(msg));
-    break;
-  }
-}
 
 bool initializeApplication(QApplication &app, const Tau5CLI::CommonArgs &args)
 {
-  originalMessageHandler = qInstallMessageHandler(tau5MessageHandler);
+  installQtMessageHandler();
 
   // Chrome DevTools are enabled when requested or via environment
   if (args.chromeDevtools || qgetenv("TAU5_DEVTOOLS_ENABLED") == "true") {
@@ -252,65 +233,11 @@ int main(int argc, char *argv[])
         return 1;
       }
       if (args.showHelp) {
-        std::cout << "Usage: tau5 [options]\n"
-                  << "Options:\n"
-                  << "\n";
-#ifndef TAU5_RELEASE_BUILD
-        std::cout << "Quick Setup:\n"
-                  << "  --devtools               All-in-one dev setup (MCP + Chrome DevTools + Tidewave + REPL)\n"
-                  << "\n";
-#endif
-        std::cout << "Server Configuration:\n"
-                  << "  --with-release-server    Use compiled release server in production mode\n"
-                  << "                           (default: development server from source)\n"
-                  << "\n"
-                  << "Port Configuration:\n"
-                  << "  --port-local <n>         Local web UI port (default: random)\n"
-                  << "  --port-public <n>        Public endpoint port (default: disabled)\n"
-                  << "  --port-mcp <n>           MCP services port (default: 5555 when enabled)\n"
-                  << "  --friend-token [token]   Enable friend authentication\n"
-                  << "                           (generates secure token if not provided)\n"
-                  << "                           (automatically enables public endpoint)\n";
-#ifndef TAU5_RELEASE_BUILD
-        std::cout << "  --port-chrome-dev <n>    Chrome DevTools port (default: 9223 when enabled)\n";
-#endif
-        std::cout << "\n"
-                  << "Optional Features:\n"
-                  << "  --mcp                    Enable MCP endpoint\n";
-#ifndef TAU5_RELEASE_BUILD
-        std::cout << "  --tidewave               Add Tidewave to MCP endpoint (implies --mcp)\n"
-                  << "  --chrome-devtools        Enable Chrome DevTools\n"
-                  << "  --repl                   Enable Elixir REPL\n";
-#endif
-        std::cout << "  --verbose                Enable verbose logging\n"
-                  << "\n"
-                  << "Disable Features:\n"
-                  << "  --no-midi                Disable MIDI support\n"
-                  << "  --no-link                Disable Ableton Link support\n"
-                  << "  --no-discovery           Disable network discovery\n"
-                  << "  --no-nifs                Disable all NIFs (MIDI, Link, and Discovery)\n";
-#ifndef TAU5_RELEASE_BUILD
-        std::cout << "  --no-debug-pane          Disable debug pane\n";
-#endif
-        std::cout << "\n"
-                  << "Other:\n";
-        std::cout << "  --server-path <path>     Override server directory path\n"
-                  << "  --check                  Verify installation and exit\n";
-        std::cout << "  --help, -h               Show this help message\n"
-                  << "  --version                Show version information\n"
-                  << "\n"
-                  << "Tau5 - Desktop application for collaborative live-coding\n"
-                  << "Creates music and visuals through code. Includes a full GUI interface.\n"
-                  << "\n"
-                  << "Note: TAU5_MODE is automatically set to 'gui' for the desktop application.\n";
+        std::cout << Tau5CLI::generateHelpText(Tau5Common::BinaryType::Gui, argv[0]);
         return 0;
       }
       if (args.showVersion) {
-        std::cout << "tau5 version " << Tau5Common::Config::APP_VERSION;
-        if (std::string(Tau5Common::Config::APP_COMMIT) != "unknown") {
-          std::cout << " (" << Tau5Common::Config::APP_COMMIT << ")";
-        }
-        std::cout << "\n";
+        std::cout << Tau5CLI::generateVersionString(Tau5Common::BinaryType::Gui) << "\n";
         return 0;
       }
       continue;
@@ -369,10 +296,8 @@ int main(int argc, char *argv[])
   isGuiDevMode = false; // Release builds force GUI to prod mode too
 #endif
 
-  if (isGuiDevMode)
-  {
-    setupConsoleOutput();
-  }
+  // Always setup console output to support --verbose in both dev and release builds
+  setupConsoleOutput();
 
   // Apply environment variables based on parsed arguments
   // tau5 binary always sets TAU5_MODE=gui
@@ -385,8 +310,8 @@ int main(int argc, char *argv[])
       {"beam.log", "beam", false}
   };
   logConfig.emitQtSignals = args.debugPane;
-  logConfig.consoleEnabled = true;
-  logConfig.consoleColors = isGuiDevMode;
+  logConfig.consoleEnabled = args.verbose || isGuiDevMode;  // Console output in verbose mode or dev builds
+  logConfig.consoleColors = args.verbose || isGuiDevMode;
   logConfig.reuseRecentSession = false;
   logConfig.baseLogDir = Tau5Logger::getBaseLogDir();
 
@@ -572,8 +497,14 @@ int main(int argc, char *argv[])
     });
   }
 
-  Tau5Logger::instance().info(getTau5Logo());
-  Tau5Logger::instance().info("GUI Logger connected successfully");
+  if (args.verbose || isGuiDevMode) {
+    Tau5Logger::instance().info(getTau5Logo());
+    Tau5Logger::instance().info("GUI Logger connected successfully");
+  } else {
+    // In quiet mode, just show minimal startup
+    std::cout << getTau5Logo().toStdString();
+    std::cout << "Starting Tau5..." << std::endl;
+  }
 #ifdef BUILD_WITH_DEBUG_PANE
   if (!args.debugPane) {
     Tau5Logger::instance().info("Debug pane disabled via command line");
@@ -583,11 +514,48 @@ int main(int argc, char *argv[])
 #endif
 
   std::shared_ptr<Beam> beam;
+  
+  // Prepare server info for verbose output
+  ServerInfo serverInfo;
+  serverInfo.binaryType = BinaryType::Gui;
+#ifdef TAU5_RELEASE_BUILD
+  serverInfo.isDevBuild = false;
+#else
+  serverInfo.isDevBuild = true;
+#endif
+  serverInfo.serverPort = port;
+  serverInfo.publicPort = args.portPublic;
+  serverInfo.mode = getServerModeString(isServerDevMode);
+  serverInfo.hasLocalEndpoint = true;  // GUI always has local endpoint
+  serverInfo.friendToken = QString::fromStdString(args.friendToken);
+  
+  // Get Node PID
+#ifndef Q_OS_WIN
+  serverInfo.nodePid = getpid();
+#else
+  serverInfo.nodePid = _getpid();
+#endif
+  
+  // Get log path
+  serverInfo.logPath = Tau5Logger::instance().currentSessionPath();
+  
+  // MCP configuration
+  QString mcpPort = qgetenv("TAU5_MCP_PORT");
+  if (!mcpPort.isEmpty() && mcpPort != "0") {
+    serverInfo.hasMcpEndpoint = true;
+    serverInfo.mcpPort = mcpPort.toUShort();
+    serverInfo.hasTidewave = (qgetenv("TAU5_TIDEWAVE_ENABLED") == "true");
+  }
+  serverInfo.hasRepl = (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
 
-  Tau5Logger::instance().info("Delaying BEAM server startup by 1 second...");
+  if (args.verbose) {
+    Tau5Logger::instance().info("Delaying BEAM server startup by 1 second...");
+  }
 
-  QTimer::singleShot(Tau5Common::Config::BEAM_STARTUP_DELAY_MS, [&app, &beam, &mainWindow, basePath, port, isServerDevMode]() {
-    Tau5Logger::instance().info("Starting BEAM server...");
+  QTimer::singleShot(Tau5Common::Config::BEAM_STARTUP_DELAY_MS, [&app, &beam, &mainWindow, basePath, port, isServerDevMode, &args, &serverInfo]() {
+    if (args.verbose) {
+      Tau5Logger::instance().info("Starting BEAM server...");
+    }
     bool beamEnableMcp = (qgetenv("TAU5_MCP_PORT") != "0" && !qgetenv("TAU5_MCP_PORT").isEmpty());
     bool beamEnableRepl = (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
     beam = std::make_shared<Beam>(&app, basePath, Tau5Common::Config::APP_NAME,
@@ -595,11 +563,29 @@ int main(int argc, char *argv[])
 
     mainWindow.setBeamInstance(beam.get());
 
-    Tau5Logger::instance().info("Waiting for OTP supervision tree to start...");
-    Tau5Logger::instance().debug("Debug messages are enabled");
+    if (args.verbose) {
+      Tau5Logger::instance().info("Waiting for OTP supervision tree to start...");
+      Tau5Logger::instance().debug("Debug messages are enabled");
+    }
 
-    QObject::connect(beam.get(), &Beam::otpReady, [&mainWindow, port]() {
-      Tau5Logger::instance().info("OTP supervision tree ready, connecting to server...");
+    QObject::connect(beam.get(), &Beam::otpReady, [&mainWindow, port, &args, &serverInfo, &beam]() {
+      if (args.verbose) {
+        Tau5Logger::instance().info("OTP supervision tree ready, connecting to server...");
+        
+        // Update server info with BEAM PID
+        if (beam) {
+          serverInfo.beamPid = beam->getBeamPid();
+          serverInfo.sessionToken = beam->getSessionToken();
+          quint16 actualPort = beam->getPort();
+          if (actualPort > 0) {
+            serverInfo.serverPort = actualPort;
+          }
+        }
+        
+        // Print server info in verbose mode
+        QString infoString = generateServerInfoString(serverInfo, true);
+        Tau5Logger::instance().info(infoString);
+      }
       if (!mainWindow.connectToServer(port))
       {
         QMessageBox::critical(nullptr, "Error", "Failed to connect to server");

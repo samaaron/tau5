@@ -6,9 +6,8 @@
 #include <QDebug>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QMetaObject>
 #include <QThread>
-#include <QNetworkInterface>
-#include <QHostAddress>
 #ifndef Q_OS_WIN
 #include <unistd.h>
 #else
@@ -22,153 +21,13 @@
 #include "shared/common.h"
 #include "shared/cli_args.h"
 #include "shared/health_check.h"
+#include "shared/qt_message_handler.h"
+#include "shared/server_info.h"
+#include "shared/cli_help.h"
 
 using namespace Tau5Common;
 
-static QtMessageHandler originalMessageHandler = nullptr;
 
-void tau5NodeMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
-    if (originalMessageHandler) {
-        originalMessageHandler(type, context, msg);
-    }
-
-    switch (type) {
-    case QtDebugMsg:
-        Tau5Logger::instance().debug(QString("[Qt] %1").arg(msg));
-        break;
-    case QtInfoMsg:
-        Tau5Logger::instance().info(QString("[Qt] %1").arg(msg));
-        break;
-    case QtWarningMsg:
-        Tau5Logger::instance().warning(QString("[Qt] %1").arg(msg));
-        break;
-    case QtCriticalMsg:
-    case QtFatalMsg:
-        Tau5Logger::instance().error(QString("[Qt] %1").arg(msg));
-        break;
-    }
-}
-
-void printUsage(const char* programName) {
-    std::cout << "Usage: " << programName << " [options]\n"
-              << "Options:\n"
-              << "\n";
-
-#ifndef TAU5_RELEASE_BUILD
-    // Development build - show all options
-    std::cout << "Quick Setup:\n"
-              << "  --devtools               All-in-one dev setup (MCP + Tidewave + REPL)\n"
-              << "\n"
-              << "Deployment Mode Override:\n"
-              << "  --mode-node              Local headless server [default]\n"
-              << "                           - Local and MCP endpoints available\n"
-              << "                           - Full NIFs and local I/O support\n"
-              << "  --mode-central           Public coordinator (tau5.live)\n"
-              << "                           - Public web endpoints only\n"
-              << "                           - No local endpoints or MCP servers\n"
-              << "                           - No NIFs or local I/O capabilities\n"
-              << "\n";
-#endif
-
-    std::cout << "Port Configuration:\n"
-              << "  --port-local <n>         Local web UI port (default: random)\n"
-              << "  --port-public <n>        Public endpoint port (default: disabled)\n"
-              << "  --no-local-endpoint      Disable local endpoint completely\n"
-              << "  --friend-token [token]   Enable friend authentication\n"
-              << "                           (generates secure token if not provided)\n"
-              << "                           (automatically enables public endpoint)\n";
-
-#ifndef TAU5_RELEASE_BUILD
-    std::cout << "  --port-mcp <n>           MCP services port (default: 5555 when enabled)\n"
-              << "\n"
-              << "Optional Features:\n"
-              << "  --mcp                    Enable MCP endpoint\n"
-              << "  --tidewave               Add Tidewave to MCP endpoint (implies --mcp)\n"
-              << "  --repl                   Enable Elixir REPL (dev mode only)\n";
-#else
-    // Release build - only show Tau5 MCP option
-    std::cout << "  --port-mcp <n>           Tau5 MCP port (default: 5555)\n"
-              << "\n"
-              << "Optional Features:\n"
-              << "  --mcp                    Enable Tau5 MCP endpoint\n";
-#endif
-
-    std::cout << "  --verbose                Enable verbose logging\n"
-              << "\n"
-              << "Disable Features:\n"
-              << "  --no-midi                Disable MIDI support\n"
-              << "  --no-link                Disable Ableton Link support\n"
-              << "  --no-discovery           Disable network discovery\n"
-              << "  --no-nifs                Disable all NIFs (MIDI, Link, and Discovery)\n"
-              << "\n"
-              << "Other:\n";
-
-#ifndef TAU5_RELEASE_BUILD
-    std::cout << "  --server-path <path>     Override server directory path\n";
-#endif
-
-    std::cout << "  --help, -h               Show this help message\n"
-              << "  --version                Show version information\n"
-              << "\n"
-              << "Tau5 - Code. Art. Together.\n"
-              << "\n"
-              << "Tau5 Node - Headless server mode for Tau5\n"
-              << "\n";
-
-}
-
-// Helper function to print public endpoint info
-void printPublicEndpointInfo(const Tau5CLI::CommonArgs& args) {
-    QList<QHostAddress> addresses = QNetworkInterface::allAddresses();
-    bool firstPublicIP = true;
-    bool firstFriendIP = true;
-    
-    // Check friend mode settings
-    QString friendToken = qgetenv("TAU5_FRIEND_TOKEN");
-    if (friendToken.isEmpty() && !args.friendToken.empty()) {
-        friendToken = QString::fromStdString(args.friendToken);
-    }
-    bool friendMode = qgetenv("TAU5_FRIEND_MODE") == "true" || !args.friendToken.empty();
-    
-    for (const QHostAddress &address : addresses) {
-        // Skip loopback and IPv6 link-local addresses
-        if (!address.isLoopback() && 
-            address.protocol() == QAbstractSocket::IPv4Protocol) {
-            
-            // Print Public URL (without token)
-            if (firstPublicIP) {
-                std::cout << "  Public:    ";
-                firstPublicIP = false;
-            } else {
-                std::cout << "             ";
-            }
-            std::cout << "http://" << address.toString().toStdString() << ":" << args.portPublic << "\n";
-            
-            // Print Friend URL (with token) if friend mode is enabled
-            if (friendMode && !friendToken.isEmpty()) {
-                if (firstFriendIP) {
-                    std::cout << "  Friend:    ";
-                    firstFriendIP = false;
-                } else {
-                    std::cout << "             ";
-                }
-                std::cout << "http://" << address.toString().toStdString() << ":" << args.portPublic 
-                          << "/?friend_token=" << friendToken.toStdString() << "\n";
-            }
-        }
-    }
-    
-    // If no non-loopback addresses found, show 127.0.0.1 as fallback
-    if (firstPublicIP) {
-        std::cout << "  Public:    http://127.0.0.1:" << args.portPublic << "\n";
-        
-        // Print Friend URL if friend mode is enabled
-        if (friendMode && !friendToken.isEmpty()) {
-            std::cout << "  Friend:    http://127.0.0.1:" << args.portPublic 
-                      << "/?friend_token=" << friendToken.toStdString() << "\n";
-        }
-    }
-}
 
 int main(int argc, char *argv[]) {
 #ifdef Q_OS_WIN
@@ -198,20 +57,20 @@ int main(int argc, char *argv[]) {
         if (Tau5CLI::parseSharedArg(argv[i], nextArg, i, args)) {
             if (args.hasError) {
                 std::cerr << "Error: " << args.errorMessage << "\n";
-                printUsage(argv[0]);
+                std::cout << Tau5CLI::generateHelpText(Tau5Common::BinaryType::Node, argv[0]);
                 return static_cast<int>(ExitCode::INVALID_ARGUMENTS);
             }
             if (args.showHelp) {
-                printUsage(argv[0]);
+                std::cout << Tau5CLI::generateHelpText(Tau5Common::BinaryType::Node, argv[0]);
                 return 0;
             }
             if (args.showVersion) {
-                std::cout << "tau5-node version " << Config::APP_VERSION << "\n";
+                std::cout << Tau5CLI::generateVersionString(Tau5Common::BinaryType::Node) << "\n";
                 return 0;
             }
         } else {
             std::cerr << "Unknown option: " << argv[i] << "\n";
-            printUsage(argv[0]);
+            std::cout << Tau5CLI::generateHelpText(Tau5Common::BinaryType::Node, argv[0]);
             return static_cast<int>(ExitCode::INVALID_ARGUMENTS);
         }
     }
@@ -368,8 +227,8 @@ int main(int argc, char *argv[]) {
     logConfig.baseLogDir = Tau5Logger::getBaseLogDir();
 
     Tau5Logger::initialize(logConfig);
-
-    originalMessageHandler = qInstallMessageHandler(tau5NodeMessageHandler);
+    
+    installQtMessageHandler();
 
     bool isDevMode = (args.env == Tau5CLI::CommonArgs::Env::Dev);
 
@@ -551,18 +410,18 @@ int main(int argc, char *argv[]) {
     std::shared_ptr<Beam> beam;
 
     // Track service availability for summary
-    struct {
-        bool otpReady = false;
-        quint16 serverPort = 0;
-        QString mode;
-        qint64 nodePid = 0;
-        qint64 beamPid = 0;
-        QString logPath;
-        QString sessionToken;
-    } serverInfo;
-
+    ServerInfo serverInfo;
+    serverInfo.binaryType = BinaryType::Node;
+#ifdef TAU5_RELEASE_BUILD
+    serverInfo.isDevBuild = false;
+#else
+    serverInfo.isDevBuild = true;
+#endif
     serverInfo.serverPort = port;
-    serverInfo.mode = isDevMode ? "development" : "production";
+    serverInfo.publicPort = args.portPublic;
+    serverInfo.mode = getServerModeString(isDevMode);
+    serverInfo.hasLocalEndpoint = !args.noLocalEndpoint;
+    serverInfo.friendToken = QString::fromStdString(args.friendToken);
 
     // Get Node PID
     #ifndef Q_OS_WIN
@@ -573,6 +432,15 @@ int main(int argc, char *argv[]) {
 
     // Get log path from logger
     serverInfo.logPath = Tau5Logger::instance().currentSessionPath();
+    
+    // MCP configuration
+    QString mcpPort = qgetenv("TAU5_MCP_PORT");
+    if (!mcpPort.isEmpty() && mcpPort != "0") {
+        serverInfo.hasMcpEndpoint = true;
+        serverInfo.mcpPort = mcpPort.toUShort();
+        serverInfo.hasTidewave = (qgetenv("TAU5_TIDEWAVE_ENABLED") == "true");
+    }
+    serverInfo.hasRepl = (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
     
     // Simple progress dots timer
     QTimer* dotsTimer = nullptr;
@@ -585,8 +453,8 @@ int main(int argc, char *argv[]) {
         dotsTimer->start(500);
     }
 
-    // Small delay to ensure everything is initialized
-    QTimer::singleShot(Tau5Common::Config::NODE_STARTUP_DELAY_MS, [&app, &beam, basePath, port, &args, &serverInfo, isDevMode, isCentralMode, dotsTimer]() {
+    // Defer BEAM creation until event loop is running using Qt's event queue
+    QMetaObject::invokeMethod(&app, [&app, &beam, basePath, port, &args, &serverInfo, isDevMode, isCentralMode, dotsTimer]() {
         if (args.verbose) {
             Tau5Logger::instance().info("Starting BEAM server...");
         }
@@ -604,19 +472,69 @@ int main(int argc, char *argv[]) {
 
         // Track whether we've shown the server info yet
         bool serverInfoShown = false;
+        QTimer* portTimeoutTimer = nullptr;
+
+        // Set up timeout for port allocation (only for random ports)
+        if (port == 0 && !args.noLocalEndpoint) {
+            portTimeoutTimer = new QTimer(&app);
+            portTimeoutTimer->setSingleShot(true);
+            QObject::connect(portTimeoutTimer, &QTimer::timeout, [&serverInfo, &args, &serverInfoShown, &beam]() {
+                if (!serverInfoShown && serverInfo.otpReady && serverInfo.serverPort == 0) {
+                    serverInfoShown = true;
+                    
+                    if (beam) {
+                        serverInfo.beamPid = beam->getBeamPid();
+                    }
+                    
+                    QString infoString = generateServerInfoString(serverInfo, args.verbose);
+                    if (args.verbose) {
+                        Tau5Logger::instance().warning("Port allocation timed out, showing info with unavailable port");
+                        Tau5Logger::instance().info(infoString);
+                    } else {
+                        std::cout << infoString.toStdString() << "\n" << std::flush;
+                    }
+                }
+            });
+        }
 
         // Connect to actualPortAllocated signal to update the port when we get it
-        QObject::connect(beam.get(), &Beam::actualPortAllocated, [&serverInfo, &args, port](quint16 actualPort) {
-            if (actualPort > 0) {
-                serverInfo.serverPort = actualPort;
-                if (args.verbose) {
-                    Tau5Logger::instance().info(QString("Server allocated port: %1").arg(actualPort));
+        QObject::connect(beam.get(), &Beam::actualPortAllocated, [&serverInfo, &args, &serverInfoShown, &beam, &portTimeoutTimer](quint16 actualPort) {
+        if (actualPort > 0) {
+            serverInfo.serverPort = actualPort;
+            
+            if (portTimeoutTimer) {
+                portTimeoutTimer->stop();
+                portTimeoutTimer->deleteLater();
+                portTimeoutTimer = nullptr;
+            }
+            
+            if (args.verbose) {
+                Tau5Logger::instance().info(QString("Server allocated port: %1").arg(actualPort));
+            }
+            // Try to show server info now that we have the port
+            if (!serverInfoShown) {
+                // Check if we have all the info we need
+                if (serverInfo.otpReady && (!serverInfo.hasLocalEndpoint || serverInfo.serverPort > 0)) {
+                    serverInfoShown = true;
+                    
+                    if (beam) {
+                        serverInfo.beamPid = beam->getBeamPid();
+                    }
+                    
+                    QString infoString = generateServerInfoString(serverInfo, args.verbose);
+                    if (args.verbose) {
+                        Tau5Logger::instance().info("OTP supervision tree ready");
+                        Tau5Logger::instance().info(infoString);
+                    } else {
+                        std::cout << infoString.toStdString() << "\n" << std::flush;
+                    }
                 }
             }
+        }
         });
 
         // Connect to OTP ready signal
-        QObject::connect(beam.get(), &Beam::otpReady, [&args, &serverInfo, &beam, &serverInfoShown, port, dotsTimer]() {
+        QObject::connect(beam.get(), &Beam::otpReady, [&args, &serverInfo, &beam, &serverInfoShown, dotsTimer, portTimeoutTimer, port]() {
             serverInfo.otpReady = true;
             
             // Stop the dots timer
@@ -627,127 +545,39 @@ int main(int argc, char *argv[]) {
                     std::cout << " done\n" << std::flush;
                 }
             }
+            
+            if (portTimeoutTimer && port == 0 && !args.noLocalEndpoint && serverInfo.serverPort == 0) {
+                portTimeoutTimer->start(1000); // 1 second timeout for port allocation
+            }
 
-            // Get BEAM PID when it's ready
+            // Get BEAM PID and session token when ready
             if (beam) {
                 serverInfo.beamPid = beam->getBeamPid();
+                serverInfo.sessionToken = beam->getSessionToken();
                 // Also update port in case it was allocated
                 quint16 actualPort = beam->getPort();
                 if (actualPort > 0) {
                     serverInfo.serverPort = actualPort;
                 }
             }
-
-            // For random port (0), wait a bit for the actual port to be reported
-            if (port == 0 && serverInfo.serverPort == 0 && !serverInfoShown && !args.noLocalEndpoint) {
-                // Set a timer to show server info after a short delay to allow port allocation
-                QTimer::singleShot(300, [&serverInfo, &args, &serverInfoShown]() {
-                    if (!serverInfoShown) {
-                        serverInfoShown = true;
-                        if (!args.verbose) {
-                            // Print server summary
-                            std::cout << "\n========================================================\n";
-                            std::cout << "Tau5 Server Started\n";
-                            std::cout << "--------------------------------------------------------\n";
-                            std::cout << "  Mode:      " << serverInfo.mode.toStdString() << "\n";
-                            
-                            // Show local endpoint info
-                            if (args.noLocalEndpoint) {
-                                std::cout << "  Local:     Disabled (--no-local-endpoint)\n";
-                            } else if (serverInfo.serverPort > 0) {
-                                std::cout << "  Local:     http://localhost:" << serverInfo.serverPort;
-                                if (!serverInfo.sessionToken.isEmpty()) {
-                                    std::cout << "/?token=" << serverInfo.sessionToken.toStdString();
-                                }
-                                std::cout << "\n";
-                            } else {
-                                std::cout << "  Local:     (random port allocation in progress)\n";
-                            }
-                            
-                            // Show public endpoint info if configured
-                            if (args.portPublic > 0) {
-                                printPublicEndpointInfo(args);
-                            }
-                            std::cout << "  Node PID:  " << serverInfo.nodePid << "\n";
-                            if (serverInfo.beamPid > 0) {
-                                std::cout << "  BEAM PID:  " << serverInfo.beamPid << "\n";
-                            }
-                            std::cout << "  Logs:      " << serverInfo.logPath.toStdString() << "\n";
-
-                            QString mcpPort = qgetenv("TAU5_MCP_PORT");
-                            if (!mcpPort.isEmpty() && mcpPort != "0") {
-                                std::cout << "  MCP:       Port " << mcpPort.toStdString();
-                                if (qgetenv("TAU5_TIDEWAVE_ENABLED") == "true") {
-                                    std::cout << " (with Tidewave)";
-                                }
-                                std::cout << "\n";
-                            }
-
-                            if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true" && !serverInfo.sessionToken.isEmpty()) {
-                                std::cout << "  Console:   http://localhost:" << serverInfo.serverPort << "/dev/console?token=" << serverInfo.sessionToken.toStdString() << "\n";
-                            }
-
-                            std::cout << "========================================================\n";
-                            std::cout << "Press Ctrl+C to stop\n" << std::flush;
-                        }
-                    }
-                });
-                return; // Wait for the timer
-            }
-
-            // If we have a fixed port or already got the allocated port, or no local endpoint, show immediately
+            
+            // Try to show server info now that OTP is ready
             if (!serverInfoShown) {
-                serverInfoShown = true;
-                if (args.verbose) {
-                    Tau5Logger::instance().info("OTP supervision tree ready");
-                    Tau5Logger::instance().info("Server is running. Press Ctrl+C to stop.");
-                } else {
-                    // Print concise summary in quiet mode
-                    std::cout << "\n========================================================\n";
-                    std::cout << "Tau5 Server Started\n";
-                    std::cout << "--------------------------------------------------------\n";
-                    std::cout << "  Mode:      " << serverInfo.mode.toStdString() << "\n";
+                // Check if we have all the info we need
+                if (serverInfo.otpReady && (!serverInfo.hasLocalEndpoint || serverInfo.serverPort > 0)) {
+                    serverInfoShown = true;
                     
-                    // Show local endpoint info
-                    if (args.noLocalEndpoint) {
-                        std::cout << "  Local:     Disabled (--no-local-endpoint)\n";
+                    if (beam) {
+                        serverInfo.beamPid = beam->getBeamPid();
+                    }
+                    
+                    QString infoString = generateServerInfoString(serverInfo, args.verbose);
+                    if (args.verbose) {
+                        Tau5Logger::instance().info("OTP supervision tree ready");
+                        Tau5Logger::instance().info(infoString);
                     } else {
-                        std::cout << "  Local:     http://localhost:" << serverInfo.serverPort;
-                        if (!serverInfo.sessionToken.isEmpty()) {
-                            std::cout << "/?token=" << serverInfo.sessionToken.toStdString();
-                        }
-                        std::cout << "\n";
-                        
-                        if (!serverInfo.sessionToken.isEmpty()) {
-                            std::cout << "  Dashboard: http://localhost:" << serverInfo.serverPort << "/dev/dashboard?token=" << serverInfo.sessionToken.toStdString() << "\n";
-                        }
+                        std::cout << infoString.toStdString() << "\n" << std::flush;
                     }
-                    
-                    // Show public endpoint info if configured
-                    if (args.portPublic > 0) {
-                        printPublicEndpointInfo(args);
-                    }
-                    std::cout << "  Node PID:  " << serverInfo.nodePid << "\n";
-                    if (serverInfo.beamPid > 0) {
-                        std::cout << "  BEAM PID:  " << serverInfo.beamPid << "\n";
-                    }
-                    std::cout << "  Logs:      " << serverInfo.logPath.toStdString() << "\n";
-
-                QString mcpPort = qgetenv("TAU5_MCP_PORT");
-                if (!mcpPort.isEmpty() && mcpPort != "0") {
-                    std::cout << "  MCP:       Port " << mcpPort.toStdString();
-                    if (qgetenv("TAU5_TIDEWAVE_ENABLED") == "true") {
-                        std::cout << " (with Tidewave)";
-                    }
-                    std::cout << "\n";
-                }
-
-                if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true" && !serverInfo.sessionToken.isEmpty()) {
-                    std::cout << "  Console:   http://localhost:" << serverInfo.serverPort << "/dev/console?token=" << serverInfo.sessionToken.toStdString() << "\n";
-                }
-
-                std::cout << "========================================================\n";
-                std::cout << "Press Ctrl+C to stop\n\n" << std::flush;
                 }
             }
         });
@@ -758,20 +588,20 @@ int main(int argc, char *argv[]) {
             if (args.verbose) {
                 Tau5Logger::instance().log(LogLevel::Info, "beam", output);
             }
-        });
+            });
 
         QObject::connect(beam.get(), &Beam::standardError, [&args](const QString& error) {
-            // Log BEAM errors to the beam category only in verbose mode
-            if (args.verbose) {
-                Tau5Logger::instance().log(LogLevel::Error, "beam", error);
-            } else {
-                // In quiet mode, still show critical errors to stderr
-                if (error.contains("ERROR") || error.contains("CRITICAL") || error.contains("FATAL")) {
-                    std::cerr << "Error: " << error.toStdString();
-                }
+        // Log BEAM errors to the beam category only in verbose mode
+        if (args.verbose) {
+            Tau5Logger::instance().log(LogLevel::Error, "beam", error);
+        } else {
+            // In quiet mode, still show critical errors to stderr
+            if (error.contains("ERROR") || error.contains("CRITICAL") || error.contains("FATAL")) {
+                std::cerr << "Error: " << error.toStdString();
             }
+        }
         });
-    });
+    }, Qt::QueuedConnection);
 
     // Ensure BEAM is terminated before the app fully exits
     QObject::connect(&app, &QCoreApplication::aboutToQuit, [&beam, &args]() {

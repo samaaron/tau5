@@ -871,6 +871,7 @@ int runHealthCheck(const HealthCheckConfig& config) {
     };
     allResults.append(cliTestResult);
     
+    
     // Calculate and print summary
     auto summary = calculateSummary(allResults);
     printSummary(summary);

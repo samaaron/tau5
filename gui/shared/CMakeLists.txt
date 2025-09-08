@@ -13,6 +13,12 @@ add_library(tau5_core STATIC
     health_check.h
     test_cli_args.cpp
     test_cli_args.h
+    qt_message_handler.cpp
+    qt_message_handler.h
+    server_info.cpp
+    server_info.h
+    cli_help.cpp
+    cli_help.h
     error_codes.h
     cli_args.h
 )
@@ -98,7 +104,10 @@ install(FILES
     beam.h
     tau5logger.h
     common.h
+    qt_message_handler.h
+    server_info.h
     error_codes.h
+    cli_args.h
     DESTINATION include/tau5
 )
 

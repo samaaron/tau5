@@ -8,6 +8,12 @@
 #include "error_codes.h"
 
 namespace Tau5Common {
+    // Binary type enum used for formatting help text and server info
+    enum class BinaryType {
+        Gui,      // tau5 GUI application
+        Node      // tau5-node headless server
+    };
+
     // Configuration constants
     namespace Config {
         // Port is always dynamically allocated for security
