@@ -235,7 +235,7 @@ if [ "$NODE_ONLY" = true ]; then
 else
     # Deploy for full version (both binaries)
     "${LINUXDEPLOY}" --appdir "${APPDIR}" \
-        --executable "${APPDIR}/usr/bin/tau5" \
+        --executable "${APPDIR}/usr/bin/tau5-gui" \
         --desktop-file "${APPDIR}/tau5.desktop" \
         --icon-file "${APPDIR}/tau5.png" \
         --plugin qt
