@@ -275,7 +275,7 @@ if [ "$TAU5_DEBUG_LIBS" = "1" ]; then
 fi
 
 # Determine which binary to run
-if [ -f "${HERE}/usr/bin/tau5-node" ] && [ ! -f "${HERE}/usr/bin/tau5" ]; then
+if [ -f "${HERE}/usr/bin/tau5-node" ] && [ ! -f "${HERE}/usr/bin/tau5-gui" ]; then
     exec "${HERE}/usr/bin/tau5-node" "$@"
 fi
 
@@ -285,7 +285,7 @@ if [ -n "$TAU5_NODE_MODE" ] || [ "$1" = "--node" ]; then
     fi
     exec "${HERE}/usr/bin/tau5-node" "$@"
 else
-    exec "${HERE}/usr/bin/tau5" "$@"
+    exec "${HERE}/usr/bin/tau5-gui" "$@"
 fi
 EOF
 

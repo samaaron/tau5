@@ -224,7 +224,7 @@ jobs:
         working-directory: ${{github.workspace}}
         run: |
           cd release\Tau5-for-Windows-*
-          tau5.exe --check
+          tau5-gui.exe --check
           tau5-node.exe --check
         if: startsWith(matrix.os, 'windows')
 
@@ -246,7 +246,7 @@ jobs:
           else
             # For full builds, check both binaries
             cd release/Tau5-for-Linux-*/
-            ./tau5 --check
+            ./tau5-gui --check
             ./tau5-node --check
           fi
         if: startsWith(matrix.os, 'ubuntu')
