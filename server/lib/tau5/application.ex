@@ -9,20 +9,12 @@ defmodule Tau5.Application do
         {:ok, secrets} when map_size(secrets) > 0 ->
           Application.put_env(:tau5, :session_token, secrets.session_token)
           Application.put_env(:tau5, :heartbeat_token, secrets.heartbeat_token)
-          Application.put_env(:tau5, :heartbeat_port, secrets.heartbeat_port)
-
-          # Parse the port from stdin
-          {port, _} = Integer.parse(secrets.app_port)
 
           endpoint_config = Application.get_env(:tau5, Tau5Web.Endpoint)
 
-          # Update both secret_key_base and port
           new_endpoint_config =
             endpoint_config
             |> Keyword.put(:secret_key_base, secrets.secret_key_base)
-            |> Keyword.update(:http, [port: port], fn http_config ->
-              Keyword.put(http_config, :port, port)
-            end)
 
           Application.put_env(:tau5, Tau5Web.Endpoint, new_endpoint_config)
 
@@ -35,19 +27,20 @@ defmodule Tau5.Application do
       end
     end
 
-    http_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
+    http_port = 0
 
-    # Check if public endpoint should be enabled
     public_endpoint_enabled = Application.get_env(:tau5, :public_endpoint_enabled, false)
     public_port = Application.get_env(:tau5, :public_port, 0)
-    
-    # Log friend authentication configuration
+
     friend_mode = Application.get_env(:tau5, :friend_mode_enabled, false)
     friend_token = Application.get_env(:tau5, :friend_token)
+
     if friend_mode do
-      Logger.info("Friend mode enabled with token: #{if friend_token, do: "[CONFIGURED]", else: "[NOT SET]"}")
+      Logger.info(
+        "Friend mode enabled with token: #{if friend_token, do: "[CONFIGURED]", else: "[NOT SET]"}"
+      )
     end
-    
+
     public_endpoint_port =
       if public_port > 0 or public_endpoint_enabled do
         case Tau5.PortFinder.configure_endpoint_port(Tau5Web.PublicEndpoint) do
@@ -62,7 +55,7 @@ defmodule Tau5.Application do
       else
         nil
       end
-    
+
     should_start_public_endpoint = public_endpoint_port != nil
 
     base_children = [
@@ -100,17 +93,27 @@ defmodule Tau5.Application do
         []
       end
 
-    additional_children = [
-      %{
-        id: Tau5.KillSwitch,
-        start: {Tau5.KillSwitch, :start_link, [[]]},
-        restart: :temporary
-      },
-      Tau5.Heartbeat,
-      Tau5.Link,
-      Tau5.MIDI,
-      {Tau5.Discovery, %{http_port: http_port}}
-    ]
+    heartbeat_children =
+      if heartbeat_enabled?() do
+        [
+          %{
+            id: Tau5.KillSwitch,
+            start: {Tau5.KillSwitch, :start_link, [[]]},
+            restart: :temporary
+          },
+          Tau5.Heartbeat
+        ]
+      else
+        []
+      end
+
+    additional_children =
+      heartbeat_children ++
+        [
+          Tau5.Link,
+          Tau5.MIDI,
+          {Tau5.Discovery, %{http_port: http_port}}
+        ]
 
     children =
       base_children ++
@@ -121,15 +124,12 @@ defmodule Tau5.Application do
 
     case Supervisor.start_link(children, opts) do
       {:ok, pid} ->
-        # Initialize MCP activity loggers
         Tau5MCP.ActivityLogger.init()
 
         if System.get_env("TAU5_ENABLE_DEV_MCP", "false") in ["1", "true", "yes"] do
           TidewaveMCP.ActivityLogger.init()
         end
 
-        # Print ASCII art directly to stdio without any formatting/prefixes
-        # Using explicit string concatenation to preserve exact spacing
         ascii_art =
           "\n" <>
             "                           ╘\n" <>
@@ -155,7 +155,6 @@ defmodule Tau5.Application do
 
         :ok = :io.put_chars(:standard_io, ascii_art)
 
-        # Report server startup info to parent process in a separate task
         Task.start(fn -> Tau5.StartupInfo.report_server_info() end)
 
         Logger.info(
@@ -164,8 +163,49 @@ defmodule Tau5.Application do
 
         {:ok, pid}
 
+      {:error, {:shutdown, {:failed_to_start_child, child, {:shutdown, {:failed_to_start_child, sub_child, :eaddrinuse}}}}} ->
+        # Port already in use error during endpoint startup
+        endpoint_name = extract_endpoint_name(child, sub_child)
+        Tau5.StartupInfo.report_startup_error(
+          "#{endpoint_name}: port already in use"
+        )
+
+      {:error, {:shutdown, {:failed_to_start_child, child, :eaddrinuse}}} ->
+        # Direct port conflict
+        child_name = 
+          case child do
+            Tau5.Heartbeat -> "Heartbeat server"
+            atom when is_atom(atom) -> inspect(atom) |> String.replace("Elixir.", "")
+            _ -> inspect(child)
+          end
+        
+        Tau5.StartupInfo.report_startup_error(
+          "#{child_name}: port already in use"
+        )
+
+      {:error, {:shutdown, {:failed_to_start_child, child, error}}} ->
+        # Other startup errors
+        child_name = 
+          case child do
+            atom when is_atom(atom) -> inspect(atom) |> String.replace("Elixir.", "")
+            _ -> inspect(child)
+          end
+        
+        error_message = 
+          case error do
+            {:shutdown, details} -> "startup failed: #{inspect(details)}"
+            _ -> inspect(error)
+          end
+        
+        Tau5.StartupInfo.report_startup_error(
+          "#{child_name}: #{error_message}"
+        )
+
       error ->
-        error
+        # Catch-all for any other errors
+        Tau5.StartupInfo.report_startup_error(
+          "Application startup failed: #{inspect(error)}"
+        )
     end
   end
 
@@ -173,5 +213,28 @@ defmodule Tau5.Application do
   def config_change(changed, _new, removed) do
     Tau5Web.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp extract_endpoint_name(child, sub_child) do
+    # Try to extract a meaningful name from the nested error structure
+    endpoint_name = 
+      case {child, sub_child} do
+        {Tau5Web.Endpoint, _} -> "Local Endpoint"
+        {Tau5Web.PublicEndpoint, _} -> "Public Endpoint"
+        {Tau5Web.MCPEndpoint, _} -> "MCP Endpoint"
+        {_, {name, _}} when is_atom(name) -> inspect(name)
+        {_, name} when is_atom(name) -> inspect(name)
+        _ -> "#{inspect(child)} (#{inspect(sub_child)})"
+      end
+    
+    endpoint_name
+  end
+
+  defp heartbeat_enabled? do
+    case System.get_env("TAU5_HEARTBEAT_ENABLED") do
+      "true" -> true
+      "false" -> false
+      _ -> Application.get_env(:tau5, :heartbeat_enabled, true)
+    end
   end
 end

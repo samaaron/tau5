@@ -355,16 +355,9 @@ int main(int argc, char *argv[])
   if (isGuiDevMode)
   {
     Tau5Logger::instance().info("Development mode enabled.");
-    // In dev mode, also allocate a random port for security unless custom port specified
     if (!args.portLocal) {
-      auto portHolder = allocatePort(port);
-      if (!portHolder || port == 0)
-      {
-        QMessageBox::critical(nullptr, "Error", "Failed to allocate port");
-        return 1;
-      }
-      Tau5Logger::instance().info(QString("Allocated port %1 for internal endpoint").arg(port));
-      // portHolder will be destroyed when going out of scope, releasing the port for the Beam process
+      port = 0;
+      Tau5Logger::instance().info("Local endpoint port will be allocated by BEAM server");
     }
   }
   else
@@ -373,13 +366,7 @@ int main(int argc, char *argv[])
       Tau5Logger::instance().info("Server will run in production mode.");
     }
     if (!args.portLocal) {
-      auto portHolder = allocatePort(port);
-      if (!portHolder || port == 0)
-      {
-        QMessageBox::critical(nullptr, "Error", "Failed to allocate port");
-        return 1;
-      }
-      // portHolder will be destroyed when going out of scope, releasing the port for the Beam process
+      port = 0;
     }
   }
 
@@ -568,7 +555,18 @@ int main(int argc, char *argv[])
       Tau5Logger::instance().debug("Debug messages are enabled");
     }
 
-    QObject::connect(beam.get(), &Beam::otpReady, [&mainWindow, port, &args, &serverInfo, &beam]() {
+    QObject::connect(beam.get(), &Beam::otpReady, [&mainWindow, &args, &serverInfo, &beam]() {
+      // Get the actual allocated port from BEAM
+      quint16 actualPort = beam->getPort();
+      
+      // Validate that we have a valid port
+      if (actualPort == 0) {
+        Tau5Logger::instance().error("BEAM server failed to allocate a valid port");
+        QMessageBox::critical(nullptr, "Error", "Server failed to allocate a valid port. The application cannot continue.");
+        QApplication::quit();
+        return;
+      }
+      
       if (args.verbose) {
         Tau5Logger::instance().info("OTP supervision tree ready, connecting to server...");
         
@@ -576,19 +574,18 @@ int main(int argc, char *argv[])
         if (beam) {
           serverInfo.beamPid = beam->getBeamPid();
           serverInfo.sessionToken = beam->getSessionToken();
-          quint16 actualPort = beam->getPort();
-          if (actualPort > 0) {
-            serverInfo.serverPort = actualPort;
-          }
+          serverInfo.serverPort = actualPort;
         }
         
         // Print server info in verbose mode
         QString infoString = generateServerInfoString(serverInfo, true);
         Tau5Logger::instance().info(infoString);
       }
-      if (!mainWindow.connectToServer(port))
+      
+      // Use the actual allocated port, not the initial value
+      if (!mainWindow.connectToServer(actualPort))
       {
-        QMessageBox::critical(nullptr, "Error", "Failed to connect to server");
+        QMessageBox::critical(nullptr, "Error", QString("Failed to connect to server on port %1").arg(actualPort));
         QApplication::quit();
       }
     });

@@ -108,7 +108,7 @@ defmodule Tau5.KillSwitch do
             Logger.error("KILL SWITCH TRIGGERED - No reset for #{missed} checks")
             Logger.error("Shutting down NOW")
             Process.sleep(100)
-            
+
             if System.get_env("MIX_ENV") == "dev" do
               hard_kill_self()
             else
@@ -168,5 +168,4 @@ defmodule Tau5.KillSwitch do
         end
     end
   end
-
 end

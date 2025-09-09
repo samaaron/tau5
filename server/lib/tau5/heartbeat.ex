@@ -11,36 +11,84 @@ defmodule Tau5.Heartbeat do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @doc """
+  Returns the allocated heartbeat port, or 0 if disabled.
+  """
+  def get_port do
+    if Process.whereis(__MODULE__) do
+      GenServer.call(__MODULE__, :get_port)
+    else
+      0
+    end
+  end
+
   def init(_opts) do
     if heartbeat_enabled?() do
-      case open_udp_socket() do
-        {:ok, socket} ->
-          token =
-            Application.get_env(:tau5, :heartbeat_token) ||
-              System.get_env("TAU5_HEARTBEAT_TOKEN", "")
+      # Allow manual override via environment variable
+      requested_port = 
+        case System.get_env("TAU5_HEARTBEAT_PORT") do
+          nil -> 0
+          "" -> 0
+          port_str ->
+            case Integer.parse(port_str) do
+              {port, ""} when port >= 0 and port <= 65535 -> port
+              _ ->
+                Logger.warning("Invalid TAU5_HEARTBEAT_PORT: #{port_str}, using random allocation")
+                0
+            end
+        end
 
-          if token == "" do
-            Logger.error("FATAL: TAU5_HEARTBEAT_TOKEN missing or empty - refusing to start")
-            Logger.error("Heartbeat security requires a valid token")
-            System.halt(0)
-          end
+      {socket, port} =
+        case :gen_udp.open(requested_port, [
+               :binary,
+               {:active, true},
+               {:ip, {127, 0, 0, 1}}
+             ]) do
+          {:ok, sock} ->
+            case :inet.port(sock) do
+              {:ok, p} ->
+                Logger.debug("Heartbeat GenServer opened UDP socket on port #{p}")
+                {sock, p}
 
-          Logger.info("UDP heartbeat listener started successfully")
-          # Don't send PID here - let StartupInfo handle it with the port
+              {:error, reason} ->
+                :gen_udp.close(sock)
+                Tau5.StartupInfo.report_startup_error(
+                  "Failed to get UDP port: #{inspect(reason)}"
+                )
+            end
 
-          {:ok,
-           %{
-             socket: socket,
-             token: token,
-             valid_count: 0,
-             invalid_count: 0
-           }}
+          {:error, :eaddrinuse} when requested_port > 0 ->
+            Tau5.StartupInfo.report_startup_error(
+              "Heartbeat port #{requested_port} is already in use. Another Tau5 instance may be running with the same heartbeat port."
+            )
 
-        {:error, reason} ->
-          Logger.error("FATAL: Cannot bind to UDP heartbeat port: #{inspect(reason)}")
-          Logger.error("Shutting down immediately - heartbeat setup failed")
-          System.halt(0)
+          {:error, reason} ->
+            Tau5.StartupInfo.report_startup_error(
+              "Failed to open UDP socket on port #{requested_port}: #{inspect(reason)}"
+            )
+        end
+
+      token =
+        Application.get_env(:tau5, :heartbeat_token) ||
+          System.get_env("TAU5_HEARTBEAT_TOKEN", "")
+
+      if token == "" do
+        Tau5.StartupInfo.report_startup_error(
+          "TAU5_HEARTBEAT_TOKEN missing or empty - heartbeat security requires a valid token"
+        )
       end
+
+      Logger.info("UDP heartbeat listener started on port #{port}")
+      Logger.debug("Heartbeat token configured: #{String.slice(token, 0..7)}...")
+
+      {:ok,
+       %{
+         socket: socket,
+         port: port,
+         token: token,
+         valid_count: 0,
+         invalid_count: 0
+       }}
     else
       Logger.info("Heartbeat monitoring disabled")
       {:ok, %{enabled: false}}
@@ -52,7 +100,6 @@ defmodule Tau5.Heartbeat do
       "HEARTBEAT:" <> token when token == state.token ->
         Tau5.KillSwitch.reset()
 
-        # Only log the first heartbeat, not subsequent ones
         if state.valid_count == 0 do
           Logger.info("First heartbeat received - kill switch reset")
         end
@@ -75,50 +122,17 @@ defmodule Tau5.Heartbeat do
     System.halt(0)
   end
 
-  defp open_udp_socket do
-    port_str =
-      Application.get_env(:tau5, :heartbeat_port) || System.get_env("TAU5_HEARTBEAT_PORT")
+  def handle_info(msg, state) do
+    Logger.warning("Heartbeat GenServer received unexpected message: #{inspect(msg)}")
+    {:noreply, state}
+  end
 
-    if port_str do
-      case Integer.parse(port_str) do
-        {port, ""} ->
-          Logger.debug("Opening UDP heartbeat listener on port #{port}")
-
-          # Bind to IPv4 loopback only for security
-          case :gen_udp.open(port, [
-                 :binary,
-                 {:active, true},
-                 {:reuseaddr, true},
-                 {:ip, {127, 0, 0, 1}}
-               ]) do
-            {:ok, socket} ->
-              case :inet.port(socket) do
-                {:ok, actual_port} ->
-                  Logger.debug("UDP socket successfully bound to port #{actual_port}")
-                  {:ok, socket}
-
-                {:error, reason} ->
-                  Logger.error("Failed to verify UDP socket port: #{inspect(reason)}")
-                  {:error, reason}
-              end
-
-            {:error, reason} = error ->
-              Logger.error("Failed to bind to UDP port #{port}: #{inspect(reason)}")
-              error
-          end
-
-        _ ->
-          Logger.error("Invalid TAU5_HEARTBEAT_PORT: #{port_str}")
-          {:error, :invalid_port}
-      end
-    else
-      Logger.error("TAU5_HEARTBEAT_PORT not set - GUI did not provide heartbeat port")
-      {:error, :no_port}
-    end
+  def handle_call(:get_port, _from, state) do
+    port = Map.get(state, :port, 0)
+    {:reply, port, state}
   end
 
   defp heartbeat_enabled? do
-    # Check environment variable first, then application config
     case System.get_env("TAU5_HEARTBEAT_ENABLED") do
       "true" -> true
       "false" -> false

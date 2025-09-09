@@ -40,6 +40,7 @@ private slots:
   void handleStandardOutput();
   void handleStandardError();
   void sendHeartbeat();
+  void handleStartupTimeout();
 
 private:
   quint16 appPort;
@@ -54,6 +55,7 @@ private:
   QProcess *process;
   qint64 beamPid;
   QTimer *heartbeatTimer;
+  QTimer *startupTimer;
   QUdpSocket *heartbeatSocket;
   quint16 heartbeatPort;
   QString heartbeatToken;
@@ -61,12 +63,12 @@ private:
   bool otpTreeReady;
   QString sessionToken;
   bool devMode;
+  bool heartbeatEnabled;
   QString appName;
   QString appVersion;
   bool isRestarting;
   bool enableMcp;
   bool enableRepl;
-  bool useStdinConfig;
   QString secretKeyBase;
   DeploymentMode deploymentMode;
 

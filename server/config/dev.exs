@@ -6,9 +6,8 @@ import Config
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-# Internal endpoint always uses random port for security
-# GUI will pass the allocated port via PORT env var
-port = String.to_integer(System.get_env("PORT") || "0")
+# Internal endpoint - GUI can override via TAU5_LOCAL_PORT
+port = String.to_integer(System.get_env("TAU5_LOCAL_PORT") || "0")
 
 config :tau5, Tau5Web.Endpoint,
   # Internal endpoint - localhost only with app token required

@@ -7,34 +7,66 @@ defmodule Tau5.StartupInfo do
 
   require Logger
 
-  def report_server_info do
-    # Longer delay to ensure endpoint is fully started and port is bound
+  def report_server_info() do
     Process.sleep(1000)
 
     pid = System.pid()
+    http_port = get_http_port()
+    heartbeat_port = Tau5.Heartbeat.get_port()
+    mcp_port = get_mcp_port()
 
-    # Check if local endpoint is disabled
+    IO.puts(
+      "[TAU5_SERVER_INFO:PID=#{pid},HTTP_PORT=#{http_port},HEARTBEAT_PORT=#{heartbeat_port},MCP_PORT=#{mcp_port}]"
+    )
+
+    Logger.info(
+      "Server started - PID: #{pid}, HTTP: #{http_port}, Heartbeat: #{heartbeat_port}, MCP: #{mcp_port}"
+    )
+  end
+
+  @doc """
+  Reports a startup error to the parent process and then halts.
+  """
+  def report_startup_error(message) do
+    IO.puts("[TAU5_SERVER_ERROR:#{message}]")
+    Logger.error("Server startup failed: #{message}")
+    System.halt(1)
+  end
+
+  defp get_http_port do
     if System.get_env("TAU5_NO_LOCAL_ENDPOINT") == "true" do
-      # Report with port 0 to indicate no local endpoint
-      IO.puts("[TAU5_SERVER_INFO:PID=#{pid},PORT=0]")
-      Logger.info("Server started - PID: #{pid}, No local endpoint")
+      0
     else
-      configured_port = Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port]
-      Logger.debug("Configured port: #{configured_port}")
+      get_actual_server_port()
+    end
+  end
 
-      port = get_actual_server_port()
+  defp get_mcp_port do
+    if mcp_enabled?() do
+      case System.get_env("TAU5_MCP_PORT") do
+        port_str when is_binary(port_str) ->
+          case Integer.parse(port_str) do
+            {port, ""} -> port
+            _ -> Application.get_env(:tau5, :mcp_port, 5555)
+          end
 
-      # Send both PID and port in a single atomic message
-      # Format: [TAU5_SERVER_INFO:PID=12345,PORT=4000]
-      IO.puts("[TAU5_SERVER_INFO:PID=#{pid},PORT=#{port}]")
-      Logger.info("Server started - PID: #{pid}, Port: #{port}")
+        _ ->
+          Application.get_env(:tau5, :mcp_port, 5555)
+      end
+    else
+      0
+    end
+  end
+
+  defp mcp_enabled? do
+    case System.get_env("TAU5_MCP_ENABLED") do
+      "true" -> true
+      "false" -> false
+      _ -> Application.get_env(:tau5, :mcp_enabled, true)
     end
   end
 
   defp get_actual_server_port do
-    # Get the actual port from the running endpoint using Phoenix's server_info/1
-    # This is the idiomatic way to get the actual bound port
-
     case Tau5Web.Endpoint.server_info(:http) do
       {:ok, {_address, port}} when is_integer(port) and port > 0 ->
         Logger.debug("Got actual port from server_info: #{port}")
@@ -53,7 +85,6 @@ defmodule Tau5.StartupInfo do
   defp get_configured_port do
     case Application.get_env(:tau5, Tau5Web.Endpoint)[:http][:port] do
       0 ->
-        # Port 0 means random allocation, but we couldn't get the actual port
         Logger.warning("Could not determine actual allocated port")
         0
 

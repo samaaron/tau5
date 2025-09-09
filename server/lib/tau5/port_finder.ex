@@ -58,24 +58,32 @@ defmodule Tau5.PortFinder do
     current_config = Application.get_env(:tau5, endpoint_module, [])
     http_config = Keyword.get(current_config, :http, [])
     configured_port = Keyword.get(http_config, :port, 0)
-    
-    Logger.info("PublicEndpoint: Checking port configuration - configured port: #{configured_port}")
 
-    result = 
+    Logger.info(
+      "PublicEndpoint: Checking port configuration - configured port: #{configured_port}"
+    )
+
+    result =
       if configured_port > 0 do
         # A specific port was configured - verify it's available
         case try_port(configured_port) do
           :ok ->
             Logger.info("PublicEndpoint: Using configured port #{configured_port}")
             {:ok, configured_port}
-          
+
           {:error, reason} ->
-            Logger.error("PublicEndpoint: Configured port #{configured_port} is not available: #{inspect(reason)}")
+            Logger.error(
+              "PublicEndpoint: Configured port #{configured_port} is not available: #{inspect(reason)}"
+            )
+
             {:error, :port_unavailable}
         end
       else
         # No port configured, find an available one
-        Logger.info("PublicEndpoint: No port configured, auto-finding from base port #{@base_port}")
+        Logger.info(
+          "PublicEndpoint: No port configured, auto-finding from base port #{@base_port}"
+        )
+
         case find_available_port() do
           {:ok, port} = result ->
             # Update the endpoint configuration with the found port
@@ -86,10 +94,10 @@ defmodule Tau5.PortFinder do
 
             new_config = Keyword.put(current_config, :http, new_http_config)
             Application.put_env(:tau5, endpoint_module, new_config)
-            
+
             Logger.info("PublicEndpoint: Configured to use auto-discovered port #{port}")
             result
-          
+
           error ->
             error
         end

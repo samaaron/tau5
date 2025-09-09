@@ -3,8 +3,8 @@ defmodule Tau5.SecureConfig do
   Reads secure configuration from stdin to avoid exposing secrets
   in environment variables or command line arguments.
 
-  Expected format: 5 lines containing session token, heartbeat token,
-  heartbeat port, application port, and secret key base.
+  Expected format: 3 lines containing session token, heartbeat token,
+  and secret key base.
   """
 
   require Logger
@@ -16,21 +16,19 @@ defmodule Tau5.SecureConfig do
       Logger.info("SecureConfig: Reading configuration from stdin...")
 
       case read_with_timeout(@timeout) do
-        {:ok, [session_token, heartbeat_token, heartbeat_port, app_port, secret_key_base]} ->
-          Logger.info("SecureConfig: Successfully read 5 secret values from stdin")
+        {:ok, [session_token, heartbeat_token, secret_key_base]} ->
+          Logger.info("SecureConfig: Successfully read 3 secret values from stdin")
 
           # Just return the values - let the caller decide what to do with them
           {:ok,
            %{
              session_token: session_token,
              heartbeat_token: heartbeat_token,
-             heartbeat_port: heartbeat_port,
-             app_port: app_port,
              secret_key_base: secret_key_base
            }}
 
         {:ok, lines} ->
-          Logger.error("SecureConfig: Expected exactly 5 lines, got #{length(lines)}")
+          Logger.error("SecureConfig: Expected exactly 3 lines, got #{length(lines)}")
           :error
 
         {:error, :timeout} ->
@@ -65,7 +63,7 @@ defmodule Tau5.SecureConfig do
 
   defp read_stdin_lines do
     lines =
-      for _ <- 1..5 do
+      for _ <- 1..3 do
         case IO.gets("") do
           {:error, reason} ->
             {:error, reason}

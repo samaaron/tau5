@@ -40,6 +40,7 @@ struct CommonArgs {
     quint16 portPublic = 0;   // Public endpoint port (0 = disabled)
     quint16 portMcp = 0;      // MCP services port (0 = use default 5555 when enabled)
     quint16 portChrome = 0;   // Chrome DevTools port (0 = use default 9223 when enabled)
+    quint16 portHeartbeat = 0; // Heartbeat UDP port (0 = random)
     
     // Quick setup flags
     bool devtools = false;     // Convenience flag: enables dev mode + MCP + Chrome DevTools + Tidewave
@@ -170,6 +171,9 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
     } else if (std::strcmp(arg, "--port-chrome-dev") == 0) {
         parsePort(nextArg, i, args.portChrome, args, "--port-chrome-dev");
         if (!args.hasError) args.chromeDevtools = true;
+        return true;
+    } else if (std::strcmp(arg, "--port-heartbeat") == 0) {
+        parsePort(nextArg, i, args.portHeartbeat, args, "--port-heartbeat");
         return true;
     }
     // Optional features (enable with flag)
@@ -314,6 +318,17 @@ inline bool validateArguments(CommonArgs& args) {
         return false;
     }
     
+    if (args.portHeartbeat > 0) {
+        if (args.portHeartbeat == args.portLocal || 
+            args.portHeartbeat == args.portPublic || 
+            args.portHeartbeat == args.portMcp ||
+            args.portHeartbeat == args.portChrome) {
+            args.hasError = true;
+            args.errorMessage = "Heartbeat port conflicts with another port";
+            return false;
+        }
+    }
+    
     if (args.tidewave && !args.mcp) {
         args.mcp = true;
     }
@@ -339,6 +354,7 @@ inline bool validateArguments(CommonArgs& args) {
     if (!validatePort(args.portPublic, "Public")) return false;
     if (!validatePort(args.portMcp, "MCP")) return false;
     if (!validatePort(args.portChrome, "Chrome DevTools")) return false;
+    if (!validatePort(args.portHeartbeat, "Heartbeat")) return false;
     
     if (args.portMcp > 0 && !args.mcp) {
         args.mcp = true;
@@ -409,6 +425,9 @@ inline void applyEnvironmentVariables(const CommonArgs& args, const char* target
         qputenv("TAU5_PUBLIC_PORT", std::to_string(args.portPublic).c_str());
         // If public endpoint is enabled, also enable public endpoint in the server
         qputenv("TAU5_PUBLIC_ENDPOINT_ENABLED", "true");
+    }
+    if (args.portHeartbeat > 0) {
+        qputenv("TAU5_HEARTBEAT_PORT", std::to_string(args.portHeartbeat).c_str());
     }
     
     // Friend authentication configuration

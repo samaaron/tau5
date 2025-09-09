@@ -42,7 +42,8 @@ std::string generateHelpText(Tau5Common::BinaryType type, const char* programNam
          << "\n"
          << "Port Configuration:\n"
          << "  --port-local <n>         Local web UI port (default: random)\n"
-         << "  --port-public <n>        Public endpoint port (default: disabled)\n";
+         << "  --port-public <n>        Public endpoint port (default: disabled)\n"
+         << "  --port-heartbeat <n>     Heartbeat UDP port (default: random)\n";
     
     if (type == Tau5Common::BinaryType::Node) {
         help << "  --no-local-endpoint      Disable local endpoint completely\n";

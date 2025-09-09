@@ -121,12 +121,13 @@ config :tau5, :public_endpoint_enabled, public_port > 0
 
 # Configure the public endpoint's HTTP settings when a port is specified
 if public_port > 0 do
-  public_check_origin = if System.get_env("TAU5_MODE") == "central" do
-    ["https://tau5.live", "http://localhost:#{public_port}"]
-  else
-    false
-  end
-  
+  public_check_origin =
+    if System.get_env("TAU5_MODE") == "central" do
+      ["https://tau5.live", "http://localhost:#{public_port}"]
+    else
+      false
+    end
+
   config :tau5, Tau5Web.PublicEndpoint,
     http: [
       # Bind to all interfaces for public access
@@ -192,19 +193,21 @@ if config_env() == :prod do
   # Main endpoint ALWAYS binds to localhost only for security
   # When port is 0 (random allocation), we can't predict the actual port at config time
   # so we disable origin checking. This is safe since we're binding to localhost only.
-  check_origin_config = if port == 0 do
-    false
-  else
-    [
-      "http://#{host}:#{port}",
-      "http://127.0.0.1:#{port}",
-      "http://localhost:#{port}"
-    ]
-  end
+  check_origin_config =
+    if port == 0 do
+      false
+    else
+      [
+        "http://#{host}:#{port}",
+        "http://127.0.0.1:#{port}",
+        "http://localhost:#{port}"
+      ]
+    end
 
   config :tau5, Tau5Web.Endpoint,
     http: [
-      ip: {127, 0, 0, 1},  # Always localhost only
+      # Always localhost only
+      ip: {127, 0, 0, 1},
       port: port
     ],
     check_origin: check_origin_config,
