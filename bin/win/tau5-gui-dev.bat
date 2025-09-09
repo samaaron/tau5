@@ -12,7 +12,12 @@ cd /d "%ROOT_DIR%"
 
 rem Check if executable exists
 if not exist "%BUILD_DIR%\bin\tau5-gui-dev.exe" (
-    echo Error: tau5-gui-dev.exe not found. Please build it first using dev-build-gui.bat
+    echo Error: tau5-gui-dev binary not found at %BUILD_DIR%\bin\tau5-gui-dev.exe
+    echo.
+    echo Please build the development GUI first by running:
+    echo   .\bin\win\dev-build-gui.bat
+    echo.
+    echo This will compile the Qt browser component with development tools enabled.
     cd /d "%WORKING_DIR%"
     exit /b 1
 )

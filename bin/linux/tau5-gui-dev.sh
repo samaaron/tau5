@@ -12,12 +12,21 @@ trap cleanup_function EXIT
 
 cd "${ROOT_DIR}"
 
+# Check if the binary exists
+BINARY_PATH="./gui/build/bin/tau5-gui-dev"
+if [ ! -f "${BINARY_PATH}" ]; then
+    echo "Error: tau5-gui-dev binary not found at ${BINARY_PATH}"
+    echo ""
+    echo "Please build the development GUI first by running:"
+    echo "  ./bin/linux/dev-build-gui.sh"
+fi
+
 # Pass through all command-line arguments and respect environment variables
 # If no arguments provided, default to --devtools for backward compatibility
 if [ $# -eq 0 ]; then
     # Default behavior when no arguments provided
-    exec ./gui/build/bin/tau5-gui-dev --server-path "${ROOT_DIR}/server" --devtools
+    exec "${BINARY_PATH}" --server-path "${ROOT_DIR}/server" --devtools
 else
     # Pass through all arguments as provided
-    exec ./gui/build/bin/tau5-gui-dev --server-path "${ROOT_DIR}/server" "$@"
+    exec "${BINARY_PATH}" --server-path "${ROOT_DIR}/server" "$@"
 fi

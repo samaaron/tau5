@@ -17,9 +17,9 @@ elif [ -f "${BUILD_DIR}/bin/Tau5.app/Contents/MacOS/tau5-node-dev" ]; then
     # Note: This is primarily for testing - normally you'd use tau5 itself
     "${BUILD_DIR}/bin/Tau5.app/Contents/MacOS/tau5-node-dev" --server-path "${SERVER_DIR}" --devtools "$@"
 else
-    echo "Error: tau5-node executable not found!"
-    echo "Please build tau5-node first using:"
-    echo "  ${SCRIPT_DIR}/build-node.sh  (for standalone headless)"
-    echo "  ${SCRIPT_DIR}/build-gui.sh   (includes tau5-node in app bundle)"
+    echo "Error: tau5-node-dev binary not found!"
+    echo ""
+    echo "Please build the development node first by running:"
+    echo "  ./bin/mac/dev-build-node.sh"
     exit 1
 fi
