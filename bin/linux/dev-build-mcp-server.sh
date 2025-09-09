@@ -16,6 +16,6 @@ cd build
 
 cmake -DCMAKE_BUILD_TYPE=$CONFIG -DBUILD_MCP_SERVER=ON ../
 
-cmake --build . --config $CONFIG --target tau5-dev-gui-mcp-server
+cmake --build . --config $CONFIG --target tau5-gui-dev-mcp-server
 
 cd "$WORKING_DIR"

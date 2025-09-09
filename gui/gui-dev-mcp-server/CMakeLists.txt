@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(tau5-dev-gui-mcp-server)
+project(tau5-gui-dev-mcp-server)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,19 +9,19 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt6 REQUIRED COMPONENTS Core Network WebSockets)
 
 # MCP Server executable
-add_executable(tau5-dev-gui-mcp-server
-    tau5_dev_gui_mcp_server.cpp
+add_executable(tau5-gui-dev-mcp-server
+    tau5_gui_dev_mcp_server.cpp
     mcpserver_stdio.h
     mcpserver_stdio.cpp
     cdpclient.h
     cdpclient.cpp
 )
 
-target_include_directories(tau5-dev-gui-mcp-server PRIVATE
+target_include_directories(tau5-gui-dev-mcp-server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
-target_link_libraries(tau5-dev-gui-mcp-server
+target_link_libraries(tau5-gui-dev-mcp-server
     tau5_core  # Link to our static library for tau5logger
     Qt6::Core
     Qt6::Network
@@ -29,18 +29,18 @@ target_link_libraries(tau5-dev-gui-mcp-server
 )
 
 # Set output directory to be alongside the main executable
-set_target_properties(tau5-dev-gui-mcp-server PROPERTIES
+set_target_properties(tau5-gui-dev-mcp-server PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
 if(WIN32)
     # Deploy Qt dependencies for the MCP executable
-    add_custom_command(TARGET tau5-dev-gui-mcp-server POST_BUILD
-        COMMAND ${CMAKE_PREFIX_PATH}/bin/windeployqt $<TARGET_FILE:tau5-dev-gui-mcp-server>
+    add_custom_command(TARGET tau5-gui-dev-mcp-server POST_BUILD
+        COMMAND ${CMAKE_PREFIX_PATH}/bin/windeployqt $<TARGET_FILE:tau5-gui-dev-mcp-server>
     )
 endif()
 
 # Install target
-install(TARGETS tau5-dev-gui-mcp-server
+install(TARGETS tau5-gui-dev-mcp-server
     RUNTIME DESTINATION .
 )

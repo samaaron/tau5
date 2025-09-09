@@ -39,11 +39,11 @@ cd ~/Development/tau5
 
 ## Run Tau5 in Development Mode
 
-To run Tau5 in dev mode, just run the `tau5-dev.sh` script
+To run Tau5 in dev mode, just run the `tau5-gui-dev.sh` script
 
 ```
 cd ~/Development/tau5
-./bin/linux/tau5.sh
+./bin/linux/tau5-gui-dev.sh
 ```
 
 

@@ -12,7 +12,7 @@ The MCP server consists of three main components:
 
 ## How It Works
 1. When Tau5 starts in dev mode, it enables Chrome DevTools Protocol on port 9223
-2. The MCP server (tau5-dev-gui-mcp-server) runs as a separate process communicating via stdio
+2. The MCP server (tau5-gui-dev-mcp-server) runs as a separate process communicating via stdio
 3. The CDPClient connects to the Chrome DevTools Protocol via WebSocket
 4. MCP tools are registered to provide various DevTools functionalities
 
@@ -40,7 +40,7 @@ The MCP server consists of three main components:
 ## Usage
 
 ### Running the MCP Server
-The tau5-dev-gui-mcp-server runs as a standalone executable that bridges AI assistants to Tau5's Chrome DevTools. It must be configured in your AI assistant's MCP settings.
+The tau5-gui-dev-mcp-server runs as a standalone executable that bridges AI assistants to Tau5's Chrome DevTools. It must be configured in your AI assistant's MCP settings.
 
 ### Configuration for Claude Desktop
 Add to your Claude Desktop configuration:
@@ -48,7 +48,7 @@ Add to your Claude Desktop configuration:
 {
   "mcpServers": {
     "tau5-gui-dev": {
-      "command": "C:\\path\\to\\tau5\\bin\\win\\start-tau5-dev-gui-mcp-server.bat",
+      "command": "C:\\path\\to\\tau5\\bin\\win\\start-tau5-gui-dev-mcp-server.bat",
       "args": []
     }
   }

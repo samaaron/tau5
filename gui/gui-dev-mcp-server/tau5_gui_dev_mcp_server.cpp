@@ -334,12 +334,12 @@ private:
     CDPClient* m_client;
 };
 
-#include "tau5_dev_gui_mcp_server.moc"
+#include "tau5_gui_dev_mcp_server.moc"
 
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
-    app.setApplicationName("tau5-dev-gui-mcp-server");
+    app.setApplicationName("tau5-gui-dev-mcp-server");
     app.setOrganizationName("Tau5");
     
     quint16 devToolsPort = 9223;
@@ -355,7 +355,7 @@ int main(int argc, char *argv[])
             std::cout << "Tau5 GUI Dev MCP Server\n\n";
             std::cout << "This server provides MCP (Model Context Protocol) access to Chrome DevTools.\n";
             std::cout << "It connects to a running Tau5 instance with DevTools enabled.\n\n";
-            std::cout << "Usage: tau5-dev-gui-mcp-server [options]\n\n";
+            std::cout << "Usage: tau5-gui-dev-mcp-server [options]\n\n";
             std::cout << "Options:\n";
             std::cout << "  --devtools-port <port>  Chrome DevTools port (default: 9223)\n";
             std::cout << "  --debug                 Enable debug logging to tau5-mcp-debug.log\n";
@@ -363,7 +363,7 @@ int main(int argc, char *argv[])
             std::cout << "Configure in Claude Code with:\n";
             std::cout << "  \"mcpServers\": {\n";
             std::cout << "    \"tau5-gui-dev\": {\n";
-            std::cout << "      \"command\": \"path/to/tau5-dev-gui-mcp-server\",\n";
+            std::cout << "      \"command\": \"path/to/tau5-gui-dev-mcp-server\",\n";
             std::cout << "      \"args\": [\"--devtools-port\", \"9223\"]\n";
             std::cout << "    }\n";
             std::cout << "  }\n";
