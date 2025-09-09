@@ -486,6 +486,13 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     controlLayer->raise();
   }
   
+  // Ensure console overlay is properly positioned
+  if (consoleOverlay && consoleOverlay->isVisible()) {
+    // Force recalculation of position
+    QResizeEvent fakeEvent(consoleOverlay->size(), consoleOverlay->size());
+    QApplication::sendEvent(consoleOverlay.get(), &fakeEvent);
+  }
+  
   if (transitionOverlay) {
 #ifndef Q_OS_MACOS
     if (m_titleBar) {

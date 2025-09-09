@@ -1,5 +1,6 @@
 #include "consoleoverlay.h"
 #include <QResizeEvent>
+#include <QShowEvent>
 #include <QPainter>
 #include <QLinearGradient>
 #include <QRadialGradient>
@@ -40,7 +41,7 @@ ConsoleOverlay::ConsoleOverlay(QWidget *parent)
     });
     
     setupStyles();
-    positionOverlay();
+    // Don't position in constructor - wait for parent to be ready
     
     appendLog("[TAU5] System initializing...");
     appendLog("[BEAM] Starting Erlang VM...");
@@ -137,13 +138,28 @@ void ConsoleOverlay::resizeEvent(QResizeEvent *event)
     positionOverlay();
 }
 
+void ConsoleOverlay::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    positionOverlay();
+}
+
 void ConsoleOverlay::positionOverlay()
 {
     if (parentWidget()) {
-        int width = qMin(OVERLAY_WIDTH, parentWidget()->width() / 3);
-        int height = qMin(OVERLAY_HEIGHT, parentWidget()->height() / 3);
+        // Keep fixed size - don't scale with parent
+        int width = OVERLAY_WIDTH;
+        int height = OVERLAY_HEIGHT;
         int x = parentWidget()->width() - width - MARGIN;
         int y = parentWidget()->height() - height - MARGIN;
+        
+        // Debug output
+        Tau5Logger::instance().debug(QString("[ConsoleOverlay] Parent size: %1x%2, positioning at: %3,%4 size: %5x%6")
+            .arg(parentWidget()->width())
+            .arg(parentWidget()->height())
+            .arg(x).arg(y)
+            .arg(width).arg(height));
+        
         setGeometry(x, y, width, height);
     }
 }
