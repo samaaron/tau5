@@ -21,6 +21,7 @@ public:
     void fadeOut();
     void fadeIn();
     void clear();
+    void positionOverlay();
     
     qreal opacity() const;
     void setOpacity(qreal opacity);
@@ -34,7 +35,6 @@ protected:
     void paintEvent(QPaintEvent *event) override;
 
 private:
-    void positionOverlay();
     void setupStyles();
     
     QTextEdit *m_logWidget;

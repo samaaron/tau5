@@ -488,9 +488,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
   
   // Ensure console overlay is properly positioned
   if (consoleOverlay && consoleOverlay->isVisible()) {
-    // Force recalculation of position
-    QResizeEvent fakeEvent(consoleOverlay->size(), consoleOverlay->size());
-    QApplication::sendEvent(consoleOverlay.get(), &fakeEvent);
+    consoleOverlay->positionOverlay();
   }
   
   if (transitionOverlay) {
