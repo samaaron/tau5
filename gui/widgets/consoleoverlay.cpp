@@ -6,6 +6,7 @@
 #include <QRadialGradient>
 #include <QScrollBar>
 #include <QVBoxLayout>
+#include <QSizePolicy>
 #include "../shared/tau5logger.h"
 #include "../styles/StyleManager.h"
 
@@ -24,9 +25,11 @@ ConsoleOverlay::ConsoleOverlay(QWidget *parent)
     m_logWidget->setFrameStyle(QFrame::NoFrame);
     m_logWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_logWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_logWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
     layout->addWidget(m_logWidget);
     
     m_fadeAnimation = std::make_unique<QPropertyAnimation>(m_opacityEffect, "opacity", this);
@@ -141,7 +144,6 @@ void ConsoleOverlay::resizeEvent(QResizeEvent *event)
 void ConsoleOverlay::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
-    positionOverlay();
 }
 
 void ConsoleOverlay::positionOverlay()
