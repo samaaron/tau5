@@ -1,6 +1,5 @@
 #include "consoleoverlay.h"
 #include <QResizeEvent>
-#include <QShowEvent>
 #include <QPainter>
 #include <QLinearGradient>
 #include <QRadialGradient>
@@ -44,6 +43,7 @@ ConsoleOverlay::ConsoleOverlay(QWidget *parent)
     });
     
     setupStyles();
+    positionOverlay();
     
     appendLog("[TAU5] System initializing...");
     appendLog("[BEAM] Starting Erlang VM...");
@@ -140,10 +140,6 @@ void ConsoleOverlay::resizeEvent(QResizeEvent *event)
     positionOverlay();
 }
 
-void ConsoleOverlay::showEvent(QShowEvent *event)
-{
-    QWidget::showEvent(event);
-}
 
 void ConsoleOverlay::positionOverlay()
 {
