@@ -134,9 +134,9 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool 
   phxWidget->loadShaderPage();
 
   consoleOverlay = std::make_unique<ConsoleOverlay>(this);
-  consoleOverlay->positionOverlay();
   consoleOverlay->raise();
   consoleOverlay->show();
+  consoleOverlay->positionOverlay();
   
 #ifndef Q_OS_MACOS
   if (m_titleBar && transitionOverlay) {
