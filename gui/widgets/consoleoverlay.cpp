@@ -138,6 +138,10 @@ void ConsoleOverlay::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
     positionOverlay();
+    
+    if (m_logWidget && layout()) {
+        m_logWidget->updateGeometry();
+    }
 }
 
 
@@ -149,7 +153,8 @@ void ConsoleOverlay::positionOverlay()
         int x = parentWidget()->width() - width - MARGIN;
         int y = parentWidget()->height() - height - MARGIN;
         
-        setGeometry(x, y, width, height);
+        move(x, y);
+        resize(width, height);
     }
 }
 
