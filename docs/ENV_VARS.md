@@ -143,6 +143,7 @@ This sets:
 - `TAU5_TIDEWAVE_ENABLED=true`
 - `TAU5_DEVTOOLS_ENABLED=true`
 - `TAU5_DEVTOOLS_PORT=9223`
+- `TAU5_ELIXIR_REPL_ENABLED=true`
 
 ### Production Desktop App
 

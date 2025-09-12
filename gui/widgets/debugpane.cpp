@@ -172,7 +172,8 @@ DebugPane::~DebugPane()
 
 bool DebugPane::isElixirReplEnabled()
 {
-  return m_replEnabled;
+  // Check both the member variable and the environment variable for consistency
+  return m_replEnabled || (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
 }
 
 bool DebugPane::isMcpEnabled()
@@ -687,7 +688,7 @@ void DebugPane::setupDevTools()
         "\nTau5 Elixir REPL Console - DISABLED\n"
         "═══════════════════════════════════\n\n"
         "The Tau5 Elixir REPL console is disabled for security.\n\n\n"
-        "To enable the console, set TAU5_ENABLE_DEV_REPL=1 before starting Tau5.\n\n\n"
+        "To enable the console, set TAU5_ELIXIR_REPL_ENABLED=true before starting Tau5.\n\n\n"
         "When enabled, you will have access to:\n\n"
         "• Interactive Elixir console\n"
         "• Direct server code execution\n"
