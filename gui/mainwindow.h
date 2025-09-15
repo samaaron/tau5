@@ -33,7 +33,7 @@ signals:
   void allComponentsLoaded();
 
 public:
-  explicit MainWindow(bool devMode = false, bool enableDebugPane = true, bool enableMcp = false, bool enableRepl = false, QWidget *parent = nullptr);
+  explicit MainWindow(bool devMode = false, bool enableDebugPane = true, bool enableMcp = false, bool enableRepl = false, bool allowRemoteAccess = false, QWidget *parent = nullptr);
   ~MainWindow();
 
   bool connectToServer(quint16 port);
@@ -89,6 +89,7 @@ private:
   bool m_enableDebugPane;
   bool m_enableMcp;
   bool m_enableRepl;
+  bool m_allowRemoteAccess;
   quint16 m_serverPort;
   
   bool m_mainWindowLoaded;

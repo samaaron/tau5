@@ -13,6 +13,7 @@ class PhxWebView : public SandboxedWebView
 
 public:
   explicit PhxWebView(bool devMode = false, QWidget *parent = nullptr);
+  explicit PhxWebView(bool devMode, bool allowRemoteAccess, QWidget *parent = nullptr);
   
   void setDevToolsAvailable(bool available) { m_devToolsAvailable = available; }
 

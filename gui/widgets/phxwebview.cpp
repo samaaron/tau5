@@ -14,6 +14,19 @@ PhxWebView::PhxWebView(bool devMode, QWidget *parent)
   setZoomFactor(1.0);
   setAttribute(Qt::WA_TranslucentBackground);
   setStyleSheet("background:transparent");
+  setScrollbarColours(StyleManager::Colors::SCROLLBAR_THUMB,
+                     StyleManager::Colors::BACKGROUND_PRIMARY,
+                     StyleManager::Colors::ACCENT_HIGHLIGHT);
+
+  setContextMenuPolicy(Qt::DefaultContextMenu);
+}
+
+PhxWebView::PhxWebView(bool devMode, bool allowRemoteAccess, QWidget *parent)
+    : SandboxedWebView(devMode, allowRemoteAccess, parent)
+{
+  setZoomFactor(1.0);
+  setAttribute(Qt::WA_TranslucentBackground);
+  setStyleSheet("background:transparent");
   setScrollbarColours(StyleManager::Colors::SCROLLBAR_THUMB, 
                      StyleManager::Colors::BACKGROUND_PRIMARY, 
                      StyleManager::Colors::ACCENT_HIGHLIGHT);

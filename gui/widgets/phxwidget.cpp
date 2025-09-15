@@ -14,13 +14,18 @@
 #include "../shared/tau5logger.h"
 
 PhxWidget::PhxWidget(bool devMode, QWidget *parent)
+    : PhxWidget(devMode, false, parent)
+{
+}
+
+PhxWidget::PhxWidget(bool devMode, bool allowRemoteAccess, QWidget *parent)
     : QWidget(parent), m_devMode(devMode)
 {
   phxAlive = false;
   retryCount = 0;
   appPageEmitted = false;
   appPageTimer = nullptr;
-  phxView = new PhxWebView(m_devMode, this);
+  phxView = new PhxWebView(m_devMode, allowRemoteAccess, this);
   QSizePolicy sp_retain = phxView->sizePolicy();
   sp_retain.setRetainSizeWhenHidden(true);
   phxView->setSizePolicy(sp_retain);

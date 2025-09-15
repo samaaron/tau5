@@ -7,6 +7,16 @@
 
 void PhxUrlInterceptor::interceptRequest(QWebEngineUrlRequestInfo &info)
 {
+  // If remote access is allowed, permit all requests
+  if (m_allowRemoteAccess)
+  {
+    if (m_devMode)
+    {
+      Tau5Logger::instance().debug(QString("Remote access allowed - permitting request: %1").arg(info.requestUrl().toString()));
+    }
+    return;
+  }
+
   QString scheme = info.requestUrl().scheme();
   QString host = info.requestUrl().host();
   int port = info.requestUrl().port();

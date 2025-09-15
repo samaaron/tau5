@@ -28,7 +28,7 @@
 #include <QWKCore/qwkglobal.h>
 #endif
 
-MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool enableRepl, QWidget *parent)
+MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool enableRepl, bool allowRemoteAccess, QWidget *parent)
     : QMainWindow(parent)
     , beamInstance(nullptr)
 #ifndef Q_OS_MACOS
@@ -39,6 +39,7 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool 
     , m_enableDebugPane(enableDebugPane)
     , m_enableMcp(enableMcp)
     , m_enableRepl(enableRepl)
+    , m_allowRemoteAccess(allowRemoteAccess)
     , m_serverPort(0)
     , m_mainWindowLoaded(false)
     , m_liveDashboardLoaded(!enableDebugPane)
@@ -114,12 +115,12 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool 
     this->close();
   });
   
-  phxWidget = std::make_unique<MainPhxWidget>(m_devMode, this);
+  phxWidget = std::make_unique<MainPhxWidget>(m_devMode, m_allowRemoteAccess, this);
   centralLayout->addWidget(phxWidget.get());
   
   setCentralWidget(centralContainer);
 #else
-  phxWidget = std::make_unique<MainPhxWidget>(m_devMode, this);
+  phxWidget = std::make_unique<MainPhxWidget>(m_devMode, m_allowRemoteAccess, this);
   setCentralWidget(phxWidget.get());
 #endif
   

@@ -52,6 +52,7 @@ struct CommonArgs {
     bool repl = false;             // Elixir REPL (dev mode only)
     bool verbose = false;          // Verbose logging
     bool debugPane = true;         // Debug pane (tau5 only, default enabled)
+    bool allowRemoteAccess = false; // Allow remote asset/site access (debugging only)
     
     // NIF control (default: enabled, --no-* disables)
     bool noMidi = false;           // Disable MIDI support
@@ -195,6 +196,9 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         return true;
     } else if (std::strcmp(arg, "--debug-pane") == 0) {
         args.debugPane = true;
+        return true;
+    } else if (std::strcmp(arg, "--allow-remote-access") == 0) {
+        args.allowRemoteAccess = true;
         return true;
     }
     // Disable features

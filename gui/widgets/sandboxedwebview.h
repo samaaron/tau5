@@ -14,6 +14,7 @@ class SandboxedWebView : public QWebEngineView
 
 public:
     explicit SandboxedWebView(bool devMode = false, QWidget *parent = nullptr);
+    explicit SandboxedWebView(bool devMode, bool allowRemoteAccess, QWidget *parent = nullptr);
     virtual ~SandboxedWebView() = default;
 
     void setScrollbarColours(QColor foreground, QColor background, QColor hover);

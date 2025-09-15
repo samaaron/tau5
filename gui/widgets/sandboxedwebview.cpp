@@ -8,9 +8,14 @@
 #include <QFileInfo>
 
 SandboxedWebView::SandboxedWebView(bool devMode, QWidget *parent)
+    : SandboxedWebView(devMode, false, parent)
+{
+}
+
+SandboxedWebView::SandboxedWebView(bool devMode, bool allowRemoteAccess, QWidget *parent)
     : QWebEngineView(parent), m_fallbackUrl("")  // No fallback - must be set with actual port
 {
-    m_interceptor = new PhxUrlInterceptor(devMode);
+    m_interceptor = new PhxUrlInterceptor(devMode, allowRemoteAccess);
     
     m_profile = new QWebEngineProfile();
     m_profile->setUrlRequestInterceptor(m_interceptor);

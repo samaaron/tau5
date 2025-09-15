@@ -461,7 +461,7 @@ int main(int argc, char *argv[])
   // Map environment variables to mainwindow constructor parameters
   bool enableMcp = (qgetenv("TAU5_MCP_PORT") != "0" && !qgetenv("TAU5_MCP_PORT").isEmpty());
   bool enableRepl = (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
-  MainWindow mainWindow(isGuiDevMode, args.debugPane, enableMcp, enableRepl);
+  MainWindow mainWindow(isGuiDevMode, args.debugPane, enableMcp, enableRepl, args.allowRemoteAccess);
 
   if (args.debugPane) {
     QObject::connect(&Tau5Logger::instance(), &Tau5Logger::logMessage,

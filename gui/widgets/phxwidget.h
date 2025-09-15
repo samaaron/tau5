@@ -16,6 +16,7 @@ class PhxWidget : public QWidget
   Q_OBJECT
 public:
   PhxWidget(bool devMode = false, QWidget *parent = 0);
+  PhxWidget(bool devMode, bool allowRemoteAccess, QWidget *parent = 0);
   void connectToTauPhx(QUrl url);
   void handleSizeDown();
   void handleSizeUp();

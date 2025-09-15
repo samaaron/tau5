@@ -82,7 +82,9 @@ std::string generateHelpText(Tau5Common::BinaryType type, const char* programNam
 
 #ifndef TAU5_RELEASE_BUILD
     if (type == Tau5Common::BinaryType::Gui) {
-        help << "  --no-debug-pane          Disable debug pane\n";
+        help << "  --no-debug-pane          Disable debug pane\n"
+             << "  --allow-remote-access    Allow loading remote websites/assets\n"
+             << "                           WARNING: For debugging only - reduces security\n";
     }
 #endif
 

@@ -12,6 +12,7 @@ class MainPhxWidget : public PhxWidget
 
 public:
   explicit MainPhxWidget(bool devMode, QWidget *parent = nullptr);
+  explicit MainPhxWidget(bool devMode, bool allowRemoteAccess, QWidget *parent = nullptr);
   
   // Load the shader page for boot sequence
   void loadShaderPage();

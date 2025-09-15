@@ -9,6 +9,11 @@ MainPhxWidget::MainPhxWidget(bool devMode, QWidget *parent)
 {
 }
 
+MainPhxWidget::MainPhxWidget(bool devMode, bool allowRemoteAccess, QWidget *parent)
+    : PhxWidget(devMode, allowRemoteAccess, parent)
+{
+}
+
 void MainPhxWidget::loadShaderPage()
 {
   Tau5Logger::instance().info( "[PHX] Loading shader page");
