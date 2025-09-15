@@ -54,14 +54,6 @@ void PhxWebView::showContextMenu(const QPoint &globalPos)
     contextMenu.addAction(pasteAction);
   }
 
-  QAction *selectAllAction = page()->action(QWebEnginePage::SelectAll);
-  if (selectAllAction && selectAllAction->isEnabled()) {
-    if (!contextMenu.isEmpty()) {
-      contextMenu.addSeparator();
-    }
-    contextMenu.addAction(selectAllAction);
-  }
-
   // Add separator before dev tools if we have other items
   if (m_devToolsAvailable && !contextMenu.isEmpty()) {
     contextMenu.addSeparator();
