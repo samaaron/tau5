@@ -399,19 +399,23 @@ int main(int argc, char *argv[])
     
     server.registerTool({
         "chromium_devtools_getDocument",
-        "Get the full DOM document structure",
+        "Get the DOM document structure",
         QJsonObject{
             {"type", "object"},
-            {"properties", QJsonObject{}}
+            {"properties", QJsonObject{
+                {"depth", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Maximum depth to traverse (-1 for unlimited, default: 5)"}
+                }}
+            }}
         },
         [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
-            Q_UNUSED(params);
-            
-            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
-                client->getDocument(cb);
+
+            QJsonObject result = bridge.executeCommand([params](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getDocument(params, cb);
             });
             
             qint64 duration = timer.elapsed();
@@ -1818,13 +1822,13 @@ int main(int argc, char *argv[])
     // Tool: Get JavaScript console messages with advanced filtering
     server.registerTool({
         "chromium_devtools_getConsoleMessages",
-        "Get JavaScript console messages with filtering, search, and format options",
+        "Get JavaScript console messages with filtering, search, and format options (default limit: 100)",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{
                 {"limit", QJsonObject{
                     {"type", "integer"},
-                    {"description", "Maximum number of messages to return"}
+                    {"description", "Maximum number of messages to return (-1 for all, default: 100)"}
                 }},
                 {"level", QJsonObject{
                     {"oneOf", QJsonArray{
@@ -1986,7 +1990,7 @@ int main(int argc, char *argv[])
     // Tool: Network Request Monitor
     server.registerTool({
         "chromium_devtools_getNetworkRequests",
-        "Monitor network requests with WASM/AudioWorklet focus",
+        "Monitor network requests with WASM/AudioWorklet focus (default limit: 50)",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{
@@ -2001,6 +2005,10 @@ int main(int argc, char *argv[])
                 {"includeTimings", QJsonObject{
                     {"type", "boolean"},
                     {"description", "Include timing information"}
+                }},
+                {"limit", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Maximum number of requests to return (-1 for all, default: 100)"}
                 }}
             }}
         },
@@ -2539,7 +2547,7 @@ int main(int argc, char *argv[])
     // Tool: Get WebSocket Frames
     server.registerTool({
         "chromium_devtools_getWebSocketFrames",
-        "Get WebSocket frames for LiveView debugging",
+        "Get WebSocket frames for LiveView debugging (default limit: 100)",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{
@@ -2561,7 +2569,7 @@ int main(int argc, char *argv[])
                 }},
                 {"limit", QJsonObject{
                     {"type", "integer"},
-                    {"description", "Maximum number of frames to return"}
+                    {"description", "Maximum number of frames to return (-1 for all, default: 100)"}
                 }}
             }}
         },
@@ -2708,11 +2716,16 @@ int main(int argc, char *argv[])
         "Get captured DOM mutations",
         QJsonObject{
             {"type", "object"},
-            {"properties", QJsonObject{}}
+            {"properties", QJsonObject{
+                {"limit", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Maximum number of mutations to return (-1 for all, default: 100)"}
+                }}
+            }}
         },
-        [&bridge](const QJsonObject&) -> QJsonObject {
-            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
-                client->getDOMMutations(cb);
+        [&bridge](const QJsonObject& params) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([params](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getDOMMutations(params, cb);
             });
 
             QString output = "=== DOM Mutations ===\n\n";

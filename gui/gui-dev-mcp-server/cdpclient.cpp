@@ -439,7 +439,14 @@ void CDPClient::sendRawCommand(const QJsonObject& command)
 
 void CDPClient::getDocument(ResponseCallback callback)
 {
-    sendCommand("DOM.getDocument", QJsonObject{{"depth", -1}, {"pierce", true}}, callback);
+    getDocument(QJsonObject(), callback);
+}
+
+void CDPClient::getDocument(const QJsonObject& options, ResponseCallback callback)
+{
+    // Default depth of 5 - enough to see actual content without excessive nesting
+    int depth = options.value("depth").toInt(5);
+    sendCommand("DOM.getDocument", QJsonObject{{"depth", depth}, {"pierce", true}}, callback);
 }
 
 void CDPClient::querySelector(const QString& selector, ResponseCallback callback)
@@ -543,8 +550,8 @@ void CDPClient::getConsoleMessages(const QJsonObject& filters, ResponseCallback 
     // Output format
     QString format = filters.value("format").toString("json");
 
-    // Limit
-    int limit = filters.value("limit").toInt(-1);
+    // Limit (default to 100, -1 for no limit)
+    int limit = filters.value("limit").toInt(100);
 
     // Filter and build messages
     for (const ConsoleMessage& msg : m_consoleMessages) {
@@ -823,6 +830,8 @@ void CDPClient::getNetworkRequests(const QJsonObject& filters, ResponseCallback 
     QString urlPattern = filters.value("urlPattern").toString();
     bool includeResponse = filters.value("includeResponse").toBool();
     bool includeTimings = filters.value("includeTimings").toBool();
+    int limit = filters.value("limit").toInt(100);  // Default 100 to match other tools, -1 for no limit
+    int count = 0;
 
     for (const NetworkRequest& req : m_networkRequests) {
         // Apply URL pattern filter if specified
@@ -857,6 +866,11 @@ void CDPClient::getNetworkRequests(const QJsonObject& filters, ResponseCallback 
         }
 
         requests.append(reqObj);
+
+        count++;
+        if (limit > 0 && count >= limit) {
+            break;
+        }
     }
 
     QJsonObject result;
@@ -1474,7 +1488,7 @@ void CDPClient::getWebSocketFrames(const QJsonObject& filters, ResponseCallback 
     bool sentOnly = filters["sentOnly"].toBool(false);
     bool receivedOnly = filters["receivedOnly"].toBool(false);
     QString searchText = filters["search"].toString();
-    int limit = filters["limit"].toInt(0);
+    int limit = filters["limit"].toInt(100);  // Default 100, -1 for no limit
 
     int count = 0;
     for (const auto& frame : m_webSocketFrames) {
@@ -1595,8 +1609,15 @@ void CDPClient::stopDOMMutationObserver(ResponseCallback callback)
 
 void CDPClient::getDOMMutations(ResponseCallback callback)
 {
+    getDOMMutations(QJsonObject(), callback);
+}
+
+void CDPClient::getDOMMutations(const QJsonObject& options, ResponseCallback callback)
+{
     // Parse mutations from console messages
     QJsonArray mutations;
+    int limit = options.value("limit").toInt(100);  // Default 100, but allow override
+    int count = 0;
 
     for (const auto& msg : m_consoleMessages) {
         if (msg.text.startsWith("[DOM_MUTATION]")) {
@@ -1606,6 +1627,11 @@ void CDPClient::getDOMMutations(ResponseCallback callback)
                 QJsonObject mutation = doc.object();
                 mutation["timestamp"] = msg.timestamp.toString(Qt::ISODate);
                 mutations.append(mutation);
+
+                count++;
+                if (limit > 0 && count >= limit) {
+                    break;
+                }
             }
         }
     }

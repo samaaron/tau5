@@ -39,6 +39,7 @@ public:
     void sendCommand(const QString& method, const QJsonObject& params, ResponseCallback callback);
     
     void getDocument(ResponseCallback callback);
+    void getDocument(const QJsonObject& options, ResponseCallback callback);
     void querySelector(const QString& selector, ResponseCallback callback);
     void getOuterHTML(int nodeId, ResponseCallback callback);
     void evaluateJavaScript(const QString& expression, ResponseCallback callback);
@@ -97,6 +98,7 @@ public:
     void startDOMMutationObserver(const QString& selector, ResponseCallback callback);
     void stopDOMMutationObserver(ResponseCallback callback);
     void getDOMMutations(ResponseCallback callback);
+    void getDOMMutations(const QJsonObject& options, ResponseCallback callback);
     void clearDOMMutations();
     void getJavaScriptProfile(ResponseCallback callback);
     void trackLiveViewEvent(const QString& eventType, const QJsonObject& details);
