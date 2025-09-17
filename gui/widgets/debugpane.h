@@ -41,6 +41,7 @@ public:
   explicit DebugPane(QWidget *parent = nullptr, bool devMode = false, bool enableMcp = false, bool enableRepl = false);
   ~DebugPane();
 
+  void appendBootLog(const QString &text, bool isError = false);
   void appendOutput(const QString &text, bool isError = false);
   void appendGuiLog(const QString &text, bool isError = false);
   void toggle();
@@ -70,6 +71,7 @@ private slots:
   void showBeamLogOnly();
   void showDevToolsOnly();
   void showSideBySide();
+  void showBootLog();
   void showBeamLog();
   void showGuiLog();
   void showElixirConsole();
@@ -118,6 +120,7 @@ private:
   QWidget *m_consoleContainer;
   QStackedWidget *m_consoleStack;
   QStackedWidget *m_consoleToolbarStack;
+  ActivityTabButton *m_bootLogTabButton;
   ActivityTabButton *m_beamLogTabButton;
   ActivityTabButton *m_guiLogTabButton;
   QPushButton *m_elixirConsoleTabButton;
@@ -162,6 +165,7 @@ private:
   QWidget *m_animationBar;
   QLabel *m_restartLabel;
 
+  LogWidget *m_newBootLogWidget;
   LogWidget *m_newBeamLogWidget;
   LogWidget *m_newGuiLogWidget;
   LogWidget *m_newTau5MCPWidget;

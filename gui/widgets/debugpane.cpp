@@ -135,9 +135,9 @@ DebugPane::DebugPane(QWidget *parent, bool devMode, bool enableMcp, bool enableR
       m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
       m_dragHandleWidget(nullptr), m_dragHandleAnimationTimer(nullptr), m_animationBar(nullptr),
       m_restartLabel(nullptr), m_restartButton(nullptr), m_resetButton(nullptr), m_closeButton(nullptr),
-      m_newBeamLogWidget(nullptr), m_newGuiLogWidget(nullptr), m_newTau5MCPWidget(nullptr),
+      m_newBootLogWidget(nullptr), m_newBeamLogWidget(nullptr), m_newGuiLogWidget(nullptr), m_newTau5MCPWidget(nullptr),
       m_newTidewaveMCPWidget(nullptr), m_newGuiMCPWidget(nullptr), m_consoleToolbarStack(nullptr),
-      m_elixirConsoleTabButton(nullptr), m_tau5MCPTabButton(nullptr), m_tidewaveMCPTabButton(nullptr), m_guiMCPTabButton(nullptr),
+      m_bootLogTabButton(nullptr), m_elixirConsoleTabButton(nullptr), m_tau5MCPTabButton(nullptr), m_tidewaveMCPTabButton(nullptr), m_guiMCPTabButton(nullptr),
       m_devMode(devMode), m_mcpEnabled(enableMcp), m_replEnabled(enableRepl)
 {
   static bool codiconLoaded = false;
@@ -323,8 +323,10 @@ void DebugPane::setupConsole()
   toolbarLayout->setContentsMargins(5, 2, 10, 2);
   toolbarLayout->setSpacing(2);
 
+  m_bootLogTabButton = new ActivityTabButton("Boot", consoleToolbar);
+  m_bootLogTabButton->setChecked(true);
+
   m_beamLogTabButton = new ActivityTabButton("BEAM Log", consoleToolbar);
-  m_beamLogTabButton->setChecked(true);
 
   m_guiLogTabButton = new ActivityTabButton("GUI Log", consoleToolbar);
 
@@ -343,6 +345,7 @@ void DebugPane::setupConsole()
     m_guiMCPTabButton->setVisible(false);
   }
 
+  toolbarLayout->addWidget(m_bootLogTabButton);
   toolbarLayout->addWidget(m_beamLogTabButton);
   toolbarLayout->addWidget(m_guiLogTabButton);
   toolbarLayout->addWidget(m_tau5MCPTabButton);
@@ -372,6 +375,7 @@ void DebugPane::setupConsole()
 
   m_consoleStack = new QStackedWidget(m_consoleContainer);
 
+  m_newBootLogWidget = new LogWidget(LogWidget::BootLog, nullptr);
   m_newBeamLogWidget = new LogWidget(LogWidget::BeamLog, nullptr);
   m_newGuiLogWidget = new LogWidget(LogWidget::GuiLog, nullptr);
 
@@ -518,14 +522,19 @@ void DebugPane::setupConsole()
   m_newTidewaveMCPWidget->appendLog(tidewaveMCPServerDescription, false);
   m_newGuiMCPWidget->appendLog(devGUIMCPServerDescription, false);
 
-  m_consoleStack->addWidget(m_newBeamLogWidget);     // Index 0
-  m_consoleStack->addWidget(m_newGuiLogWidget);      // Index 1
-  m_consoleStack->addWidget(m_newTau5MCPWidget);     // Index 2
-  m_consoleStack->addWidget(m_newTidewaveMCPWidget); // Index 3
-  m_consoleStack->addWidget(m_newGuiMCPWidget);      // Index 4
+  m_consoleStack->addWidget(m_newBootLogWidget);     // Index 0
+  m_consoleStack->addWidget(m_newBeamLogWidget);     // Index 1
+  m_consoleStack->addWidget(m_newGuiLogWidget);      // Index 2
+  m_consoleStack->addWidget(m_newTau5MCPWidget);     // Index 3
+  m_consoleStack->addWidget(m_newTidewaveMCPWidget); // Index 4
+  m_consoleStack->addWidget(m_newGuiMCPWidget);      // Index 5
 
   m_consoleStack->setCurrentIndex(0);
 
+  if (m_newBootLogWidget && m_newBootLogWidget->getToolbar())
+  {
+    m_consoleToolbarStack->addWidget(m_newBootLogWidget->getToolbar());
+  }
   if (m_newBeamLogWidget && m_newBeamLogWidget->getToolbar())
   {
     m_consoleToolbarStack->addWidget(m_newBeamLogWidget->getToolbar());
@@ -551,6 +560,7 @@ void DebugPane::setupConsole()
   consoleMainLayout->addWidget(consoleHeaderContainer);
   consoleMainLayout->addWidget(m_consoleStack);
 
+  connect(m_bootLogTabButton, &QPushButton::clicked, this, &DebugPane::showBootLog);
   connect(m_beamLogTabButton, &QPushButton::clicked, this, &DebugPane::showBeamLog);
   connect(m_guiLogTabButton, &QPushButton::clicked, this, &DebugPane::showGuiLog);
   connect(m_tau5MCPTabButton, &QPushButton::clicked, this, &DebugPane::showTau5MCPLog);
@@ -826,6 +836,17 @@ void DebugPane::showDevToolsOnly()
 void DebugPane::showSideBySide()
 {
   setViewMode(SideBySide);
+}
+
+void DebugPane::appendBootLog(const QString &text, bool isError)
+{
+  if (text.isEmpty())
+    return;
+
+  if (m_newBootLogWidget)
+  {
+    m_newBootLogWidget->appendLog(text, isError);
+  }
 }
 
 void DebugPane::appendOutput(const QString &text, bool isError)
@@ -1117,7 +1138,7 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
   }
 }
 
-void DebugPane::showBeamLog()
+void DebugPane::showBootLog()
 {
   if (m_consoleStack->currentWidget())
   {
@@ -1130,6 +1151,29 @@ void DebugPane::showBeamLog()
   if (m_consoleToolbarStack)
   {
     m_consoleToolbarStack->setCurrentIndex(0);
+  }
+  QList<QPushButton *> tabButtons = {m_bootLogTabButton, m_beamLogTabButton, m_guiLogTabButton, m_tau5MCPTabButton,
+                                      m_tidewaveMCPTabButton, m_guiMCPTabButton};
+  switchConsoleTab(0, tabButtons);
+  if (m_newBootLogWidget)
+  {
+    m_newBootLogWidget->onActivated();
+  }
+}
+
+void DebugPane::showBeamLog()
+{
+  if (m_consoleStack->currentWidget())
+  {
+    if (auto *debugWidget = qobject_cast<DebugWidget *>(m_consoleStack->currentWidget()))
+    {
+      debugWidget->onDeactivated();
+    }
+  }
+  m_consoleStack->setCurrentIndex(1);
+  if (m_consoleToolbarStack)
+  {
+    m_consoleToolbarStack->setCurrentIndex(1);
   }
   m_beamLogTabButton->setChecked(true);
   m_beamLogTabButton->setHasUnread(false);
@@ -1153,12 +1197,13 @@ void DebugPane::showGuiLog()
       debugWidget->onDeactivated();
     }
   }
-  // Switch to new LogWidget at index 1
-  m_consoleStack->setCurrentIndex(1);
+  // Switch to new LogWidget at index 2 (GUI log)
+  m_consoleStack->setCurrentIndex(2);
   if (m_consoleToolbarStack)
   {
-    m_consoleToolbarStack->setCurrentIndex(1);
+    m_consoleToolbarStack->setCurrentIndex(2);
   }
+  m_bootLogTabButton->setChecked(false);
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(true);
   m_guiLogTabButton->setHasUnread(false);
@@ -1189,12 +1234,13 @@ void DebugPane::showTau5MCPLog()
       debugWidget->onDeactivated();
     }
   }
-  // Switch to new LogWidget at index 2
-  m_consoleStack->setCurrentIndex(2);
+  // Switch to new LogWidget at index 3 (Tau5 MCP)
+  m_consoleStack->setCurrentIndex(3);
   if (m_consoleToolbarStack)
   {
-    m_consoleToolbarStack->setCurrentIndex(2);
+    m_consoleToolbarStack->setCurrentIndex(3);
   }
+  m_bootLogTabButton->setChecked(false);
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(true);
@@ -1217,12 +1263,13 @@ void DebugPane::showTidewaveMCPLog()
       debugWidget->onDeactivated();
     }
   }
-  // Switch to new LogWidget at index 3
-  m_consoleStack->setCurrentIndex(3);
+  // Switch to new LogWidget at index 4 (Tidewave MCP)
+  m_consoleStack->setCurrentIndex(4);
   if (m_consoleToolbarStack)
   {
-    m_consoleToolbarStack->setCurrentIndex(3);
+    m_consoleToolbarStack->setCurrentIndex(4);
   }
+  m_bootLogTabButton->setChecked(false);
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(false);
@@ -1245,12 +1292,13 @@ void DebugPane::showGuiMCPLog()
       debugWidget->onDeactivated();
     }
   }
-  // Switch to new LogWidget at index 4
-  m_consoleStack->setCurrentIndex(4);
+  // Switch to new LogWidget at index 5 (GUI MCP)
+  m_consoleStack->setCurrentIndex(5);
   if (m_consoleToolbarStack)
   {
-    m_consoleToolbarStack->setCurrentIndex(4);
+    m_consoleToolbarStack->setCurrentIndex(5);
   }
+  m_bootLogTabButton->setChecked(false);
   m_beamLogTabButton->setChecked(false);
   m_guiLogTabButton->setChecked(false);
   m_tau5MCPTabButton->setChecked(false);

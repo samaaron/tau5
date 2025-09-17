@@ -23,6 +23,7 @@ class LogWidget : public DebugWidget
 
 public:
   enum LogType {
+    BootLog,
     BeamLog,
     GuiLog,
     MCPLog

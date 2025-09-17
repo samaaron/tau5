@@ -452,6 +452,18 @@ void MainWindow::handleBeamError(const QString &error)
 #endif
 }
 
+void MainWindow::handleBootLog(const QString &message, bool isError)
+{
+#ifdef BUILD_WITH_DEBUG_PANE
+  if (debugPane) {
+    debugPane->appendBootLog(message, isError);
+  }
+#else
+  Q_UNUSED(message);
+  Q_UNUSED(isError);
+#endif
+}
+
 void MainWindow::handleGuiLog(const QString &message, bool isError)
 {
 #ifdef BUILD_WITH_DEBUG_PANE

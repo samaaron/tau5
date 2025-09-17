@@ -41,6 +41,7 @@ public:
   void toggleConsole();
 
 public slots:
+  void handleBootLog(const QString &message, bool isError = false);
   void handleGuiLog(const QString &message, bool isError);
   void handleMainWindowLoaded();
   void handleLiveDashboardLoaded();

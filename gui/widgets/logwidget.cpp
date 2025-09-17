@@ -60,17 +60,23 @@ void LogWidget::setupToolbar()
   QPushButton *searchButton = createToolButton(QChar(0xEA6D), "Search (Ctrl+S)", true);
   connect(searchButton, &QPushButton::clicked, this, &LogWidget::toggleSearch);
   m_toolbarLayout->addWidget(searchButton);
-  
-  m_pauseButton = createToolButton(QChar(0xEB2B), "Pause log updates", true);
-  m_pauseButton->setChecked(m_paused);
-  connect(m_pauseButton, &QPushButton::toggled, this, &LogWidget::handlePauseToggled);
-  m_toolbarLayout->addWidget(m_pauseButton);
-  
-  QPushButton *autoScrollButton = createToolButton(QChar(0xEA9A), "Auto-scroll", true);
-  autoScrollButton->setChecked(m_autoScroll);
-  connect(autoScrollButton, &QPushButton::toggled, this, &LogWidget::handleAutoScrollToggled);
-  m_toolbarLayout->addWidget(autoScrollButton);
-  
+
+  if (m_type != BootLog) {
+    m_pauseButton = createToolButton(QChar(0xEB2B), "Pause log updates", true);
+    m_pauseButton->setChecked(m_paused);
+    connect(m_pauseButton, &QPushButton::toggled, this, &LogWidget::handlePauseToggled);
+    m_toolbarLayout->addWidget(m_pauseButton);
+
+    QPushButton *autoScrollButton = createToolButton(QChar(0xEA9A), "Auto-scroll", true);
+    autoScrollButton->setChecked(m_autoScroll);
+    connect(autoScrollButton, &QPushButton::toggled, this, &LogWidget::handleAutoScrollToggled);
+    m_toolbarLayout->addWidget(autoScrollButton);
+
+    QPushButton *clearButton = createToolButton(QChar(0xEA81), "Clear log");
+    connect(clearButton, &QPushButton::clicked, this, &LogWidget::clear);
+    m_toolbarLayout->addWidget(clearButton);
+  }
+
   m_toolbarLayout->addStretch();
   QPushButton *zoomOutButton = createToolButton("-", "Zoom Out");
   connect(zoomOutButton, &QPushButton::clicked, this, &LogWidget::zoomOut);

@@ -539,7 +539,12 @@ int main(int argc, char *argv[])
     Tau5Logger::instance().info("Delaying BEAM server startup by 1 second...");
   }
 
-  QTimer::singleShot(Tau5Common::Config::BEAM_STARTUP_DELAY_MS, [&app, &beam, &mainWindow, basePath, port, isServerDevMode, &args, &serverInfo]() {
+  QStringList cmdLineArgs;
+  for (int i = 0; i < argc; i++) {
+    cmdLineArgs << QString::fromUtf8(argv[i]);
+  }
+
+  QTimer::singleShot(Tau5Common::Config::BEAM_STARTUP_DELAY_MS, [&app, &beam, &mainWindow, basePath, port, isServerDevMode, &args, &serverInfo, cmdLineArgs]() {
     if (args.verbose) {
       Tau5Logger::instance().info("Starting BEAM server...");
     }
@@ -555,7 +560,7 @@ int main(int argc, char *argv[])
       Tau5Logger::instance().debug("Debug messages are enabled");
     }
 
-    QObject::connect(beam.get(), &Beam::otpReady, [&mainWindow, &args, &serverInfo, &beam]() {
+    QObject::connect(beam.get(), &Beam::otpReady, [&mainWindow, &args, &serverInfo, &beam, cmdLineArgs]() {
       // Get the actual allocated port from BEAM
       quint16 actualPort = beam->getPort();
       
@@ -567,19 +572,27 @@ int main(int argc, char *argv[])
         return;
       }
       
+      if (beam) {
+        serverInfo.beamPid = beam->getBeamPid();
+        serverInfo.sessionToken = beam->getSessionToken();
+        serverInfo.serverPort = actualPort;
+      }
+
       if (args.verbose) {
         Tau5Logger::instance().info("OTP supervision tree ready, connecting to server...");
-        
-        // Update server info with BEAM PID
-        if (beam) {
-          serverInfo.beamPid = beam->getBeamPid();
-          serverInfo.sessionToken = beam->getSessionToken();
-          serverInfo.serverPort = actualPort;
+      }
+
+      if (args.debugPane) {
+        QString cmdLineInfo = "Command Line Arguments:\n";
+        for (int i = 0; i < cmdLineArgs.size(); i++) {
+          cmdLineInfo += QString("  [%1] %2\n").arg(i).arg(cmdLineArgs[i]);
         }
-        
-        // Print server info in verbose mode
+        cmdLineInfo += "\n";
+
         QString infoString = generateServerInfoString(serverInfo, true);
-        Tau5Logger::instance().info(infoString);
+
+        mainWindow.handleBootLog(cmdLineInfo);
+        mainWindow.handleBootLog(infoString);
       }
       
       // Use the actual allocated port, not the initial value
