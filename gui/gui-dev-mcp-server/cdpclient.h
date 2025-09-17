@@ -4,10 +4,13 @@
 #include <QObject>
 #include <QWebSocket>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QNetworkAccessManager>
 #include <QMap>
 #include <QTimer>
+#include <QList>
+#include <QDateTime>
 #include <functional>
 #include <memory>
 
@@ -40,7 +43,9 @@ public:
     void getOuterHTML(int nodeId, ResponseCallback callback);
     void evaluateJavaScript(const QString& expression, ResponseCallback callback);
     void evaluateJavaScriptWithObjectReferences(const QString& expression, ResponseCallback callback);
-    void getConsoleMessages(ResponseCallback callback);
+    void getConsoleMessages(const QJsonObject& filters, ResponseCallback callback);
+    void clearConsoleMessages();
+    void markMessageRetrievalTime();
     void navigateTo(const QString& url, ResponseCallback callback);
     
     void setAttributeValue(int nodeId, const QString& name, const QString& value, ResponseCallback callback);
@@ -77,7 +82,26 @@ private:
     void discoverTargets();
 
 private:
+    struct ConsoleMessage {
+        QDateTime timestamp;
+        QString level;
+        QString text;
+        QString stackTrace;
+        QString url;           // Source URL
+        int lineNumber;        // Line number in source
+        int columnNumber;      // Column number in source
+        QString functionName;  // Function name if available
+        QJsonArray args;       // Preserve structured arguments
+        QString groupId;       // For console.group support
+        bool isGroupStart;     // console.group
+        bool isGroupEnd;       // console.groupEnd
+    };
+
     quint16 m_devToolsPort;
+    QList<ConsoleMessage> m_consoleMessages;
+    static const int MAX_CONSOLE_MESSAGES = 1000;
+    QDateTime m_lastMessageRetrievalTime;
+    QMap<QString, qint64> m_performanceTimers;  // For console.time tracking
     QWebSocket* m_webSocket;
     QNetworkAccessManager* m_networkManager;
     QTimer* m_pingTimer;

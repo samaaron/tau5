@@ -239,13 +239,99 @@ void CDPClient::processResponse(const QJsonObject& response)
         if (method == "Runtime.consoleAPICalled") {
             QString level = params["type"].toString();
             QJsonArray args = params["args"].toArray();
+
+            // Build text representation for backward compatibility
             QString text;
             for (const QJsonValue& arg : args) {
                 QJsonObject argObj = arg.toObject();
-                if (argObj["type"].toString() == "string") {
+                QString type = argObj["type"].toString();
+                if (type == "string") {
                     text += argObj["value"].toString() + " ";
+                } else if (type == "number" || type == "boolean") {
+                    text += argObj["value"].toVariant().toString() + " ";
+                } else if (type == "object") {
+                    // Handle objects and errors
+                    QString className = argObj["className"].toString();
+                    QString description = argObj["description"].toString();
+                    if (!description.isEmpty()) {
+                        text += description + " ";
+                    } else if (!className.isEmpty()) {
+                        text += "[" + className + "] ";
+                    } else {
+                        text += "[object] ";
+                    }
+                } else if (type == "undefined") {
+                    text += "undefined ";
                 }
             }
+
+            // Handle console.time/timeEnd
+            if (level == "timeEnd" && args.size() > 0) {
+                QString label = args[0].toObject()["value"].toString();
+                if (m_performanceTimers.contains(label)) {
+                    qint64 startTime = m_performanceTimers.take(label);
+                    qint64 duration = QDateTime::currentMSecsSinceEpoch() - startTime;
+                    text = QString("%1: %2ms").arg(label).arg(duration);
+                }
+            } else if (level == "time" && args.size() > 0) {
+                QString label = args[0].toObject()["value"].toString();
+                m_performanceTimers[label] = QDateTime::currentMSecsSinceEpoch();
+            }
+
+            // Extract stack trace and source location
+            QString stackTrace;
+            QString url;
+            int lineNumber = 0;
+            int columnNumber = 0;
+            QString functionName;
+
+            if (params.contains("stackTrace")) {
+                QJsonArray callFrames = params["stackTrace"].toObject()["callFrames"].toArray();
+                if (!callFrames.isEmpty()) {
+                    // Get source location from first frame
+                    QJsonObject firstFrame = callFrames[0].toObject();
+                    url = firstFrame["url"].toString();
+                    lineNumber = firstFrame["lineNumber"].toInt();
+                    columnNumber = firstFrame["columnNumber"].toInt();
+                    functionName = firstFrame["functionName"].toString();
+                    if (functionName.isEmpty()) functionName = "<anonymous>";
+                }
+
+                // Build stack trace string
+                for (const QJsonValue& frame : callFrames) {
+                    QJsonObject frameObj = frame.toObject();
+                    QString fname = frameObj["functionName"].toString();
+                    if (fname.isEmpty()) fname = "<anonymous>";
+                    stackTrace += QString("    at %1 (%2:%3:%4)\n")
+                        .arg(fname)
+                        .arg(frameObj["url"].toString())
+                        .arg(frameObj["lineNumber"].toInt())
+                        .arg(frameObj["columnNumber"].toInt());
+                }
+            }
+
+            // Store the message with all metadata
+            ConsoleMessage msg;
+            msg.timestamp = QDateTime::currentDateTime();
+            msg.level = level;
+            msg.text = text.trimmed();
+            msg.stackTrace = stackTrace;
+            msg.url = url;
+            msg.lineNumber = lineNumber;
+            msg.columnNumber = columnNumber;
+            msg.functionName = functionName;
+            msg.args = args;  // Preserve structured data
+            msg.groupId = "";  // Will be set for group messages
+            msg.isGroupStart = (level == "group" || level == "groupCollapsed");
+            msg.isGroupEnd = (level == "groupEnd");
+
+            m_consoleMessages.append(msg);
+
+            // Keep only the last MAX_CONSOLE_MESSAGES
+            while (m_consoleMessages.size() > MAX_CONSOLE_MESSAGES) {
+                m_consoleMessages.removeFirst();
+            }
+
             emit consoleMessage(level, text.trimmed());
         } else if (method == "DOM.documentUpdated") {
             emit domContentUpdated();
@@ -379,9 +465,151 @@ void CDPClient::evaluateJavaScriptWithObjectReferences(const QString& expression
     sendCommand("Runtime.evaluate", params, callback);
 }
 
-void CDPClient::getConsoleMessages(ResponseCallback callback)
+void CDPClient::getConsoleMessages(const QJsonObject& filters, ResponseCallback callback)
 {
-    callback(QJsonObject{{"messages", QJsonArray()}}, QString());
+    QJsonArray messages;
+
+    // Parse filter parameters
+    QStringList levelFilter;
+    if (filters.contains("level")) {
+        QJsonValue levelValue = filters["level"];
+        if (levelValue.isString()) {
+            levelFilter << levelValue.toString();
+        } else if (levelValue.isArray()) {
+            for (const QJsonValue& val : levelValue.toArray()) {
+                levelFilter << val.toString();
+            }
+        }
+    }
+
+    QString searchPattern = filters.value("search").toString();
+    QString regexPattern = filters.value("regex").toString();
+    QRegularExpression regex;
+    if (!regexPattern.isEmpty()) {
+        regex = QRegularExpression(regexPattern);
+    }
+
+    // Time-based filtering
+    QDateTime sinceTime;
+    if (filters.contains("since")) {
+        sinceTime = QDateTime::fromString(filters["since"].toString(), Qt::ISODate);
+    }
+
+    if (filters.contains("last")) {
+        QString lastStr = filters["last"].toString();
+        int minutes = 0;
+        if (lastStr.endsWith("m")) {
+            minutes = lastStr.chopped(1).toInt();
+        } else if (lastStr.endsWith("h")) {
+            minutes = lastStr.chopped(1).toInt() * 60;
+        } else if (lastStr.endsWith("s")) {
+            minutes = lastStr.chopped(1).toInt() / 60;
+        }
+        if (minutes > 0) {
+            sinceTime = QDateTime::currentDateTime().addSecs(-minutes * 60);
+        }
+    }
+
+    // Since last call option
+    bool sinceLastCall = filters.value("since_last_call").toBool();
+    if (sinceLastCall && m_lastMessageRetrievalTime.isValid()) {
+        sinceTime = m_lastMessageRetrievalTime;
+    }
+
+    // Output format
+    QString format = filters.value("format").toString("json");
+
+    // Limit
+    int limit = filters.value("limit").toInt(-1);
+
+    // Filter and build messages
+    for (const ConsoleMessage& msg : m_consoleMessages) {
+        // Level filter
+        if (!levelFilter.isEmpty() && !levelFilter.contains(msg.level)) {
+            continue;
+        }
+
+        // Time filter
+        if (sinceTime.isValid() && msg.timestamp < sinceTime) {
+            continue;
+        }
+
+        // Search filter
+        if (!searchPattern.isEmpty() && !msg.text.contains(searchPattern, Qt::CaseInsensitive)) {
+            continue;
+        }
+
+        // Regex filter
+        if (!regexPattern.isEmpty() && !regex.match(msg.text).hasMatch()) {
+            continue;
+        }
+
+        QJsonObject msgObj;
+        msgObj["timestamp"] = msg.timestamp.toString(Qt::ISODateWithMs);
+        msgObj["level"] = msg.level;
+        msgObj["text"] = msg.text;
+
+        // Add source location if available
+        if (!msg.url.isEmpty()) {
+            msgObj["url"] = msg.url;
+            msgObj["lineNumber"] = msg.lineNumber;
+            msgObj["columnNumber"] = msg.columnNumber;
+            if (!msg.functionName.isEmpty()) {
+                msgObj["functionName"] = msg.functionName;
+            }
+        }
+
+        // Add structured arguments
+        if (!msg.args.isEmpty()) {
+            msgObj["args"] = msg.args;
+        }
+
+        // Add stack trace
+        if (!msg.stackTrace.isEmpty()) {
+            msgObj["stackTrace"] = msg.stackTrace;
+        }
+
+        // Group support
+        if (msg.isGroupStart) {
+            msgObj["groupStart"] = true;
+        }
+        if (msg.isGroupEnd) {
+            msgObj["groupEnd"] = true;
+        }
+        if (!msg.groupId.isEmpty()) {
+            msgObj["groupId"] = msg.groupId;
+        }
+
+        messages.append(msgObj);
+
+        // Apply limit if specified
+        if (limit > 0 && messages.size() >= limit) {
+            break;
+        }
+    }
+
+    // Update last retrieval time
+    if (sinceLastCall) {
+        m_lastMessageRetrievalTime = QDateTime::currentDateTime();
+    }
+
+    QJsonObject result;
+    result["messages"] = messages;
+    result["count"] = messages.size();
+    result["format"] = format;
+
+    callback(result, QString());
+}
+
+void CDPClient::clearConsoleMessages()
+{
+    m_consoleMessages.clear();
+    m_performanceTimers.clear();
+}
+
+void CDPClient::markMessageRetrievalTime()
+{
+    m_lastMessageRetrievalTime = QDateTime::currentDateTime();
 }
 
 void CDPClient::navigateTo(const QString& url, ResponseCallback callback)

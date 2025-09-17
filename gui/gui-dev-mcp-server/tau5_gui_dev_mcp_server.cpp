@@ -1404,8 +1404,8 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "chromium_devtools_searchLogs",
-        "Advanced log search with regex, multi-session support, and flexible filtering",
+        "searchLogs",
+        "Search application logs with regex patterns and filters",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{
@@ -1656,7 +1656,7 @@ int main(int argc, char *argv[])
             if (format == "json") {
                 QJsonDocument doc(jsonResults);
                 QString resultText = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
-                activityLogger.logActivity("chromium_devtools_searchLogs", requestId, params, "success", duration, QString(), jsonResults);
+                activityLogger.logActivity("searchLogs", requestId, params, "success", duration, QString(), jsonResults);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", resultText}
@@ -1665,7 +1665,7 @@ int main(int argc, char *argv[])
                 QString resultText = textResults.isEmpty() 
                     ? "No matches found" 
                     : textResults.join("\n");
-                activityLogger.logActivity("chromium_devtools_searchLogs", requestId, params, "success", duration, QString(), resultText);
+                activityLogger.logActivity("searchLogs", requestId, params, "success", duration, QString(), resultText);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", resultText}
@@ -1741,8 +1741,8 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "chromium_devtools_getGuiLogs",
-        "Simple tool to get recent GUI logs (use searchLogs for advanced features)",
+        "getLogs",
+        "Read application logs from filesystem (beam, gui, mcp logs)",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{
@@ -1806,7 +1806,7 @@ int main(int argc, char *argv[])
                 .arg(resultLines.join("\n"));
             
             qint64 duration = timer.elapsed();
-            activityLogger.logActivity("chromium_devtools_getGuiLogs", requestId, params, "success", duration, QString(), resultText);
+            activityLogger.logActivity("getLogs", requestId, params, "success", duration, QString(), resultText);
             
             return QJsonObject{
                 {"type", "text"},
@@ -1814,7 +1814,175 @@ int main(int argc, char *argv[])
             };
         }
     });
-    
+
+    // Tool: Get JavaScript console messages with advanced filtering
+    server.registerTool({
+        "chromium_devtools_getConsoleMessages",
+        "Get JavaScript console messages with filtering, search, and format options",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"limit", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Maximum number of messages to return"}
+                }},
+                {"level", QJsonObject{
+                    {"oneOf", QJsonArray{
+                        QJsonObject{{"type", "string"}},
+                        QJsonObject{
+                            {"type", "array"},
+                            {"items", QJsonObject{{"type", "string"}}}
+                        }
+                    }},
+                    {"description", "Filter by level(s): 'error', 'warn', 'log', 'info', 'debug'"}
+                }},
+                {"search", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Search for text in messages (case-insensitive)"}
+                }},
+                {"regex", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Filter messages with regex pattern"}
+                }},
+                {"since", QJsonObject{
+                    {"type", "string"},
+                    {"description", "ISO date to get messages after (e.g., '2025-01-01T10:30:00')"}
+                }},
+                {"last", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Get messages from last period (e.g., '5m', '1h', '30s')"}
+                }},
+                {"since_last_call", QJsonObject{
+                    {"type", "boolean"},
+                    {"description", "Only return messages since last getConsoleMessages call"}
+                }},
+                {"format", QJsonObject{
+                    {"type", "string"},
+                    {"enum", QJsonArray{"json", "plain", "csv"}},
+                    {"description", "Output format (default: json)"}
+                }}
+            }}
+        },
+        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            QJsonObject result = bridge.executeCommand([params](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getConsoleMessages(params, cb);
+            });
+
+            if (result.contains("type") && result["type"].toString() == "text") {
+                QString errorText = result["text"].toString();
+                if (errorText.startsWith("Error: ")) {
+                    qint64 duration = timer.elapsed();
+                    activityLogger.logActivity("chromium_devtools_getConsoleMessages", requestId, params, "error", duration, errorText);
+                    return result;
+                }
+            }
+
+            // Get format parameter and messages
+            QString format = result.value("format").toString("json");
+            QJsonArray messages = result["messages"].toArray();
+            int count = result["count"].toInt();
+
+            // Format output based on requested format
+            QString output;
+
+            if (format == "plain") {
+                QStringList lines;
+                for (const QJsonValue& val : messages) {
+                    QJsonObject msg = val.toObject();
+                    QString timestamp = msg["timestamp"].toString();
+                    QString level = msg["level"].toString().toUpper();
+                    QString text = msg["text"].toString();
+                    QString location;
+
+                    if (msg.contains("url") && msg.contains("lineNumber")) {
+                        QString url = msg["url"].toString();
+                        int line = msg["lineNumber"].toInt();
+                        location = QString(" (%1:%2)").arg(url).arg(line);
+                    }
+
+                    lines.append(QString("[%1] [%2] %3%4")
+                        .arg(timestamp)
+                        .arg(level)
+                        .arg(text)
+                        .arg(location));
+
+                    // Add stack trace if present
+                    if (msg.contains("stackTrace")) {
+                        lines.append(msg["stackTrace"].toString());
+                    }
+                }
+
+                output = lines.join("\n");
+                if (output.isEmpty()) {
+                    output = "No console messages found";
+                }
+            } else if (format == "csv") {
+                QStringList csvLines;
+                csvLines.append("Timestamp,Level,Message,URL,Line,Column,Function");
+
+                for (const QJsonValue& val : messages) {
+                    QJsonObject msg = val.toObject();
+                    QStringList fields;
+                    fields << msg["timestamp"].toString();
+                    fields << msg["level"].toString();
+                    fields << QString("\"%1\"").arg(msg["text"].toString().replace("\"", "\\\""));
+                    fields << msg.value("url").toString();
+                    fields << QString::number(msg.value("lineNumber").toInt());
+                    fields << QString::number(msg.value("columnNumber").toInt());
+                    fields << msg.value("functionName").toString();
+                    csvLines.append(fields.join(","));
+                }
+
+                output = csvLines.join("\n");
+            } else {
+                // JSON format - return structured data
+                QJsonDocument doc(messages);
+                output = QString("=== Console Messages (%1 total) ===\n").arg(count);
+                output += QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
+            }
+
+            qint64 duration = timer.elapsed();
+            activityLogger.logActivity("chromium_devtools_getConsoleMessages", requestId, params, "success", duration, QString(), output);
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // Tool: Clear JavaScript console messages
+    server.registerTool({
+        "chromium_devtools_clearConsoleMessages",
+        "Clear all stored JavaScript console messages",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->clearConsoleMessages();
+                cb(QJsonObject{{"cleared", true}}, QString());
+            });
+
+            qint64 duration = timer.elapsed();
+            activityLogger.logActivity("chromium_devtools_clearConsoleMessages", requestId, params, "success", duration);
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", "Console messages cleared successfully"}
+            };
+        }
+    });
+
     QObject::connect(&server, &MCPServerStdio::stdinClosed, &app, [&app]() {
         debugLog("Stdin closed, shutting down MCP server...");
         QTimer::singleShot(100, &app, &QCoreApplication::quit);
