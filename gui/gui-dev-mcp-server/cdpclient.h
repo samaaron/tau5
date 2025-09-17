@@ -57,6 +57,50 @@ public:
     void callFunctionOn(const QString& objectId, const QString& functionDeclaration, ResponseCallback callback);
     void releaseObject(const QString& objectId, ResponseCallback callback);
 
+    // Network monitoring
+    void getNetworkRequests(const QJsonObject& filters, ResponseCallback callback);
+    void clearNetworkRequests();
+
+    // Performance and Memory
+    void getMemoryUsage(ResponseCallback callback);
+    void startProfiling(const QString& profileName, ResponseCallback callback);
+    void stopProfiling(const QString& profileName, ResponseCallback callback);
+    void getHeapSnapshot(ResponseCallback callback);
+
+    // Runtime exceptions
+    void getPendingExceptions(ResponseCallback callback);
+    void clearExceptions();
+
+    // Resources
+    void getLoadedResources(ResponseCallback callback);
+
+    // Audio debugging
+    void getAudioContexts(ResponseCallback callback);
+
+    // Workers and Worklets
+    void getWorkers(ResponseCallback callback);
+
+    // Security
+    void getSecurityState(ResponseCallback callback);
+    void getCrossOriginIsolationStatus(ResponseCallback callback);
+
+    // WASM and AudioWorklet debugging
+    void getResponseBody(const QString& requestId, ResponseCallback callback);
+    void getAudioWorkletState(ResponseCallback callback);
+    void monitorWasmInstantiation(ResponseCallback callback);
+    void getPerformanceTimeline(ResponseCallback callback);
+    void executeInAudioWorklet(const QString& code, ResponseCallback callback);
+
+    // LiveView debugging
+    void getWebSocketFrames(const QJsonObject& filters, ResponseCallback callback);
+    void clearWebSocketFrames();
+    void startDOMMutationObserver(const QString& selector, ResponseCallback callback);
+    void stopDOMMutationObserver(ResponseCallback callback);
+    void getDOMMutations(ResponseCallback callback);
+    void clearDOMMutations();
+    void getJavaScriptProfile(ResponseCallback callback);
+    void trackLiveViewEvent(const QString& eventType, const QJsonObject& details);
+
 signals:
     void connected();
     void disconnected();
@@ -75,11 +119,15 @@ private:
     void sendRawCommand(const QJsonObject& command);
     void processResponse(const QJsonObject& response);
     void enableDomains();
-    
+
     void fetchTargetList();
     QString findMainPageTarget(const QJsonArray& targets);
     void connectToTarget(const QString& targetId);
     void discoverTargets();
+
+    void handleNetworkEvent(const QString& method, const QJsonObject& params);
+    void handleRuntimeException(const QString& method, const QJsonObject& params);
+    void handleWebSocketEvent(const QString& method, const QJsonObject& params);
 
 private:
     struct ConsoleMessage {
@@ -102,6 +150,80 @@ private:
     static const int MAX_CONSOLE_MESSAGES = 1000;
     QDateTime m_lastMessageRetrievalTime;
     QMap<QString, qint64> m_performanceTimers;  // For console.time tracking
+
+    // Network monitoring
+    struct NetworkRequest {
+        QString requestId;
+        QString url;
+        QString method;
+        QDateTime timestamp;
+        QJsonObject headers;
+        QString resourceType;
+        int statusCode;
+        QString statusText;
+        QJsonObject responseHeaders;
+        qint64 responseSize;
+        qint64 encodedDataLength;
+        double timing;
+        QString mimeType;
+        QString failureReason;
+        bool fromCache;
+    };
+    QList<NetworkRequest> m_networkRequests;
+    static const int MAX_NETWORK_REQUESTS = 500;
+
+    // Runtime exceptions
+    struct RuntimeException {
+        QString exceptionId;
+        QString text;
+        int lineNumber;
+        int columnNumber;
+        QString url;
+        QJsonObject stackTrace;
+        QDateTime timestamp;
+        QString exceptionDetails;
+    };
+    QList<RuntimeException> m_exceptions;
+
+    // WASM instantiation tracking
+    struct WasmInstantiation {
+        QString url;
+        QDateTime timestamp;
+        bool success;
+        QString errorMessage;
+        qint64 moduleSize;
+        QJsonObject imports;
+        QJsonObject exports;
+    };
+    QList<WasmInstantiation> m_wasmInstantiations;
+
+    // WebSocket frame tracking for LiveView
+    struct WebSocketFrame {
+        QDateTime timestamp;
+        QString requestId;
+        QString opcode;  // text, binary, close, ping, pong
+        QString payloadData;
+        bool sent;  // true if sent, false if received
+        QString url;
+    };
+    QList<WebSocketFrame> m_webSocketFrames;
+    static const int MAX_WEBSOCKET_FRAMES = 200;
+
+    // DOM mutations for LiveView morphdom tracking
+    struct DOMMutation {
+        QDateTime timestamp;
+        QString type;  // childList, attributes, characterData
+        int nodeId;
+        QString nodeName;
+        QString attributeName;
+        QString oldValue;
+        QString newValue;
+        QJsonArray addedNodes;
+        QJsonArray removedNodes;
+    };
+    QList<DOMMutation> m_domMutations;
+    static const int MAX_DOM_MUTATIONS = 100;
+
     QWebSocket* m_webSocket;
     QNetworkAccessManager* m_networkManager;
     QTimer* m_pingTimer;

@@ -1983,6 +1983,874 @@ int main(int argc, char *argv[])
         }
     });
 
+    // Tool: Network Request Monitor
+    server.registerTool({
+        "chromium_devtools_getNetworkRequests",
+        "Monitor network requests with WASM/AudioWorklet focus",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"urlPattern", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Regex pattern to filter URLs (e.g., '.*\\.wasm|.*audioworklet.*')"}
+                }},
+                {"includeResponse", QJsonObject{
+                    {"type", "boolean"},
+                    {"description", "Include response details (status, headers, etc.)"}
+                }},
+                {"includeTimings", QJsonObject{
+                    {"type", "boolean"},
+                    {"description", "Include timing information"}
+                }}
+            }}
+        },
+        [&bridge](const QJsonObject& params) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([params](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getNetworkRequests(params, cb);
+            });
+
+            if (result.contains("requests")) {
+                QJsonArray requests = result["requests"].toArray();
+                QString output = QString("=== Network Requests (%1 total) ===\n\n").arg(requests.size());
+
+                for (const QJsonValue& val : requests) {
+                    QJsonObject req = val.toObject();
+                    output += QString("[%1] %2 %3\n")
+                        .arg(req["timestamp"].toString())
+                        .arg(req["method"].toString())
+                        .arg(req["url"].toString());
+
+                    if (req.contains("statusCode")) {
+                        output += QString("  Status: %1 %2\n")
+                            .arg(req["statusCode"].toInt())
+                            .arg(req["statusText"].toString());
+                    }
+
+                    if (req.contains("failureReason")) {
+                        output += QString("  FAILED: %1\n").arg(req["failureReason"].toString());
+                    }
+
+                    if (req.contains("responseHeaders")) {
+                        QJsonObject headers = req["responseHeaders"].toObject();
+                        if (headers.contains("cross-origin-opener-policy") ||
+                            headers.contains("cross-origin-embedder-policy")) {
+                            output += "  CORS Headers:\n";
+                            if (headers.contains("cross-origin-opener-policy")) {
+                                output += QString("    COOP: %1\n").arg(headers["cross-origin-opener-policy"].toString());
+                            }
+                            if (headers.contains("cross-origin-embedder-policy")) {
+                                output += QString("    COEP: %1\n").arg(headers["cross-origin-embedder-policy"].toString());
+                            }
+                        }
+                    }
+                    output += "\n";
+                }
+
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", output}
+                };
+            }
+
+            return result;
+        }
+    });
+
+    // Tool: Get Memory Usage
+    server.registerTool({
+        "chromium_devtools_getMemoryUsage",
+        "Get JavaScript heap and memory metrics",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getMemoryUsage(cb);
+            });
+
+            QString output = "=== Memory Usage ===\n";
+            for (auto it = result.begin(); it != result.end(); ++it) {
+                output += QString("%1: %2\n").arg(it.key()).arg(it.value().toDouble());
+            }
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // Tool: Get Runtime Exceptions
+    server.registerTool({
+        "chromium_devtools_getExceptions",
+        "Get uncaught exceptions and promise rejections",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getPendingExceptions(cb);
+            });
+
+            if (result.contains("exceptions")) {
+                QJsonArray exceptions = result["exceptions"].toArray();
+                QString output = QString("=== Runtime Exceptions (%1 total) ===\n\n").arg(exceptions.size());
+
+                for (const QJsonValue& val : exceptions) {
+                    QJsonObject ex = val.toObject();
+                    output += QString("[%1] %2\n")
+                        .arg(ex["timestamp"].toString())
+                        .arg(ex["text"].toString());
+                    output += QString("  Location: %1:%2:%3\n")
+                        .arg(ex["url"].toString())
+                        .arg(ex["lineNumber"].toInt())
+                        .arg(ex["columnNumber"].toInt());
+
+                    if (ex.contains("stackTrace")) {
+                        output += "  Stack Trace:\n";
+                        QJsonDocument doc(ex["stackTrace"].toObject());
+                        output += QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
+                    }
+                    output += "\n";
+                }
+
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", output}
+                };
+            }
+
+            return result;
+        }
+    });
+
+    // Tool: Get Loaded Resources
+    server.registerTool({
+        "chromium_devtools_getLoadedResources",
+        "List all loaded page resources",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getLoadedResources(cb);
+            });
+
+            if (result.contains("resources")) {
+                QJsonArray resources = result["resources"].toArray();
+                QString output = QString("=== Loaded Resources (%1 total) ===\n\n").arg(resources.size());
+
+                QMap<QString, int> typeCount;
+                for (const QJsonValue& val : resources) {
+                    QJsonObject res = val.toObject();
+                    QString type = res["type"].toString();
+                    QString url = res["url"].toString();
+                    typeCount[type]++;
+                    output += QString("[%1] %2\n").arg(type).arg(url);
+                }
+
+                output += "\n=== Summary by Type ===\n";
+                for (auto it = typeCount.begin(); it != typeCount.end(); ++it) {
+                    output += QString("%1: %2\n").arg(it.key()).arg(it.value());
+                }
+
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", output}
+                };
+            }
+
+            return result;
+        }
+    });
+
+    // Tool: Get Audio Contexts
+    server.registerTool({
+        "chromium_devtools_getAudioContexts",
+        "Get information about AudioContext instances",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getAudioContexts(cb);
+            });
+
+            QString output = "=== Audio Contexts ===\n";
+            if (result.contains("result")) {
+                QJsonObject evalResult = result["result"].toObject();
+                if (evalResult.contains("value")) {
+                    QJsonArray contexts = evalResult["value"].toArray();
+                    if (contexts.isEmpty()) {
+                        output += "No AudioContext instances found\n";
+                    } else {
+                        for (const QJsonValue& val : contexts) {
+                            QJsonObject ctx = val.toObject();
+                            output += QString("State: %1\n").arg(ctx["state"].toString());
+                            output += QString("Sample Rate: %1\n").arg(ctx["sampleRate"].toDouble());
+                            output += QString("Current Time: %1\n").arg(ctx["currentTime"].toDouble());
+                            output += QString("Base Latency: %1\n").arg(ctx["baseLatency"].toDouble());
+                            output += QString("Output Latency: %1\n").arg(ctx["outputLatency"].toDouble());
+                        }
+                    }
+                }
+            }
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // Tool: Get Workers
+    server.registerTool({
+        "chromium_devtools_getWorkers",
+        "List active workers and worklets",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getWorkers(cb);
+            });
+
+            if (result.contains("workers")) {
+                QJsonArray workers = result["workers"].toArray();
+                QString output = QString("=== Workers (%1 total) ===\n\n").arg(workers.size());
+
+                for (const QJsonValue& val : workers) {
+                    QJsonObject worker = val.toObject();
+                    output += QString("[%1] %2\n")
+                        .arg(worker["type"].toString())
+                        .arg(worker["url"].toString());
+                    output += QString("  Title: %1\n").arg(worker["title"].toString());
+                    output += QString("  ID: %1\n\n").arg(worker["targetId"].toString());
+                }
+
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", output}
+                };
+            }
+
+            return result;
+        }
+    });
+
+    // Tool: Get Cross-Origin Isolation Status
+    server.registerTool({
+        "chromium_devtools_getCrossOriginIsolationStatus",
+        "Check SharedArrayBuffer availability and COOP/COEP status",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getCrossOriginIsolationStatus(cb);
+            });
+
+            QString output = "=== Cross-Origin Isolation Status ===\n";
+            output += QString("SharedArrayBuffer Available: %1\n")
+                .arg(result["sharedArrayBufferAvailable"].toBool() ? "YES" : "NO");
+            output += QString("Cross-Origin Isolated: %1\n")
+                .arg(result["crossOriginIsolated"].toBool() ? "YES" : "NO");
+            output += QString("COEP Status: %1\n").arg(result["coep"].toString());
+            output += QString("User Agent: %1\n").arg(result["userAgent"].toString());
+
+            if (!result["crossOriginIsolated"].toBool()) {
+                output += "\n⚠️ SharedArrayBuffer requires proper COOP/COEP headers:\n";
+                output += "  - Cross-Origin-Opener-Policy: same-origin\n";
+                output += "  - Cross-Origin-Embedder-Policy: require-corp\n";
+            }
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // Tool: Get Security State
+    server.registerTool({
+        "chromium_devtools_getSecurityState",
+        "Get page security state and certificate info",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getSecurityState(cb);
+            });
+
+            QString output = "=== Security State ===\n";
+            output += QString("Security State: %1\n").arg(result["securityState"].toString());
+
+            if (result.contains("certificateSecurityState")) {
+                QJsonObject cert = result["certificateSecurityState"].toObject();
+                output += QString("Certificate Valid: %1\n").arg(cert["certificateHasWeakSignature"].toBool() ? "NO" : "YES");
+                output += QString("Protocol: %1\n").arg(cert["protocol"].toString());
+            }
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // Tool: Monitor WASM Instantiation
+    server.registerTool({
+        "chromium_devtools_monitorWasmInstantiation",
+        "Monitor WebAssembly module instantiation attempts",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->monitorWasmInstantiation(cb);
+            });
+
+            QString output = "=== WASM Instantiation Monitor ===\n";
+
+            if (result.contains("available") && !result["available"].toBool()) {
+                output += "WebAssembly API not available\n";
+            } else {
+                output += QString("Monitoring Enabled: %1\n")
+                    .arg(result["monitoringEnabled"].toBool() ? "YES" : "NO");
+
+                if (result.contains("instantiations")) {
+                    QJsonArray instantiations = result["instantiations"].toArray();
+                    output += QString("\nInstantiation Attempts: %1\n\n").arg(instantiations.size());
+
+                    for (const QJsonValue& val : instantiations) {
+                        QJsonObject inst = val.toObject();
+                        output += QString("[%1] Method: %2\n")
+                            .arg(inst["timestamp"].toString())
+                            .arg(inst["method"].toString());
+                        output += QString("  Success: %1\n")
+                            .arg(inst["success"].toBool() ? "YES" : "NO");
+
+                        if (!inst["success"].toBool()) {
+                            output += QString("  Error: %1\n").arg(inst["error"].toString());
+                        } else {
+                            if (inst.contains("exports")) {
+                                QJsonArray exports = inst["exports"].toArray();
+                                output += QString("  Exports: %1 functions\n").arg(exports.size());
+                            }
+                        }
+
+                        output += QString("  Duration: %1ms\n\n").arg(inst["duration"].toDouble());
+                    }
+                }
+
+                output += "\n📝 Console will show [WASM] prefixed messages for future instantiations\n";
+            }
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // Tool: Get AudioWorklet State
+    server.registerTool({
+        "chromium_devtools_getAudioWorkletState",
+        "Check AudioWorklet availability and state",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getAudioWorkletState(cb);
+            });
+
+            QString output = "=== AudioWorklet State ===\n";
+
+            // Check AudioWorklet availability
+            if (result.contains("audioWorkletNodeAvailable")) {
+                output += QString("AudioWorkletNode API: %1\n")
+                    .arg(result["audioWorkletNodeAvailable"].toBool() ? "Available" : "Not Available");
+            }
+
+            if (result.contains("audioWorkletAvailable")) {
+                output += QString("AudioWorklet on Context: %1\n")
+                    .arg(result["audioWorkletAvailable"].toBool() ? "Available" : "Not Available");
+            }
+
+            output += QString("SharedArrayBuffer: %1\n")
+                .arg(result["sharedArrayBufferAvailable"].toBool() ? "Available" : "Not Available");
+
+            // Audio contexts
+            if (result.contains("audioContexts")) {
+                QJsonArray contexts = result["audioContexts"].toArray();
+                output += QString("\nAudio Contexts: %1\n").arg(contexts.size());
+
+                for (const QJsonValue& val : contexts) {
+                    QJsonObject ctx = val.toObject();
+                    output += QString("\n  State: %1\n").arg(ctx["state"].toString());
+                    output += QString("  Sample Rate: %1\n").arg(ctx["sampleRate"].toDouble());
+                    output += QString("  Current Time: %1\n").arg(ctx["currentTime"].toDouble());
+                    output += QString("  Has Worklet: %1\n")
+                        .arg(ctx["hasWorklet"].toBool() ? "YES" : "NO");
+                }
+            }
+
+            if (!result["audioWorkletAvailable"].toBool()) {
+                output += "\n⚠️ AudioWorklet not available - needed for WASM audio processing\n";
+            }
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // Tool: Get Performance Timeline
+    server.registerTool({
+        "chromium_devtools_getPerformanceTimeline",
+        "Get performance timeline for WASM/AudioWorklet resources",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getPerformanceTimeline(cb);
+            });
+
+            QString output = "=== Performance Timeline ===\n";
+
+            // Navigation timing
+            if (result.contains("result")) {
+                QJsonObject timeline = result["result"].toObject()["value"].toObject();
+
+                if (timeline.contains("navigation")) {
+                    QJsonObject nav = timeline["navigation"].toObject();
+                    output += "\nNavigation Timing:\n";
+                    output += QString("  DOM Content Loaded: %1ms\n").arg(nav["domContentLoaded"].toDouble());
+                    output += QString("  Page Load Complete: %1ms\n").arg(nav["loadComplete"].toDouble());
+                }
+
+                // WASM and AudioWorklet resources
+                if (timeline.contains("resources")) {
+                    QJsonArray resources = timeline["resources"].toArray();
+                    if (!resources.isEmpty()) {
+                        output += "\nWASM/AudioWorklet Resources:\n";
+                        for (const QJsonValue& val : resources) {
+                            QJsonObject res = val.toObject();
+                            output += QString("\n  %1\n").arg(res["name"].toString());
+                            output += QString("    Duration: %1ms\n").arg(res["duration"].toDouble());
+                            output += QString("    Start Time: %1ms\n").arg(res["startTime"].toDouble());
+                            output += QString("    Transfer Size: %1 bytes\n").arg(res["transferSize"].toDouble());
+                            output += QString("    Decoded Size: %1 bytes\n").arg(res["decodedBodySize"].toDouble());
+                        }
+                    } else {
+                        output += "\nNo WASM or AudioWorklet resources found in timeline\n";
+                    }
+                }
+
+                // Memory info
+                if (timeline.contains("memory")) {
+                    QJsonObject mem = timeline["memory"].toObject();
+                    output += "\nMemory Usage:\n";
+                    output += QString("  Used JS Heap: %1 MB\n").arg(mem["usedJSHeapSize"].toDouble() / 1048576);
+                    output += QString("  Total JS Heap: %1 MB\n").arg(mem["totalJSHeapSize"].toDouble() / 1048576);
+                }
+            }
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // Tool: Get Network Response Body
+    server.registerTool({
+        "chromium_devtools_getResponseBody",
+        "Get response body for a network request (check if WASM actually loaded)",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"requestId", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Request ID from getNetworkRequests"}
+                }}
+            }},
+            {"required", QJsonArray{"requestId"}}
+        },
+        [&bridge](const QJsonObject& params) -> QJsonObject {
+            QString requestId = params["requestId"].toString();
+
+            QJsonObject result = bridge.executeCommand([requestId](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getResponseBody(requestId, cb);
+            });
+
+            QString output = "=== Response Body Info ===\n";
+            output += QString("Request ID: %1\n").arg(requestId);
+
+            if (result.contains("base64Encoded")) {
+                output += QString("Base64 Encoded: %1\n").arg(result["base64Encoded"].toBool() ? "YES" : "NO");
+
+                if (result.contains("decodedSize")) {
+                    output += QString("Decoded Size: %1 bytes\n").arg(result["decodedSize"].toInt());
+                }
+
+                if (result.contains("isWasmModule") && result["isWasmModule"].toBool()) {
+                    output += "\n✅ Valid WASM Module Detected!\n";
+                    output += QString("WASM Version: %1\n").arg(result["wasmVersion"].toInt());
+                } else if (result["base64Encoded"].toBool()) {
+                    output += "\n❌ Not a valid WASM module (wrong magic number)\n";
+                }
+
+                // Show first 100 chars of body if not binary
+                if (!result["base64Encoded"].toBool()) {
+                    QString body = result["body"].toString();
+                    if (body.length() > 100) {
+                        output += QString("\nFirst 100 chars:\n%1...\n").arg(body.left(100));
+                    } else {
+                        output += QString("\nBody:\n%1\n").arg(body);
+                    }
+                }
+            } else {
+                output += "Unable to retrieve response body\n";
+            }
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // LiveView debugging tools
+    // Tool: Get WebSocket Frames
+    server.registerTool({
+        "chromium_devtools_getWebSocketFrames",
+        "Get WebSocket frames for LiveView debugging",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"url", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Filter by URL containing this string"}
+                }},
+                {"sentOnly", QJsonObject{
+                    {"type", "boolean"},
+                    {"description", "Show only sent frames"}
+                }},
+                {"receivedOnly", QJsonObject{
+                    {"type", "boolean"},
+                    {"description", "Show only received frames"}
+                }},
+                {"search", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Search in frame payload data"}
+                }},
+                {"limit", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Maximum number of frames to return"}
+                }}
+            }}
+        },
+        [&bridge](const QJsonObject& params) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([params](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getWebSocketFrames(params, cb);
+            });
+
+            QString output = "=== WebSocket Frames ===\n\n";
+            QJsonArray frames = result["frames"].toArray();
+            int total = result["total"].toInt();
+
+            if (frames.isEmpty()) {
+                output += "No WebSocket frames captured.\n";
+            } else {
+                for (const QJsonValue& val : frames) {
+                    QJsonObject frame = val.toObject();
+                    output += QString("[%1] %2 %3\n")
+                        .arg(frame["timestamp"].toString())
+                        .arg(frame["direction"].toString().toUpper())
+                        .arg(frame["url"].toString());
+
+                    if (frame.contains("liveViewEvent")) {
+                        output += QString("  LiveView Event: %1\n").arg(frame["liveViewEvent"].toString());
+                    }
+
+                    if (frame.contains("parsedData")) {
+                        QJsonDocument doc(frame["parsedData"].toObject());
+                        if (doc.isEmpty()) {
+                            doc = QJsonDocument(frame["parsedData"].toArray());
+                        }
+                        output += "  Parsed: " + doc.toJson(QJsonDocument::Compact) + "\n";
+                    } else if (frame.contains("data")) {
+                        QString data = frame["data"].toString();
+                        if (data.length() > 200) {
+                            data = data.left(200) + "...";
+                        }
+                        output += "  Data: " + data + "\n";
+                    }
+                    output += "\n";
+                }
+            }
+
+            output += QString("\nTotal frames captured: %1\n").arg(total);
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // Tool: Clear WebSocket Frames
+    server.registerTool({
+        "chromium_devtools_clearWebSocketFrames",
+        "Clear captured WebSocket frames",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback) {
+                client->clearWebSocketFrames();
+            });
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", "WebSocket frames cleared successfully"}
+            };
+        }
+    });
+
+    // Tool: Start DOM Mutation Observer
+    server.registerTool({
+        "chromium_devtools_startDOMMutationObserver",
+        "Start observing DOM mutations for LiveView morphdom tracking",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"selector", QJsonObject{
+                    {"type", "string"},
+                    {"description", "CSS selector for element to observe (default: body)"}
+                }}
+            }}
+        },
+        [&bridge](const QJsonObject& params) -> QJsonObject {
+            QString selector = params["selector"].toString();
+            if (selector.isEmpty()) {
+                selector = "body";
+            }
+
+            QJsonObject result = bridge.executeCommand([selector](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->startDOMMutationObserver(selector, cb);
+            });
+
+            QString output;
+            if (result.contains("error")) {
+                output = QString("Failed to start observer: %1").arg(result["error"].toString());
+            } else if (result["success"].toBool()) {
+                output = QString("DOM Mutation Observer started on: %1\n").arg(result["observing"].toString());
+                output += "\nMutations will be captured in the console with [DOM_MUTATION] prefix.\n";
+                output += "Use getDOMMutations to retrieve captured mutations.";
+            } else {
+                output = "Failed to start DOM Mutation Observer";
+            }
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // Tool: Stop DOM Mutation Observer
+    server.registerTool({
+        "chromium_devtools_stopDOMMutationObserver",
+        "Stop observing DOM mutations",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->stopDOMMutationObserver(cb);
+            });
+
+            QString output;
+            if (result["success"].toBool()) {
+                output = "DOM Mutation Observer stopped successfully";
+            } else {
+                output = QString("Failed to stop observer: %1").arg(result.value("error").toString("Unknown error"));
+            }
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // Tool: Get DOM Mutations
+    server.registerTool({
+        "chromium_devtools_getDOMMutations",
+        "Get captured DOM mutations",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getDOMMutations(cb);
+            });
+
+            QString output = "=== DOM Mutations ===\n\n";
+            QJsonArray mutations = result["mutations"].toArray();
+
+            if (mutations.isEmpty()) {
+                output += "No DOM mutations captured.\n";
+                output += "Start observing with chromium_devtools_startDOMMutationObserver first.";
+            } else {
+                for (const QJsonValue& val : mutations) {
+                    QJsonObject mutation = val.toObject();
+                    output += QString("[%1] %2\n")
+                        .arg(mutation["timestamp"].toString())
+                        .arg(mutation["type"].toString());
+
+                    if (mutation.contains("target")) {
+                        output += QString("  Target: %1\n").arg(mutation["target"].toString());
+                    }
+                    if (mutation.contains("attributeName")) {
+                        output += QString("  Attribute: %1\n").arg(mutation["attributeName"].toString());
+                    }
+                    if (mutation.contains("oldValue")) {
+                        output += QString("  Old Value: %1\n").arg(mutation["oldValue"].toString());
+                    }
+                    if (mutation.contains("addedNodes")) {
+                        QJsonArray added = mutation["addedNodes"].toArray();
+                        if (!added.isEmpty()) {
+                            output += "  Added: ";
+                            for (const QJsonValue& node : added) {
+                                output += node.toString() + " ";
+                            }
+                            output += "\n";
+                        }
+                    }
+                    if (mutation.contains("removedNodes")) {
+                        QJsonArray removed = mutation["removedNodes"].toArray();
+                        if (!removed.isEmpty()) {
+                            output += "  Removed: ";
+                            for (const QJsonValue& node : removed) {
+                                output += node.toString() + " ";
+                            }
+                            output += "\n";
+                        }
+                    }
+                    output += "\n";
+                }
+            }
+
+            output += QString("\nTotal mutations: %1\n").arg(mutations.size());
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
+    // Tool: Clear DOM Mutations
+    server.registerTool({
+        "chromium_devtools_clearDOMMutations",
+        "Clear captured DOM mutations",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback) {
+                client->clearDOMMutations();
+            });
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", "DOM mutations cleared successfully"}
+            };
+        }
+    });
+
+    // Tool: Get JavaScript Performance Profile
+    server.registerTool({
+        "chromium_devtools_getJavaScriptProfile",
+        "Get JavaScript performance metrics for LiveView hooks",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&bridge](const QJsonObject&) -> QJsonObject {
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->getJavaScriptProfile(cb);
+            });
+
+            QString output = "=== JavaScript Performance Profile ===\n\n";
+
+            // Performance measures
+            QJsonArray measures = result["measures"].toArray();
+            if (!measures.isEmpty()) {
+                output += "Performance Measures:\n";
+                for (const QJsonValue& val : measures) {
+                    QJsonObject measure = val.toObject();
+                    output += QString("  %1: %2ms (start: %3ms)\n")
+                        .arg(measure["name"].toString())
+                        .arg(measure["duration"].toDouble(), 0, 'f', 2)
+                        .arg(measure["startTime"].toDouble(), 0, 'f', 2);
+                }
+                output += "\n";
+            }
+
+            // Hook stats
+            QJsonObject hookStats = result["hookStats"].toObject();
+            if (!hookStats.isEmpty()) {
+                output += "LiveView Hook Stats:\n";
+                for (auto it = hookStats.begin(); it != hookStats.end(); ++it) {
+                    output += QString("  %1: %2\n").arg(it.key()).arg(it.value().toString());
+                }
+                output += "\n";
+            }
+
+            // Memory usage
+            if (result.contains("usedJSHeapSize")) {
+                double used = result["usedJSHeapSize"].toDouble() / 1024 / 1024;
+                double total = result["totalJSHeapSize"].toDouble() / 1024 / 1024;
+                output += QString("Memory Usage:\n");
+                output += QString("  Used: %.2f MB\n").arg(used);
+                output += QString("  Total: %.2f MB\n").arg(total);
+                output += QString("  Usage: %.1f%%\n").arg((used / total) * 100);
+            }
+
+            if (measures.isEmpty() && hookStats.isEmpty()) {
+                output += "No performance data captured.\n";
+                output += "LiveView hooks can be profiled by adding performance.mark() calls.";
+            }
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output}
+            };
+        }
+    });
+
     QObject::connect(&server, &MCPServerStdio::stdinClosed, &app, [&app]() {
         debugLog("Stdin closed, shutting down MCP server...");
         QTimer::singleShot(100, &app, &QCoreApplication::quit);

@@ -335,8 +335,14 @@ void CDPClient::processResponse(const QJsonObject& response)
             emit consoleMessage(level, text.trimmed());
         } else if (method == "DOM.documentUpdated") {
             emit domContentUpdated();
+        } else if (method.startsWith("Network.")) {
+            handleNetworkEvent(method, params);
+        } else if (method.startsWith("Runtime.exception")) {
+            handleRuntimeException(method, params);
+        } else if (method.startsWith("Network.webSocket")) {
+            handleWebSocketEvent(method, params);
         }
-        
+
         return;
     }
     
@@ -365,16 +371,34 @@ void CDPClient::enableDomains()
             std::cerr << "# CDP Warning: Failed to enable DOM domain: " << error.toStdString() << std::endl;
         }
     });
-    
+
     sendCommand("Runtime.enable", QJsonObject(), [](const QJsonObject&, const QString& error) {
         if (!error.isEmpty()) {
             std::cerr << "# CDP Warning: Failed to enable Runtime domain: " << error.toStdString() << std::endl;
         }
     });
-    
+
     sendCommand("Page.enable", QJsonObject(), [](const QJsonObject&, const QString& error) {
         if (!error.isEmpty()) {
             std::cerr << "# CDP Warning: Failed to enable Page domain: " << error.toStdString() << std::endl;
+        }
+    });
+
+    sendCommand("Network.enable", QJsonObject(), [](const QJsonObject&, const QString& error) {
+        if (!error.isEmpty()) {
+            std::cerr << "# CDP Warning: Failed to enable Network domain: " << error.toStdString() << std::endl;
+        }
+    });
+
+    sendCommand("Security.enable", QJsonObject(), [](const QJsonObject&, const QString& error) {
+        if (!error.isEmpty()) {
+            std::cerr << "# CDP Warning: Failed to enable Security domain: " << error.toStdString() << std::endl;
+        }
+    });
+
+    sendCommand("Performance.enable", QJsonObject(), [](const QJsonObject&, const QString& error) {
+        if (!error.isEmpty()) {
+            std::cerr << "# CDP Warning: Failed to enable Performance domain: " << error.toStdString() << std::endl;
         }
     });
 }
@@ -686,4 +710,962 @@ void CDPClient::releaseObject(const QString& objectId, ResponseCallback callback
 void CDPClient::discoverTargets()
 {
     fetchTargetList();
+}
+
+// Network event handling
+void CDPClient::handleNetworkEvent(const QString& method, const QJsonObject& params)
+{
+    if (method == "Network.requestWillBeSent") {
+        NetworkRequest request;
+        request.requestId = params["requestId"].toString();
+        request.timestamp = QDateTime::currentDateTime();
+
+        QJsonObject requestData = params["request"].toObject();
+        request.url = requestData["url"].toString();
+        request.method = requestData["method"].toString();
+        request.headers = requestData["headers"].toObject();
+
+        request.resourceType = params["type"].toString();
+
+        m_networkRequests.append(request);
+
+        // Keep only recent requests
+        while (m_networkRequests.size() > MAX_NETWORK_REQUESTS) {
+            m_networkRequests.removeFirst();
+        }
+    } else if (method == "Network.responseReceived") {
+        QString requestId = params["requestId"].toString();
+        QJsonObject response = params["response"].toObject();
+
+        // Find and update the corresponding request
+        for (int i = 0; i < m_networkRequests.size(); i++) {
+            if (m_networkRequests[i].requestId == requestId) {
+                m_networkRequests[i].statusCode = response["status"].toInt();
+                m_networkRequests[i].statusText = response["statusText"].toString();
+                m_networkRequests[i].responseHeaders = response["headers"].toObject();
+                m_networkRequests[i].mimeType = response["mimeType"].toString();
+                m_networkRequests[i].fromCache = response["fromCache"].toBool();
+
+                // Check for CORS headers relevant to WASM
+                QJsonObject headers = response["headers"].toObject();
+                QString coop = headers["cross-origin-opener-policy"].toString();
+                QString coep = headers["cross-origin-embedder-policy"].toString();
+
+                if (!coop.isEmpty() || !coep.isEmpty()) {
+                    std::cerr << "# CDP: CORS headers for " << m_networkRequests[i].url.toStdString()
+                             << " - COOP: " << coop.toStdString()
+                             << ", COEP: " << coep.toStdString() << std::endl;
+                }
+                break;
+            }
+        }
+    } else if (method == "Network.loadingFinished") {
+        QString requestId = params["requestId"].toString();
+        qint64 encodedDataLength = params["encodedDataLength"].toDouble();
+
+        for (int i = 0; i < m_networkRequests.size(); i++) {
+            if (m_networkRequests[i].requestId == requestId) {
+                m_networkRequests[i].encodedDataLength = encodedDataLength;
+                break;
+            }
+        }
+    } else if (method == "Network.loadingFailed") {
+        QString requestId = params["requestId"].toString();
+        QString errorText = params["errorText"].toString();
+
+        for (int i = 0; i < m_networkRequests.size(); i++) {
+            if (m_networkRequests[i].requestId == requestId) {
+                m_networkRequests[i].failureReason = errorText;
+                std::cerr << "# CDP: Network request failed - " << m_networkRequests[i].url.toStdString()
+                         << " - Error: " << errorText.toStdString() << std::endl;
+                break;
+            }
+        }
+    }
+}
+
+// Runtime exception handling
+void CDPClient::handleRuntimeException(const QString& method, const QJsonObject& params)
+{
+    if (method == "Runtime.exceptionThrown") {
+        RuntimeException exception;
+        exception.timestamp = QDateTime::fromMSecsSinceEpoch(params["timestamp"].toDouble());
+
+        QJsonObject exceptionDetails = params["exceptionDetails"].toObject();
+        exception.exceptionId = QString::number(exceptionDetails["exceptionId"].toInt());
+        exception.text = exceptionDetails["text"].toString();
+        exception.lineNumber = exceptionDetails["lineNumber"].toInt();
+        exception.columnNumber = exceptionDetails["columnNumber"].toInt();
+        exception.url = exceptionDetails["url"].toString();
+
+        if (exceptionDetails.contains("stackTrace")) {
+            exception.stackTrace = exceptionDetails["stackTrace"].toObject();
+        }
+
+        if (exceptionDetails.contains("exception")) {
+            QJsonObject exceptionObj = exceptionDetails["exception"].toObject();
+            exception.exceptionDetails = exceptionObj["description"].toString();
+        }
+
+        m_exceptions.append(exception);
+
+        std::cerr << "# CDP: Runtime exception - " << exception.text.toStdString()
+                 << " at " << exception.url.toStdString()
+                 << ":" << exception.lineNumber << std::endl;
+    }
+}
+
+// Network monitoring
+void CDPClient::getNetworkRequests(const QJsonObject& filters, ResponseCallback callback)
+{
+    QJsonArray requests;
+
+    QString urlPattern = filters.value("urlPattern").toString();
+    bool includeResponse = filters.value("includeResponse").toBool();
+    bool includeTimings = filters.value("includeTimings").toBool();
+
+    for (const NetworkRequest& req : m_networkRequests) {
+        // Apply URL pattern filter if specified
+        if (!urlPattern.isEmpty()) {
+            QRegularExpression regex(urlPattern);
+            if (!regex.match(req.url).hasMatch()) {
+                continue;
+            }
+        }
+
+        QJsonObject reqObj;
+        reqObj["requestId"] = req.requestId;
+        reqObj["url"] = req.url;
+        reqObj["method"] = req.method;
+        reqObj["timestamp"] = req.timestamp.toString(Qt::ISODateWithMs);
+        reqObj["resourceType"] = req.resourceType;
+
+        if (includeResponse) {
+            reqObj["statusCode"] = req.statusCode;
+            reqObj["statusText"] = req.statusText;
+            reqObj["mimeType"] = req.mimeType;
+            reqObj["responseHeaders"] = req.responseHeaders;
+            reqObj["fromCache"] = req.fromCache;
+
+            if (!req.failureReason.isEmpty()) {
+                reqObj["failureReason"] = req.failureReason;
+            }
+        }
+
+        if (includeTimings) {
+            reqObj["encodedDataLength"] = static_cast<qint64>(req.encodedDataLength);
+        }
+
+        requests.append(reqObj);
+    }
+
+    QJsonObject result;
+    result["requests"] = requests;
+    result["count"] = requests.size();
+
+    callback(result, QString());
+}
+
+void CDPClient::clearNetworkRequests()
+{
+    m_networkRequests.clear();
+}
+
+// Performance and Memory
+void CDPClient::getMemoryUsage(ResponseCallback callback)
+{
+    sendCommand("Performance.getMetrics", QJsonObject(), [callback](const QJsonObject& result, const QString& error) {
+        if (!error.isEmpty()) {
+            callback(QJsonObject(), error);
+            return;
+        }
+
+        QJsonArray metrics = result["metrics"].toArray();
+        QJsonObject memoryInfo;
+
+        for (const QJsonValue& val : metrics) {
+            QJsonObject metric = val.toObject();
+            QString name = metric["name"].toString();
+            double value = metric["value"].toDouble();
+
+            if (name.contains("Memory") || name.contains("JS")) {
+                memoryInfo[name] = value;
+            }
+        }
+
+        callback(memoryInfo, QString());
+    });
+}
+
+void CDPClient::startProfiling(const QString& profileName, ResponseCallback callback)
+{
+    QJsonObject params;
+    if (!profileName.isEmpty()) {
+        params["id"] = profileName;
+    }
+
+    sendCommand("Profiler.enable", QJsonObject(), [this, params, callback](const QJsonObject&, const QString& error) {
+        if (!error.isEmpty()) {
+            callback(QJsonObject(), error);
+            return;
+        }
+
+        sendCommand("Profiler.start", params, callback);
+    });
+}
+
+void CDPClient::stopProfiling(const QString& profileName, ResponseCallback callback)
+{
+    QJsonObject params;
+    if (!profileName.isEmpty()) {
+        params["id"] = profileName;
+    }
+
+    sendCommand("Profiler.stop", params, callback);
+}
+
+void CDPClient::getHeapSnapshot(ResponseCallback callback)
+{
+    sendCommand("HeapProfiler.enable", QJsonObject(), [this, callback](const QJsonObject&, const QString& error) {
+        if (!error.isEmpty()) {
+            callback(QJsonObject(), error);
+            return;
+        }
+
+        // This would normally stream chunks, but for simplicity we'll get a summary
+        sendCommand("Runtime.getHeapUsage", QJsonObject(), callback);
+    });
+}
+
+// Runtime exceptions
+void CDPClient::getPendingExceptions(ResponseCallback callback)
+{
+    QJsonArray exceptions;
+
+    for (const RuntimeException& ex : m_exceptions) {
+        QJsonObject exObj;
+        exObj["exceptionId"] = ex.exceptionId;
+        exObj["text"] = ex.text;
+        exObj["url"] = ex.url;
+        exObj["lineNumber"] = ex.lineNumber;
+        exObj["columnNumber"] = ex.columnNumber;
+        exObj["timestamp"] = ex.timestamp.toString(Qt::ISODateWithMs);
+
+        if (!ex.exceptionDetails.isEmpty()) {
+            exObj["details"] = ex.exceptionDetails;
+        }
+
+        if (!ex.stackTrace.isEmpty()) {
+            exObj["stackTrace"] = ex.stackTrace;
+        }
+
+        exceptions.append(exObj);
+    }
+
+    QJsonObject result;
+    result["exceptions"] = exceptions;
+    result["count"] = exceptions.size();
+
+    callback(result, QString());
+}
+
+void CDPClient::clearExceptions()
+{
+    m_exceptions.clear();
+}
+
+// Resources
+void CDPClient::getLoadedResources(ResponseCallback callback)
+{
+    sendCommand("Page.getResourceTree", QJsonObject(), [callback](const QJsonObject& result, const QString& error) {
+        if (!error.isEmpty()) {
+            callback(QJsonObject(), error);
+            return;
+        }
+
+        QJsonArray resources;
+        QJsonObject frameTree = result["frameTree"].toObject();
+
+        // Extract resources from frame tree
+        std::function<void(const QJsonObject&)> extractResources = [&](const QJsonObject& frame) {
+            QJsonArray frameResources = frame["resources"].toArray();
+            for (const QJsonValue& val : frameResources) {
+                resources.append(val);
+            }
+
+            QJsonArray childFrames = frame["childFrames"].toArray();
+            for (const QJsonValue& child : childFrames) {
+                extractResources(child.toObject());
+            }
+        };
+
+        extractResources(frameTree);
+
+        QJsonObject finalResult;
+        finalResult["resources"] = resources;
+        finalResult["count"] = resources.size();
+
+        callback(finalResult, QString());
+    });
+}
+
+// Audio debugging
+void CDPClient::getAudioContexts(ResponseCallback callback)
+{
+    // Use Runtime.evaluate to get AudioContext information
+    QString script = R"(
+        (function() {
+            const contexts = [];
+            if (typeof AudioContext !== 'undefined') {
+                // This is a simplified version - in practice we'd need to track contexts
+                const ctx = window.__audioContext || null;
+                if (ctx) {
+                    contexts.push({
+                        state: ctx.state,
+                        sampleRate: ctx.sampleRate,
+                        currentTime: ctx.currentTime,
+                        baseLatency: ctx.baseLatency,
+                        outputLatency: ctx.outputLatency
+                    });
+                }
+            }
+            return contexts;
+        })()
+    )";
+
+    QJsonObject params;
+    params["expression"] = script;
+    params["returnByValue"] = true;
+
+    sendCommand("Runtime.evaluate", params, callback);
+}
+
+// Workers and Worklets
+void CDPClient::getWorkers(ResponseCallback callback)
+{
+    sendCommand("Target.getTargets", QJsonObject(), [callback](const QJsonObject& result, const QString& error) {
+        if (!error.isEmpty()) {
+            callback(QJsonObject(), error);
+            return;
+        }
+
+        QJsonArray targets = result["targetInfos"].toArray();
+        QJsonArray workers;
+
+        for (const QJsonValue& val : targets) {
+            QJsonObject target = val.toObject();
+            QString type = target["type"].toString();
+
+            if (type == "worker" || type == "service_worker" || type == "shared_worker") {
+                workers.append(target);
+            }
+        }
+
+        QJsonObject finalResult;
+        finalResult["workers"] = workers;
+        finalResult["count"] = workers.size();
+
+        callback(finalResult, QString());
+    });
+}
+
+// Security
+void CDPClient::getSecurityState(ResponseCallback callback)
+{
+    sendCommand("Security.getSecurityState", QJsonObject(), callback);
+}
+
+void CDPClient::getCrossOriginIsolationStatus(ResponseCallback callback)
+{
+    // Check if SharedArrayBuffer is available and get COOP/COEP status
+    QString script = R"(
+        (function() {
+            return {
+                sharedArrayBufferAvailable: typeof SharedArrayBuffer !== 'undefined',
+                crossOriginIsolated: self.crossOriginIsolated || false,
+                coep: document.featurePolicy ? document.featurePolicy.allowsFeature('cross-origin-isolated') : 'unknown',
+                userAgent: navigator.userAgent
+            };
+        })()
+    )";
+
+    QJsonObject params;
+    params["expression"] = script;
+    params["returnByValue"] = true;
+
+    sendCommand("Runtime.evaluate", params, [callback](const QJsonObject& result, const QString& error) {
+        if (!error.isEmpty()) {
+            callback(QJsonObject(), error);
+            return;
+        }
+
+        QJsonObject value = result["result"].toObject()["value"].toObject();
+        callback(value, QString());
+    });
+}
+
+// WASM and AudioWorklet debugging
+void CDPClient::getResponseBody(const QString& requestId, ResponseCallback callback)
+{
+    QJsonObject params;
+    params["requestId"] = requestId;
+
+    sendCommand("Network.getResponseBody", params, [callback](const QJsonObject& result, const QString& error) {
+        if (!error.isEmpty()) {
+            callback(QJsonObject(), error);
+            return;
+        }
+
+        QJsonObject bodyInfo;
+        bodyInfo["body"] = result["body"].toString();
+        bodyInfo["base64Encoded"] = result["base64Encoded"].toBool();
+
+        if (result["base64Encoded"].toBool()) {
+            QByteArray decoded = QByteArray::fromBase64(result["body"].toString().toUtf8());
+            bodyInfo["decodedSize"] = decoded.size();
+
+            // Check if it's a WASM module (magic number: 0x6d736100)
+            if (decoded.size() >= 4) {
+                uint32_t magic = *reinterpret_cast<const uint32_t*>(decoded.constData());
+                if (magic == 0x6d736100) {
+                    bodyInfo["isWasmModule"] = true;
+                    bodyInfo["wasmVersion"] = decoded.size() >= 8 ?
+                        static_cast<int>(*reinterpret_cast<const uint32_t*>(decoded.constData() + 4)) : 0;
+                }
+            }
+        }
+
+        callback(bodyInfo, QString());
+    });
+}
+
+void CDPClient::getAudioWorkletState(ResponseCallback callback)
+{
+    // Check AudioWorklet state by evaluating JavaScript
+    QString script = R"(
+        (function() {
+            const result = {
+                audioContexts: [],
+                workletNodes: [],
+                workletProcessors: []
+            };
+
+            // Find all AudioContexts
+            if (typeof AudioContext !== 'undefined') {
+                // Check if we have access to any audio contexts
+                const ctx = window.__audioContext || window.audioContext || null;
+                if (ctx) {
+                    result.audioContexts.push({
+                        state: ctx.state,
+                        sampleRate: ctx.sampleRate,
+                        currentTime: ctx.currentTime,
+                        hasWorklet: ctx.audioWorklet !== undefined
+                    });
+
+                    // Check if AudioWorklet is available
+                    if (ctx.audioWorklet) {
+                        result.audioWorkletAvailable = true;
+                        // We can't directly query registered processors from main thread
+                        // but we can check if common ones exist by trying to create nodes
+                    }
+                }
+            }
+
+            // Check for global AudioWorkletNode references
+            if (typeof AudioWorkletNode !== 'undefined') {
+                result.audioWorkletNodeAvailable = true;
+            }
+
+            // Check for SharedArrayBuffer in AudioWorklet context
+            result.sharedArrayBufferAvailable = typeof SharedArrayBuffer !== 'undefined';
+
+            return result;
+        })()
+    )";
+
+    QJsonObject params;
+    params["expression"] = script;
+    params["returnByValue"] = true;
+
+    sendCommand("Runtime.evaluate", params, [callback](const QJsonObject& result, const QString& error) {
+        if (!error.isEmpty()) {
+            callback(QJsonObject(), error);
+            return;
+        }
+
+        QJsonObject value = result["result"].toObject()["value"].toObject();
+        callback(value, QString());
+    });
+}
+
+void CDPClient::monitorWasmInstantiation(ResponseCallback callback)
+{
+    // Inject monitoring for WebAssembly.instantiate
+    QString script = R"(
+        (function() {
+            if (typeof WebAssembly === 'undefined') {
+                return { available: false };
+            }
+
+            // Get currently loaded modules if we've been tracking
+            const modules = window.__wasmModules || [];
+
+            // Inject monitoring if not already done
+            if (!window.__wasmMonitoringEnabled) {
+                window.__wasmModules = [];
+                const originalInstantiate = WebAssembly.instantiate;
+                const originalInstantiateStreaming = WebAssembly.instantiateStreaming;
+
+                WebAssembly.instantiate = function(...args) {
+                    const startTime = performance.now();
+                    const promise = originalInstantiate.apply(this, args);
+
+                    promise.then(result => {
+                        const info = {
+                            timestamp: new Date().toISOString(),
+                            method: 'instantiate',
+                            success: true,
+                            duration: performance.now() - startTime,
+                            hasModule: result.module !== undefined,
+                            hasInstance: result.instance !== undefined
+                        };
+
+                        if (result.instance) {
+                            info.exports = Object.keys(result.instance.exports);
+                        }
+
+                        window.__wasmModules.push(info);
+                        console.log('[WASM] Instantiation successful:', info);
+                    }).catch(error => {
+                        const info = {
+                            timestamp: new Date().toISOString(),
+                            method: 'instantiate',
+                            success: false,
+                            error: error.toString(),
+                            duration: performance.now() - startTime
+                        };
+                        window.__wasmModules.push(info);
+                        console.error('[WASM] Instantiation failed:', error);
+                    });
+
+                    return promise;
+                };
+
+                WebAssembly.instantiateStreaming = function(response, imports) {
+                    const startTime = performance.now();
+
+                    // Clone response to get URL
+                    response.clone().url && console.log('[WASM] Loading from:', response.url);
+
+                    const promise = originalInstantiateStreaming.call(this, response, imports);
+
+                    promise.then(result => {
+                        const info = {
+                            timestamp: new Date().toISOString(),
+                            method: 'instantiateStreaming',
+                            success: true,
+                            duration: performance.now() - startTime,
+                            hasModule: result.module !== undefined,
+                            hasInstance: result.instance !== undefined
+                        };
+
+                        if (result.instance) {
+                            info.exports = Object.keys(result.instance.exports);
+                        }
+
+                        window.__wasmModules.push(info);
+                        console.log('[WASM] Streaming instantiation successful:', info);
+                    }).catch(error => {
+                        const info = {
+                            timestamp: new Date().toISOString(),
+                            method: 'instantiateStreaming',
+                            success: false,
+                            error: error.toString(),
+                            duration: performance.now() - startTime
+                        };
+                        window.__wasmModules.push(info);
+                        console.error('[WASM] Streaming instantiation failed:', error);
+                    });
+
+                    return promise;
+                };
+
+                window.__wasmMonitoringEnabled = true;
+            }
+
+            return {
+                available: true,
+                monitoringEnabled: true,
+                instantiations: window.__wasmModules
+            };
+        })()
+    )";
+
+    QJsonObject params;
+    params["expression"] = script;
+    params["returnByValue"] = true;
+
+    sendCommand("Runtime.evaluate", params, [callback](const QJsonObject& result, const QString& error) {
+        if (!error.isEmpty()) {
+            callback(QJsonObject(), error);
+            return;
+        }
+
+        QJsonObject value = result["result"].toObject()["value"].toObject();
+        callback(value, QString());
+    });
+}
+
+void CDPClient::getPerformanceTimeline(ResponseCallback callback)
+{
+    QString script = R"(
+        (function() {
+            const timeline = {
+                navigation: {},
+                resources: [],
+                measures: [],
+                marks: []
+            };
+
+            // Navigation timing
+            if (performance.timing) {
+                const t = performance.timing;
+                timeline.navigation = {
+                    domContentLoaded: t.domContentLoadedEventEnd - t.navigationStart,
+                    loadComplete: t.loadEventEnd - t.navigationStart,
+                    domInteractive: t.domInteractive - t.navigationStart
+                };
+            }
+
+            // Resource timing (focus on WASM and AudioWorklet files)
+            if (performance.getEntriesByType) {
+                const resources = performance.getEntriesByType('resource');
+                timeline.resources = resources
+                    .filter(r => r.name.includes('.wasm') ||
+                                r.name.includes('audioworklet') ||
+                                r.name.includes('worklet'))
+                    .map(r => ({
+                        name: r.name,
+                        duration: r.duration,
+                        startTime: r.startTime,
+                        transferSize: r.transferSize || 0,
+                        decodedBodySize: r.decodedBodySize || 0
+                    }));
+
+                // User timing marks and measures
+                timeline.marks = performance.getEntriesByType('mark').map(m => ({
+                    name: m.name,
+                    startTime: m.startTime
+                }));
+
+                timeline.measures = performance.getEntriesByType('measure').map(m => ({
+                    name: m.name,
+                    duration: m.duration,
+                    startTime: m.startTime
+                }));
+            }
+
+            // Memory info if available
+            if (performance.memory) {
+                timeline.memory = {
+                    usedJSHeapSize: performance.memory.usedJSHeapSize,
+                    totalJSHeapSize: performance.memory.totalJSHeapSize,
+                    jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
+                };
+            }
+
+            return timeline;
+        })()
+    )";
+
+    QJsonObject params;
+    params["expression"] = script;
+    params["returnByValue"] = true;
+
+    sendCommand("Runtime.evaluate", params, callback);
+}
+
+void CDPClient::executeInAudioWorklet(const QString& code, ResponseCallback callback)
+{
+    // First check if AudioWorklet is available
+    QString checkScript = R"(
+        (function() {
+            const ctx = window.__audioContext || window.audioContext || null;
+            if (!ctx || !ctx.audioWorklet) {
+                return { error: 'No AudioContext with audioWorklet found' };
+            }
+            return { hasWorklet: true };
+        })()
+    )";
+
+    QJsonObject checkParams;
+    checkParams["expression"] = checkScript;
+    checkParams["returnByValue"] = true;
+
+    sendCommand("Runtime.evaluate", checkParams, [this, code, callback](const QJsonObject& result, const QString& error) {
+        if (!error.isEmpty()) {
+            callback(QJsonObject(), error);
+            return;
+        }
+
+        QJsonObject checkResult = result["result"].toObject()["value"].toObject();
+        if (checkResult.contains("error")) {
+            callback(checkResult, QString());
+            return;
+        }
+
+        // AudioWorklet is available, but we can't directly execute in its context from here
+        // We need to use messaging or create a special processor
+        QString executeScript = QString(R"(
+            (function() {
+                // This is a limitation - we can't directly execute in AudioWorklet context
+                // We would need to create a special debugging processor
+                return {
+                    limitation: 'Cannot directly execute in AudioWorklet context from DevTools',
+                    suggestion: 'Use console.log in AudioWorkletProcessor or create debug processor',
+                    providedCode: %1
+                };
+            })()
+        )").arg(QJsonDocument(QJsonValue(code).toObject()).toJson());
+
+        QJsonObject execParams;
+        execParams["expression"] = executeScript;
+        execParams["returnByValue"] = true;
+
+        sendCommand("Runtime.evaluate", execParams, callback);
+    });
+}
+
+// LiveView debugging implementation
+void CDPClient::handleWebSocketEvent(const QString& method, const QJsonObject& params)
+{
+    if (method == "Network.webSocketFrameReceived" || method == "Network.webSocketFrameSent") {
+        WebSocketFrame frame;
+        frame.timestamp = QDateTime::fromMSecsSinceEpoch(params["timestamp"].toDouble());
+        frame.requestId = params["requestId"].toString();
+
+        QJsonObject response = params["response"].toObject();
+        frame.opcode = response["opcode"].toString();
+        frame.payloadData = response["payloadData"].toString();
+        frame.sent = (method == "Network.webSocketFrameSent");
+
+        // Get URL from associated request
+        for (const auto& req : m_networkRequests) {
+            if (req.requestId == frame.requestId) {
+                frame.url = req.url;
+                break;
+            }
+        }
+
+        m_webSocketFrames.append(frame);
+
+        // Limit storage
+        while (m_webSocketFrames.size() > MAX_WEBSOCKET_FRAMES) {
+            m_webSocketFrames.removeFirst();
+        }
+    }
+}
+
+void CDPClient::getWebSocketFrames(const QJsonObject& filters, ResponseCallback callback)
+{
+    QJsonArray frames;
+
+    QString urlFilter = filters["url"].toString();
+    bool sentOnly = filters["sentOnly"].toBool(false);
+    bool receivedOnly = filters["receivedOnly"].toBool(false);
+    QString searchText = filters["search"].toString();
+    int limit = filters["limit"].toInt(0);
+
+    int count = 0;
+    for (const auto& frame : m_webSocketFrames) {
+        // Apply filters
+        if (!urlFilter.isEmpty() && !frame.url.contains(urlFilter))
+            continue;
+        if (sentOnly && !frame.sent)
+            continue;
+        if (receivedOnly && frame.sent)
+            continue;
+        if (!searchText.isEmpty() && !frame.payloadData.contains(searchText, Qt::CaseInsensitive))
+            continue;
+
+        QJsonObject frameObj;
+        frameObj["timestamp"] = frame.timestamp.toString(Qt::ISODate);
+        frameObj["direction"] = frame.sent ? "sent" : "received";
+        frameObj["opcode"] = frame.opcode;
+        frameObj["url"] = frame.url;
+
+        // Parse LiveView messages if they're JSON
+        if (frame.opcode == "text" && frame.payloadData.startsWith("{") || frame.payloadData.startsWith("[")) {
+            QJsonDocument doc = QJsonDocument::fromJson(frame.payloadData.toUtf8());
+            if (!doc.isNull()) {
+                frameObj["parsedData"] = doc.object().isEmpty() ? QJsonValue(doc.array()) : QJsonValue(doc.object());
+
+                // Detect LiveView message types
+                QJsonArray messages = doc.array();
+                if (!messages.isEmpty()) {
+                    QJsonObject firstMsg = messages[0].toObject();
+                    QString event = firstMsg["event"].toString();
+                    if (!event.isEmpty()) {
+                        frameObj["liveViewEvent"] = event;
+                    }
+                }
+            } else {
+                frameObj["data"] = frame.payloadData;
+            }
+        } else {
+            frameObj["data"] = frame.payloadData;
+        }
+
+        frames.append(frameObj);
+
+        count++;
+        if (limit > 0 && count >= limit)
+            break;
+    }
+
+    QJsonObject result;
+    result["frames"] = frames;
+    result["total"] = m_webSocketFrames.size();
+
+    callback(result, QString());
+}
+
+void CDPClient::clearWebSocketFrames()
+{
+    m_webSocketFrames.clear();
+}
+
+void CDPClient::startDOMMutationObserver(const QString& selector, ResponseCallback callback)
+{
+    QString observerScript = QString(R"(
+        (function() {
+            if (window.__cdpMutationObserver) {
+                window.__cdpMutationObserver.disconnect();
+            }
+
+            const targetNode = document.querySelector('%1');
+            if (!targetNode) {
+                return { error: 'Element not found: %1' };
+            }
+
+            window.__cdpMutationObserver = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    console.log('[DOM_MUTATION]', JSON.stringify({
+                        type: mutation.type,
+                        target: mutation.target.tagName || mutation.target.nodeType,
+                        attributeName: mutation.attributeName,
+                        oldValue: mutation.oldValue,
+                        addedNodes: Array.from(mutation.addedNodes).map(n => n.tagName || n.nodeType),
+                        removedNodes: Array.from(mutation.removedNodes).map(n => n.tagName || n.nodeType)
+                    }));
+                });
+            });
+
+            window.__cdpMutationObserver.observe(targetNode, {
+                attributes: true,
+                attributeOldValue: true,
+                characterData: true,
+                characterDataOldValue: true,
+                childList: true,
+                subtree: true
+            });
+
+            return { success: true, observing: '%1' };
+        })();
+    )").arg(selector);
+
+    evaluateJavaScript(observerScript, callback);
+}
+
+void CDPClient::stopDOMMutationObserver(ResponseCallback callback)
+{
+    QString script = R"(
+        (function() {
+            if (window.__cdpMutationObserver) {
+                window.__cdpMutationObserver.disconnect();
+                delete window.__cdpMutationObserver;
+                return { success: true };
+            }
+            return { success: false, error: 'No observer running' };
+        })();
+    )";
+
+    evaluateJavaScript(script, callback);
+}
+
+void CDPClient::getDOMMutations(ResponseCallback callback)
+{
+    // Parse mutations from console messages
+    QJsonArray mutations;
+
+    for (const auto& msg : m_consoleMessages) {
+        if (msg.text.startsWith("[DOM_MUTATION]")) {
+            QString jsonStr = msg.text.mid(14).trimmed();
+            QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
+            if (!doc.isNull()) {
+                QJsonObject mutation = doc.object();
+                mutation["timestamp"] = msg.timestamp.toString(Qt::ISODate);
+                mutations.append(mutation);
+            }
+        }
+    }
+
+    QJsonObject result;
+    result["mutations"] = mutations;
+    result["count"] = mutations.size();
+
+    callback(result, QString());
+}
+
+void CDPClient::clearDOMMutations()
+{
+    // Remove DOM mutation messages from console
+    m_consoleMessages.erase(
+        std::remove_if(m_consoleMessages.begin(), m_consoleMessages.end(),
+                      [](const ConsoleMessage& msg) {
+                          return msg.text.startsWith("[DOM_MUTATION]");
+                      }),
+        m_consoleMessages.end());
+}
+
+void CDPClient::getJavaScriptProfile(ResponseCallback callback)
+{
+    // Get performance metrics for LiveView hooks
+    QString profileScript = R"(
+        (function() {
+            const entries = performance.getEntriesByType('measure')
+                .filter(e => e.name.includes('hook') || e.name.includes('LiveView'))
+                .map(e => ({
+                    name: e.name,
+                    duration: e.duration,
+                    startTime: e.startTime
+                }));
+
+            // Check for long tasks
+            const longTasks = [];
+            if (window.PerformanceObserver && PerformanceObserver.supportedEntryTypes.includes('longtask')) {
+                // Would need to set up observer beforehand
+            }
+
+            // Get hook execution stats if we're tracking them
+            const hookStats = window.__liveViewHookStats || {};
+
+            return {
+                measures: entries,
+                hookStats: hookStats,
+                totalJSHeapSize: performance.memory ? performance.memory.totalJSHeapSize : null,
+                usedJSHeapSize: performance.memory ? performance.memory.usedJSHeapSize : null
+            };
+        })();
+    )";
+
+    evaluateJavaScript(profileScript, callback);
+}
+
+void CDPClient::trackLiveViewEvent(const QString& eventType, const QJsonObject& details)
+{
+    // This would be called by the MCP server when specific LiveView events are detected
+    // For now, just log it
+    QString message = QString("LiveView Event: %1").arg(eventType);
+    emit logMessage(message);
 }
