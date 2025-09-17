@@ -57,10 +57,9 @@ void PhxWebView::showContextMenu(const QPoint &globalPos)
     contextMenu.addAction(copyAction);
   }
 
-  QAction *cutAction = page()->action(QWebEnginePage::Cut);
-  if (cutAction && cutAction->isEnabled()) {
-    contextMenu.addAction(cutAction);
-  }
+  // Note: Cut action is intentionally omitted as it doesn't make sense
+  // for non-editable DOM content. Qt will provide appropriate context
+  // menus for editable fields automatically.
 
   QAction *pasteAction = page()->action(QWebEnginePage::Paste);
   if (pasteAction && pasteAction->isEnabled()) {
