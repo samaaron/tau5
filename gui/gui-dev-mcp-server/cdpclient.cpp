@@ -553,8 +553,9 @@ void CDPClient::getConsoleMessages(const QJsonObject& filters, ResponseCallback 
     // Limit (default to 100, -1 for no limit)
     int limit = filters.value("limit").toInt(100);
 
-    // Filter and build messages
-    for (const ConsoleMessage& msg : m_consoleMessages) {
+    // Filter and build messages (iterate in reverse order for newest first)
+    for (auto it = m_consoleMessages.rbegin(); it != m_consoleMessages.rend(); ++it) {
+        const ConsoleMessage& msg = *it;
         // Level filter
         if (!levelFilter.isEmpty() && !levelFilter.contains(msg.level)) {
             continue;
