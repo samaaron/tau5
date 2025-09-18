@@ -1569,9 +1569,10 @@ int main(int argc, char *argv[])
                     }
                 }
                 
-                // Search and filter
+                // Search and filter (iterate in reverse for newest-first)
                 QVector<QPair<int, QString>> matches;
-                for (const auto& [lineNum, line] : lines) {
+                for (auto it = lines.rbegin(); it != lines.rend(); ++it) {
+                    const auto& [lineNum, line] = *it;
                     // Check level filter
                     if (!levelFilter.isEmpty()) {
                         bool hasLevel = false;
@@ -1583,7 +1584,7 @@ int main(int argc, char *argv[])
                         }
                         if (!hasLevel) continue;
                     }
-                    
+
                     // Check pattern
                     if (!pattern.isEmpty()) {
                         bool matched = false;
@@ -1595,7 +1596,7 @@ int main(int argc, char *argv[])
                         }
                         if (!matched) continue;
                     }
-                    
+
                     matches.append(qMakePair(lineNum, line));
                     if (matches.size() >= maxResults) break;
                 }
@@ -1801,10 +1802,11 @@ int main(int argc, char *argv[])
             }
             logFile.close();
             
-            // Get last N lines
+            // Get last N lines and reverse for newest-first order
             int startIdx = qMax(0, allLines.size() - numLines);
             QStringList resultLines = allLines.mid(startIdx);
-            
+            std::reverse(resultLines.begin(), resultLines.end());
+
             QString resultText = QString("Session: %1\n%2")
                 .arg(sessionDirs.at(sessionIdx))
                 .arg(resultLines.join("\n"));
