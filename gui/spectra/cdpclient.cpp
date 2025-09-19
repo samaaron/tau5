@@ -646,8 +646,35 @@ void CDPClient::markMessageRetrievalTime()
 
 void CDPClient::navigateTo(const QString& url, ResponseCallback callback)
 {
-    QJsonObject params{{"url", url}};
-    sendCommand("Page.navigate", params, callback);
+    // Check if URL is relative (doesn't start with http:// or https://)
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        // Get current page URL first
+        evaluateJavaScript("window.location.href", [this, url, callback](const QJsonObject& result, const QString& error) {
+            if (!error.isEmpty()) {
+                callback(QJsonObject(), "Failed to get current URL: " + error);
+                return;
+            }
+
+            QString currentUrl = result["result"].toObject()["value"].toString();
+            if (currentUrl.isEmpty()) {
+                callback(QJsonObject(), "Failed to get current URL");
+                return;
+            }
+
+            // Parse current URL to build absolute URL
+            QUrl baseUrl(currentUrl);
+            QUrl relativeUrl(url);
+            QUrl absoluteUrl = baseUrl.resolved(relativeUrl);
+
+            // Navigate to the resolved URL
+            QJsonObject params{{"url", absoluteUrl.toString()}};
+            sendCommand("Page.navigate", params, callback);
+        });
+    } else {
+        // URL is already absolute, use as-is
+        QJsonObject params{{"url", url}};
+        sendCommand("Page.navigate", params, callback);
+    }
 }
 
 void CDPClient::setAttributeValue(int nodeId, const QString& name, const QString& value, ResponseCallback callback)

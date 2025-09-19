@@ -718,13 +718,13 @@ int main(int argc, char *argv[])
     
     server.registerTool({
         "chromium_devtools_navigate",
-        "Navigate to a URL",
+        "Navigate to a URL (supports both absolute and relative URLs)",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{
                 {"url", QJsonObject{
-                    {"type", "string"}, 
-                    {"description", "URL to navigate to"}
+                    {"type", "string"},
+                    {"description", "URL to navigate to (can be absolute like 'http://localhost:4000/path' or relative like '/path' or '../other-page')"}
                 }}
             }},
             {"required", QJsonArray{"url"}}

@@ -51,7 +51,10 @@ These tools interact with the browser through Chrome DevTools Protocol:
 - **chromium_devtools_removeAttribute** - Remove an attribute from a DOM element
 
 ### Navigation
-- **chromium_devtools_navigate** - Navigate to a URL
+- **chromium_devtools_navigate** - Navigate to a URL (supports both absolute and relative URLs)
+  - Absolute URLs: `http://localhost:4000/path` or `https://example.com`
+  - Relative URLs: `/path`, `../other-page`, `page.html`
+  - Relative URLs are resolved against the current page URL
 
 ### Style Inspection
 - **chromium_devtools_getComputedStyle** - Get computed styles for an element
