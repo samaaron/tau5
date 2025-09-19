@@ -12,4 +12,4 @@ trap cleanup_function EXIT
 
 cd "${ROOT_DIR}"
 # Linux executable path
-./gui/build/bin/tau5-spectra --devtools-port 9224
+./gui/build/bin/tau5-spectra "$@"
