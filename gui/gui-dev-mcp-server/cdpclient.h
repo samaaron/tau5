@@ -35,6 +35,7 @@ public:
     void disconnect();
     bool isConnected() const;
     ConnectionState getConnectionState() const;
+    quint16 getDevToolsPort() const { return m_devToolsPort; }
 
     void sendCommand(const QString& method, const QJsonObject& params, ResponseCallback callback);
     

@@ -220,7 +220,7 @@ public:
             try {
                 if (!ensureConnected()) {
                     debugLog("CDP connection failed after retries");
-                    return createErrorResult("Chrome DevTools not responding after multiple attempts. Make sure Tau5 is running in dev mode with --remote-debugging-port=9223");
+                    return createErrorResult(QString("Chrome DevTools not responding after multiple attempts. Make sure Tau5 is running in dev mode with --remote-debugging-port=%1").arg(m_client->getDevToolsPort()));
                 }
                 
                 QEventLoop loop;

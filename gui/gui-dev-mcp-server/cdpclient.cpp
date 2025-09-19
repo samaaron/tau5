@@ -406,7 +406,7 @@ void CDPClient::enableDomains()
 void CDPClient::sendCommand(const QString& method, const QJsonObject& params, ResponseCallback callback)
 {
     if (!m_isConnected && !m_isConnecting) {
-        callback(QJsonObject(), "Not connected to Chrome DevTools. Ensure Tau5 is running with --remote-debugging-port=9223");
+        callback(QJsonObject(), QString("Not connected to Chrome DevTools. Ensure Tau5 is running with --remote-debugging-port=%1").arg(m_devToolsPort));
         return;
     }
     
