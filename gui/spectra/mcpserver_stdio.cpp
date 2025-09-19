@@ -33,7 +33,7 @@ static void debugLog(const QString& message) {
 
 static void initDebugLogging() {
     if (g_debugMode && !g_debugLog) {
-        g_debugLog = new QFile("tau5-mcp-debug.log");
+        g_debugLog = new QFile("tau5-spectra-debug.log");
         if (g_debugLog->open(QIODevice::WriteOnly | QIODevice::Append)) {
             g_debugStream = new QTextStream(g_debugLog);
             debugLog("=== MCP Server Started (DEBUG MODE) ===");

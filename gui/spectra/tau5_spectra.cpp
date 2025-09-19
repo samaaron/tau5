@@ -25,7 +25,7 @@ class MCPActivityLogger
 {
 public:
     MCPActivityLogger(quint16 devToolsPort) {
-        m_logPath = Tau5Logger::getGlobalMCPLogPath(QString("gui-dev-%1").arg(devToolsPort));
+        m_logPath = Tau5Logger::getGlobalMCPLogPath(QString("spectra-%1").arg(devToolsPort));
         m_processId = QCoreApplication::applicationPid();
         
         // Generate a unique session ID for this connection
@@ -334,12 +334,12 @@ private:
     CDPClient* m_client;
 };
 
-#include "tau5_gui_dev_mcp_server.moc"
+#include "tau5_spectra.moc"
 
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
-    app.setApplicationName("tau5-gui-dev-mcp-server");
+    app.setApplicationName("tau5-spectra");
     app.setOrganizationName("Tau5");
     
     quint16 devToolsPort = 9223;
@@ -352,18 +352,18 @@ int main(int argc, char *argv[])
         } else if (arg == "--debug") {
             debugMode = true;
         } else if (arg == "--help" || arg == "-h") {
-            std::cout << "Tau5 GUI Dev MCP Server\n\n";
+            std::cout << "Tau5 Spectra\n\n";
             std::cout << "This server provides MCP (Model Context Protocol) access to Chrome DevTools.\n";
             std::cout << "It connects to a running Tau5 instance with DevTools enabled.\n\n";
-            std::cout << "Usage: tau5-gui-dev-mcp-server [options]\n\n";
+            std::cout << "Usage: tau5-spectra [options]\n\n";
             std::cout << "Options:\n";
             std::cout << "  --devtools-port <port>  Chrome DevTools port (default: 9223)\n";
-            std::cout << "  --debug                 Enable debug logging to tau5-mcp-debug.log\n";
+            std::cout << "  --debug                 Enable debug logging to tau5-spectra-debug.log\n";
             std::cout << "  --help, -h              Show this help message\n\n";
             std::cout << "Configure in Claude Code with:\n";
             std::cout << "  \"mcpServers\": {\n";
-            std::cout << "    \"tau5-gui-dev\": {\n";
-            std::cout << "      \"command\": \"path/to/tau5-gui-dev-mcp-server\",\n";
+            std::cout << "    \"tau5-spectra\": {\n";
+            std::cout << "      \"command\": \"path/to/tau5-spectra\",\n";
             std::cout << "      \"args\": [\"--devtools-port\", \"9223\"]\n";
             std::cout << "    }\n";
             std::cout << "  }\n";
@@ -371,7 +371,7 @@ int main(int argc, char *argv[])
         }
     }
     
-    // Don't use Tau5Logger for mcp-gui-dev - it needs a fixed log location
+    // Don't use Tau5Logger for spectra - it needs a fixed log location
     // Initialize activity logger with the port number for unique log file
     MCPActivityLogger activityLogger(devToolsPort);
     
@@ -1408,8 +1408,8 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "searchLogs",
-        "Search application logs with regex patterns and filters",
+        "tau5_logs_search",
+        "Search Tau5 application logs on filesystem with regex patterns and filters - NOT browser console logs",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{
@@ -1661,7 +1661,7 @@ int main(int argc, char *argv[])
             if (format == "json") {
                 QJsonDocument doc(jsonResults);
                 QString resultText = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
-                activityLogger.logActivity("searchLogs", requestId, params, "success", duration, QString(), jsonResults);
+                activityLogger.logActivity("tau5_logs_search", requestId, params, "success", duration, QString(), jsonResults);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", resultText}
@@ -1670,7 +1670,7 @@ int main(int argc, char *argv[])
                 QString resultText = textResults.isEmpty() 
                     ? "No matches found" 
                     : textResults.join("\n");
-                activityLogger.logActivity("searchLogs", requestId, params, "success", duration, QString(), resultText);
+                activityLogger.logActivity("tau5_logs_search", requestId, params, "success", duration, QString(), resultText);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", resultText}
@@ -1680,8 +1680,8 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "chromium_devtools_getLogSessions",
-        "List all available log sessions with metadata",
+        "tau5_logs_getSessions",
+        "List all available Tau5 application log sessions with metadata - NOT browser console sessions",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{}},
@@ -1736,7 +1736,7 @@ int main(int argc, char *argv[])
             QString resultText = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
             
             qint64 duration = timer.elapsed();
-            activityLogger.logActivity("chromium_devtools_getLogSessions", requestId, params, "success", duration, QString(), sessions);
+            activityLogger.logActivity("tau5_logs_getSessions", requestId, params, "success", duration, QString(), sessions);
             
             return QJsonObject{
                 {"type", "text"},
@@ -1746,8 +1746,8 @@ int main(int argc, char *argv[])
     });
     
     server.registerTool({
-        "getLogs",
-        "Read application logs from filesystem (beam, gui, mcp logs)",
+        "tau5_logs_get",
+        "Read Tau5 application logs from filesystem (beam, gui, mcp logs) - NOT browser console logs",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{
@@ -1812,7 +1812,7 @@ int main(int argc, char *argv[])
                 .arg(resultLines.join("\n"));
             
             qint64 duration = timer.elapsed();
-            activityLogger.logActivity("getLogs", requestId, params, "success", duration, QString(), resultText);
+            activityLogger.logActivity("tau5_logs_get", requestId, params, "success", duration, QString(), resultText);
             
             return QJsonObject{
                 {"type", "text"},

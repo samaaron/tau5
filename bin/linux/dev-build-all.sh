@@ -19,7 +19,7 @@ echo "================================================"
 "${SCRIPT_DIR}"/dev-build-server.sh
 "${SCRIPT_DIR}"/dev-build-gui.sh
 "${SCRIPT_DIR}"/dev-build-node.sh
-"${SCRIPT_DIR}"/dev-build-mcp-server.sh
+"${SCRIPT_DIR}"/dev-build-spectra.sh
 
 echo ""
 echo "================================================"

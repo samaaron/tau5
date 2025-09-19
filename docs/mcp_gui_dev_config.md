@@ -1,12 +1,12 @@
-# Tau5 GUI Dev MCP Configuration
+# Tau5 Spectra MCP Configuration
 
 ## Overview
-The Tau5 GUI Dev MCP server provides Model Context Protocol access to Chrome DevTools, allowing AI assistants to inspect and manipulate the DOM, execute JavaScript, and monitor the Tau5 application.
+The Tau5 Spectra MCP server provides Model Context Protocol access to Chrome DevTools, allowing AI assistants to inspect and manipulate the DOM, execute JavaScript, and monitor the Tau5 application.
 
 ## Prerequisites
 1. Tau5 must be running in dev mode (`tau5 dev`)
 2. Chrome DevTools Protocol is enabled on port 9223 (default)
-3. The `tau5-gui-dev-mcp-server` executable must be built
+3. The `tau5-spectra` executable must be built
 
 ## Building the MCP Server
 ```bash
@@ -19,7 +19,7 @@ cd tau5
 ./bin/mac/dev-build-gui.sh  # or ./bin/linux/dev-build-gui.sh
 ```
 
-This will build both Tau5 and the tau5-gui-dev-mcp-server executable.
+This will build both Tau5 and the tau5-spectra executable.
 
 ## Claude Code Configuration
 
@@ -29,17 +29,17 @@ The easiest way to add the MCP server is using the Claude Code CLI:
 
 #### Windows
 ```bash
-claude mcp add tau5-gui-dev cmd.exe /c "C:\path\to\tau5\bin\win\start-tau5-gui-dev-mcp-server.bat"
+claude mcp add tau5-spectra cmd.exe /c "C:\path\to\tau5\bin\win\start-tau5-spectra.bat"
 ```
 
 #### macOS
 ```bash
-claude mcp add tau5-gui-dev /path/to/tau5/bin/mac/start-tau5-gui-dev-mcp-server.sh
+claude mcp add tau5-spectra /path/to/tau5/bin/mac/start-tau5-spectra.sh
 ```
 
 #### Linux
 ```bash
-claude mcp add tau5-gui-dev /path/to/tau5/bin/linux/start-tau5-gui-dev-mcp-server.sh
+claude mcp add tau5-spectra /path/to/tau5/bin/linux/start-tau5-spectra.sh
 ```
 
 ### Manual Configuration (Alternative)
@@ -50,8 +50,8 @@ You can also manually edit your Claude Code MCP settings:
 ```json
 {
   "mcpServers": {
-    "tau5-gui-dev": {
-      "command": "C:\\path\\to\\tau5\\bin\\win\\start-tau5-gui-dev-mcp-server.bat",
+    "tau5-spectra": {
+      "command": "C:\\path\\to\\tau5\\bin\\win\\start-tau5-spectra.bat",
       "args": []
     }
   }
@@ -62,8 +62,8 @@ You can also manually edit your Claude Code MCP settings:
 ```json
 {
   "mcpServers": {
-    "tau5-gui-dev": {
-      "command": "/path/to/tau5/bin/mac/start-tau5-gui-dev-mcp-server.sh",
+    "tau5-spectra": {
+      "command": "/path/to/tau5/bin/mac/start-tau5-spectra.sh",
       "args": []
     }
   }
@@ -74,8 +74,8 @@ You can also manually edit your Claude Code MCP settings:
 ```json
 {
   "mcpServers": {
-    "tau5-gui-dev": {
-      "command": "/path/to/tau5/bin/linux/start-tau5-gui-dev-mcp-server.sh",
+    "tau5-spectra": {
+      "command": "/path/to/tau5/bin/linux/start-tau5-spectra.sh",
       "args": []
     }
   }
@@ -88,8 +88,8 @@ If Tau5 is configured to use a different DevTools port, specify it in the args:
 ```json
 {
   "mcpServers": {
-    "tau5-gui-dev": {
-      "command": "path/to/tau5-gui-dev-mcp-server",
+    "tau5-spectra": {
+      "command": "path/to/tau5-spectra",
       "args": ["--devtools-port", "9999"]
     }
   }
@@ -163,8 +163,8 @@ Here's a complete example with both Tidewave (backend) and DevTools (frontend) M
       "url": "http://localhost:5555/tidewave",
       "transport": "sse"
     },
-    "tau5-gui-dev": {
-      "command": "C:\\tau5\\bin\\win\\start-tau5-gui-dev-mcp-server.bat",
+    "tau5-spectra": {
+      "command": "C:\\tau5\\bin\\win\\start-tau5-spectra.bat",
       "args": []
     }
   }

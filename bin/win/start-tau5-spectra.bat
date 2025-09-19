@@ -14,12 +14,12 @@ for %%a in (%*) do (
 )
 
 if %HAS_DEBUG%==1 (
-    echo Starting Tau5 GUI Dev MCP Server in DEBUG mode...
+    echo Starting Tau5 Spectra in DEBUG mode...
     echo Log file will be created in: %ROOT_DIR%\tau5-mcp-debug.log
     echo.
 )
 
-gui\build\Release\tau5-dev-gui-mcp-server.exe %*
+gui\build\Release\tau5-spectra.exe %*
 
 cd /d "%WORKING_DIR%"
 endlocal

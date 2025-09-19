@@ -441,7 +441,7 @@ option(BUILD_DEBUG_PANE "Include debug pane in the build" ON)
 
 # Build DevTools MCP server as a separate executable (optional)
 if(BUILD_MCP_SERVER)
-  add_subdirectory(gui-dev-mcp-server)
+  add_subdirectory(spectra)
 endif()
 
 # Print build configuration summary

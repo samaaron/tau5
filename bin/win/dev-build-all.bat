@@ -28,10 +28,10 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-:: Build the dev GUI MCP server
-call dev-build-mcp-server.bat
+:: Build Spectra (MCP server for Chrome DevTools)
+call dev-build-spectra.bat
 if %errorlevel% neq 0 (
-    echo dev-build-mcp-server.bat failed with exit code %errorlevel%
+    echo dev-build-spectra.bat failed with exit code %errorlevel%
     cd %BUILD_WORKING_DIR%
     exit /b %errorlevel%
 )

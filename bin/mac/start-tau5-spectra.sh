@@ -11,4 +11,4 @@ cleanup_function() {
 trap cleanup_function EXIT
 
 cd "${ROOT_DIR}"
-./gui/build/Tau5.app/Contents/MacOS/tau5-dev-gui-mcp-server "$@"
+./gui/build/Tau5.app/Contents/MacOS/tau5-spectra "$@"

@@ -7,7 +7,7 @@ if [ "$1" = "Debug" ] || [ "$1" = "debug" ]; then
 fi
 cd "$(dirname "$0")"
 
-echo "Building MCP DevTools server..."
+echo "Building DevTools MCP Server for the GUI..."
 cd ../../gui
 
 echo "Creating build directory..."
@@ -16,6 +16,6 @@ cd build
 
 cmake -DCMAKE_BUILD_TYPE=$CONFIG -DBUILD_MCP_SERVER=ON ../
 
-cmake --build . --config $CONFIG --target tau5-gui-dev-mcp-server
+cmake --build . --config $CONFIG --target tau5-spectra
 
 cd "$WORKING_DIR"
