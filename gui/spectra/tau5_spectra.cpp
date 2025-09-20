@@ -638,7 +638,56 @@ int main(int argc, char *argv[])
             };
         }
     });
-    
+
+    server.registerTool({
+        "chromium_devtools_hardRefresh",
+        "Hard refresh the page by completely destroying and recreating the web view. This is much stronger than a normal refresh - it tears down the entire browser context and creates a new one from scratch. Essential for WASM/AudioWorklet development where modules can get stuck in memory, workers need to be fully terminated, or when SharedArrayBuffer/AudioContext state needs to be completely reset. Also useful when debugging memory leaks, testing initialization sequences, or when the browser cache is corrupted. Dev tools are automatically reconnected after the refresh (dev builds only)",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}},
+            {"required", QJsonArray{}}
+        },
+        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            // Execute the hard refresh via JavaScript
+            QString jsExpression = "window.tau5 && window.tau5.hardRefresh ? window.tau5.hardRefresh() : 'tau5.hardRefresh() not available (dev mode only)'";
+
+            QJsonObject result = bridge.executeCommand([jsExpression](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->evaluateJavaScript(jsExpression, cb);
+            });
+
+            qint64 duration = timer.elapsed();
+
+            if (result.contains("type") && result["type"].toString() == "text") {
+                QString resultText = result["text"].toString();
+
+                // Check if it's an error message about dev mode
+                if (resultText.contains("not available")) {
+                    activityLogger.logActivity("chromium_devtools_hardRefresh", requestId, params, "error", duration, resultText);
+                    return QJsonObject{
+                        {"type", "text"},
+                        {"text", resultText}
+                    };
+                }
+
+                activityLogger.logActivity("chromium_devtools_hardRefresh", requestId, params, "success", duration);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", "Hard refresh initiated"}
+                };
+            }
+
+            activityLogger.logActivity("chromium_devtools_hardRefresh", requestId, params, "error", duration, "Unexpected response");
+            return QJsonObject{
+                {"type", "text"},
+                {"text", "Failed to execute hard refresh"}
+            };
+        }
+    });
+
     server.registerTool({
         "chromium_devtools_setAttribute",
         "Set an attribute on a DOM element",

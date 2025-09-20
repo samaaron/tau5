@@ -6,10 +6,14 @@
 #include <QFile>
 #include <QTextStream>
 #include <QVariant>
+#include <QWebChannel>
+#include <QWebEngineScript>
+#include <QWebEngineScriptCollection>
 #include <cmath>
 
 #include "phxwidget.h"
 #include "phxwebview.h"
+#include "tau5devbridge.h"
 #include "StyleManager.h"
 #include "../shared/tau5logger.h"
 
@@ -19,7 +23,8 @@ PhxWidget::PhxWidget(bool devMode, QWidget *parent)
 }
 
 PhxWidget::PhxWidget(bool devMode, bool allowRemoteAccess, QWidget *parent)
-    : QWidget(parent), m_devMode(devMode)
+    : QWidget(parent), m_devMode(devMode), m_allowRemoteAccess(allowRemoteAccess),
+      m_webChannel(nullptr), m_devBridge(nullptr)
 {
   phxAlive = false;
   retryCount = 0;
@@ -44,6 +49,11 @@ PhxWidget::PhxWidget(bool devMode, bool allowRemoteAccess, QWidget *parent)
   connect(retryTimer, &QTimer::timeout, this, &PhxWidget::performRetry);
 
   connect(phxView, &PhxWebView::loadFinished, this, &PhxWidget::handleLoadFinished);
+
+  // Set up web channel for dev mode
+  if (m_devMode) {
+    setupWebChannel();
+  }
 }
 
 void PhxWidget::handleSizeDown()
@@ -79,15 +89,15 @@ void PhxWidget::connectToTauPhx(QUrl url)
   retryCount = 0;
   Tau5Logger::instance().info( QString("[PHX] - connecting to: %1").arg(url.toString()));
   phxView->load(url);
-  
+
   if (url.toString().contains("/app") && phxAlive) {
     appPageEmitted = false;
-    
+
     if (appPageTimer) {
       appPageTimer->stop();
       delete appPageTimer;
     }
-    
+
     appPageTimer = new QTimer(this);
     appPageTimer->setSingleShot(true);
     connect(appPageTimer, &QTimer::timeout, this, [this]() {
@@ -148,8 +158,122 @@ void PhxWidget::handleLoadFinished(bool ok)
 
 void PhxWidget::handleResetBrowser()
 {
+  Tau5Logger::instance().info("[PHX] - Hard reset: destroying and recreating web view");
+
+  // Store current state
+  QUrl currentUrl = defaultUrl;
+  bool devToolsAvailable = false;
+  if (phxView) {
+    devToolsAvailable = phxView->property("devToolsAvailable").toBool();
+  }
+
+  // Disconnect existing connections
+  if (phxView) {
+    disconnect(phxView, &PhxWebView::loadFinished, this, &PhxWidget::handleLoadFinished);
+
+    // Remove from layout
+    mainLayout->removeWidget(phxView);
+
+    // Delete the old view
+    phxView->deleteLater();
+    phxView = nullptr;
+  }
+
+  // Create a new web view
+  phxView = new PhxWebView(m_devMode, m_allowRemoteAccess, this);
+  QSizePolicy sp_retain = phxView->sizePolicy();
+  sp_retain.setRetainSizeWhenHidden(true);
+  phxView->setSizePolicy(sp_retain);
+
+  // Restore dev tools availability if set
+  phxView->setDevToolsAvailable(devToolsAvailable);
+
+  // Add to layout
+  mainLayout->addWidget(phxView, 1);
+
+  // Reconnect signals
+  connect(phxView, &PhxWebView::loadFinished, this, &PhxWidget::handleLoadFinished);
+
+  // Reset state
   retryCount = 0;
-  phxView->load(defaultUrl);
+  phxAlive = false;
+  appPageEmitted = false;
+
+  // Show the new view
+  phxView->show();
+
+  // Recreate web channel if in dev mode
+  if (m_devMode) {
+    setupWebChannel();
+  }
+
+  // Load the URL
+  Tau5Logger::instance().info(QString("[PHX] - Loading URL after hard reset: %1").arg(currentUrl.toString()));
+  phxView->load(currentUrl);
+
+  // Emit signal that web view has been recreated
+  emit webViewRecreated();
+}
+
+void PhxWidget::setupWebChannel()
+{
+  if (!phxView || !m_devMode) {
+    return;
+  }
+
+  Tau5Logger::instance().info("[PHX] Setting up web channel for dev mode");
+
+  // Clean up any existing channel and bridge
+  if (m_webChannel) {
+    delete m_webChannel;
+    m_webChannel = nullptr;
+  }
+  if (m_devBridge) {
+    delete m_devBridge;
+    m_devBridge = nullptr;
+  }
+
+  // Create new channel and bridge
+  m_webChannel = new QWebChannel(this);
+  m_devBridge = new Tau5DevBridge(this);
+
+  // Connect the bridge signal to our handler
+  connect(m_devBridge, &Tau5DevBridge::hardRefreshRequested, this, &PhxWidget::handleResetBrowser);
+
+  // Register the bridge object with the channel
+  m_webChannel->registerObject(QStringLiteral("tau5"), m_devBridge);
+
+  // Set the channel on the page
+  phxView->page()->setWebChannel(m_webChannel);
+
+  // Inject the qwebchannel.js library and setup code
+  connect(phxView, &PhxWebView::loadFinished, this, [this](bool ok) {
+    if (!ok) return;
+
+    // First inject the QWebChannel JavaScript library
+    QFile webChannelFile(":/qtwebchannel/qwebchannel.js");
+    if (webChannelFile.open(QIODevice::ReadOnly)) {
+      QString webChannelJs = QString::fromUtf8(webChannelFile.readAll());
+      phxView->page()->runJavaScript(webChannelJs);
+
+      // Then setup our channel
+      QString setupScript = R"(
+        (function() {
+          if (typeof QWebChannel !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+              window.tau5 = channel.objects.tau5;
+              console.log('[Tau5] Web channel connected - tau5.hardRefresh() available');
+            });
+          } else {
+            console.error('[Tau5] QWebChannel not available');
+          }
+        })();
+      )";
+      phxView->page()->runJavaScript(setupScript);
+    } else {
+      Tau5Logger::instance().error("[PHX] Failed to load qwebchannel.js");
+    }
+  }, Qt::SingleShotConnection);
 }
 
 void PhxWidget::performRetry()

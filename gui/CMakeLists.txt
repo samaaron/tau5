@@ -203,6 +203,8 @@ set(GUI_SOURCES
   ${QTAPP_ROOT}/widgets/phxwidget.cpp
   ${QTAPP_ROOT}/widgets/mainphxwidget.h
   ${QTAPP_ROOT}/widgets/mainphxwidget.cpp
+  ${QTAPP_ROOT}/widgets/tau5devbridge.h
+  ${QTAPP_ROOT}/widgets/tau5devbridge.cpp
   ${QTAPP_ROOT}/widgets/shaderpage.h
   ${QTAPP_ROOT}/widgets/shaderpage.cpp
   ${QTAPP_ROOT}/widgets/shadercode.h

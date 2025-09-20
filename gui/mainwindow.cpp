@@ -131,7 +131,13 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool 
       checkAllComponentsLoaded();
     }
   });
-  
+
+  // Reconnect web view after hard refresh
+  connect(phxWidget.get(), &MainPhxWidget::webViewRecreated, this, [this]() {
+    Tau5Logger::instance().info("Web view recreated - reinitializing connections");
+    initializeWebViewConnections();
+  });
+
   phxWidget->loadShaderPage();
 
   consoleOverlay = std::make_unique<ConsoleOverlay>(this);
@@ -301,14 +307,10 @@ void MainWindow::onFadeToBlackComplete()
   
   if (phxWidget) {
     phxWidget->transitionToApp(phxUrl);
-    
-    bool devToolsAvailable = false;
-#ifdef BUILD_WITH_DEBUG_PANE
-    devToolsAvailable = m_enableDebugPane;
-#endif
-    phxWidget->getWebView()->setDevToolsAvailable(devToolsAvailable);
-    
-    connect(phxWidget.get(), &PhxWidget::appPageReady, 
+
+    // Dev tools availability is now set in initializeWebViewConnections
+
+    connect(phxWidget.get(), &PhxWidget::appPageReady,
             this, &MainWindow::onAppPageReady, Qt::SingleShotConnection);
   }
 }
@@ -344,16 +346,17 @@ void MainWindow::onAppPageReady()
       }
     }, Qt::SingleShotConnection);
   }
-  
+
+  // Initialize web view connections (including dev tools)
+  initializeWebViewConnections();
+
 #ifdef BUILD_WITH_DEBUG_PANE
-  if (debugPane && phxWidget) {
-    debugPane->setWebView(phxWidget->getWebView());
-    
+  if (debugPane) {
     QSettings settings;
     settings.beginGroup("DebugPane");
     bool shouldBeVisible = settings.value("visible", false).toBool();
     settings.endGroup();
-    
+
     if (shouldBeVisible) {
       QTimer::singleShot(DEBUG_PANE_RESTORE_DELAY_MS, [this]() {
         if (debugPane) {
@@ -402,6 +405,27 @@ void MainWindow::initializeDebugPane()
   connect(debugPane.get(), &DebugPane::restartBeamRequested, this, &MainWindow::handleBeamRestart);
 }
 #endif
+
+void MainWindow::initializeWebViewConnections()
+{
+  if (!phxWidget) {
+    return;
+  }
+
+  // Set up dev tools connection
+#ifdef BUILD_WITH_DEBUG_PANE
+  if (debugPane) {
+    debugPane->setWebView(phxWidget->getWebView());
+  }
+#endif
+
+  // Set dev tools availability based on debug pane presence
+  bool devToolsAvailable = false;
+#ifdef BUILD_WITH_DEBUG_PANE
+  devToolsAvailable = m_enableDebugPane;
+#endif
+  phxWidget->getWebView()->setDevToolsAvailable(devToolsAvailable);
+}
 
 void MainWindow::initializeControlLayer()
 {

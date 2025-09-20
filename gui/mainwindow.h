@@ -69,6 +69,7 @@ private slots:
 private:
   void initializeDebugPane();
   void initializeControlLayer();
+  void initializeWebViewConnections();
   void checkAllComponentsLoaded();
   bool isElixirReplEnabled();
 

@@ -10,6 +10,8 @@ class QLabel;
 class QPushButton;
 class PhxWebView;
 class QTimer;
+class QWebChannel;
+class Tau5DevBridge;
 
 class PhxWidget : public QWidget
 {
@@ -28,6 +30,7 @@ public:
 signals:
   void pageLoaded();
   void appPageReady();  // Emitted when the main app page is ready
+  void webViewRecreated();  // Emitted after hard refresh when new web view is created
 
 protected:
   void resizeEvent(QResizeEvent *event) override;
@@ -40,7 +43,10 @@ private:
   bool phxAlive;
   QUrl defaultUrl;
   bool m_devMode;
-  
+  bool m_allowRemoteAccess;
+  QWebChannel *m_webChannel;
+  Tau5DevBridge *m_devBridge;
+
   int retryCount;
   QDateTime lastRetryTime;
   QTimer *retryTimer;
@@ -52,6 +58,9 @@ private:
 private slots:
   void handleLoadFinished(bool ok);
   void performRetry();
+
+private:
+  void setupWebChannel();
 };
 
 #endif // PHXWIDGET_H
