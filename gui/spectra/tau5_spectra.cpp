@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
     
     for (int i = 1; i < argc; i++) {
         QString arg = QString::fromUtf8(argv[i]);
-        if (arg == "--devtools-port" && i + 1 < argc) {
+        if (arg == "--port-chrome-dev" && i + 1 < argc) {
             devToolsPort = QString::fromUtf8(argv[++i]).toUInt();
         } else if (arg == "--debug") {
             debugMode = true;
@@ -357,14 +357,14 @@ int main(int argc, char *argv[])
             std::cout << "It connects to a running Tau5 instance with DevTools enabled.\n\n";
             std::cout << "Usage: tau5-spectra [options]\n\n";
             std::cout << "Options:\n";
-            std::cout << "  --devtools-port <port>  Chrome DevTools port (default: 9223)\n";
+            std::cout << "  --port-chrome-dev <n>    Chrome DevTools port (default: 9223)\n";
             std::cout << "  --debug                 Enable debug logging to tau5-spectra-debug.log\n";
             std::cout << "  --help, -h              Show this help message\n\n";
             std::cout << "Configure in Claude Code with:\n";
             std::cout << "  \"mcpServers\": {\n";
             std::cout << "    \"tau5-spectra\": {\n";
             std::cout << "      \"command\": \"path/to/tau5-spectra\",\n";
-            std::cout << "      \"args\": [\"--devtools-port\", \"9223\"]\n";
+            std::cout << "      \"args\": [\"--port-chrome-dev\", \"9223\"]\n";
             std::cout << "    }\n";
             std::cout << "  }\n";
             return 0;

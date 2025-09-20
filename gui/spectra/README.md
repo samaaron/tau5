@@ -153,7 +153,7 @@ If Tau5 is configured to use a different DevTools port, specify it in the args:
   "mcpServers": {
     "tau5-spectra": {
       "command": "path/to/tau5-spectra",
-      "args": ["--devtools-port", "9999"]
+      "args": ["--port-chrome-dev", "9999"]
     }
   }
 }
