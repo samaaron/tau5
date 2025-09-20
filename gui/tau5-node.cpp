@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
         {"beam.log", "beam", false}
     };
     logConfig.emitQtSignals = false;
-    logConfig.consoleEnabled = args.verbose || (qgetenv("TAU5_VERBOSE") == "true");
+    logConfig.consoleEnabled = args.verbose;
     logConfig.consoleColors = true;
     logConfig.reuseRecentSession = false;
 
@@ -305,15 +305,15 @@ int main(int argc, char *argv[]) {
     if (args.verbose) {
         Tau5Logger::instance().info(QString("Using port: %1").arg(port));
 
-        if (qgetenv("TAU5_MCP_ENABLED") == "true") {
-            QString mcpPort = qgetenv("TAU5_MCP_PORT");
+        if (args.mcp) {
+            quint16 mcpPort = args.portMcp > 0 ? args.portMcp : 5555;
             Tau5Logger::instance().info(QString("MCP endpoint enabled on port %1").arg(mcpPort));
-            if (qgetenv("TAU5_TIDEWAVE_ENABLED") == "true") {
+            if (args.tidewave) {
                 Tau5Logger::instance().info("Tidewave MCP server enabled");
             }
         }
 
-        if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true") {
+        if (args.repl) {
             Tau5Logger::instance().info("Elixir REPL console enabled");
         }
     }
@@ -451,13 +451,12 @@ int main(int argc, char *argv[]) {
     serverInfo.logPath = Tau5Logger::instance().currentSessionPath();
     
     // MCP configuration
-    QString mcpPort = qgetenv("TAU5_MCP_PORT");
-    if (!mcpPort.isEmpty() && mcpPort != "0") {
+    if (args.mcp) {
         serverInfo.hasMcpEndpoint = true;
-        serverInfo.mcpPort = mcpPort.toUShort();
-        serverInfo.hasTidewave = (qgetenv("TAU5_TIDEWAVE_ENABLED") == "true");
+        serverInfo.mcpPort = args.portMcp > 0 ? args.portMcp : 5555;
+        serverInfo.hasTidewave = args.tidewave;
     }
-    serverInfo.hasRepl = (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
+    serverInfo.hasRepl = args.repl;
     
     // Simple progress dots timer
     QTimer* dotsTimer = nullptr;
@@ -477,8 +476,8 @@ int main(int argc, char *argv[]) {
         }
 
         // Create Beam instance with deploymentMode based on --central flag
-        bool enableMcp = (qgetenv("TAU5_MCP_ENABLED") == "true");
-        bool enableRepl = (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
+        bool enableMcp = args.mcp;
+        bool enableRepl = args.repl;
         Beam::DeploymentMode mode = isCentralMode ? Beam::DeploymentMode::Central : Beam::DeploymentMode::Node;
         beam = std::make_shared<Beam>(&app, basePath, Config::APP_NAME,
                                      Config::APP_VERSION, port, isDevMode,
