@@ -153,24 +153,48 @@ void CDPClient::fetchTargetList()
 
 QString CDPClient::findMainPageTarget(const QJsonArray& targets)
 {
+    // First pass: Find the main application page (exclude dashboard and devtools)
     for (const QJsonValue& value : targets) {
         QJsonObject target = value.toObject();
         QString type = target["type"].toString();
         QString url = target["url"].toString();
-        
-        if (type == "page" && !url.contains("devtools://")) {
-            std::cerr << "# CDP: Found main page target: " << target["title"].toString().toStdString() << std::endl;
+
+        // Skip DevTools and dashboard pages - prefer main application
+        if (type == "page" &&
+            !url.contains("devtools://") &&
+            !url.contains("/dev/dashboard") &&
+            !url.contains("about:blank")) {
+            std::cerr << "# CDP: Found main application target: " << target["title"].toString().toStdString()
+                      << " at " << url.toStdString() << std::endl;
             return target["id"].toString();
         }
     }
-    
+
+    // Second pass: If no main app found, accept any non-dashboard page
+    for (const QJsonValue& value : targets) {
+        QJsonObject target = value.toObject();
+        QString type = target["type"].toString();
+        QString url = target["url"].toString();
+
+        if (type == "page" &&
+            !url.contains("devtools://") &&
+            !url.contains("/dev/dashboard")) {
+            std::cerr << "# CDP: Using fallback target: " << target["title"].toString().toStdString()
+                      << " at " << url.toStdString() << std::endl;
+            return target["id"].toString();
+        }
+    }
+
+    // Last resort: Any page
     for (const QJsonValue& value : targets) {
         QJsonObject target = value.toObject();
         if (target["type"].toString() == "page") {
+            std::cerr << "# CDP: Warning - using any available page: "
+                      << target["title"].toString().toStdString() << std::endl;
             return target["id"].toString();
         }
     }
-    
+
     return QString();
 }
 
@@ -646,9 +670,25 @@ void CDPClient::markMessageRetrievalTime()
 
 void CDPClient::navigateTo(const QString& url, ResponseCallback callback)
 {
-    // Check if URL is relative (doesn't start with http:// or https://)
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-        // Get current page URL first
+    // Check if this is an absolute URL (includes protocol)
+    bool isAbsoluteUrl = url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://");
+
+    // For relative URLs and localhost URLs, block /dev/* paths
+    if (!isAbsoluteUrl || url.contains("://localhost") || url.contains("://127.0.0.1")) {
+        // Block navigation to /dev/* paths for local navigation
+        if (url.startsWith("/dev/") || url.contains("/dev/dashboard")) {
+            callback(QJsonObject{
+                {"error", true},
+                {"message", "Navigation to /dev/* paths is blocked in Spectra. These are internal debug pages."}
+            }, "Navigation blocked: /dev/* paths are not accessible via Spectra");
+            return;
+        }
+    }
+
+    // For Tau5, treat all non-absolute URLs as relative to the current context
+    // This works regardless of the actual port being used
+    if (!isAbsoluteUrl) {
+        // Get current page URL first to resolve relative URLs properly
         evaluateJavaScript("window.location.href", [this, url, callback](const QJsonObject& result, const QString& error) {
             if (!error.isEmpty()) {
                 callback(QJsonObject(), "Failed to get current URL: " + error);
@@ -661,19 +701,64 @@ void CDPClient::navigateTo(const QString& url, ResponseCallback callback)
                 return;
             }
 
-            // Parse current URL to build absolute URL
+            // Check if the resolved URL would go to /dev/*
             QUrl baseUrl(currentUrl);
             QUrl relativeUrl(url);
             QUrl absoluteUrl = baseUrl.resolved(relativeUrl);
 
+            // Only block /dev/* for localhost navigation
+            if ((absoluteUrl.host() == "localhost" || absoluteUrl.host() == "127.0.0.1" || absoluteUrl.host().isEmpty())
+                && absoluteUrl.path().startsWith("/dev/")) {
+                callback(QJsonObject{
+                    {"error", true},
+                    {"message", "Navigation to /dev/* paths is blocked in Spectra"}
+                }, "Navigation blocked: /dev/* paths are not accessible via Spectra");
+                return;
+            }
+
             // Navigate to the resolved URL
             QJsonObject params{{"url", absoluteUrl.toString()}};
-            sendCommand("Page.navigate", params, callback);
+            sendCommand("Page.navigate", params, [absoluteUrl, callback](const QJsonObject& result, const QString& error) {
+                if (!error.isEmpty()) {
+                    callback(result, error);
+                } else {
+                    // Add the resolved URL to the result for clarity
+                    QJsonObject enrichedResult = result;
+                    enrichedResult["resolvedUrl"] = absoluteUrl.toString();
+                    callback(enrichedResult, QString());
+                }
+            });
         });
     } else {
-        // URL is already absolute, use as-is
+        // URL is absolute
+        QUrl absoluteUrl(url);
+
+        // Only block /dev/* for localhost URLs
+        if ((absoluteUrl.host() == "localhost" || absoluteUrl.host() == "127.0.0.1")
+            && absoluteUrl.path().startsWith("/dev/")) {
+            callback(QJsonObject{
+                {"error", true},
+                {"message", "Navigation to localhost /dev/* paths is blocked in Spectra"}
+            }, "Navigation blocked: /dev/* paths are not accessible via Spectra");
+            return;
+        }
+
+        // Allow navigation to external URLs (when local-only=false)
+        // This enables testing external sites when Tau5 is in dev mode
         QJsonObject params{{"url", url}};
-        sendCommand("Page.navigate", params, callback);
+        sendCommand("Page.navigate", params, [url, absoluteUrl, callback](const QJsonObject& result, const QString& error) {
+            if (!error.isEmpty()) {
+                callback(result, error);
+            } else {
+                // Add info about external navigation
+                QJsonObject enrichedResult = result;
+                if (absoluteUrl.host() != "localhost" && absoluteUrl.host() != "127.0.0.1" && !absoluteUrl.host().isEmpty()) {
+                    enrichedResult["externalNavigation"] = true;
+                    enrichedResult["navigatedTo"] = url;
+                }
+                callback(enrichedResult, QString());
+            }
+        });
     }
 }
 

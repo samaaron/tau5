@@ -51,10 +51,14 @@ These tools interact with the browser through Chrome DevTools Protocol:
 - **chromium_devtools_removeAttribute** - Remove an attribute from a DOM element
 
 ### Navigation
-- **chromium_devtools_navigate** - Navigate to a URL (supports both absolute and relative URLs)
-  - Absolute URLs: `http://localhost:4000/path` or `https://example.com`
-  - Relative URLs: `/path`, `../other-page`, `page.html`
-  - Relative URLs are resolved against the current page URL
+- **chromium_devtools_navigate** - Navigate within the Tau5 application
+  - **Always use relative URLs** for normal navigation:
+    - Home: `/`
+    - Specific page: `/my-page`
+    - Navigate up: `../`
+  - Spectra automatically handles Tau5's dynamic port allocation
+  - **Blocked**: `/dev/*` paths (internal debug pages)
+  - **NOT for normal use**: External URLs (e.g., `https://example.com`) only work when Tau5 runs with `--local-only=false` and are strictly for testing external sites, not app navigation
 
 ### Style Inspection
 - **chromium_devtools_getComputedStyle** - Get computed styles for an element

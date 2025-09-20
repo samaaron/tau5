@@ -767,13 +767,13 @@ int main(int argc, char *argv[])
     
     server.registerTool({
         "chromium_devtools_navigate",
-        "Navigate to a URL (supports both absolute and relative URLs)",
+        "Navigate within Tau5 app - use relative URLs like '/' or '/page'",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{
                 {"url", QJsonObject{
                     {"type", "string"},
-                    {"description", "URL to navigate to (can be absolute like 'http://localhost:4000/path' or relative like '/path' or '../other-page')"}
+                    {"description", "Path to navigate to. Use relative URLs: '/' for home, '/page' for pages, '../' to go up. DO NOT use absolute URLs for normal navigation. Spectra handles ports automatically. /dev/* paths are blocked. (Advanced: External URLs like https://example.com work ONLY with --local-only=false for testing, NOT for regular app navigation)"}
                 }}
             }},
             {"required", QJsonArray{"url"}}
