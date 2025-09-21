@@ -146,8 +146,8 @@ bool initializeApplication(QApplication &app, const Tau5CLI::CommonArgs &args)
   }
   
   // Log MCP configuration
-  QString mcpPort = qgetenv("TAU5_MCP_PORT");
-  if (!mcpPort.isEmpty() && mcpPort != "0") {
+  if (qgetenv("TAU5_MCP_ENABLED") == "true") {
+    QString mcpPort = qgetenv("TAU5_MCP_PORT");
     Tau5Logger::instance().info(QString("MCP endpoint enabled on port %1").arg(mcpPort));
     if (qgetenv("TAU5_TIDEWAVE_ENABLED") == "true") {
       Tau5Logger::instance().info("Tidewave development tools enabled on MCP endpoint");
@@ -493,7 +493,7 @@ int main(int argc, char *argv[])
 #endif
 
   // Map environment variables to mainwindow constructor parameters
-  bool enableMcp = (qgetenv("TAU5_MCP_PORT") != "0" && !qgetenv("TAU5_MCP_PORT").isEmpty());
+  bool enableMcp = (qgetenv("TAU5_MCP_ENABLED") == "true");
   bool enableRepl = (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
   MainWindow mainWindow(isGuiDevMode, args.debugPane, enableMcp, enableRepl, args.allowRemoteAccess, args.channel);
 
@@ -582,7 +582,7 @@ int main(int argc, char *argv[])
     if (args.verbose) {
       Tau5Logger::instance().info("Starting BEAM server...");
     }
-    bool beamEnableMcp = (qgetenv("TAU5_MCP_PORT") != "0" && !qgetenv("TAU5_MCP_PORT").isEmpty());
+    bool beamEnableMcp = (qgetenv("TAU5_MCP_ENABLED") == "true");
     bool beamEnableRepl = (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
     beam = std::make_shared<Beam>(&app, basePath, Tau5Common::Config::APP_NAME,
                                   Tau5Common::Config::APP_VERSION, port, isServerDevMode, beamEnableMcp, beamEnableRepl, Beam::DeploymentMode::Gui);

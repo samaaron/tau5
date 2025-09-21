@@ -305,8 +305,8 @@ int main(int argc, char *argv[]) {
     if (args.verbose) {
         Tau5Logger::instance().info(QString("Using port: %1").arg(port));
 
-        QString mcpPort = qgetenv("TAU5_MCP_PORT");
-        if (!mcpPort.isEmpty() && mcpPort != "0") {
+        if (qgetenv("TAU5_MCP_ENABLED") == "true") {
+            QString mcpPort = qgetenv("TAU5_MCP_PORT");
             Tau5Logger::instance().info(QString("MCP endpoint enabled on port %1").arg(mcpPort));
             if (qgetenv("TAU5_TIDEWAVE_ENABLED") == "true") {
                 Tau5Logger::instance().info("Tidewave MCP server enabled");
@@ -477,7 +477,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Create Beam instance with deploymentMode based on --central flag
-        bool enableMcp = (qgetenv("TAU5_MCP_PORT") != "0" && !qgetenv("TAU5_MCP_PORT").isEmpty());
+        bool enableMcp = (qgetenv("TAU5_MCP_ENABLED") == "true");
         bool enableRepl = (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
         Beam::DeploymentMode mode = isCentralMode ? Beam::DeploymentMode::Central : Beam::DeploymentMode::Node;
         beam = std::make_shared<Beam>(&app, basePath, Config::APP_NAME,

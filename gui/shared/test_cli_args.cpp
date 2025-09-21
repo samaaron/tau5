@@ -1646,6 +1646,7 @@ bool testMcpDisabledByDefault(TestContext& ctx) {
 
     TEST_ASSERT(ctx, args.channel == 2, "Channel should be 2");
     TEST_ASSERT(ctx, args.mcp == false, "MCP should not be enabled");
+    TEST_ASSERT(ctx, args.chromeDevtools == false, "Chrome DevTools should not be enabled");
 
     // Apply environment variables and check
     applyEnvironmentVariables(args);
@@ -1658,6 +1659,61 @@ bool testMcpDisabledByDefault(TestContext& ctx) {
                 "TAU5_DEVTOOLS_ENABLED should be explicitly set to false");
     TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_PORT") == "9222",
                 "TAU5_DEVTOOLS_PORT should still be set to channel-based default (9222)");
+
+    // Clean up
+    qunsetenv("TAU5_MCP_ENABLED");
+    qunsetenv("TAU5_MCP_PORT");
+    qunsetenv("TAU5_DEVTOOLS_ENABLED");
+    qunsetenv("TAU5_DEVTOOLS_PORT");
+
+    return ctx.passed;
+}
+
+bool testChannelAloneDoesNotEnableServices(TestContext& ctx) {
+    // Test that using --channel alone doesn't enable any services
+    // This test will likely FAIL if there's a bug where channel enables services
+
+    ArgSimulator sim;
+    sim.add("tau5");
+    sim.add("--channel");
+    sim.add("3");
+    // ONLY channel, nothing else
+
+    CommonArgs args;
+    int i = 1;
+    while (i < sim.argc()) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        int oldI = i;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        if (i == oldI) i++;
+    }
+
+    // After parsing, these should all be false
+    TEST_ASSERT(ctx, args.channel == 3, "Channel should be 3");
+    TEST_ASSERT(ctx, args.devtools == false, "--devtools flag should not be set");
+    TEST_ASSERT(ctx, args.mcp == false, "MCP should not be enabled");
+    TEST_ASSERT(ctx, args.chromeDevtools == false, "Chrome DevTools should not be enabled");
+    TEST_ASSERT(ctx, args.tidewave == false, "Tidewave should not be enabled");
+    TEST_ASSERT(ctx, args.repl == false, "REPL should not be enabled");
+
+    // Port values should still be 0 (not set)
+    TEST_ASSERT(ctx, args.portMcp == 0, "MCP port should be 0 (not explicitly set)");
+    TEST_ASSERT(ctx, args.portChrome == 0, "Chrome port should be 0 (not explicitly set)");
+
+    // After applying environment variables
+    applyEnvironmentVariables(args);
+
+    // Services should be explicitly disabled
+    TEST_ASSERT(ctx, qgetenv("TAU5_MCP_ENABLED") == "false",
+                "MCP should be explicitly disabled in environment");
+    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_ENABLED") == "false",
+                "DevTools should be explicitly disabled in environment");
+
+    // But ports should still be set to channel defaults
+    TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT") == "5553",
+                "MCP port should be 5553 (5550 + channel 3)");
+    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_PORT") == "9223",
+                "DevTools port should be 9223 (9220 + channel 3)");
 
     // Clean up
     qunsetenv("TAU5_MCP_ENABLED");
@@ -1760,6 +1816,7 @@ int runCliArgumentTests(int& totalTests, int& passedTests) {
     RUN_TEST(testChannelInvalidValues);
     RUN_TEST(testChannelPortDefaults);
     RUN_TEST(testMcpDisabledByDefault);
+    RUN_TEST(testChannelAloneDoesNotEnableServices);
     RUN_TEST(testChannelWithExplicitPorts);
 
     // Count results

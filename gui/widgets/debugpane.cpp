@@ -387,32 +387,47 @@ void DebugPane::setupConsole()
   m_newTau5MCPWidget->setLogFilePath(tau5LogFilePath);
   Tau5Logger::instance().debug(QString("DebugPane: Setting Tau5 MCP log path to: %1").arg(tau5LogFilePath));
 
-  // Get the MCP port for Tau5 MCP
-  QString tau5MCPPort = qgetenv("TAU5_MCP_PORT");
-  if (tau5MCPPort.isEmpty()) {
-    tau5MCPPort = "5555";
-  }
-  
-  // Add startup message for Tau5 MCP
-  QString tau5MCPStartupMessage =
-      "\n"
-      "═════════════════════════\n"
-      "Tau5 MCP Server - ENABLED\n"
-      "═════════════════════════\n"
-      "\n"
-      "Endpoint: http://localhost:" + tau5MCPPort + "/tau5/mcp\n"
-      "\n"
-      "To add to Claude Code, use:\n"
-      "tau5 (http://localhost:" + tau5MCPPort + "/tau5/mcp)\n"
-      "\n"
-      "Available Tools:\n"
-      "• Lua Evaluation (experimental)\n"
-      "\n"
-      "Note: All commands are executed in a secure\n"
-      "sandboxed environment.\n"
-      "\n─────────────────────────────────────────────\n";
+  // Only show the Tau5 MCP startup message if MCP is actually enabled
+  if (m_mcpEnabled) {
+    // Get the MCP port for Tau5 MCP
+    QString tau5MCPPort = qgetenv("TAU5_MCP_PORT");
+    if (tau5MCPPort.isEmpty()) {
+      tau5MCPPort = "5555";
+    }
 
-  m_newTau5MCPWidget->appendLog(tau5MCPStartupMessage, false);
+    // Add startup message for Tau5 MCP
+    QString tau5MCPStartupMessage =
+        "\n"
+        "═════════════════════════\n"
+        "Tau5 MCP Server - ENABLED\n"
+        "═════════════════════════\n"
+        "\n"
+        "Endpoint: http://localhost:" + tau5MCPPort + "/tau5/mcp\n"
+        "\n"
+        "To add to Claude Code, use:\n"
+        "tau5 (http://localhost:" + tau5MCPPort + "/tau5/mcp)\n"
+        "\n"
+        "Available Tools:\n"
+        "• Lua Evaluation (experimental)\n"
+        "\n"
+        "Note: All commands are executed in a secure\n"
+        "sandboxed environment.\n"
+        "\n─────────────────────────────────────────────\n";
+
+    m_newTau5MCPWidget->appendLog(tau5MCPStartupMessage, false);
+  } else {
+    // Show a message that MCP is disabled
+    QString tau5MCPDisabledMessage =
+        "\n"
+        "════════════════════════════\n"
+        "Tau5 MCP Server - DISABLED\n"
+        "════════════════════════════\n"
+        "\n"
+        "To enable MCP, use the --mcp flag\n"
+        "\n─────────────────────────────────────────────\n";
+
+    m_newTau5MCPWidget->appendLog(tau5MCPDisabledMessage, false);
+  }
 
   if (enableDevMCP)
   {

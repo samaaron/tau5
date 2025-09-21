@@ -300,7 +300,7 @@ QProcessEnvironment Beam::createControlledEnvironment()
   }
 
   // MCP configuration
-  if (!qgetenv("TAU5_MCP_PORT").isEmpty() && qgetenv("TAU5_MCP_PORT") != "0") {
+  if (qgetenv("TAU5_MCP_ENABLED") == "true") {
     env.insert("TAU5_MCP_PORT", qgetenv("TAU5_MCP_PORT"));
     env.insert("TAU5_MCP_ENABLED", qgetenv("TAU5_MCP_ENABLED"));
   }
@@ -378,7 +378,7 @@ void Beam::startElixirServerDev()
   env.insert("TAU5_LOG_DIR", sessionPath);
   Tau5Logger::instance().debug(QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
 
-  if (env.value("TAU5_MCP_PORT").toInt() > 0) {
+  if (env.value("TAU5_MCP_ENABLED") == "true") {
     Tau5Logger::instance().debug(QString("MCP endpoint enabled on port %1").arg(env.value("TAU5_MCP_PORT")));
   }
   if (env.value("TAU5_TIDEWAVE_ENABLED") == "true") {
@@ -464,7 +464,7 @@ void Beam::startElixirServerProd()
   env.insert("TAU5_LOG_DIR", sessionPath);
   Tau5Logger::instance().debug(QString("Setting TAU5_LOG_DIR to: %1").arg(sessionPath));
 
-  if (env.value("TAU5_MCP_PORT").toInt() > 0) {
+  if (env.value("TAU5_MCP_ENABLED") == "true") {
     Tau5Logger::instance().debug(QString("MCP endpoint enabled on port %1").arg(env.value("TAU5_MCP_PORT")));
   }
   if (env.value("TAU5_TIDEWAVE_ENABLED") == "true") {
