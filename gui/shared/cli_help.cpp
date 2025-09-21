@@ -91,6 +91,7 @@ std::string generateHelpText(Tau5Common::BinaryType type, const char* programNam
     help << "\n"
          << "Other:\n"
          << "  --check                  Verify installation and exit\n"
+         << "  --dry-run                Show configuration that would be used and exit\n"
          << "  --help, -h               Show this help message\n"
          << "  --version                Show version information\n"
          << "\n";

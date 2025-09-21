@@ -233,6 +233,12 @@ int main(int argc, char *argv[])
         std::cout << Tau5CLI::generateVersionString(Tau5Common::BinaryType::Gui) << "\n";
         return 0;
       }
+      if (args.dryRun) {
+        // Apply environment variables first so dry-run shows complete config
+        Tau5CLI::applyEnvironmentVariables(args, "gui");
+        Tau5CLI::printDryRunConfig(args, "tau5-gui");
+        return 0;
+      }
       continue;
     }
 
@@ -619,9 +625,14 @@ int main(int argc, char *argv[])
         }
         cmdLineInfo += "\n";
 
+        // Add the configuration output to the boot log
+        std::string configOutput = Tau5CLI::generateDryRunConfig(args, "tau5-gui");
+        QString configQString = QString::fromStdString(configOutput);
+
         QString infoString = generateServerInfoString(serverInfo, true);
 
         mainWindow.handleBootLog(cmdLineInfo);
+        mainWindow.handleBootLog(configQString);
         mainWindow.handleBootLog(infoString);
       }
 

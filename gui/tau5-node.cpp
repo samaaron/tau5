@@ -68,6 +68,12 @@ int main(int argc, char *argv[]) {
                 std::cout << Tau5CLI::generateVersionString(Tau5Common::BinaryType::Node) << "\n";
                 return 0;
             }
+            if (args.dryRun) {
+                // Apply environment variables first so dry-run shows complete config
+                Tau5CLI::applyEnvironmentVariables(args, "node");
+                Tau5CLI::printDryRunConfig(args, "tau5-node");
+                return 0;
+            }
         } else {
             std::cerr << "Unknown option: " << argv[i] << "\n";
             std::cout << Tau5CLI::generateHelpText(Tau5Common::BinaryType::Node, argv[0]);
@@ -227,7 +233,7 @@ int main(int argc, char *argv[]) {
     logConfig.baseLogDir = Tau5Logger::getBaseLogDir();
 
     Tau5Logger::initialize(logConfig);
-    
+
     installQtMessageHandler();
 
     bool isDevMode = (args.env == Tau5CLI::CommonArgs::Env::Dev);
