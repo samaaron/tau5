@@ -108,18 +108,11 @@ bool initializeApplication(QApplication &app, const Tau5CLI::CommonArgs &args)
 {
   installQtMessageHandler();
 
-  // Chrome DevTools are enabled when requested or via environment
-  if (args.chromeDevtools || qgetenv("TAU5_DEVTOOLS_ENABLED") == "true") {
-    // Get the DevTools port from environment (set by applyEnvironmentVariables)
-    QString devToolsPort = qgetenv("TAU5_DEVTOOLS_PORT");
-    if (devToolsPort.isEmpty()) {
-      devToolsPort = "9223";  // Fallback default
-    }
-    
-    // Build the Chrome flags with the dynamic port
+  // Chrome DevTools are enabled when requested
+  if (Tau5Common::ChromeCDP::enabled) {
+    // Build the Chrome flags with the configured port
     QString chromiumFlags = QString(GuiConfig::CHROMIUM_FLAGS_DEV_BASE) +
-                           " --remote-debugging-port=" + devToolsPort;
-
+                           " --remote-debugging-port=" + QString::number(Tau5Common::ChromeCDP::port);
     // Add platform-specific flags
 #ifdef Q_OS_WIN
     chromiumFlags += " --disable-frame-rate-limit"
@@ -140,7 +133,7 @@ bool initializeApplication(QApplication &app, const Tau5CLI::CommonArgs &args)
 #endif
 
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", chromiumFlags.toUtf8());
-    Tau5Logger::instance().info(QString("Chrome DevTools Protocol enabled on port %1").arg(devToolsPort));
+    Tau5Logger::instance().info(QString("Chrome DevTools Protocol enabled on port %1").arg(Tau5Common::ChromeCDP::port));
   } else {
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", GuiConfig::CHROMIUM_FLAGS);
   }
@@ -303,6 +296,10 @@ int main(int argc, char *argv[])
   // tau5 binary always sets TAU5_MODE=gui
   Tau5CLI::applyEnvironmentVariables(args, "gui");
 
+  // Configure Chrome CDP settings (GUI-internal, not passed to server)
+  quint16 chromeCdpPort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+  Tau5Common::ChromeCDP::configure(args.chromeDevtools, chromeCdpPort);
+
   Tau5LoggerConfig logConfig;
   logConfig.appName = "gui";
   logConfig.logFiles = {
@@ -319,7 +316,8 @@ int main(int argc, char *argv[])
 
   if (args.check)
   {
-    // Initialize logger with colors enabled for health check output
+    // Initialize logger with console output enabled for health check
+    logConfig.consoleEnabled = true;
     logConfig.consoleColors = true;
     Tau5Logger::initialize(logConfig);
     Tau5Logger::instance().info("Starting Tau5...");
@@ -398,11 +396,10 @@ int main(int argc, char *argv[])
   }
 
   // Check Chrome DevTools port if enabled
-  QString devToolsPortStr = qgetenv("TAU5_DEVTOOLS_PORT");
-  if (!devToolsPortStr.isEmpty() && devToolsPortStr != "0") {
-    quint16 devToolsPort = devToolsPortStr.toUInt();
-    if (!Tau5Common::isPortAvailable(devToolsPort)) {
-      portsInUse.append(QString("Chrome DevTools port %1").arg(devToolsPort));
+  if (args.chromeDevtools) {
+    quint16 chromePort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+    if (!Tau5Common::isPortAvailable(chromePort)) {
+      portsInUse.append(QString("Chrome DevTools port %1").arg(chromePort));
     }
   }
 

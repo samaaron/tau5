@@ -13,6 +13,7 @@
 #include "phxwebview.h"
 #include "sandboxedwebview.h"
 #include "../shared/tau5logger.h"
+#include "../shared/common.h"
 #include "../lib/fontloader.h"
 #include <QDir>
 #include <QFile>
@@ -431,11 +432,9 @@ void DebugPane::setupConsole()
 
   if (enableDevMCP)
   {
-    // Get the Chrome DevTools port that was set by applyEnvironmentVariables() from CLI args
-    QString devToolsPort = qgetenv("TAU5_DEVTOOLS_PORT");
-    if (devToolsPort.isEmpty()) {
-      devToolsPort = "9223";  // Default port
-    }
+    // Get the Chrome CDP port from static configuration
+    quint16 chromeCdpPort = Tau5Common::ChromeCDP::port;
+    QString devToolsPort = QString::number(chromeCdpPort);
     
     QString guiMCPLogFilePath = Tau5Logger::getGlobalMCPLogPath(QString("gui-dev-%1").arg(devToolsPort));
     m_newGuiMCPWidget->setLogFilePath(guiMCPLogFilePath);
@@ -515,11 +514,9 @@ void DebugPane::setupConsole()
       "• BEAM Log access\n"
       "\n─────────────────────────────────────────────\n";
 
-  // Get the Chrome DevTools port for the description
-  QString devToolsPortDesc = qgetenv("TAU5_DEVTOOLS_PORT");
-  if (devToolsPortDesc.isEmpty()) {
-    devToolsPortDesc = "9223";
-  }
+  // Get the Chrome CDP port for the description
+  quint16 chromeCdpPortDesc = Tau5Common::ChromeCDP::port;
+  QString devToolsPortDesc = QString::number(chromeCdpPortDesc);
   
   QString devGUIMCPServerDescription =
       "\n"

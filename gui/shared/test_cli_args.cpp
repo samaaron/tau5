@@ -1,5 +1,6 @@
 #include "cli_args.h"
 #include "tau5logger.h"
+#include "common.h"
 #include <QString>
 #include <QStringList>
 #include <QList>
@@ -189,13 +190,17 @@ bool testDevtoolsFlag(TestContext& ctx) {
     TEST_ASSERT(ctx, qgetenv("MIX_ENV") == "dev", "MIX_ENV should be dev");
     TEST_ASSERT(ctx, qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true", "REPL should be enabled via environment");
     TEST_ASSERT(ctx, qgetenv("TAU5_TIDEWAVE_ENABLED") == "true", "Tidewave should be enabled via environment");
-    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_ENABLED") == "true", "DevTools should be enabled via environment");
+
+    // Chrome CDP is now configured via static variables (simulating what main.cpp does)
+    quint16 chromeCdpPort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+    Tau5Common::ChromeCDP::configure(args.chromeDevtools, chromeCdpPort);
+    TEST_ASSERT(ctx, Tau5Common::ChromeCDP::enabled == true, "Chrome CDP should be enabled");
+    TEST_ASSERT(ctx, Tau5Common::ChromeCDP::port == 9220, "Chrome CDP port should be 9220 (default channel 0)");
 
     // Clean up environment variables
     qunsetenv("MIX_ENV");
     qunsetenv("TAU5_ELIXIR_REPL_ENABLED");
     qunsetenv("TAU5_TIDEWAVE_ENABLED");
-    qunsetenv("TAU5_DEVTOOLS_ENABLED");
 
     return ctx.passed;
 #endif
@@ -591,7 +596,7 @@ bool testEnvironmentIsolation(TestContext& ctx) {
     ArgSimulator sim;
     sim.add("tau5");
     sim.add("--devtools");
-    
+
     CommonArgs args;
     int i = 1;
     while (i < sim.argc()) {
@@ -600,10 +605,18 @@ bool testEnvironmentIsolation(TestContext& ctx) {
         parseSharedArg(sim.argv()[i], nextArg, i, args);
         if (i == oldI) i++;
     }
-    
-    // Clear any existing TAU5 variables
-    qunsetenv("TAU5_MCP_PORT");
-    qunsetenv("TAU5_DEVTOOLS_PORT");
+
+    // Clear ALL TAU5_* environment variables for a clean test environment
+    QStringList env = QProcess::systemEnvironment();
+    for (const QString& var : env) {
+        if (var.startsWith("TAU5_")) {
+            QString varName = var.split('=').first();
+            qunsetenv(varName.toLocal8Bit().data());
+        }
+    }
+    // Also clear related vars
+    qunsetenv("MIX_ENV");
+    qunsetenv("PHX_SECRET");
     
     // Apply environment based on CLI
     applyEnvironmentVariables(args, "test");
@@ -611,22 +624,28 @@ bool testEnvironmentIsolation(TestContext& ctx) {
 #ifdef TAU5_RELEASE_BUILD
     // In release builds, --devtools doesn't enable MCP or Chrome DevTools
     // so these environment variables should NOT be set
-    TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT").isEmpty(), 
-                "TAU5_MCP_PORT should not be set in release builds");
-    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_PORT").isEmpty(), 
-                "TAU5_DEVTOOLS_PORT should not be set in release builds");
+    TEST_ASSERT(ctx, qgetenv("TAU5_MCP_ENABLED") == "false",
+                "MCP should not be enabled by --devtools in release builds");
+    TEST_ASSERT(ctx, !qgetenv("TAU5_MCP_PORT").isEmpty(),
+                "TAU5_MCP_PORT should still be set (for potential use)");
+    // Chrome CDP configuration (simulating what main.cpp does)
+    quint16 chromeCdpPort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+    Tau5Common::ChromeCDP::configure(args.chromeDevtools, chromeCdpPort);
+    TEST_ASSERT(ctx, Tau5Common::ChromeCDP::enabled == false,
+                "Chrome CDP should not be enabled in release builds");
 #else
     // In dev builds, --devtools enables MCP and Chrome DevTools
     TEST_ASSERT(ctx, !qgetenv("TAU5_MCP_PORT").isEmpty(), 
                 "--devtools should set TAU5_MCP_PORT");
-    TEST_ASSERT(ctx, !qgetenv("TAU5_DEVTOOLS_PORT").isEmpty(), 
-                "--devtools should set TAU5_DEVTOOLS_PORT");
+    // Configure Chrome CDP from parsed args
+    quint16 chromeCdpPort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+    Tau5Common::ChromeCDP::configure(args.chromeDevtools, chromeCdpPort);
+    TEST_ASSERT(ctx, Tau5Common::ChromeCDP::port == 9220,
+                "Chrome CDP port should be 9220 (default channel 0)");
 #endif
     
     // Clean up
     qunsetenv("TAU5_MCP_PORT");
-    qunsetenv("TAU5_DEVTOOLS_PORT");
-    qunsetenv("TAU5_DEVTOOLS_ENABLED");
     qunsetenv("TAU5_TIDEWAVE_ENABLED");
     qunsetenv("TAU5_ELIXIR_REPL_ENABLED");
     
@@ -1611,18 +1630,20 @@ bool testChannelPortDefaults(TestContext& ctx) {
         applyEnvironmentVariables(args);
 
         QString expectedMcpPort = QString::number(5550 + ch);
-        QString expectedChromePort = QString::number(9220 + ch);
+        quint16 expectedChromeCdpPort = 9220 + ch;
 
         TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT") == expectedMcpPort.toUtf8(),
                     QString("MCP port should be %1 for channel %2").arg(expectedMcpPort).arg(ch));
-        TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_PORT") == expectedChromePort.toUtf8(),
-                    QString("Chrome port should be %1 for channel %2").arg(expectedChromePort).arg(ch));
+
+        // Configure Chrome CDP from parsed args
+        quint16 chromeCdpPort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+        Tau5Common::ChromeCDP::configure(args.chromeDevtools, chromeCdpPort);
+        TEST_ASSERT(ctx, Tau5Common::ChromeCDP::port == expectedChromeCdpPort,
+                    QString("Chrome CDP port should be %1 for channel %2").arg(expectedChromeCdpPort).arg(ch));
 
         // Clean up
         qunsetenv("TAU5_MCP_PORT");
         qunsetenv("TAU5_MCP_ENABLED");
-        qunsetenv("TAU5_DEVTOOLS_PORT");
-        qunsetenv("TAU5_DEVTOOLS_ENABLED");
     }
     return ctx.passed;
 }
@@ -1655,16 +1676,17 @@ bool testMcpDisabledByDefault(TestContext& ctx) {
                 "TAU5_MCP_ENABLED should be explicitly set to false");
     TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT") == "5552",
                 "TAU5_MCP_PORT should still be set to channel-based default (5552)");
-    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_ENABLED") == "false",
-                "TAU5_DEVTOOLS_ENABLED should be explicitly set to false");
-    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_PORT") == "9222",
-                "TAU5_DEVTOOLS_PORT should still be set to channel-based default (9222)");
+    // Configure Chrome CDP from parsed args
+    quint16 chromeCdpPort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+    Tau5Common::ChromeCDP::configure(args.chromeDevtools, chromeCdpPort);
+    TEST_ASSERT(ctx, Tau5Common::ChromeCDP::enabled == false,
+                "Chrome CDP should be disabled");
+    TEST_ASSERT(ctx, Tau5Common::ChromeCDP::port == 9222,
+                "Chrome CDP port should be 9222 (9220 + channel 2)");
 
     // Clean up
     qunsetenv("TAU5_MCP_ENABLED");
     qunsetenv("TAU5_MCP_PORT");
-    qunsetenv("TAU5_DEVTOOLS_ENABLED");
-    qunsetenv("TAU5_DEVTOOLS_PORT");
 
     return ctx.passed;
 }
@@ -1706,20 +1728,22 @@ bool testChannelAloneDoesNotEnableServices(TestContext& ctx) {
     // Services should be explicitly disabled
     TEST_ASSERT(ctx, qgetenv("TAU5_MCP_ENABLED") == "false",
                 "MCP should be explicitly disabled in environment");
-    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_ENABLED") == "false",
-                "DevTools should be explicitly disabled in environment");
 
-    // But ports should still be set to channel defaults
+    // MCP port should still be set to channel defaults
     TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT") == "5553",
                 "MCP port should be 5553 (5550 + channel 3)");
-    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_PORT") == "9223",
-                "DevTools port should be 9223 (9220 + channel 3)");
+
+    // Configure Chrome CDP from parsed args
+    quint16 chromeCdpPort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+    Tau5Common::ChromeCDP::configure(args.chromeDevtools, chromeCdpPort);
+    TEST_ASSERT(ctx, Tau5Common::ChromeCDP::enabled == false,
+                "Chrome CDP should be disabled");
+    TEST_ASSERT(ctx, Tau5Common::ChromeCDP::port == 9223,
+                "Chrome CDP port should be 9223 (9220 + channel 3)");
 
     // Clean up
     qunsetenv("TAU5_MCP_ENABLED");
     qunsetenv("TAU5_MCP_PORT");
-    qunsetenv("TAU5_DEVTOOLS_ENABLED");
-    qunsetenv("TAU5_DEVTOOLS_PORT");
 
     return ctx.passed;
 }
@@ -1753,14 +1777,15 @@ bool testChannelWithExplicitPorts(TestContext& ctx) {
 
     TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT") == "6666",
                 "Explicit MCP port should be used in environment");
-    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_PORT") == "7777",
-                "Explicit Chrome port should be used in environment");
+    // Configure Chrome CDP from parsed args
+    quint16 chromeCdpPort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+    Tau5Common::ChromeCDP::configure(args.chromeDevtools, chromeCdpPort);
+    TEST_ASSERT(ctx, Tau5Common::ChromeCDP::port == 7777,
+                "Explicit Chrome CDP port should be used");
 
     // Clean up
     qunsetenv("TAU5_MCP_PORT");
     qunsetenv("TAU5_MCP_ENABLED");
-    qunsetenv("TAU5_DEVTOOLS_PORT");
-    qunsetenv("TAU5_DEVTOOLS_ENABLED");
 
     return ctx.passed;
 }

@@ -23,6 +23,12 @@
 
 namespace Tau5Common {
 
+// Chrome CDP static variable definitions
+namespace ChromeCDP {
+    bool enabled = false;
+    quint16 port = 0;
+}
+
 quint16 getFreePort() {
     QTcpServer server;
     if (server.listen(QHostAddress::Any, 0)) {

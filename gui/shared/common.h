@@ -67,6 +67,17 @@ namespace Tau5Common {
 
     // Check if a specific port is available for binding
     bool isPortAvailable(quint16 port);
+
+    // Chrome CDP configuration (GUI-internal only, not passed to server)
+    namespace ChromeCDP {
+        extern bool enabled;
+        extern quint16 port;
+
+        inline void configure(bool isEnabled, quint16 portNum) {
+            enabled = isEnabled;
+            port = portNum;
+        }
+    }
 }
 
 #endif // COMMON_H

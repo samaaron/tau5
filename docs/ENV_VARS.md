@@ -20,8 +20,7 @@ This document describes all environment variables used by Tau5 across its differ
 | `PORT` | 0-65535 | `0` (random) | Primary local web UI port |
 | `TAU5_LOCAL_PORT` | 0-65535 | Uses `PORT` | Override for local web UI port |
 | `TAU5_PUBLIC_PORT` | 0-65535 | `0` (disabled) | Public endpoint port (0 = disabled) |
-| `TAU5_MCP_PORT` | 0-65535 | `5555` when enabled | MCP services endpoint port (0 = disabled) |
-| `TAU5_DEVTOOLS_PORT` | 0-65535 | `9223` | Chrome DevTools debugging port |
+| `TAU5_MCP_PORT` | 0-65535 | `5550` + channel | MCP services endpoint port (555X where X is channel) |
 
 ### Endpoint Control
 
@@ -39,7 +38,6 @@ This document describes all environment variables used by Tau5 across its differ
 | `TAU5_ENABLE_DEV_MCP` | `true`, `false` | `false` | Alternative flag to enable MCP in development |
 | `TAU5_TIDEWAVE_ENABLED` | `true`, `false` | `false` | Enable Tidewave on MCP endpoint (dev only) |
 | `TAU5_TIDEWAVE_LOGGING` | `true`, `false` | `false` | Enable Tidewave request/response logging |
-| `TAU5_DEVTOOLS_ENABLED` | `true`, `false` | `false` | Enable Chrome DevTools |
 | `TAU5_ELIXIR_REPL_ENABLED` | `true`, `false` | `false` | Enable Elixir REPL console (dev only) |
 | `TAU5_VERBOSE` | `true`, `false` | `false` | Enable verbose logging |
 
@@ -139,11 +137,10 @@ tau5 --devtools
 
 This sets:
 - `MIX_ENV=dev`
-- `TAU5_MCP_PORT=5555`
+- `TAU5_MCP_PORT=5550` (channel 0 default)
 - `TAU5_TIDEWAVE_ENABLED=true`
-- `TAU5_DEVTOOLS_ENABLED=true`
-- `TAU5_DEVTOOLS_PORT=9223`
 - `TAU5_ELIXIR_REPL_ENABLED=true`
+- Chrome DevTools Protocol enabled on port 9220 (GUI-internal, not via environment)
 
 ### Production Desktop App
 
