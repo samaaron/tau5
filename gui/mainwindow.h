@@ -33,7 +33,7 @@ signals:
   void allComponentsLoaded();
 
 public:
-  explicit MainWindow(bool devMode = false, bool enableDebugPane = true, bool enableMcp = false, bool enableRepl = false, bool allowRemoteAccess = false, QWidget *parent = nullptr);
+  explicit MainWindow(bool devMode = false, bool enableDebugPane = true, bool enableMcp = false, bool enableRepl = false, bool allowRemoteAccess = false, int channel = 0, QWidget *parent = nullptr);
   ~MainWindow();
 
   bool connectToServer(quint16 port);
@@ -101,6 +101,7 @@ private:
   bool m_allComponentsSignalEmitted;
   bool m_beamReady;
   bool m_debugPaneShouldBeVisible = false;
-  
+  int m_channel;
+
   static constexpr int DEBUG_PANE_RESTORE_DELAY_MS = 500;
 };

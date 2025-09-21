@@ -58,7 +58,7 @@ end
 
 config :tau5, :mcp_port, parse_port.("TAU5_MCP_PORT", "5555")
 
-config :tau5, :mcp_enabled, System.get_env("TAU5_MCP_ENABLED", "true") != "false"
+config :tau5, :mcp_enabled, System.get_env("TAU5_MCP_ENABLED", "false") == "true"
 
 if config_env() != :test do
   mcp_port = parse_port.("TAU5_MCP_PORT", "5555")

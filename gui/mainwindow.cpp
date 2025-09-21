@@ -28,7 +28,7 @@
 #include <QWKCore/qwkglobal.h>
 #endif
 
-MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool enableRepl, bool allowRemoteAccess, QWidget *parent)
+MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool enableRepl, bool allowRemoteAccess, int channel, QWidget *parent)
     : QMainWindow(parent)
     , beamInstance(nullptr)
 #ifndef Q_OS_MACOS
@@ -47,9 +47,17 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool 
     , m_webDevToolsLoaded(!enableDebugPane)
     , m_allComponentsSignalEmitted(false)
     , m_beamReady(false)
+    , m_channel(channel)
 {
   QCoreApplication::setOrganizationName("Tau5");
   QCoreApplication::setApplicationName("Tau5");
+
+  // Set window title with channel if not 0
+  if (m_channel != 0) {
+    setWindowTitle(QString("Tau5 - [%1]").arg(m_channel));
+  } else {
+    setWindowTitle("Tau5");
+  }
 
   resize(1024, 768);
 
@@ -88,8 +96,14 @@ MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool 
   centralLayout->setSpacing(0);
   
   m_titleBar = new CustomTitleBar(this);
+
+  // Update title to include channel if not 0
+  if (m_channel != 0) {
+    m_titleBar->setTitle(QString("Tau5 - [%1]").arg(m_channel));
+  }
+
   centralLayout->addWidget(m_titleBar);
-  
+
   m_windowAgent->setTitleBar(m_titleBar);
   
   m_windowAgent->setSystemButton(QWK::WindowAgentBase::Minimize, m_titleBar->minimizeButton());

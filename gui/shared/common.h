@@ -58,12 +58,15 @@ namespace Tau5Common {
     
     // Setup Qt-dependent signal handling components (must be called after QCoreApplication creation)
     void setupSignalNotifier();
-    
+
     // Check if a termination signal has been received
     bool isTerminationRequested();
-    
+
     // Cleanup signal handling resources
     void cleanupSignalHandlers();
+
+    // Check if a specific port is available for binding
+    bool isPortAvailable(quint16 port);
 }
 
 #endif // COMMON_H

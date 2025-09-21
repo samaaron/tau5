@@ -41,6 +41,8 @@ std::string generateHelpText(Tau5Common::BinaryType type, const char* programNam
          << "                           (default: development server from source)\n"
          << "\n"
          << "Port Configuration:\n"
+         << "  --channel <0-9>          Channel number (0-9, default: 0)\n"
+         << "                           Modifies default ports: MCP=555X, Chrome=922X\n"
          << "  --port-local <n>         Local web UI port (default: random)\n"
          << "  --port-public <n>        Public endpoint port (default: disabled)\n"
          << "  --port-heartbeat <n>     Heartbeat UDP port (default: random)\n";
@@ -49,14 +51,14 @@ std::string generateHelpText(Tau5Common::BinaryType type, const char* programNam
         help << "  --no-local-endpoint      Disable local endpoint completely\n";
     }
     
-    help << "  --port-mcp <n>           MCP services port (default: 5555 when enabled)\n"
+    help << "  --port-mcp <n>           MCP services port (overrides channel default)\n"
          << "  --friend-token [token]   Enable friend authentication\n"
          << "                           (generates secure token if not provided)\n"
          << "                           (automatically enables public endpoint)\n";
 
 #ifndef TAU5_RELEASE_BUILD
     if (type == Tau5Common::BinaryType::Gui) {
-        help << "  --port-chrome-dev <n>    Chrome DevTools port (default: 9223 when enabled)\n";
+        help << "  --port-chrome-dev <n>    Chrome DevTools port (overrides channel default)\n";
     }
 #endif
 

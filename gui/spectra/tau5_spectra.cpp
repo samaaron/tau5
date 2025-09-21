@@ -341,13 +341,20 @@ int main(int argc, char *argv[])
     QCoreApplication app(argc, argv);
     app.setApplicationName("tau5-spectra");
     app.setOrganizationName("Tau5");
-    
-    quint16 devToolsPort = 9223;
+
+    int channel = 0; // Default channel
+    quint16 devToolsPort = 0; // 0 means not explicitly set
     bool debugMode = false;
-    
+
     for (int i = 1; i < argc; i++) {
         QString arg = QString::fromUtf8(argv[i]);
-        if (arg == "--port-chrome-dev" && i + 1 < argc) {
+        if (arg == "--channel" && i + 1 < argc) {
+            channel = QString::fromUtf8(argv[++i]).toInt();
+            if (channel < 0 || channel > 9) {
+                std::cerr << "Error: --channel must be between 0 and 9\n";
+                return 1;
+            }
+        } else if (arg == "--port-chrome-dev" && i + 1 < argc) {
             devToolsPort = QString::fromUtf8(argv[++i]).toUInt();
         } else if (arg == "--debug") {
             debugMode = true;
@@ -357,20 +364,27 @@ int main(int argc, char *argv[])
             std::cout << "It connects to a running Tau5 instance with DevTools enabled.\n\n";
             std::cout << "Usage: tau5-spectra [options]\n\n";
             std::cout << "Options:\n";
-            std::cout << "  --port-chrome-dev <n>    Chrome DevTools port (default: 9223)\n";
+            std::cout << "  --channel <0-9>         Channel number (0-9, default: 0)\n";
+            std::cout << "                          Modifies default port: Chrome=922X\n";
+            std::cout << "  --port-chrome-dev <n>   Chrome DevTools port (overrides channel default)\n";
             std::cout << "  --debug                 Enable debug logging to tau5-spectra-debug.log\n";
             std::cout << "  --help, -h              Show this help message\n\n";
             std::cout << "Configure in Claude Code with:\n";
             std::cout << "  \"mcpServers\": {\n";
             std::cout << "    \"tau5-spectra\": {\n";
             std::cout << "      \"command\": \"path/to/tau5-spectra\",\n";
-            std::cout << "      \"args\": [\"--port-chrome-dev\", \"9223\"]\n";
+            std::cout << "      \"args\": [\"--channel\", \"0\"]\n";
             std::cout << "    }\n";
             std::cout << "  }\n";
             return 0;
         }
     }
-    
+
+    // Apply channel-based default if port not explicitly set
+    if (devToolsPort == 0) {
+        devToolsPort = 9220 + channel;
+    }
+
     // Don't use Tau5Logger for spectra - it needs a fixed log location
     // Initialize activity logger with the port number for unique log file
     MCPActivityLogger activityLogger(devToolsPort);

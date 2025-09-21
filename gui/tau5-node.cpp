@@ -285,6 +285,23 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Check if MCP port is available before starting (tau5-node doesn't use Chrome DevTools)
+    QString mcpPortStr = qgetenv("TAU5_MCP_PORT");
+    if (!mcpPortStr.isEmpty() && mcpPortStr != "0") {
+        quint16 mcpPort = mcpPortStr.toUInt();
+        if (!Tau5Common::isPortAvailable(mcpPort)) {
+            QString errorMsg = QString("MCP port %1 is already in use").arg(mcpPort);
+            if (args.verbose) {
+                Tau5Logger::instance().error(errorMsg);
+                Tau5Logger::instance().error("If running multiple Tau5 instances, use different --channel values (0-9)");
+            } else {
+                std::cerr << "Error: " << errorMsg.toStdString() << "\n";
+                std::cerr << "If running multiple Tau5 instances, use different --channel values (0-9)\n";
+            }
+            return static_cast<int>(ExitCode::PORT_ALLOCATION_FAILED);
+        }
+    }
+
     if (args.verbose) {
         Tau5Logger::instance().info(QString("Using port: %1").arg(port));
 

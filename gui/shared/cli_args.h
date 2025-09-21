@@ -26,7 +26,7 @@ struct CommonArgs {
     Env env = Env::Dev;   // Development builds default to development
     #endif
     bool serverModeExplicitlySet = false; // Track if server mode was explicitly set via --with-release-server
-    
+
     // Deployment mode override (tau5-node only, controls TAU5_MODE)
     enum class Mode {
         Default,  // Not specified, binary sets its own default
@@ -34,12 +34,15 @@ struct CommonArgs {
         Central   // Public coordinator without NIFs
     };
     Mode mode = Mode::Default;
-    
+
+    // Channel configuration (modifies default ports)
+    int channel = 0;           // Channel number 0-9, default 0
+
     // Port configuration
     quint16 portLocal = 0;    // Local web UI port (0 = random)
     quint16 portPublic = 0;   // Public endpoint port (0 = disabled)
-    quint16 portMcp = 0;      // MCP services port (0 = use default 5555 when enabled)
-    quint16 portChrome = 0;   // Chrome DevTools port (0 = use default 9223 when enabled)
+    quint16 portMcp = 0;      // MCP services port (0 = use channel-based default 555X when enabled)
+    quint16 portChrome = 0;   // Chrome DevTools port (0 = use channel-based default 922X when enabled)
     quint16 portHeartbeat = 0; // Heartbeat UDP port (0 = random)
     
     // Quick setup flags
@@ -156,6 +159,29 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         return true;
     } else if (std::strcmp(arg, "--mode-central") == 0) {
         args.mode = CommonArgs::Mode::Central;
+        return true;
+    }
+    // Channel configuration
+    else if (std::strcmp(arg, "--channel") == 0) {
+        if (nextArg != nullptr) {
+            char* endPtr;
+            long channelNum = std::strtol(nextArg, &endPtr, 10);
+            if (*endPtr != '\0' || endPtr == nextArg) {
+                args.hasError = true;
+                args.errorMessage = "--channel must be a valid number";
+                return true;
+            }
+            if (channelNum < 0 || channelNum > 9) {
+                args.hasError = true;
+                args.errorMessage = "--channel must be between 0 and 9";
+                return true;
+            }
+            args.channel = static_cast<int>(channelNum);
+            i++; // Consume next arg
+        } else {
+            args.hasError = true;
+            args.errorMessage = "--channel requires a number between 0 and 9";
+        }
         return true;
     }
     // Port configuration
@@ -443,16 +469,27 @@ inline void applyEnvironmentVariables(const CommonArgs& args, const char* target
     // MCP configuration
     if (args.mcp) {
         qputenv("TAU5_MCP_ENABLED", "true");
-        // Use specified port or default
-        quint16 mcpPort = args.portMcp > 0 ? args.portMcp : 5555;
+        // Use specified port or channel-based default (555X where X is channel)
+        quint16 mcpPort = args.portMcp > 0 ? args.portMcp : (5550 + args.channel);
+        qputenv("TAU5_MCP_PORT", std::to_string(mcpPort).c_str());
+    } else {
+        // Explicitly disable MCP to prevent Elixir server from using defaults
+        qputenv("TAU5_MCP_ENABLED", "false");
+        // Still set the port based on channel in case something enables it later
+        quint16 mcpPort = args.portMcp > 0 ? args.portMcp : (5550 + args.channel);
         qputenv("TAU5_MCP_PORT", std::to_string(mcpPort).c_str());
     }
-    
+
     // Chrome DevTools configuration
     if (args.chromeDevtools) {
         qputenv("TAU5_DEVTOOLS_ENABLED", "true");
-        // Use specified port or default
-        quint16 chromePort = args.portChrome > 0 ? args.portChrome : 9223;
+        // Use specified port or channel-based default (922X where X is channel)
+        quint16 chromePort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+        qputenv("TAU5_DEVTOOLS_PORT", std::to_string(chromePort).c_str());
+    } else {
+        // Explicitly disable and still set port based on channel
+        qputenv("TAU5_DEVTOOLS_ENABLED", "false");
+        quint16 chromePort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
         qputenv("TAU5_DEVTOOLS_PORT", std::to_string(chromePort).c_str());
     }
     

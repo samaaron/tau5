@@ -11,7 +11,7 @@ The MCP server consists of three main components:
 3. **CDPBridge** - The bridge that connects MCP commands to CDP operations
 
 ## How It Works
-1. When Tau5 starts in dev mode, it enables Chrome DevTools Protocol on port 9223
+1. When Tau5 starts in dev mode, it enables Chrome DevTools Protocol (default port 9220 for channel 0, or 922X where X is the channel)
 2. The MCP server (tau5-spectra) runs as a separate process communicating via stdio
 3. The CDPClient connects to the Chrome DevTools Protocol via WebSocket
 4. MCP tools are registered to provide various DevTools and logging functionalities
@@ -137,12 +137,38 @@ Tau5 Spectra runs as a standalone executable that bridges AI assistants to Tau5'
 
 ### Configuration for Claude Desktop
 Add to your Claude Desktop configuration:
+
+Windows:
 ```json
 {
   "mcpServers": {
     "tau5-spectra": {
-      "command": "C:\\path\\to\\tau5\\bin\\win\\start-tau5-spectra.bat",
-      "args": []
+      "command": "C:\\path\\to\\tau5\\bin\\win\\dev-tau5-spectra.bat",
+      "args": ["--channel", "0"]
+    }
+  }
+}
+```
+
+macOS:
+```json
+{
+  "mcpServers": {
+    "tau5-spectra": {
+      "command": "/path/to/tau5/bin/mac/dev-tau5-spectra.sh",
+      "args": ["--channel", "0"]
+    }
+  }
+}
+```
+
+Linux:
+```json
+{
+  "mcpServers": {
+    "tau5-spectra": {
+      "command": "/path/to/tau5/bin/linux/dev-tau5-spectra.sh",
+      "args": ["--channel", "0"]
     }
   }
 }
@@ -150,13 +176,32 @@ Add to your Claude Desktop configuration:
 
 The server communicates via stdio (stdin/stdout) using the MCP protocol.
 
-### Custom DevTools Port
-If Tau5 is configured to use a different DevTools port, specify it in the args:
+### Channel Configuration
+Tau5 supports channels 0-9 to allow multiple instances to run simultaneously. Each channel uses different default ports:
+- Channel 0 (default): Chrome DevTools port 9220
+- Channel 1: Chrome DevTools port 9221
+- Channel 2: Chrome DevTools port 9222
+- And so on...
+
+To specify a different channel (e.g., channel 3):
 ```json
 {
   "mcpServers": {
     "tau5-spectra": {
-      "command": "path/to/tau5-spectra",
+      "command": "/path/to/tau5/bin/linux/dev-tau5-spectra.sh",
+      "args": ["--channel", "3"]
+    }
+  }
+}
+```
+
+### Custom DevTools Port
+You can also explicitly override the port (this takes precedence over channel):
+```json
+{
+  "mcpServers": {
+    "tau5-spectra": {
+      "command": "/path/to/tau5/bin/linux/dev-tau5-spectra.sh",
       "args": ["--port-chrome-dev", "9999"]
     }
   }
@@ -169,8 +214,8 @@ To enable debug logging, add the `--debug` flag:
 {
   "mcpServers": {
     "tau5-spectra": {
-      "command": "path/to/tau5-spectra",
-      "args": ["--debug"]
+      "command": "/path/to/tau5/bin/linux/dev-tau5-spectra.sh",
+      "args": ["--channel", "0", "--debug"]
     }
   }
 }
@@ -179,7 +224,7 @@ This will create a `tau5-spectra-debug.log` file in the working directory.
 
 ## Security
 - The MCP server uses stdio transport (no network sockets)
-- Chrome DevTools Protocol only listens on localhost:9223
+- Chrome DevTools Protocol only listens on localhost (default port 9220 for channel 0)
 - CDP is only enabled in dev mode (not in production builds)
 - All external navigation is blocked by Tau5's sandboxed web views
 

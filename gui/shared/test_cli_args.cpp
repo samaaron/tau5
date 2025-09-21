@@ -1462,7 +1462,7 @@ bool testCheckWithReleaseServer(TestContext& ctx) {
     sim.add("tau5-node");
     sim.add("--check");
     sim.add("--with-release-server");
-    
+
     CommonArgs args;
     int i = 1;
     while (i < sim.argc()) {
@@ -1471,14 +1471,241 @@ bool testCheckWithReleaseServer(TestContext& ctx) {
         parseSharedArg(sim.argv()[i], nextArg, i, args);
         if (i == oldI) i++;
     }
-    
+
     TEST_ASSERT(ctx, args.check == true, "--check flag should be set");
-    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod, 
+    TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod,
                 "--with-release-server should set env to Prod");
     TEST_ASSERT(ctx, args.serverModeExplicitlySet == true,
                 "serverModeExplicitlySet should be true with --with-release-server");
     TEST_ASSERT(ctx, !args.hasError, "No errors should occur with valid flags");
 #endif
+    return ctx.passed;
+}
+
+// Channel tests
+bool testChannelDefault(TestContext& ctx) {
+    ArgSimulator sim;
+    sim.add("tau5");
+
+    CommonArgs args;
+    int i = 1;
+    while (i < sim.argc()) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        int oldI = i;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        if (i == oldI) i++;
+    }
+
+    TEST_ASSERT(ctx, args.channel == 0, "Default channel should be 0");
+    return ctx.passed;
+}
+
+bool testChannelValidValues(TestContext& ctx) {
+    // Test each valid channel value
+    for (int ch = 0; ch <= 9; ch++) {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--channel");
+        sim.add(std::to_string(ch).c_str());
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        TEST_ASSERT(ctx, args.channel == ch, QString("Channel should be %1").arg(ch));
+        TEST_ASSERT(ctx, !args.hasError, QString("Channel %1 should not cause error").arg(ch));
+    }
+    return ctx.passed;
+}
+
+bool testChannelInvalidValues(TestContext& ctx) {
+    // Test channel < 0
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--channel");
+        sim.add("-1");
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        TEST_ASSERT(ctx, args.hasError == true, "Channel -1 should cause error");
+        TEST_ASSERT(ctx, args.errorMessage.find("0 and 9") != std::string::npos,
+                    "Error should mention valid range");
+    }
+
+    // Test channel > 9
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--channel");
+        sim.add("10");
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        TEST_ASSERT(ctx, args.hasError == true, "Channel 10 should cause error");
+        TEST_ASSERT(ctx, args.errorMessage.find("0 and 9") != std::string::npos,
+                    "Error should mention valid range");
+    }
+
+    // Test non-numeric channel
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--channel");
+        sim.add("abc");
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        TEST_ASSERT(ctx, args.hasError == true, "Non-numeric channel should cause error");
+    }
+
+    return ctx.passed;
+}
+
+bool testChannelPortDefaults(TestContext& ctx) {
+    // Test that channel modifies default ports when MCP/Chrome are enabled
+    for (int ch = 0; ch <= 9; ch++) {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--channel");
+        sim.add(std::to_string(ch).c_str());
+        sim.add("--mcp");
+        sim.add("--chrome-devtools");
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        // Apply environment variables to check the resulting port values
+        applyEnvironmentVariables(args);
+
+        QString expectedMcpPort = QString::number(5550 + ch);
+        QString expectedChromePort = QString::number(9220 + ch);
+
+        TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT") == expectedMcpPort.toUtf8(),
+                    QString("MCP port should be %1 for channel %2").arg(expectedMcpPort).arg(ch));
+        TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_PORT") == expectedChromePort.toUtf8(),
+                    QString("Chrome port should be %1 for channel %2").arg(expectedChromePort).arg(ch));
+
+        // Clean up
+        qunsetenv("TAU5_MCP_PORT");
+        qunsetenv("TAU5_MCP_ENABLED");
+        qunsetenv("TAU5_DEVTOOLS_PORT");
+        qunsetenv("TAU5_DEVTOOLS_ENABLED");
+    }
+    return ctx.passed;
+}
+
+bool testMcpDisabledByDefault(TestContext& ctx) {
+    // Test that MCP is explicitly disabled when not requested
+    ArgSimulator sim;
+    sim.add("tau5");
+    sim.add("--channel");
+    sim.add("2");
+    // Note: NOT adding --mcp or --devtools
+
+    CommonArgs args;
+    int i = 1;
+    while (i < sim.argc()) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        int oldI = i;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        if (i == oldI) i++;
+    }
+
+    TEST_ASSERT(ctx, args.channel == 2, "Channel should be 2");
+    TEST_ASSERT(ctx, args.mcp == false, "MCP should not be enabled");
+
+    // Apply environment variables and check
+    applyEnvironmentVariables(args);
+
+    TEST_ASSERT(ctx, qgetenv("TAU5_MCP_ENABLED") == "false",
+                "TAU5_MCP_ENABLED should be explicitly set to false");
+    TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT") == "5552",
+                "TAU5_MCP_PORT should still be set to channel-based default (5552)");
+    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_ENABLED") == "false",
+                "TAU5_DEVTOOLS_ENABLED should be explicitly set to false");
+    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_PORT") == "9222",
+                "TAU5_DEVTOOLS_PORT should still be set to channel-based default (9222)");
+
+    // Clean up
+    qunsetenv("TAU5_MCP_ENABLED");
+    qunsetenv("TAU5_MCP_PORT");
+    qunsetenv("TAU5_DEVTOOLS_ENABLED");
+    qunsetenv("TAU5_DEVTOOLS_PORT");
+
+    return ctx.passed;
+}
+
+bool testChannelWithExplicitPorts(TestContext& ctx) {
+    // Test that explicit ports override channel-based defaults
+    ArgSimulator sim;
+    sim.add("tau5");
+    sim.add("--channel");
+    sim.add("5");  // Channel 5 would give 5555 and 9225
+    sim.add("--port-mcp");
+    sim.add("6666");  // But this explicit port should win
+    sim.add("--port-chrome-dev");
+    sim.add("7777");  // And this one too
+
+    CommonArgs args;
+    int i = 1;
+    while (i < sim.argc()) {
+        const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+        int oldI = i;
+        parseSharedArg(sim.argv()[i], nextArg, i, args);
+        if (i == oldI) i++;
+    }
+
+    TEST_ASSERT(ctx, args.channel == 5, "Channel should be 5");
+    TEST_ASSERT(ctx, args.portMcp == 6666, "Explicit MCP port should override channel default");
+    TEST_ASSERT(ctx, args.portChrome == 7777, "Explicit Chrome port should override channel default");
+
+    // Apply environment variables to verify
+    applyEnvironmentVariables(args);
+
+    TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT") == "6666",
+                "Explicit MCP port should be used in environment");
+    TEST_ASSERT(ctx, qgetenv("TAU5_DEVTOOLS_PORT") == "7777",
+                "Explicit Chrome port should be used in environment");
+
+    // Clean up
+    qunsetenv("TAU5_MCP_PORT");
+    qunsetenv("TAU5_MCP_ENABLED");
+    qunsetenv("TAU5_DEVTOOLS_PORT");
+    qunsetenv("TAU5_DEVTOOLS_ENABLED");
+
     return ctx.passed;
 }
 
@@ -1526,6 +1753,14 @@ int runCliArgumentTests(int& totalTests, int& passedTests) {
     // Server mode precedence tests
     RUN_TEST(testReleaseServerWithDevtools);
     RUN_TEST(testCheckWithReleaseServer);
+
+    // Channel tests
+    RUN_TEST(testChannelDefault);
+    RUN_TEST(testChannelValidValues);
+    RUN_TEST(testChannelInvalidValues);
+    RUN_TEST(testChannelPortDefaults);
+    RUN_TEST(testMcpDisabledByDefault);
+    RUN_TEST(testChannelWithExplicitPorts);
 
     // Count results
     int passed = 0;

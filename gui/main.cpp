@@ -385,6 +385,40 @@ int main(int argc, char *argv[])
     return 1;
   }
 
+  // Check if required ports are available before starting services
+  QStringList portsInUse;
+
+  // Check MCP port if enabled
+  QString mcpPortStr = qgetenv("TAU5_MCP_PORT");
+  if (!mcpPortStr.isEmpty() && mcpPortStr != "0") {
+    quint16 mcpPort = mcpPortStr.toUInt();
+    if (!Tau5Common::isPortAvailable(mcpPort)) {
+      portsInUse.append(QString("MCP port %1").arg(mcpPort));
+    }
+  }
+
+  // Check Chrome DevTools port if enabled
+  QString devToolsPortStr = qgetenv("TAU5_DEVTOOLS_PORT");
+  if (!devToolsPortStr.isEmpty() && devToolsPortStr != "0") {
+    quint16 devToolsPort = devToolsPortStr.toUInt();
+    if (!Tau5Common::isPortAvailable(devToolsPort)) {
+      portsInUse.append(QString("Chrome DevTools port %1").arg(devToolsPort));
+    }
+  }
+
+  // If any required ports are in use, fail with clear error message
+  if (!portsInUse.isEmpty()) {
+    QString errorMsg = "Required ports are already in use:\n";
+    for (const QString& portDesc : portsInUse) {
+      errorMsg += "  • " + portDesc + "\n";
+      Tau5Logger::instance().error("Port conflict: " + portDesc + " is already in use");
+    }
+    errorMsg += "\nIf running multiple Tau5 instances, use different --channel values (0-9)";
+
+    QMessageBox::critical(nullptr, "Port Conflict", errorMsg);
+    return 1;
+  }
+
   Tau5Logger::instance().info(QString("Using port: %1").arg(port));
 
   QString basePath = getServerBasePath(args.serverPath);
@@ -461,7 +495,7 @@ int main(int argc, char *argv[])
   // Map environment variables to mainwindow constructor parameters
   bool enableMcp = (qgetenv("TAU5_MCP_PORT") != "0" && !qgetenv("TAU5_MCP_PORT").isEmpty());
   bool enableRepl = (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
-  MainWindow mainWindow(isGuiDevMode, args.debugPane, enableMcp, enableRepl, args.allowRemoteAccess);
+  MainWindow mainWindow(isGuiDevMode, args.debugPane, enableMcp, enableRepl, args.allowRemoteAccess, args.channel);
 
   if (args.debugPane) {
     QObject::connect(&Tau5Logger::instance(), &Tau5Logger::logMessage,

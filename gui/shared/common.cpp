@@ -301,4 +301,11 @@ QString resolveProductionServerPath(const QString& basePath, bool verbose) {
 #endif
 }
 
+bool isPortAvailable(quint16 port) {
+    QTcpServer testServer;
+    bool available = testServer.listen(QHostAddress::LocalHost, port);
+    testServer.close();
+    return available;
+}
+
 } // namespace Tau5Common
