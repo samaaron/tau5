@@ -25,8 +25,8 @@ fi
 # If no arguments provided, default to --devtools for backward compatibility
 if [ $# -eq 0 ]; then
     # Default behavior when no arguments provided
-    exec "${BINARY_PATH}" --server-path "${ROOT_DIR}/server" --devtools
+    exec "${BINARY_PATH}" --dev-server-path "${ROOT_DIR}/server" --devtools
 else
     # Pass through all arguments as provided
-    exec "${BINARY_PATH}" --server-path "${ROOT_DIR}/server" "$@"
+    exec "${BINARY_PATH}" --dev-server-path "${ROOT_DIR}/server" "$@"
 fi

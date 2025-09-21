@@ -434,9 +434,9 @@ int main(int argc, char *argv[])
   {
     Tau5Logger::instance().error("FATAL: No server path configured");
     Tau5Logger::instance().error("Please specify server location using one of:");
-    Tau5Logger::instance().error("  --server-path /path/to/server");
+    Tau5Logger::instance().error("  --dev-server-path /path/to/server");
     Tau5Logger::instance().error("  TAU5_SERVER_PATH environment variable");
-    QMessageBox::critical(nullptr, "Error", "No server path configured.\n\nPlease use --server-path or set TAU5_SERVER_PATH environment variable.");
+    QMessageBox::critical(nullptr, "Error", "No server path configured.\n\nPlease use --dev-server-path or set TAU5_SERVER_PATH environment variable.");
     return 1;
   }
   

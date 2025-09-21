@@ -398,7 +398,7 @@ void Beam::startElixirServerDev()
 #else
   if (appBasePath.isEmpty()) {
     Tau5Logger::instance().error("Server path not set - cannot start dev server");
-    Tau5Logger::instance().error("Please use --server-path argument or set TAU5_SERVER_PATH environment variable");
+    Tau5Logger::instance().error("Please use --dev-server-path argument or set TAU5_SERVER_PATH environment variable");
     return;
   }
   process->setWorkingDirectory(appBasePath);

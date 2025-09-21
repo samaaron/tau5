@@ -331,12 +331,12 @@ int main(int argc, char *argv[]) {
         if (args.verbose) {
             Tau5Logger::instance().error("FATAL: No server path configured");
             Tau5Logger::instance().error("Please specify server location using one of:");
-            Tau5Logger::instance().error("  --server-path /path/to/server");
+            Tau5Logger::instance().error("  --dev-server-path /path/to/server");
             Tau5Logger::instance().error("  TAU5_SERVER_PATH environment variable");
         } else {
             std::cerr << "FATAL: No server path configured\n";
             std::cerr << "Please specify server location using one of:\n";
-            std::cerr << "  --server-path /path/to/server\n";
+            std::cerr << "  --dev-server-path /path/to/server\n";
             std::cerr << "  TAU5_SERVER_PATH environment variable\n";
         }
         return static_cast<int>(ExitCode::SERVER_DIR_NOT_FOUND);

@@ -202,13 +202,13 @@ bool testDevtoolsFlag(TestContext& ctx) {
 }
 
 bool testServerModeControl(TestContext& ctx) {
-    // Test --with-release-server flag
+    // Test --dev-with-release-server flag
 #ifdef TAU5_RELEASE_BUILD
     // In release builds, server is always in prod mode
     {
         ArgSimulator sim;
         sim.add("tau5");
-        sim.add("--with-release-server");
+        sim.add("--dev-with-release-server");
 
         CommonArgs args;
         int i = 1;
@@ -243,10 +243,10 @@ bool testServerModeControl(TestContext& ctx) {
     }
     
     {
-        // --with-release-server should set prod mode
+        // --dev-with-release-server should set prod mode
         ArgSimulator sim;
         sim.add("tau5");
-        sim.add("--with-release-server");
+        sim.add("--dev-with-release-server");
 
         CommonArgs args;
         int i = 1;
@@ -258,9 +258,9 @@ bool testServerModeControl(TestContext& ctx) {
         }
 
         TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod, 
-                    "--with-release-server should set prod server mode");
+                    "--dev-with-release-server should set prod server mode");
         TEST_ASSERT(ctx, args.serverModeExplicitlySet == true,
-                    "--with-release-server should mark server mode as explicitly set");
+                    "--dev-with-release-server should mark server mode as explicitly set");
     }
 #endif
     return ctx.passed;
@@ -275,7 +275,7 @@ bool testPortArguments(TestContext& ctx) {
     sim.add("443");
     sim.add("--port-mcp");
     sim.add("5555");
-    sim.add("--port-chrome-dev");
+    sim.add("--dev-port-chrome-cdp");
     sim.add("9224");
 
     CommonArgs args;
@@ -295,7 +295,7 @@ bool testPortArguments(TestContext& ctx) {
     TEST_ASSERT(ctx, args.portLocal == 8080, QString("--port-local should be 8080, got %1").arg(args.portLocal));
     TEST_ASSERT(ctx, args.portPublic == 443, QString("--port-public should be 443, got %1").arg(args.portPublic));
     TEST_ASSERT(ctx, args.portMcp == 5555, QString("--port-mcp should be 5555, got %1").arg(args.portMcp));
-    TEST_ASSERT(ctx, args.portChrome == 9224, QString("--port-chrome-dev should be 9224, got %1").arg(args.portChrome));
+    TEST_ASSERT(ctx, args.portChrome == 9224, QString("--dev-port-chrome-cdp should be 9224, got %1").arg(args.portChrome));
     return ctx.passed;
 }
 
@@ -426,7 +426,7 @@ bool testValidationConflicts(TestContext& ctx) {
     {
         ArgSimulator sim;
         sim.add("tau5");
-        sim.add("--tidewave");
+        sim.add("--dev-tidewave");
         // Note: not setting --mcp
 
         CommonArgs args;
@@ -491,7 +491,7 @@ bool testEnvironmentVariableApplication(TestContext& ctx) {
 bool testServerPathArgument(TestContext& ctx) {
     ArgSimulator sim;
     sim.add("tau5");
-    sim.add("--server-path");
+    sim.add("--dev-server-path");
     sim.add("/custom/server/path");
 
     CommonArgs args;
@@ -503,7 +503,7 @@ bool testServerPathArgument(TestContext& ctx) {
         if (i == oldI) i++;  // Only increment if parseSharedArg didn't
     }
 
-    TEST_ASSERT(ctx, args.serverPath == "/custom/server/path", "--server-path should set custom path");
+    TEST_ASSERT(ctx, args.serverPath == "/custom/server/path", "--dev-server-path should set custom path");
     return ctx.passed;
 }
 
@@ -721,7 +721,7 @@ bool testMissingArguments(TestContext& ctx) {
     {
         ArgSimulator sim;
         sim.add("tau5");
-        sim.add("--server-path");
+        sim.add("--dev-server-path");
         // No path follows
 
         CommonArgs args;
@@ -1109,7 +1109,7 @@ bool testReleaseBuildFlagRejection(TestContext& ctx) {
     {
         ArgSimulator sim;
         sim.add("tau5");
-        sim.add("--chrome-devtools");
+        sim.add("--dev-chrome-cdp");
 
         CommonArgs args;
         int i = 1;
@@ -1125,11 +1125,11 @@ bool testReleaseBuildFlagRejection(TestContext& ctx) {
                     "Chrome DevTools flag is parsed");
     }
 
-    // Test that --with-release-server + --devtools still doesn't enable dev features in release
+    // Test that --dev-with-release-server + --devtools still doesn't enable dev features in release
     {
         ArgSimulator sim;
         sim.add("tau5");
-        sim.add("--with-release-server");
+        sim.add("--dev-with-release-server");
         sim.add("--devtools");
 
         CommonArgs args;
@@ -1143,7 +1143,7 @@ bool testReleaseBuildFlagRejection(TestContext& ctx) {
 
         // In release builds, server is always prod mode
         TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod,
-                    "Release build forces prod environment even with --with-release-server");
+                    "Release build forces prod environment even with --dev-with-release-server");
         
         // Dev features should NOT be enabled in release builds
         TEST_ASSERT(ctx, !args.mcp,
@@ -1382,17 +1382,17 @@ bool testFriendTokenOrderIndependence(TestContext& ctx) {
 
 // Main test runner
 // Returns 0 if all pass, or the number of failures
-// Test that --with-release-server overrides server mode from --devtools
+// Test that --dev-with-release-server overrides server mode from --devtools
 // but keeps GUI in dev mode
 bool testReleaseServerWithDevtools(TestContext& ctx) {
 #ifndef TAU5_RELEASE_BUILD
     // This test only makes sense in dev builds where we can choose server mode
     {
-        // Test --devtools --with-release-server (order 1)
+        // Test --devtools --dev-with-release-server (order 1)
         ArgSimulator sim;
         sim.add("tau5");
         sim.add("--devtools");
-        sim.add("--with-release-server");
+        sim.add("--dev-with-release-server");
         
         CommonArgs args;
         int i = 1;
@@ -1403,9 +1403,9 @@ bool testReleaseServerWithDevtools(TestContext& ctx) {
             if (i == oldI) i++;
         }
         
-        // Server should be in prod mode due to --with-release-server
+        // Server should be in prod mode due to --dev-with-release-server
         TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod,
-                    "--with-release-server should force server to prod mode even with --devtools");
+                    "--dev-with-release-server should force server to prod mode even with --devtools");
         
         // But GUI dev features should still be enabled from --devtools
         TEST_ASSERT(ctx, args.mcp == true,
@@ -1421,10 +1421,10 @@ bool testReleaseServerWithDevtools(TestContext& ctx) {
     }
     
     {
-        // Test reverse order: --with-release-server --devtools
+        // Test reverse order: --dev-with-release-server --devtools
         ArgSimulator sim;
         sim.add("tau5");
-        sim.add("--with-release-server");
+        sim.add("--dev-with-release-server");
         sim.add("--devtools");
         
         CommonArgs args;
@@ -1436,9 +1436,9 @@ bool testReleaseServerWithDevtools(TestContext& ctx) {
             if (i == oldI) i++;
         }
         
-        // Server should still be in prod mode (--with-release-server takes precedence)
+        // Server should still be in prod mode (--dev-with-release-server takes precedence)
         TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod,
-                    "--with-release-server should force server to prod mode regardless of order");
+                    "--dev-with-release-server should force server to prod mode regardless of order");
         
         // GUI dev features should still be enabled
         TEST_ASSERT(ctx, args.mcp == true,
@@ -1461,7 +1461,7 @@ bool testCheckWithReleaseServer(TestContext& ctx) {
     ArgSimulator sim;
     sim.add("tau5-node");
     sim.add("--check");
-    sim.add("--with-release-server");
+    sim.add("--dev-with-release-server");
 
     CommonArgs args;
     int i = 1;
@@ -1474,9 +1474,9 @@ bool testCheckWithReleaseServer(TestContext& ctx) {
 
     TEST_ASSERT(ctx, args.check == true, "--check flag should be set");
     TEST_ASSERT(ctx, args.env == CommonArgs::Env::Prod,
-                "--with-release-server should set env to Prod");
+                "--dev-with-release-server should set env to Prod");
     TEST_ASSERT(ctx, args.serverModeExplicitlySet == true,
-                "serverModeExplicitlySet should be true with --with-release-server");
+                "serverModeExplicitlySet should be true with --dev-with-release-server");
     TEST_ASSERT(ctx, !args.hasError, "No errors should occur with valid flags");
 #endif
     return ctx.passed;
@@ -1596,7 +1596,7 @@ bool testChannelPortDefaults(TestContext& ctx) {
         sim.add("--channel");
         sim.add(std::to_string(ch).c_str());
         sim.add("--mcp");
-        sim.add("--chrome-devtools");
+        sim.add("--dev-chrome-cdp");
 
         CommonArgs args;
         int i = 1;
@@ -1732,7 +1732,7 @@ bool testChannelWithExplicitPorts(TestContext& ctx) {
     sim.add("5");  // Channel 5 would give 5555 and 9225
     sim.add("--port-mcp");
     sim.add("6666");  // But this explicit port should win
-    sim.add("--port-chrome-dev");
+    sim.add("--dev-port-chrome-cdp");
     sim.add("7777");  // And this one too
 
     CommonArgs args;

@@ -25,7 +25,7 @@ struct CommonArgs {
     #else
     Env env = Env::Dev;   // Development builds default to development
     #endif
-    bool serverModeExplicitlySet = false; // Track if server mode was explicitly set via --with-release-server
+    bool serverModeExplicitlySet = false; // Track if server mode was explicitly set via --dev-with-release-server
 
     // Deployment mode override (tau5-node only, controls TAU5_MODE)
     enum class Mode {
@@ -141,7 +141,7 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         args.env = CommonArgs::Env::Prod;
         // Other devtools flags are ignored in release
 #else
-        // Only set server to dev mode if not explicitly set to prod by --with-release-server
+        // Only set server to dev mode if not explicitly set to prod by --dev-with-release-server
         if (!args.serverModeExplicitlySet) {
             args.env = CommonArgs::Env::Dev;
         }
@@ -195,8 +195,8 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         parsePort(nextArg, i, args.portMcp, args, "--port-mcp");
         if (!args.hasError) args.mcp = true;
         return true;
-    } else if (std::strcmp(arg, "--port-chrome-dev") == 0) {
-        parsePort(nextArg, i, args.portChrome, args, "--port-chrome-dev");
+    } else if (std::strcmp(arg, "--dev-port-chrome-cdp") == 0) {
+        parsePort(nextArg, i, args.portChrome, args, "--dev-port-chrome-cdp");
         if (!args.hasError) args.chromeDevtools = true;
         return true;
     } else if (std::strcmp(arg, "--port-heartbeat") == 0) {
@@ -207,14 +207,14 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
     else if (std::strcmp(arg, "--mcp") == 0) {
         args.mcp = true;
         return true;
-    } else if (std::strcmp(arg, "--tidewave") == 0) {
+    } else if (std::strcmp(arg, "--dev-tidewave") == 0) {
         args.tidewave = true;
         args.mcp = true;
         return true;
-    } else if (std::strcmp(arg, "--chrome-devtools") == 0) {
+    } else if (std::strcmp(arg, "--dev-chrome-cdp") == 0) {
         args.chromeDevtools = true;
         return true;
-    } else if (std::strcmp(arg, "--repl") == 0) {
+    } else if (std::strcmp(arg, "--dev-repl") == 0) {
         args.repl = true;
         return true;
     } else if (std::strcmp(arg, "--verbose") == 0) {
@@ -223,7 +223,7 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
     } else if (std::strcmp(arg, "--debug-pane") == 0) {
         args.debugPane = true;
         return true;
-    } else if (std::strcmp(arg, "--allow-remote-access") == 0) {
+    } else if (std::strcmp(arg, "--dev-allow-remote-access") == 0) {
         args.allowRemoteAccess = true;
         return true;
     }
@@ -243,7 +243,7 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         args.noLink = true;
         args.noDiscovery = true;
         return true;
-    } else if (std::strcmp(arg, "--no-debug-pane") == 0) {
+    } else if (std::strcmp(arg, "--dev-no-debug-pane") == 0) {
         args.debugPane = false;
         return true;
     } else if (std::strcmp(arg, "--no-local-endpoint") == 0) {
@@ -251,13 +251,13 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         return true;
     }
     // Path configuration
-    else if (std::strcmp(arg, "--server-path") == 0) {
+    else if (std::strcmp(arg, "--dev-server-path") == 0) {
         if (nextArg != nullptr) {
             args.serverPath = nextArg;
             i++;
         } else {
             args.hasError = true;
-            args.errorMessage = "--server-path requires a path";
+            args.errorMessage = "--dev-server-path requires a path";
         }
         return true;
     }
@@ -282,7 +282,7 @@ inline bool parseSharedArg(const char* arg, const char* nextArg, int& i, CommonA
         return true;
     }
     // Server mode override
-    else if (std::strcmp(arg, "--with-release-server") == 0) {
+    else if (std::strcmp(arg, "--dev-with-release-server") == 0) {
         args.env = CommonArgs::Env::Prod;
         args.serverModeExplicitlySet = true;
         return true;
@@ -317,7 +317,7 @@ inline bool validateArguments(CommonArgs& args) {
     
     if (args.repl) {
         args.hasError = true;
-        args.errorMessage = "--repl only works in development builds";
+        args.errorMessage = "--dev-repl only works in development builds";
         return false;
     }
 #endif
@@ -366,7 +366,7 @@ inline bool validateArguments(CommonArgs& args) {
 #ifdef TAU5_RELEASE_BUILD
     if (args.tidewave) {
         args.hasError = true;
-        args.errorMessage = "--tidewave only works in development builds";
+        args.errorMessage = "--dev-tidewave only works in development builds";
         return false;
     }
 #endif

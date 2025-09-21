@@ -11,70 +11,12 @@ std::string generateHelpText(Tau5Common::BinaryType type, const char* programNam
          << "Options:\n"
          << "\n";
 
-#ifndef TAU5_RELEASE_BUILD
-    help << "Quick Setup:\n"
-         << "  --devtools               All-in-one dev setup (";
-    
-    if (type == Tau5Common::BinaryType::Node) {
-        help << "MCP + Tidewave + REPL)\n";
-    } else {
-        help << "MCP + Chrome DevTools + Tidewave + REPL)\n";
-    }
-    help << "\n";
-    
-    // Node-specific deployment mode override
-    if (type == Tau5Common::BinaryType::Node) {
-        help << "Deployment Mode Override:\n"
-             << "  --mode-node              Local headless server [default]\n"
-             << "                           - Local and MCP endpoints available\n"
-             << "                           - Full NIFs and local I/O support\n"
-             << "  --mode-central           Public coordinator (tau5.live)\n"
-             << "                           - Public web endpoints only\n"
-             << "                           - No local endpoints or MCP servers\n"
-             << "                           - No NIFs or local I/O capabilities\n"
-             << "\n";
-    }
-#endif
-
-    help << "Server Configuration:\n"
-         << "  --with-release-server    Use compiled release server in production mode\n"
-         << "                           (default: development server from source)\n"
-         << "\n"
-         << "Port Configuration:\n"
-         << "  --channel <0-9>          Channel number (0-9, default: 0)\n"
-         << "                           Modifies default ports: MCP=555X, Chrome=922X\n"
-         << "  --port-local <n>         Local web UI port (default: random)\n"
-         << "  --port-public <n>        Public endpoint port (default: disabled)\n"
-         << "  --port-heartbeat <n>     Heartbeat UDP port (default: random)\n";
-    
-    if (type == Tau5Common::BinaryType::Node) {
-        help << "  --no-local-endpoint      Disable local endpoint completely\n";
-    }
-    
-    help << "  --port-mcp <n>           MCP services port (overrides channel default)\n"
+    help << "Enable Features:\n"
+         << "  --mcp                    Enable MCP endpoint\n"
          << "  --friend-token [token]   Enable friend authentication\n"
          << "                           (generates secure token if not provided)\n"
-         << "                           (automatically enables public endpoint)\n";
-
-#ifndef TAU5_RELEASE_BUILD
-    if (type == Tau5Common::BinaryType::Gui) {
-        help << "  --port-chrome-dev <n>    Chrome DevTools port (overrides channel default)\n";
-    }
-#endif
-
-    help << "\n"
-         << "Optional Features:\n"
-         << "  --mcp                    Enable MCP endpoint\n";
-
-#ifndef TAU5_RELEASE_BUILD
-    help << "  --tidewave               Add Tidewave to MCP endpoint (implies --mcp)\n";
-    if (type == Tau5Common::BinaryType::Gui) {
-        help << "  --chrome-devtools        Enable Chrome DevTools\n";
-    }
-    help << "  --repl                   Enable Elixir REPL\n";
-#endif
-
-    help << "  --verbose                Enable verbose logging\n"
+         << "                           (automatically enables public endpoint)\n"
+         << "  --verbose                Enable verbose logging\n"
          << "\n"
          << "Disable Features:\n"
          << "  --no-midi                Disable MIDI support\n"
@@ -82,22 +24,73 @@ std::string generateHelpText(Tau5Common::BinaryType type, const char* programNam
          << "  --no-discovery           Disable network discovery\n"
          << "  --no-nifs                Disable all NIFs (MIDI, Link, and Discovery)\n";
 
+    if (type == Tau5Common::BinaryType::Node) {
+        help << "  --no-local-endpoint      Disable local endpoint completely\n";
+    }
+
+    help << "\n"
+         << "Port Configuration:\n"
+         << "  --channel <0-9>          Channel number (0-9, default: 0)\n"
+         << "                           Modifies default ports: MCP=555X";
+
 #ifndef TAU5_RELEASE_BUILD
     if (type == Tau5Common::BinaryType::Gui) {
-        help << "  --no-debug-pane          Disable debug pane\n"
-             << "  --allow-remote-access    Allow loading remote websites/assets\n"
-             << "                           WARNING: For debugging only - reduces security\n";
+        help << ", CDP=922X";
     }
 #endif
 
     help << "\n"
-         << "Other:\n";
+         << "  --port-local <n>         Local web UI port (default: random)\n"
+         << "  --port-public <n>        Public endpoint port (default: disabled)\n"
+         << "  --port-heartbeat <n>     Heartbeat UDP port (default: random)\n"
+         << "  --port-mcp <n>           MCP services port (overrides channel default)\n";
 
 #ifndef TAU5_RELEASE_BUILD
-    help << "  --server-path <path>     Override server directory path\n";
+    help << "\n"
+         << "Development Options:\n"
+         << "  --devtools               All-in-one dev setup (";
+
+    if (type == Tau5Common::BinaryType::Node) {
+        help << "MCP + Tidewave + REPL)\n";
+    } else {
+        help << "MCP + Chrome DevTools + Tidewave + REPL)\n";
+    }
+
+    help << "  --dev-tidewave           Add Tidewave to MCP endpoint (implies --mcp)\n";
+
+    if (type == Tau5Common::BinaryType::Gui) {
+        help << "  --dev-chrome-cdp         Enable Chrome DevTools Protocol\n"
+             << "  --dev-port-chrome-cdp <n> Chrome DevTools Protocol port (overrides channel default)\n";
+    }
+
+    help << "  --dev-repl               Enable Elixir REPL\n";
+
+    if (type == Tau5Common::BinaryType::Gui) {
+        help << "  --dev-no-debug-pane      Disable debug pane\n"
+             << "  --dev-allow-remote-access Allow loading remote websites/assets\n"
+             << "                           WARNING: For debugging only - reduces security\n";
+    }
+
+    if (type == Tau5Common::BinaryType::Node) {
+        help << "\n"
+             << "Deployment Mode Override:\n"
+             << "  --mode-node              Local headless server [default]\n"
+             << "                           - Local and MCP endpoints available\n"
+             << "                           - Full NIFs and local I/O support\n"
+             << "  --mode-central           Public coordinator (tau5.live)\n"
+             << "                           - Public web endpoints only\n"
+             << "                           - No local endpoints or MCP servers\n"
+             << "                           - No NIFs or local I/O capabilities\n";
+    }
+
+    help << "  --dev-server-path <path> Override server directory path\n"
+         << "  --dev-with-release-server Use compiled release server in production mode\n"
+         << "                           (default: development server from source)\n";
 #endif
 
-    help << "  --check                  Verify installation and exit\n"
+    help << "\n"
+         << "Other:\n"
+         << "  --check                  Verify installation and exit\n"
          << "  --help, -h               Show this help message\n"
          << "  --version                Show version information\n"
          << "\n";
