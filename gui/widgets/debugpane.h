@@ -128,7 +128,7 @@ private:
   ActivityTabButton *m_tidewaveMCPTabButton;
   ActivityTabButton *m_guiMCPTabButton;
   QWidget *m_elixirConsoleContainer;
-  SandboxedWebView *m_elixirConsoleView;
+  PhxWebView *m_elixirConsoleView;
   QTabWidget *m_devToolsTabs;
   QWidget *m_devToolsMainContainer;
   QStackedWidget *m_devToolsStack;

@@ -685,7 +685,7 @@ void DebugPane::setupDevTools()
     elixirConsoleLayout->setContentsMargins(0, 0, 0, 0);
     elixirConsoleLayout->setSpacing(0);
 
-    m_elixirConsoleView = new SandboxedWebView(m_elixirConsoleContainer);
+    m_elixirConsoleView = new PhxWebView(m_devMode, m_elixirConsoleContainer);
     m_elixirConsoleView->page()->setBackgroundColor(QColor(StyleManager::Colors::CONSOLE_BACKGROUND));
     elixirConsoleLayout->addWidget(m_elixirConsoleView);
 
