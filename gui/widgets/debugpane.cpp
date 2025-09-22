@@ -14,6 +14,7 @@
 #include "sandboxedwebview.h"
 #include "../shared/tau5logger.h"
 #include "../shared/common.h"
+#include "../shared/cli_args.h"
 #include "../lib/fontloader.h"
 #include <QDir>
 #include <QFile>
@@ -125,12 +126,12 @@ static QPushButton *createCodiconButton(QWidget *parent, const QChar &icon, cons
   return button;
 }
 
-DebugPane::DebugPane(QWidget *parent, bool devMode, bool enableMcp, bool enableRepl)
+DebugPane::DebugPane(QWidget *parent, const Tau5CLI::ServerConfig& config)
     : QWidget(parent), m_isVisible(false),
       m_maxLines(5000), m_currentMode(BeamLogOnly), m_isResizing(false),
       m_resizeStartY(0), m_resizeStartHeight(0), m_isHoveringHandle(false),
       m_targetWebView(nullptr), m_devToolsView(nullptr), m_liveDashboardView(nullptr),
-      m_elixirConsoleView(nullptr),
+      m_elixirConsoleView(nullptr), m_config(&config),
       m_currentFontSize(12), m_guiLogFontSize(12),
       m_devToolsMainContainer(nullptr),
       m_devToolsStack(nullptr), m_devToolsTabButton(nullptr), m_liveDashboardTabButton(nullptr),
@@ -139,7 +140,8 @@ DebugPane::DebugPane(QWidget *parent, bool devMode, bool enableMcp, bool enableR
       m_newBootLogWidget(nullptr), m_newBeamLogWidget(nullptr), m_newGuiLogWidget(nullptr), m_newTau5MCPWidget(nullptr),
       m_newTidewaveMCPWidget(nullptr), m_newGuiMCPWidget(nullptr), m_consoleToolbarStack(nullptr),
       m_bootLogTabButton(nullptr), m_elixirConsoleTabButton(nullptr), m_tau5MCPTabButton(nullptr), m_tidewaveMCPTabButton(nullptr), m_guiMCPTabButton(nullptr),
-      m_devMode(devMode), m_mcpEnabled(enableMcp), m_replEnabled(enableRepl)
+      m_devMode(config.getArgs().env == Tau5CLI::CommonArgs::Env::Dev),
+      m_mcpEnabled(config.getArgs().mcp), m_replEnabled(config.getArgs().repl)
 {
   static bool codiconLoaded = false;
   if (!codiconLoaded)
@@ -173,8 +175,8 @@ DebugPane::~DebugPane()
 
 bool DebugPane::isElixirReplEnabled()
 {
-  // Check both the member variable and the environment variable for consistency
-  return m_replEnabled || (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true");
+  // Check the member variable (set from constructor args)
+  return m_replEnabled;
 }
 
 bool DebugPane::isMcpEnabled()
@@ -390,11 +392,8 @@ void DebugPane::setupConsole()
 
   // Only show the Tau5 MCP startup message if MCP is actually enabled
   if (m_mcpEnabled) {
-    // Get the MCP port for Tau5 MCP
-    QString tau5MCPPort = qgetenv("TAU5_MCP_PORT");
-    if (tau5MCPPort.isEmpty()) {
-      tau5MCPPort = "5555";
-    }
+    // Get the MCP port from the configuration
+    QString tau5MCPPort = QString::number(m_config->getMcpPort());
 
     // Add startup message for Tau5 MCP
     QString tau5MCPStartupMessage =
@@ -459,11 +458,8 @@ void DebugPane::setupConsole()
     m_newTidewaveMCPWidget->setLogFilePath(tidewaveLogFilePath);
     Tau5Logger::instance().debug(QString("DebugPane: Setting Tidewave MCP log path to: %1").arg(tidewaveLogFilePath));
 
-    // Get the MCP port from environment or use default
-    QString mcpPort = qgetenv("TAU5_MCP_PORT");
-    if (mcpPort.isEmpty()) {
-      mcpPort = "5555";  // Default MCP port
-    }
+    // Get the MCP port from the configuration
+    QString mcpPort = QString::number(m_config->getMcpPort());
     
     QString tidewaveEnabledMessage =
         "\n"

@@ -28,6 +28,10 @@ struct ServerInfo {
     bool hasTidewave = false;
     bool hasRepl = false;
     QString friendToken;
+    bool hasChromeDevtools = false;
+    quint16 chromePort = 0;
+    quint8 channel = 0;
+    bool hasDebugPane = false;
 };
 
 /**

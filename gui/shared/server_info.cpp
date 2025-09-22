@@ -100,7 +100,11 @@ QString generateServerInfoString(const ServerInfo& info, bool verbose) {
     }
     
     stream << "  Logs:      " << info.logPath << "\n";
-    
+
+    if (info.channel > 0) {
+        stream << "  Channel:   " << info.channel << "\n";
+    }
+
     if (info.hasMcpEndpoint) {
         stream << "  MCP:       Port " << info.mcpPort;
         if (info.hasTidewave) {
@@ -108,9 +112,13 @@ QString generateServerInfoString(const ServerInfo& info, bool verbose) {
         }
         stream << "\n";
     }
-    
+
+    if (info.hasChromeDevtools && info.binaryType == BinaryType::Gui) {
+        stream << "  Chrome CDP: Port " << info.chromePort << "\n";
+    }
+
     if (info.hasRepl && !info.sessionToken.isEmpty() && info.hasLocalEndpoint) {
-        stream << "  Console:   http://localhost:" << info.serverPort 
+        stream << "  Console:   http://localhost:" << info.serverPort
                << "/dev/console?token=" << info.sessionToken << "\n";
     }
     

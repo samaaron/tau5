@@ -12,6 +12,10 @@
 class MainPhxWidget;
 #ifdef BUILD_WITH_DEBUG_PANE
 class DebugPane;
+
+namespace Tau5CLI {
+    class ServerConfig;
+}
 #endif
 class ControlLayer;
 class Beam;
@@ -33,7 +37,7 @@ signals:
   void allComponentsLoaded();
 
 public:
-  explicit MainWindow(bool devMode = false, bool enableDebugPane = true, bool enableMcp = false, bool enableRepl = false, bool allowRemoteAccess = false, int channel = 0, QWidget *parent = nullptr);
+  explicit MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent = nullptr);
   ~MainWindow();
 
   bool connectToServer(quint16 port);
@@ -93,6 +97,7 @@ private:
   bool m_enableRepl;
   bool m_allowRemoteAccess;
   quint16 m_serverPort;
+  const Tau5CLI::ServerConfig* m_config;
   
   bool m_mainWindowLoaded;
   bool m_liveDashboardLoaded;

@@ -1,6 +1,7 @@
 #include "health_check.h"
 #include "tau5logger.h"
 #include "common.h"
+#include "cli_args.h"
 #include "beam.h"
 #include "test_cli_args.h"
 #include <QDir>
@@ -554,7 +555,7 @@ QList<CheckResult> checkBEAMRuntime(const HealthCheckConfig& config) {
     return results;
 }
 
-QList<CheckResult> checkNIFs(const HealthCheckConfig& config) {
+QList<CheckResult> checkNIFs(const HealthCheckConfig& config, const Tau5CLI::ServerConfig* serverConfig) {
     QList<CheckResult> results;
     
     #ifdef TAU5_RELEASE_BUILD
@@ -620,9 +621,16 @@ QList<CheckResult> checkNIFs(const HealthCheckConfig& config) {
         });
     } else {
         // If no release build, just note the configured state
-        bool midiEnabled = qgetenv("TAU5_MIDI_ENABLED") != "false";
-        bool linkEnabled = qgetenv("TAU5_LINK_ENABLED") != "false";
-        bool discoveryEnabled = qgetenv("TAU5_DISCOVERY_ENABLED") != "false";
+        bool midiEnabled = true;
+        bool linkEnabled = true;
+        bool discoveryEnabled = true;
+
+        if (serverConfig) {
+            const Tau5CLI::CommonArgs& args = serverConfig->getArgs();
+            midiEnabled = !args.noMidi;
+            linkEnabled = !args.noLink;
+            discoveryEnabled = !args.noDiscovery;
+        }
         
         results.append({
             "NIFs",
@@ -840,7 +848,7 @@ int runHealthCheck(const HealthCheckConfig& config) {
     }
     
     Tau5Logger::instance().info("\n[NIFs]");
-    auto nifResults = checkNIFs(config);
+    auto nifResults = checkNIFs(config, config.serverConfig);
     for (const auto& result : nifResults) {
         printCheckResult(result, config.verbose);
         allResults.append(result);

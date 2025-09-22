@@ -20,6 +20,7 @@
 #include "widgets/transitionoverlay.h"
 #include "shared/beam.h"
 #include "shared/tau5logger.h"
+#include "shared/cli_args.h"
 #include "styles/StyleManager.h"
 
 #ifndef Q_OS_MACOS
@@ -28,26 +29,27 @@
 #include <QWKCore/qwkglobal.h>
 #endif
 
-MainWindow::MainWindow(bool devMode, bool enableDebugPane, bool enableMcp, bool enableRepl, bool allowRemoteAccess, int channel, QWidget *parent)
+MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
     : QMainWindow(parent)
     , beamInstance(nullptr)
 #ifndef Q_OS_MACOS
     , m_titleBar(nullptr)
     , m_windowAgent(nullptr)
 #endif
-    , m_devMode(devMode)
-    , m_enableDebugPane(enableDebugPane)
-    , m_enableMcp(enableMcp)
-    , m_enableRepl(enableRepl)
-    , m_allowRemoteAccess(allowRemoteAccess)
+    , m_config(&config)
+    , m_devMode(config.getArgs().env == Tau5CLI::CommonArgs::Env::Dev)
+    , m_enableDebugPane(config.getArgs().debugPane)
+    , m_enableMcp(config.getArgs().mcp)
+    , m_enableRepl(config.getArgs().repl)
+    , m_allowRemoteAccess(config.getArgs().allowRemoteAccess)
     , m_serverPort(0)
     , m_mainWindowLoaded(false)
-    , m_liveDashboardLoaded(!enableDebugPane)
-    , m_elixirConsoleLoaded(!enableDebugPane || !enableRepl)
-    , m_webDevToolsLoaded(!enableDebugPane)
+    , m_liveDashboardLoaded(!config.getArgs().debugPane)
+    , m_elixirConsoleLoaded(!config.getArgs().debugPane || !config.getArgs().repl)
+    , m_webDevToolsLoaded(!config.getArgs().debugPane)
     , m_allComponentsSignalEmitted(false)
     , m_beamReady(false)
-    , m_channel(channel)
+    , m_channel(config.getArgs().channel)
 {
   QCoreApplication::setOrganizationName("Tau5");
   QCoreApplication::setApplicationName("Tau5");
@@ -386,7 +388,7 @@ void MainWindow::onAppPageReady()
 #ifdef BUILD_WITH_DEBUG_PANE
 void MainWindow::initializeDebugPane()
 {
-  debugPane = std::make_unique<DebugPane>(this, m_devMode, m_enableMcp, m_enableRepl);
+  debugPane = std::make_unique<DebugPane>(this, *m_config);
 
   int defaultHeight = height() / 2;
   debugPane->resize(width(), defaultHeight);

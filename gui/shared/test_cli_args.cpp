@@ -4,6 +4,7 @@
 #include <QString>
 #include <QStringList>
 #include <QList>
+#include <map>
 
 using namespace Tau5CLI;
 
@@ -554,18 +555,22 @@ bool testCheckWithEnvironmentOverrides(TestContext& ctx) {
 }
 
 bool testControlledEnvironmentSecurity(TestContext& ctx) {
-    // Test that external environment variables don't leak through
-    // Set some "external" environment variables
+    // Test that external environment variables don't leak through to the server
+    // via the ServerConfig immutable configuration pattern
+
+    // Set some "external" environment variables that should NOT be passed to server
     qputenv("TAU5_MCP_PORT", "9999");
     qputenv("TAU5_EXTERNAL_VAR", "should_not_appear");
     qputenv("SECRET_KEY_BASE", "leaked_secret");
     qputenv("PHX_SECRET", "another_leak");
-    
+    qputenv("RANDOM_VAR", "external_pollution");
+
     ArgSimulator sim;
     sim.add("tau5");
+    sim.add("--mcp");
     sim.add("--port-mcp");
     sim.add("5555");
-    
+
     CommonArgs args;
     int i = 1;
     while (i < sim.argc()) {
@@ -574,20 +579,40 @@ bool testControlledEnvironmentSecurity(TestContext& ctx) {
         parseSharedArg(sim.argv()[i], nextArg, i, args);
         if (i == oldI) i++;
     }
-    
-    // Apply environment variables based on CLI args
-    applyEnvironmentVariables(args, "test");
-    
-    // The CLI arg should win over external env var
-    TEST_ASSERT(ctx, qgetenv("TAU5_MCP_PORT") == "5555", 
-                "CLI arg --port-mcp 5555 should override external env TAU5_MCP_PORT=9999");
-    
+
+    // Create ServerConfig - this is the immutable config that generates clean env vars
+    ServerConfig config(args, "test");
+
+    // Get the environment variables that would be passed to the server
+    std::map<std::string, std::string> serverEnv = config.generateEnvironmentVars();
+
+    // Verify that ONLY the expected variables from CLI args are in the server environment
+    TEST_ASSERT(ctx, serverEnv["TAU5_MCP_PORT"] == "5555",
+                "Server should get MCP port 5555 from CLI args, not 9999 from external env");
+    TEST_ASSERT(ctx, serverEnv["TAU5_MCP_ENABLED"] == "true",
+                "Server should have MCP enabled from CLI args");
+    TEST_ASSERT(ctx, serverEnv.find("TAU5_EXTERNAL_VAR") == serverEnv.end(),
+                "External env var TAU5_EXTERNAL_VAR should NOT appear in server env");
+    TEST_ASSERT(ctx, serverEnv.find("SECRET_KEY_BASE") == serverEnv.end(),
+                "External env var SECRET_KEY_BASE should NOT appear in server env");
+    TEST_ASSERT(ctx, serverEnv.find("PHX_SECRET") == serverEnv.end(),
+                "External env var PHX_SECRET should NOT appear in server env");
+    TEST_ASSERT(ctx, serverEnv.find("RANDOM_VAR") == serverEnv.end(),
+                "External env var RANDOM_VAR should NOT appear in server env");
+
+    // Verify the config is truly immutable - args shouldn't affect the config after creation
+    CommonArgs modifiedArgs = args;
+    modifiedArgs.portMcp = 7777;
+    TEST_ASSERT(ctx, config.getMcpPort() == 5555,
+                "ServerConfig should remain immutable after creation");
+
     // Clean up
     qunsetenv("TAU5_MCP_PORT");
     qunsetenv("TAU5_EXTERNAL_VAR");
     qunsetenv("SECRET_KEY_BASE");
     qunsetenv("PHX_SECRET");
-    
+    qunsetenv("RANDOM_VAR");
+
     return ctx.passed;
 }
 

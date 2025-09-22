@@ -18,17 +18,35 @@
 #include <QCryptographicHash>
 #include "tau5logger.h"
 #include "error_codes.h"
+#include "cli_args.h"
+#include "common.h"
 
 using namespace Tau5Common;
 
-Beam::Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp, bool enableRepl, DeploymentMode deploymentMode)
+Beam::Beam(QObject *parent, const Tau5CLI::ServerConfig& config, const QString &basePath, const QString &appName, const QString &version, quint16 port)
     : QObject(parent), appBasePath(basePath), process(new QProcess(this)),
-      beamPid(0), heartbeatPort(0), serverReady(false), otpTreeReady(false), devMode(devMode),
+      beamPid(0), heartbeatPort(0), serverReady(false), otpTreeReady(false),
       appName(appName), appVersion(version), isRestarting(false),
-      enableMcp(enableMcp), enableRepl(enableRepl), deploymentMode(deploymentMode)
+      m_config(&config)
 {
   if (!Tau5Logger::isInitialized()) {
     qFatal("Beam: Tau5Logger must be initialized before creating Beam instances");
+  }
+
+  // Extract values from config
+  const Tau5CLI::CommonArgs& args = config.getArgs();
+  devMode = (args.env == Tau5CLI::CommonArgs::Env::Dev);
+  enableMcp = args.mcp;
+  enableRepl = args.repl;
+
+  // Determine deployment mode from config
+  std::string mode = config.getResolvedMode();
+  if (mode == "node") {
+    deploymentMode = DeploymentMode::Node;
+  } else if (mode == "central") {
+    deploymentMode = DeploymentMode::Central;
+  } else {
+    deploymentMode = DeploymentMode::Gui;
   }
 
   sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -255,96 +273,53 @@ void Beam::handleStandardError()
   emit standardError(errorStr);
 }
 
-QProcessEnvironment Beam::createControlledEnvironment()
+QProcessEnvironment Beam::createControlledEnvironment(const Tau5CLI::ServerConfig& config)
 {
     QProcessEnvironment env;
-    // PATH - dev builds inherit from parent, release builds get nothing
-#ifndef TAU5_RELEASE_BUILD
- // Dev builds need access to PATH for dev tools (git, etc.)
 
-  QProcessEnvironment sysEnv = QProcessEnvironment::systemEnvironment();
-  QString systemPath = sysEnv.value("PATH");
-  if (!systemPath.isEmpty()) {
-    env.insert("PATH", systemPath);
-  }
-#endif
+    // Get the args from the passed configuration
+    const Tau5CLI::CommonArgs& args = config.getArgs();
 
-  // Home directory for BEAM config files
-  env.insert("HOME", QDir::homePath());
+    // System essentials - these are always needed
+    env.insert("HOME", QDir::homePath());
+    env.insert("LANG", "en_US.UTF-8");
+    env.insert("LC_ALL", "en_US.UTF-8");
+    env.insert("LC_CTYPE", "en_US.UTF-8");
+    env.insert("TERM", "xterm-256color");
+
+    // Temp directories
+    env.insert("TMPDIR", QDir::tempPath());
+    env.insert("TMP", QDir::tempPath());
+    env.insert("TEMP", QDir::tempPath());
 
 #ifdef Q_OS_UNIX
-  // Get username from home directory path instead of environment
-  QString homePath = QDir::homePath();
-  QString userName = homePath.section('/', -1);
-  env.insert("USER", userName);
+    // Get username from home directory path instead of environment
+    QString homePath = QDir::homePath();
+    QString userName = homePath.section('/', -1);
+    env.insert("USER", userName);
+
+    // DISPLAY is a legitimate pass-through for GUI applications
+    if (qEnvironmentVariableIsSet("DISPLAY")) {
+        env.insert("DISPLAY", qgetenv("DISPLAY"));
+    }
 #endif
 
-  // Locale
-  env.insert("LANG", "en_US.UTF-8");
-  env.insert("LC_ALL", "en_US.UTF-8");
-  env.insert("LC_CTYPE", "en_US.UTF-8");
+    // PATH - dev builds need it for dev tools (git, etc.)
+#ifndef TAU5_RELEASE_BUILD
+    QProcessEnvironment sysEnv = QProcessEnvironment::systemEnvironment();
+    QString systemPath = sysEnv.value("PATH");
+    if (!systemPath.isEmpty()) {
+        env.insert("PATH", systemPath);
+    }
+#endif
 
-  env.insert("TERM", "xterm-256color");
+    // Apply all Tau5-specific variables from the config's environment map
+    std::map<std::string, std::string> envVars = config.generateEnvironmentVars();
+    for (const auto& [key, value] : envVars) {
+        env.insert(QString::fromStdString(key), QString::fromStdString(value));
+    }
 
-  // Temp directories
-  env.insert("TMPDIR", QDir::tempPath());
-  env.insert("TMP", QDir::tempPath());
-  env.insert("TEMP", QDir::tempPath());
-
-  // Tau5-specific variables from CLI arguments only
-  if (!qgetenv("MIX_ENV").isEmpty()) {
-    env.insert("MIX_ENV", qgetenv("MIX_ENV"));
-  }
-  if (!qgetenv("TAU5_MODE").isEmpty()) {
-    env.insert("TAU5_MODE", qgetenv("TAU5_MODE"));
-  }
-
-  // MCP configuration
-  if (qgetenv("TAU5_MCP_ENABLED") == "true") {
-    env.insert("TAU5_MCP_PORT", qgetenv("TAU5_MCP_PORT"));
-    env.insert("TAU5_MCP_ENABLED", qgetenv("TAU5_MCP_ENABLED"));
-  }
-  if (qgetenv("TAU5_TIDEWAVE_ENABLED") == "true") {
-    env.insert("TAU5_TIDEWAVE_ENABLED", "true");
-  }
-
-  if (qgetenv("TAU5_ELIXIR_REPL_ENABLED") == "true") {
-    env.insert("TAU5_ELIXIR_REPL_ENABLED", "true");
-  }
-
-  // NIF configuration
-  if (qgetenv("TAU5_MIDI_ENABLED") == "false") {
-    env.insert("TAU5_MIDI_ENABLED", "false");
-  }
-  if (qgetenv("TAU5_LINK_ENABLED") == "false") {
-    env.insert("TAU5_LINK_ENABLED", "false");
-  }
-  if (qgetenv("TAU5_DISCOVERY_ENABLED") == "false") {
-    env.insert("TAU5_DISCOVERY_ENABLED", "false");
-  }
-
-  if (qgetenv("TAU5_VERBOSE") == "true") {
-    env.insert("TAU5_VERBOSE", "true");
-  }
-
-  // Public endpoint configuration
-  if (!qgetenv("TAU5_PUBLIC_PORT").isEmpty()) {
-    env.insert("TAU5_PUBLIC_PORT", qgetenv("TAU5_PUBLIC_PORT"));
-  }
-  
-  // Friend authentication configuration
-  if (!qgetenv("TAU5_FRIEND_TOKEN").isEmpty()) {
-    env.insert("TAU5_FRIEND_TOKEN", qgetenv("TAU5_FRIEND_TOKEN"));
-  }
-  if (!qgetenv("TAU5_FRIEND_MODE").isEmpty()) {
-    env.insert("TAU5_FRIEND_MODE", qgetenv("TAU5_FRIEND_MODE"));
-  }
-  if (!qgetenv("TAU5_FRIEND_REQUIRE_TOKEN").isEmpty()) {
-    env.insert("TAU5_FRIEND_REQUIRE_TOKEN", qgetenv("TAU5_FRIEND_REQUIRE_TOKEN"));
-  }
-
-
-  return env;
+    return env;
 }
 
 void Beam::startElixirServerDev()
@@ -352,7 +327,7 @@ void Beam::startElixirServerDev()
   Tau5Logger::instance().info( "Starting Elixir server in Development mode");
 
   // Use controlled environment instead of system environment
-  QProcessEnvironment env = createControlledEnvironment();
+  QProcessEnvironment env = createControlledEnvironment(*m_config);
 
 
   env.insert("TAU5_USE_STDIN_CONFIG", "true");
@@ -362,11 +337,7 @@ void Beam::startElixirServerDev()
     env.insert("TAU5_LOCAL_PORT", QString::number(appPort));
   }
 
-  // Pass through heartbeat port if set via CLI
-  QString heartbeatPort = qgetenv("TAU5_HEARTBEAT_PORT");
-  if (!heartbeatPort.isEmpty()) {
-    env.insert("TAU5_HEARTBEAT_PORT", heartbeatPort);
-  }
+  // Heartbeat port is now handled in createControlledEnvironment()
 
   env.insert("PHX_HOST", "127.0.0.1");
   if (env.value("MIX_ENV").isEmpty()) {
@@ -414,7 +385,7 @@ void Beam::startElixirServerProd()
   Tau5Logger::instance().info( "Starting Elixir server in Production mode");
 
   // Use controlled environment instead of system environment
-  QProcessEnvironment env = createControlledEnvironment();
+  QProcessEnvironment env = createControlledEnvironment(*m_config);
 
   QString modeString;
   switch(deploymentMode) {
@@ -440,11 +411,7 @@ void Beam::startElixirServerProd()
     env.insert("TAU5_LOCAL_PORT", QString::number(appPort));
   }
 
-  // Pass through heartbeat port if set via CLI
-  QString heartbeatPort = qgetenv("TAU5_HEARTBEAT_PORT");
-  if (!heartbeatPort.isEmpty()) {
-    env.insert("TAU5_HEARTBEAT_PORT", heartbeatPort);
-  }
+  // Heartbeat port is now handled in createControlledEnvironment()
 
   env.insert("PHX_HOST", "127.0.0.1");
   if (env.value("MIX_ENV").isEmpty()) {

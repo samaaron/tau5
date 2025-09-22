@@ -207,10 +207,7 @@ int main(int argc, char *argv[])
   // Enforce release settings before anything else
   Tau5CLI::enforceReleaseSettings();
 
-#ifdef TAU5_RELEASE_BUILD
-  // Set the mode for tau5 GUI
-  qputenv("TAU5_MODE", "gui");
-#endif
+// TAU5_MODE is now set via ServerConfig, not environment variables
 
   // Parse command line arguments
   Tau5CLI::CommonArgs args;
@@ -233,12 +230,6 @@ int main(int argc, char *argv[])
         std::cout << Tau5CLI::generateVersionString(Tau5Common::BinaryType::Gui) << "\n";
         return 0;
       }
-      if (args.dryRun) {
-        // Apply environment variables first so dry-run shows complete config
-        Tau5CLI::applyEnvironmentVariables(args, "gui");
-        Tau5CLI::printDryRunConfig(args, "tau5-gui");
-        return 0;
-      }
       continue;
     }
 
@@ -254,6 +245,15 @@ int main(int argc, char *argv[])
   if (!Tau5CLI::validateArguments(args)) {
     std::cerr << "Error: " << args.errorMessage << "\n";
     return 1;
+  }
+
+  // Handle dry-run after all arguments are parsed
+  if (args.dryRun) {
+    Tau5CLI::ServerConfig config(args, "tau5-gui");
+    quint16 chromeCdpPort = config.getChromePort();
+    Tau5Common::ChromeCDP::configure(args.chromeDevtools, chromeCdpPort);
+    Tau5CLI::printDryRunConfig(config);
+    return 0;
   }
 
   // Separate GUI mode from server mode
@@ -298,13 +298,9 @@ int main(int argc, char *argv[])
   // Always setup console output to support --verbose in both dev and release builds
   setupConsoleOutput();
 
-  // Apply environment variables based on parsed arguments
-  // tau5 binary always sets TAU5_MODE=gui
-  Tau5CLI::applyEnvironmentVariables(args, "gui");
+  Tau5CLI::ServerConfig serverConfig(args, "tau5-gui");
 
-  // Configure Chrome CDP settings (GUI-internal, not passed to server)
-  quint16 chromeCdpPort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
-  Tau5Common::ChromeCDP::configure(args.chromeDevtools, chromeCdpPort);
+  Tau5Common::ChromeCDP::configure(args.chromeDevtools, serverConfig.getChromePort());
 
   Tau5LoggerConfig logConfig;
   logConfig.appName = "gui";
@@ -348,6 +344,7 @@ int main(int argc, char *argv[])
     checkConfig.strictMode = false;  // Could add --check-strict flag later
     checkConfig.runTests = args.verbose;  // Run tests in verbose mode
     checkConfig.testPort = 0;  // Auto-allocate
+    checkConfig.serverConfig = &serverConfig;  // Pass server configuration
 
     return Tau5HealthCheck::runHealthCheck(checkConfig);
   }
@@ -393,9 +390,8 @@ int main(int argc, char *argv[])
   QStringList portsInUse;
 
   // Check MCP port if enabled
-  QString mcpPortStr = qgetenv("TAU5_MCP_PORT");
-  if (!mcpPortStr.isEmpty() && mcpPortStr != "0") {
-    quint16 mcpPort = mcpPortStr.toUInt();
+  if (args.mcp) {
+    quint16 mcpPort = args.portMcp > 0 ? args.portMcp : (5550 + args.channel);
     if (!Tau5Common::isPortAvailable(mcpPort)) {
       portsInUse.append(QString("MCP port %1").arg(mcpPort));
     }
@@ -496,9 +492,7 @@ int main(int argc, char *argv[])
 #endif
 
   // Map CLI arguments to mainwindow constructor parameters
-  bool enableMcp = args.mcp;
-  bool enableRepl = args.repl;
-  MainWindow mainWindow(isGuiDevMode, args.debugPane, enableMcp, enableRepl, args.allowRemoteAccess, args.channel);
+  MainWindow mainWindow(serverConfig);
 
   if (args.debugPane) {
     QObject::connect(&Tau5Logger::instance(), &Tau5Logger::logMessage,
@@ -563,13 +557,21 @@ int main(int argc, char *argv[])
   // Get log path
   serverInfo.logPath = Tau5Logger::instance().currentSessionPath();
 
-  // MCP configuration
+  serverInfo.channel = args.channel;
+
   if (args.mcp) {
     serverInfo.hasMcpEndpoint = true;
-    serverInfo.mcpPort = args.portMcp > 0 ? args.portMcp : 5555;
+    serverInfo.mcpPort = serverConfig.getMcpPort();
     serverInfo.hasTidewave = args.tidewave;
   }
+
+  if (args.chromeDevtools) {
+    serverInfo.hasChromeDevtools = true;
+    serverInfo.chromePort = serverConfig.getChromePort();
+  }
+
   serverInfo.hasRepl = args.repl;
+  serverInfo.hasDebugPane = args.debugPane;
 
   if (args.verbose) {
     Tau5Logger::instance().info("Delaying BEAM server startup by 1 second...");
@@ -580,14 +582,12 @@ int main(int argc, char *argv[])
     cmdLineArgs << QString::fromUtf8(argv[i]);
   }
 
-  QTimer::singleShot(Tau5Common::Config::BEAM_STARTUP_DELAY_MS, [&app, &beam, &mainWindow, basePath, port, isServerDevMode, &args, &serverInfo, cmdLineArgs]() {
+  QTimer::singleShot(Tau5Common::Config::BEAM_STARTUP_DELAY_MS, [&app, &beam, &mainWindow, basePath, port, &serverConfig, &args, &serverInfo, cmdLineArgs]() {
     if (args.verbose) {
       Tau5Logger::instance().info("Starting BEAM server...");
     }
-    bool beamEnableMcp = args.mcp;
-    bool beamEnableRepl = args.repl;
-    beam = std::make_shared<Beam>(&app, basePath, Tau5Common::Config::APP_NAME,
-                                  Tau5Common::Config::APP_VERSION, port, isServerDevMode, beamEnableMcp, beamEnableRepl, Beam::DeploymentMode::Gui);
+    beam = std::make_shared<Beam>(&app, serverConfig, basePath, Tau5Common::Config::APP_NAME,
+                                  Tau5Common::Config::APP_VERSION, port);
 
     mainWindow.setBeamInstance(beam.get());
 
@@ -596,7 +596,7 @@ int main(int argc, char *argv[])
       Tau5Logger::instance().debug("Debug messages are enabled");
     }
 
-    QObject::connect(beam.get(), &Beam::otpReady, [&mainWindow, &args, &serverInfo, &beam, cmdLineArgs]() {
+    QObject::connect(beam.get(), &Beam::otpReady, [&mainWindow, &args, &serverConfig, &serverInfo, &beam, cmdLineArgs]() {
       // Get the actual allocated port from BEAM
       quint16 actualPort = beam->getPort();
 
@@ -626,7 +626,7 @@ int main(int argc, char *argv[])
         cmdLineInfo += "\n";
 
         // Add the configuration output to the boot log
-        std::string configOutput = Tau5CLI::generateDryRunConfig(args, "tau5-gui");
+        std::string configOutput = Tau5CLI::generateDryRunConfig(serverConfig);
         QString configQString = QString::fromStdString(configOutput);
 
         QString infoString = generateServerInfoString(serverInfo, true);

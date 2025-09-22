@@ -25,6 +25,10 @@ class PhxWebView;
 class SandboxedWebView;
 class QShortcut;
 
+namespace Tau5CLI {
+    class ServerConfig;
+}
+
 class DebugPane : public QWidget
 {
   Q_OBJECT
@@ -38,7 +42,7 @@ public:
     SideBySide
   };
 
-  explicit DebugPane(QWidget *parent = nullptr, bool devMode = false, bool enableMcp = false, bool enableRepl = false);
+  explicit DebugPane(QWidget *parent, const Tau5CLI::ServerConfig& config);
   ~DebugPane();
 
   void appendBootLog(const QString &text, bool isError = false);
@@ -178,6 +182,7 @@ private:
   bool m_devMode;
   bool m_mcpEnabled;
   bool m_replEnabled;
+  const Tau5CLI::ServerConfig* m_config;
 
 public:
   static constexpr int RESIZE_HANDLE_HEIGHT = 10;

@@ -8,6 +8,7 @@
 #include <sstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <QtCore/QtGlobal>
 #include <QtCore/QCoreApplication>
 
@@ -82,6 +83,116 @@ struct CommonArgs {
     std::string errorMessage;
 };
 
+// Immutable server configuration generated from CommonArgs
+class ServerConfig {
+public:
+    // Constructor that resolves all defaults and creates immutable config
+    explicit ServerConfig(const CommonArgs& args, const std::string& binaryType = "gui")
+        : m_args(args), m_binaryType(binaryType) {
+
+        // Resolve environment default
+        if (m_args.env == CommonArgs::Env::Default) {
+#ifdef TAU5_RELEASE_BUILD
+            m_args.env = CommonArgs::Env::Prod;
+#else
+            m_args.env = CommonArgs::Env::Dev;
+#endif
+        }
+
+        // Resolve mode default based on binary type
+        if (m_args.mode == CommonArgs::Mode::Default) {
+            if (binaryType == "node" || binaryType == "tau5-node") {
+                // tau5-node defaults to node mode
+                m_resolvedMode = "node";
+            } else {
+                // tau5/gui defaults to gui mode
+                m_resolvedMode = "gui";
+            }
+        } else {
+            m_resolvedMode = (m_args.mode == CommonArgs::Mode::Node) ? "node" : "central";
+        }
+
+        // Calculate derived values
+        m_mcpPort = m_args.portMcp > 0 ? m_args.portMcp : (5550 + m_args.channel);
+        m_chromePort = m_args.portChrome > 0 ? m_args.portChrome : (9220 + m_args.channel);
+    }
+
+    // Getters for configuration values
+    const CommonArgs& getArgs() const { return m_args; }
+    std::string getBinaryType() const { return m_binaryType; }
+    std::string getResolvedMode() const { return m_resolvedMode; }
+    quint16 getMcpPort() const { return m_mcpPort; }
+    quint16 getChromePort() const { return m_chromePort; }
+
+    // Get environment string for MIX_ENV
+    std::string getMixEnv() const {
+        switch (m_args.env) {
+            case CommonArgs::Env::Dev: return "dev";
+            case CommonArgs::Env::Prod: return "prod";
+            case CommonArgs::Env::Test: return "test";
+            default: return "dev";
+        }
+    }
+
+    // Generate environment variables as a map
+    std::map<std::string, std::string> generateEnvironmentVars() const {
+        std::map<std::string, std::string> env;
+
+        // MIX_ENV
+        env["MIX_ENV"] = getMixEnv();
+
+        // TAU5_MODE
+        env["TAU5_MODE"] = m_resolvedMode;
+
+        // Ports
+        if (m_args.portPublic > 0) {
+            env["TAU5_PUBLIC_PORT"] = std::to_string(m_args.portPublic);
+            env["TAU5_PUBLIC_ENDPOINT_ENABLED"] = "true";
+        }
+        if (m_args.portHeartbeat > 0) {
+            env["TAU5_HEARTBEAT_PORT"] = std::to_string(m_args.portHeartbeat);
+        }
+
+        // MCP
+        env["TAU5_MCP_ENABLED"] = m_args.mcp ? "true" : "false";
+        env["TAU5_MCP_PORT"] = std::to_string(m_mcpPort);
+
+        // Development features (only in dev builds)
+#ifndef TAU5_RELEASE_BUILD
+        if (m_args.tidewave) {
+            env["TAU5_TIDEWAVE_ENABLED"] = "true";
+        }
+        if (m_args.repl) {
+            env["TAU5_ELIXIR_REPL_ENABLED"] = "true";
+        }
+#endif
+
+        // NIF configuration
+        if (m_args.noMidi) env["TAU5_MIDI_ENABLED"] = "false";
+        if (m_args.noLink) env["TAU5_LINK_ENABLED"] = "false";
+        if (m_args.noDiscovery) env["TAU5_DISCOVERY_ENABLED"] = "false";
+
+        // Other settings
+        if (m_args.verbose) env["TAU5_VERBOSE"] = "true";
+        if (m_args.noLocalEndpoint) env["TAU5_NO_LOCAL_ENDPOINT"] = "true";
+
+        // Friend authentication
+        if (!m_args.friendToken.empty()) {
+            env["TAU5_FRIEND_MODE"] = "true";
+            env["TAU5_FRIEND_TOKEN"] = m_args.friendToken;
+            env["TAU5_FRIEND_REQUIRE_TOKEN"] = "true";
+        }
+
+        return env;
+    }
+
+private:
+    CommonArgs m_args;  // Copy of args with defaults resolved
+    std::string m_binaryType;
+    std::string m_resolvedMode;
+    quint16 m_mcpPort;
+    quint16 m_chromePort;
+};
 
 // Helper function to generate a secure random token
 inline std::string generateSecureToken(size_t length = 32) {
@@ -550,7 +661,9 @@ inline void enforceReleaseSettings() {
 }
 
 // Function to generate dry-run configuration string
-inline std::string generateDryRunConfig(const CommonArgs& args, const char* binaryType) {
+inline std::string generateDryRunConfig(const ServerConfig& config) {
+    const CommonArgs& args = config.getArgs();
+    std::string binaryType = config.getBinaryType();
     std::ostringstream oss;
     oss << "\n========================================\n";
     oss << "Tau5 Configuration (--dry-run)\n";
@@ -597,7 +710,7 @@ inline std::string generateDryRunConfig(const CommonArgs& args, const char* bina
     oss << "  MIDI: " << (args.noMidi ? "Disabled" : "Enabled") << "\n";
     oss << "  Ableton Link: " << (args.noLink ? "Disabled" : "Enabled") << "\n";
     oss << "  Network Discovery: " << (args.noDiscovery ? "Disabled" : "Enabled") << "\n";
-    if (std::strcmp(binaryType, "tau5-node") == 0) {
+    if (binaryType == "tau5-node" || binaryType == "node") {
         oss << "  Local Endpoint: " << (args.noLocalEndpoint ? "Disabled" : "Enabled") << "\n";
     }
     oss << "\n";
@@ -608,37 +721,87 @@ inline std::string generateDryRunConfig(const CommonArgs& args, const char* bina
     oss << "  Public Port: " << (args.portPublic > 0 ? std::to_string(args.portPublic) : "disabled") << "\n";
     oss << "  Heartbeat Port: " << (args.portHeartbeat > 0 ? std::to_string(args.portHeartbeat) : "random") << "\n";
 
-    if (std::strcmp(binaryType, "tau5-node") == 0 && args.mode != CommonArgs::Mode::Default) {
+    if ((binaryType == "tau5-node" || binaryType == "node") && args.mode != CommonArgs::Mode::Default) {
         oss << "\nDeployment Mode:\n";
         oss << "  Mode: " << (args.mode == CommonArgs::Mode::Node ? "Node" : "Central") << "\n";
     }
 
-    oss << "\nEnvironment Variables Set:\n";
-    const char* mixEnv = std::getenv("MIX_ENV");
-    if (mixEnv) oss << "  MIX_ENV: " << mixEnv << "\n";
+    oss << "\nServer Configuration (from parsed args):\n";
 
-    const char* tau5Mode = std::getenv("TAU5_MODE");
-    if (tau5Mode) oss << "  TAU5_MODE: " << tau5Mode << "\n";
+    // MIX_ENV
+    oss << "  MIX_ENV: ";
+    switch (args.env) {
+        case CommonArgs::Env::Dev:
+            oss << "dev";
+            break;
+        case CommonArgs::Env::Prod:
+            oss << "prod";
+            break;
+        case CommonArgs::Env::Test:
+            oss << "test";
+            break;
+        case CommonArgs::Env::Default:
+#ifdef TAU5_RELEASE_BUILD
+            oss << "prod (default)";
+#else
+            oss << "dev (default)";
+#endif
+            break;
+    }
+    oss << "\n";
 
-    const char* mcpEnabled = std::getenv("TAU5_MCP_ENABLED");
-    if (mcpEnabled) oss << "  TAU5_MCP_ENABLED: " << mcpEnabled << "\n";
+    // TAU5_MODE
+    oss << "  TAU5_MODE: ";
+    if (args.mode == CommonArgs::Mode::Node) {
+        oss << "node";
+    } else if (args.mode == CommonArgs::Mode::Central) {
+        oss << "central";
+    } else {
+        // Default based on binary type
+        if (binaryType == "tau5-node" || binaryType == "node") {
+            oss << "node (default)";
+        } else {
+            oss << "gui (default)";
+        }
+    }
+    oss << "\n";
 
-    const char* mcpPort = std::getenv("TAU5_MCP_PORT");
-    if (mcpPort) oss << "  TAU5_MCP_PORT: " << mcpPort << "\n";
+    // MCP configuration
+    oss << "  TAU5_MCP_ENABLED: " << (args.mcp ? "true" : "false") << "\n";
+    if (args.mcp || args.portMcp > 0) {
+        quint16 mcpPort = args.portMcp > 0 ? args.portMcp : (5550 + args.channel);
+        oss << "  TAU5_MCP_PORT: " << mcpPort << "\n";
+    }
+
+    // Chrome CDP configuration (GUI only)
+    if ((binaryType == "tau5-gui" || binaryType == "gui") && args.chromeDevtools) {
+        quint16 chromePort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+        oss << "  Chrome DevTools Port: " << chromePort << " (GUI-internal)\n";
+    }
 
 #ifndef TAU5_RELEASE_BUILD
-    const char* devToolsEnabled = std::getenv("TAU5_DEVTOOLS_ENABLED");
-    if (devToolsEnabled) oss << "  TAU5_DEVTOOLS_ENABLED: " << devToolsEnabled << "\n";
-
-    const char* devToolsPort = std::getenv("TAU5_DEVTOOLS_PORT");
-    if (devToolsPort) oss << "  TAU5_DEVTOOLS_PORT: " << devToolsPort << "\n";
-
-    const char* tidewaveEnabled = std::getenv("TAU5_TIDEWAVE_ENABLED");
-    if (tidewaveEnabled) oss << "  TAU5_TIDEWAVE_ENABLED: " << tidewaveEnabled << "\n";
-
-    const char* replEnabled = std::getenv("TAU5_ELIXIR_REPL_ENABLED");
-    if (replEnabled) oss << "  TAU5_ELIXIR_REPL_ENABLED: " << replEnabled << "\n";
+    // Development features
+    if (args.tidewave) {
+        oss << "  TAU5_TIDEWAVE_ENABLED: true\n";
+    }
+    if (args.repl) {
+        oss << "  TAU5_ELIXIR_REPL_ENABLED: true\n";
+    }
 #endif
+
+    // NIF configuration
+    if (args.noMidi) oss << "  TAU5_MIDI_ENABLED: false\n";
+    if (args.noLink) oss << "  TAU5_LINK_ENABLED: false\n";
+    if (args.noDiscovery) oss << "  TAU5_DISCOVERY_ENABLED: false\n";
+
+    // Other settings
+    if (args.verbose) oss << "  TAU5_VERBOSE: true\n";
+    if (args.portPublic > 0) oss << "  TAU5_PUBLIC_PORT: " << args.portPublic << "\n";
+    if (!args.friendToken.empty()) {
+        oss << "  TAU5_FRIEND_MODE: true\n";
+        oss << "  TAU5_FRIEND_TOKEN: [set]\n";
+        oss << "  TAU5_FRIEND_REQUIRE_TOKEN: true\n";
+    }
 
     oss << "\n========================================\n\n";
 
@@ -646,8 +809,8 @@ inline std::string generateDryRunConfig(const CommonArgs& args, const char* bina
 }
 
 // Function to print dry-run configuration to stdout
-inline void printDryRunConfig(const CommonArgs& args, const char* binaryType) {
-    std::cout << generateDryRunConfig(args, binaryType);
+inline void printDryRunConfig(const ServerConfig& config) {
+    std::cout << generateDryRunConfig(config);
 }
 
 } // namespace Tau5CLI

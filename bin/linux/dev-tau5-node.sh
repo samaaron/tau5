@@ -15,7 +15,10 @@ if [ ! -f "${BINARY_PATH}" ]; then
     exit 1
 fi
 
-# Default to full development mode with all tools enabled
-# Use --dev-server-path flag for development
-# The binary should be in bin/ on Linux
-"${BINARY_PATH}" --dev-server-path "${SERVER_DIR}" --devtools "$@"
+# Pass through all command-line arguments and respect environment variables
+# If no arguments provided, default to --devtools for backward compatibility
+if [ $# -eq 0 ]; then
+    "${BINARY_PATH}" --dev-server-path "${SERVER_DIR}" --devtools
+else
+    "${BINARY_PATH}" --dev-server-path "${SERVER_DIR}" "$@"
+fi

@@ -43,10 +43,7 @@ int main(int argc, char *argv[]) {
     // Enforce release settings before anything else
     Tau5CLI::enforceReleaseSettings();
 
-#ifdef TAU5_RELEASE_BUILD
-    // Set the mode for tau5-node
-    qputenv("TAU5_MODE", "node");
-#endif
+// TAU5_MODE is now set via ServerConfig, not environment variables
 
     // Parse command line arguments
     Tau5CLI::CommonArgs args;
@@ -66,12 +63,6 @@ int main(int argc, char *argv[]) {
             }
             if (args.showVersion) {
                 std::cout << Tau5CLI::generateVersionString(Tau5Common::BinaryType::Node) << "\n";
-                return 0;
-            }
-            if (args.dryRun) {
-                // Apply environment variables first so dry-run shows complete config
-                Tau5CLI::applyEnvironmentVariables(args, "node");
-                Tau5CLI::printDryRunConfig(args, "tau5-node");
                 return 0;
             }
         } else {
@@ -118,6 +109,13 @@ int main(int argc, char *argv[]) {
     args.env = Tau5CLI::CommonArgs::Env::Prod;
 #endif
 
+    // Handle dry-run after all arguments are parsed
+    if (args.dryRun) {
+        Tau5CLI::ServerConfig config(args, "tau5-node");
+        Tau5CLI::printDryRunConfig(config);
+        return 0;
+    }
+
     // Validate no-local-endpoint restrictions
     if (args.noLocalEndpoint && args.portLocal > 0) {
         std::cerr << "Error: --no-local-endpoint conflicts with --port-local\n";
@@ -155,16 +153,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Set environment variables for public endpoint configuration
-    if (args.portPublic > 0) {
-        qputenv("TAU5_PUBLIC_PORT", QByteArray::number(args.portPublic));
-    }
-    if (!args.friendToken.empty()) {
-        qputenv("TAU5_FRIEND_TOKEN", QByteArray::fromStdString(args.friendToken));
-        // Friend mode requires a token to be set
-        qputenv("TAU5_FRIEND_MODE", "true");
-        qputenv("TAU5_FRIEND_REQUIRE_TOKEN", "true");
-    }
+    Tau5CLI::ServerConfig serverConfig(args, "tau5-node");
 
     // Handle --check flag for health check
     if (args.check) {
@@ -203,17 +192,12 @@ int main(int argc, char *argv[]) {
         checkConfig.strictMode = false;
         checkConfig.runTests = args.verbose;  // Run tests in verbose mode
         checkConfig.testPort = 0;
+        checkConfig.serverConfig = &serverConfig;  // Pass server configuration
 
         return Tau5HealthCheck::runHealthCheck(checkConfig);
     }
 
-    // Apply service disable settings before starting
-    // Default target for tau5-node is "node" unless overridden
-    const char* targetName = "node";
-    if (args.mode == Tau5CLI::CommonArgs::Mode::Central) {
-        targetName = "central";
-    }
-    Tau5CLI::applyEnvironmentVariables(args, targetName);
+    // Server configuration is already set via ServerConfig::configure() above
 
     QCoreApplication app(argc, argv);
     app.setApplicationName(Config::APP_NAME);
@@ -292,9 +276,8 @@ int main(int argc, char *argv[]) {
     }
 
     // Check if MCP port is available before starting (tau5-node doesn't use Chrome DevTools)
-    QString mcpPortStr = qgetenv("TAU5_MCP_PORT");
-    if (!mcpPortStr.isEmpty() && mcpPortStr != "0") {
-        quint16 mcpPort = mcpPortStr.toUInt();
+    if (args.mcp) {
+        quint16 mcpPort = args.portMcp > 0 ? args.portMcp : (5550 + args.channel);
         if (!Tau5Common::isPortAvailable(mcpPort)) {
             QString errorMsg = QString("MCP port %1 is already in use").arg(mcpPort);
             if (args.verbose) {
@@ -456,13 +439,16 @@ int main(int argc, char *argv[]) {
     // Get log path from logger
     serverInfo.logPath = Tau5Logger::instance().currentSessionPath();
     
-    // MCP configuration
+    serverInfo.channel = args.channel;
+
     if (args.mcp) {
         serverInfo.hasMcpEndpoint = true;
-        serverInfo.mcpPort = args.portMcp > 0 ? args.portMcp : 5555;
+        serverInfo.mcpPort = serverConfig.getMcpPort();
         serverInfo.hasTidewave = args.tidewave;
     }
+
     serverInfo.hasRepl = args.repl;
+    serverInfo.hasDebugPane = args.debugPane;
     
     // Simple progress dots timer
     QTimer* dotsTimer = nullptr;
@@ -476,18 +462,14 @@ int main(int argc, char *argv[]) {
     }
 
     // Defer BEAM creation until event loop is running using Qt's event queue
-    QMetaObject::invokeMethod(&app, [&app, &beam, basePath, port, &args, &serverInfo, isDevMode, isCentralMode, dotsTimer]() {
+    QMetaObject::invokeMethod(&app, [&app, &beam, basePath, port, &args, &serverConfig, &serverInfo, dotsTimer]() {
         if (args.verbose) {
             Tau5Logger::instance().info("Starting BEAM server...");
         }
 
-        // Create Beam instance with deploymentMode based on --central flag
-        bool enableMcp = args.mcp;
-        bool enableRepl = args.repl;
-        Beam::DeploymentMode mode = isCentralMode ? Beam::DeploymentMode::Central : Beam::DeploymentMode::Node;
-        beam = std::make_shared<Beam>(&app, basePath, Config::APP_NAME,
-                                     Config::APP_VERSION, port, isDevMode,
-                                     enableMcp, enableRepl, mode);
+        // Create Beam instance with server configuration
+        beam = std::make_shared<Beam>(&app, serverConfig, basePath, Config::APP_NAME,
+                                     Config::APP_VERSION, port);
 
         // Get session token from beam
         serverInfo.sessionToken = beam->getSessionToken();

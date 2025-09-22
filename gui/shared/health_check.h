@@ -5,6 +5,10 @@
 #include <QList>
 #include <QCoreApplication>
 
+namespace Tau5CLI {
+    class ServerConfig;
+}
+
 namespace Tau5HealthCheck {
 
     enum class CheckStatus {
@@ -29,6 +33,7 @@ namespace Tau5HealthCheck {
         bool strictMode;       // Fail on warnings for CI
         bool runTests;         // Run unit tests
         quint16 testPort;      // Port to test allocation (0 = auto)
+        const Tau5CLI::ServerConfig* serverConfig;  // Optional server configuration
     };
 
     struct HealthCheckSummary {
@@ -50,7 +55,7 @@ namespace Tau5HealthCheck {
     QList<CheckResult> checkNetworking(const HealthCheckConfig& config);
     QList<CheckResult> checkFileSystem(const HealthCheckConfig& config);
     QList<CheckResult> checkBEAMRuntime(const HealthCheckConfig& config);
-    QList<CheckResult> checkNIFs(const HealthCheckConfig& config);
+    QList<CheckResult> checkNIFs(const HealthCheckConfig& config, const Tau5CLI::ServerConfig* serverConfig = nullptr);
     
     // GUI-specific checks
     QList<CheckResult> checkGuiComponents(const HealthCheckConfig& config);

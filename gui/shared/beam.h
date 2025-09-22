@@ -7,6 +7,10 @@
 #include <QTimer>
 #include <QUdpSocket>
 
+namespace Tau5CLI {
+    class ServerConfig;
+}
+
 class Beam : public QObject
 {
   Q_OBJECT
@@ -18,7 +22,7 @@ public:
     Central   // Running as the authoritative tau5.sonic-pi.net server
   };
 
-  explicit Beam(QObject *parent, const QString &basePath, const QString &appName, const QString &version, quint16 port, bool devMode, bool enableMcp = false, bool enableRepl = false, DeploymentMode deploymentMode = DeploymentMode::Gui);
+  explicit Beam(QObject *parent, const Tau5CLI::ServerConfig& config, const QString &basePath, const QString &appName, const QString &version, quint16 port);
   ~Beam();
   
   QString getSessionToken() const { return sessionToken; }
@@ -71,6 +75,7 @@ private:
   bool enableRepl;
   QString secretKeyBase;
   DeploymentMode deploymentMode;
+  const Tau5CLI::ServerConfig* m_config;
 
   void startProcess(const QString &cmd, const QStringList &args);
   void writeSecretsToStdin();
@@ -80,7 +85,7 @@ private:
   void continueRestart();
   void checkPortAndStartNewProcess();
   void startNewBeamProcess();
-  QProcessEnvironment createControlledEnvironment();
+  QProcessEnvironment createControlledEnvironment(const Tau5CLI::ServerConfig& config);
 };
 
 #endif // BEAM_H
