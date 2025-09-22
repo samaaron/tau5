@@ -117,12 +117,12 @@ void ControlLayer::setupControls()
   m_consoleToggleButton->setIcon(QIcon(":/images/nav-controls/chevron-up.svg"));
   m_consoleToggleButton->setIconSize(QSize(13, 13));
   m_consoleToggleButton->setToolTip("Toggle Debug Pane");
-  
+
   // Add tooltips for all buttons
   m_sizeDownButton->setToolTip("Zoom Out");
   m_sizeUpButton->setToolTip("Zoom In");
-  m_openExternalBrowserButton->setToolTip("Open in External Browser (Lambda)");
-  m_resetBrowserButton->setToolTip("Reset Browser (Tau)");
+  m_openExternalBrowserButton->setToolTip("Open in External Browser");
+  m_resetBrowserButton->setToolTip("Reset Browser");
 
   // Create a circular button style for SVG icons
   QString circularButtonStyle = QString(
