@@ -117,11 +117,18 @@ void Tau5Logger::cleanupOldSessions() {
         
         QDir oldDir(oldPath);
         if (oldDir.removeRecursively()) {
-            writeToConsole(LogLevel::Debug, m_defaultCategory, 
-                          QString("Removed old session: %1").arg(oldestSession));
+            // Don't write to console during initialization - respect console enabled setting
+            // This message will still go to log files
+            if (m_config.consoleEnabled) {
+                writeToConsole(LogLevel::Debug, m_defaultCategory,
+                              QString("Removed old session: %1").arg(oldestSession));
+            }
         } else {
-            writeToConsole(LogLevel::Warning, m_defaultCategory,
-                          QString("Failed to remove old session: %1").arg(oldestSession));
+            // Warnings are more important, show them if console is enabled
+            if (m_config.consoleEnabled) {
+                writeToConsole(LogLevel::Warning, m_defaultCategory,
+                              QString("Failed to remove old session: %1").arg(oldestSession));
+            }
         }
     }
 }

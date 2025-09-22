@@ -108,11 +108,23 @@ bool initializeApplication(QApplication &app, const Tau5CLI::CommonArgs &args)
 {
   installQtMessageHandler();
 
+  // Note: We don't suppress Qt logging rules here because we want those messages
+  // to still go to log files and debug pane. The console output is controlled
+  // by the logger's consoleEnabled setting based on --verbose flag.
+
   // Chrome DevTools are enabled when requested
   if (Tau5Common::ChromeCDP::enabled) {
     // Build the Chrome flags with the configured port
     QString chromiumFlags = QString(GuiConfig::CHROMIUM_FLAGS_DEV_BASE) +
                            " --remote-debugging-port=" + QString::number(Tau5Common::ChromeCDP::port);
+
+    // Note: Chromium GPU process warnings (WebGL, etc) are hard to suppress
+    // because they write directly to stderr from the GPU process.
+    // We keep them in log files/debug pane but try to reduce console spam.
+    if (!args.verbose) {
+      chromiumFlags += " --log-level=3"; // Only show fatal errors on console
+    }
+
     // Add platform-specific flags
 #ifdef Q_OS_WIN
     chromiumFlags += " --disable-frame-rate-limit"
@@ -135,7 +147,16 @@ bool initializeApplication(QApplication &app, const Tau5CLI::CommonArgs &args)
     qputenv("QTWEBENGINE_CHROMIUM_FLAGS", chromiumFlags.toUtf8());
     Tau5Logger::instance().info(QString("Chrome DevTools Protocol enabled on port %1").arg(Tau5Common::ChromeCDP::port));
   } else {
-    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", GuiConfig::CHROMIUM_FLAGS);
+    QString chromiumFlags = GuiConfig::CHROMIUM_FLAGS;
+
+    // Note: Chromium GPU process warnings (WebGL, etc) are hard to suppress
+    // because they write directly to stderr from the GPU process.
+    // We keep them in log files/debug pane but try to reduce console spam.
+    if (!args.verbose) {
+      chromiumFlags += " --log-level=3"; // Only show fatal errors on console
+    }
+
+    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", chromiumFlags.toUtf8());
   }
 
   // Log MCP configuration
@@ -309,8 +330,8 @@ int main(int argc, char *argv[])
       {"beam.log", "beam", false}
   };
   logConfig.emitQtSignals = args.debugPane;
-  logConfig.consoleEnabled = args.verbose || isGuiDevMode;  // Console output in verbose mode or dev builds
-  logConfig.consoleColors = args.verbose || isGuiDevMode;
+  logConfig.consoleEnabled = args.verbose;  // Console output only with explicit --verbose flag
+  logConfig.consoleColors = args.verbose;
   logConfig.reuseRecentSession = false;
   logConfig.baseLogDir = Tau5Logger::getBaseLogDir();
 

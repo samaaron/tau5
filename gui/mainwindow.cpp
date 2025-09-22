@@ -10,6 +10,7 @@
 #include <QMoveEvent>
 #include <QPropertyAnimation>
 #include <QUrlQuery>
+#include <QTextStream>
 #include "mainwindow.h"
 #include "widgets/mainphxwidget.h"
 #ifdef BUILD_WITH_DEBUG_PANE
@@ -244,7 +245,10 @@ bool MainWindow::connectToServer(quint16 port)
   
   m_beamReady = true;
   Tau5Logger::instance().info( "BEAM server ready, port: " + QString::number(port));
-  
+
+  // Print startup banner to console (always visible regardless of --verbose flag)
+  printStartupBanner(port);
+
   startTransitionToApp();
   
 #ifdef BUILD_WITH_DEBUG_PANE
@@ -712,5 +716,82 @@ void MainWindow::handleBeamRestart()
   
   beamInstance->restart();
 #endif
+}
+
+void MainWindow::printStartupBanner(quint16 port)
+{
+  // Direct output to stdout/stderr - always visible regardless of logger settings
+  QTextStream out(stdout);
+
+  // Build the startup banner
+  QString banner;
+  banner += "\n========================================================\n";
+
+  if (m_devMode) {
+    banner += "Tau5 Development Started\n";
+  } else {
+    banner += "Tau5 Started\n";
+  }
+
+  banner += "--------------------------------------------------------\n";
+
+  // Mode
+  banner += QString("  Mode:      %1\n").arg(m_devMode ? "development" : "production");
+
+  // Local URL with token
+  QString token;
+  if (beamInstance) {
+    token = beamInstance->getSessionToken();
+    banner += QString("  Local:     http://localhost:%1/?token=%2\n").arg(port).arg(token);
+  } else {
+    banner += QString("  Local:     http://localhost:%1/\n").arg(port);
+  }
+
+  // Process PIDs
+  banner += QString("  GUI PID:   %1\n").arg(QCoreApplication::applicationPid());
+  if (beamInstance) {
+    banner += QString("  BEAM PID:  %1\n").arg(beamInstance->getBeamPid());
+  }
+
+  // Log location
+  banner += QString("  Logs:      %1\n").arg(Tau5Logger::instance().currentSessionPath());
+
+  // Channel (if not default)
+  if (m_channel != 0) {
+    banner += QString("  Channel:   %1\n").arg(m_channel);
+  }
+
+  // MCP info
+  if (m_config) {
+    const Tau5CLI::CommonArgs& args = m_config->getArgs();
+    if (args.mcp) {
+      quint16 mcpPort = m_config->getMcpPort();
+      QString mcpInfo = QString("Port %1").arg(mcpPort);
+      if (args.tidewave) {
+        mcpInfo += " (with Tidewave)";
+      }
+      banner += QString("  MCP:       %1\n").arg(mcpInfo);
+    }
+
+    // Chrome DevTools info
+    if (args.chromeDevtools) {
+      quint16 chromePort = m_config->getChromePort();
+      banner += QString("  Chrome CDP: Port %1\n").arg(chromePort);
+    }
+  }
+
+  // Console URL (if in dev mode with debug pane)
+#ifdef BUILD_WITH_DEBUG_PANE
+  if (m_devMode && debugPane && beamInstance) {
+    QString consoleToken = beamInstance->getSessionToken();
+    banner += QString("  Console:   http://localhost:%1/dev/console?token=%2\n").arg(port).arg(consoleToken);
+  }
+#endif
+
+  banner += "========================================================\n";
+  banner += "Press Ctrl+C to stop\n";
+
+  // Write to stdout
+  out << banner << Qt::flush;
 }
 

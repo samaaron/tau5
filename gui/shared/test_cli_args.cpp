@@ -1815,6 +1815,105 @@ bool testChannelWithExplicitPorts(TestContext& ctx) {
     return ctx.passed;
 }
 
+bool testVerboseConsoleOutput(TestContext& ctx) {
+    // Test that --devtools with --channel does NOT enable verbose output
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--devtools");
+        sim.add("--channel");
+        sim.add("8");
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        TEST_ASSERT(ctx, args.devtools == true,
+                    "--devtools flag should be set");
+        TEST_ASSERT(ctx, args.channel == 8,
+                    "Channel should be set to 8");
+        TEST_ASSERT(ctx, args.verbose == false,
+                    "--devtools with --channel should NOT enable verbose mode");
+    }
+
+    // Test that --verbose explicitly enables verbose output
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--devtools");
+        sim.add("--channel");
+        sim.add("8");
+        sim.add("--verbose");
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        TEST_ASSERT(ctx, args.verbose == true,
+                    "Explicit --verbose flag should enable verbose mode");
+    }
+
+    // Test that --devtools alone does NOT enable verbose
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--devtools");
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        TEST_ASSERT(ctx, args.verbose == false,
+                    "--devtools alone should NOT enable verbose mode");
+    }
+
+    // Test that console should only be enabled with explicit --verbose
+    // This is a documentation test - the actual console enabling happens in main.cpp
+    // and should respect the args.verbose flag
+    {
+        ArgSimulator sim;
+        sim.add("tau5");
+        sim.add("--mcp");
+        sim.add("--channel");
+        sim.add("5");
+
+        CommonArgs args;
+        int i = 1;
+        while (i < sim.argc()) {
+            const char* nextArg = (i + 1 < sim.argc()) ? sim.argv()[i + 1] : nullptr;
+            int oldI = i;
+            parseSharedArg(sim.argv()[i], nextArg, i, args);
+            if (i == oldI) i++;
+        }
+
+        TEST_ASSERT(ctx, args.verbose == false,
+                    "Normal flags should not enable verbose mode");
+
+        // Apply environment variables and check
+        applyEnvironmentVariables(args);
+        TEST_ASSERT(ctx, qgetenv("TAU5_VERBOSE") != "true",
+                    "TAU5_VERBOSE should not be set without --verbose flag");
+        qunsetenv("TAU5_VERBOSE");
+    }
+
+    return ctx.passed;
+}
+
 int runCliArgumentTests(int& totalTests, int& passedTests) {
     Tau5Logger::instance().info("\n[CLI Argument Tests]");
 
@@ -1868,6 +1967,9 @@ int runCliArgumentTests(int& totalTests, int& passedTests) {
     RUN_TEST(testMcpDisabledByDefault);
     RUN_TEST(testChannelAloneDoesNotEnableServices);
     RUN_TEST(testChannelWithExplicitPorts);
+
+    // Console output tests
+    RUN_TEST(testVerboseConsoleOutput);
 
     // Count results
     int passed = 0;

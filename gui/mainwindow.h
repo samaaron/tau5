@@ -76,6 +76,7 @@ private:
   void initializeWebViewConnections();
   void checkAllComponentsLoaded();
   bool isElixirReplEnabled();
+  void printStartupBanner(quint16 port);
 
 private:
   std::unique_ptr<MainPhxWidget> phxWidget;
