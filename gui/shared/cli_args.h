@@ -583,11 +583,13 @@ inline void applyEnvironmentVariables(const CommonArgs& args, const char* target
     }
     
     // MCP configuration
+    // Always set the port (for configuration/display purposes)
+    // Use specified port or channel-based default (555X where X is channel)
+    quint16 mcpPort = args.portMcp > 0 ? args.portMcp : (5550 + args.channel);
+    qputenv("TAU5_MCP_PORT", std::to_string(mcpPort).c_str());
+
     if (args.mcp) {
         qputenv("TAU5_MCP_ENABLED", "true");
-        // Use specified port or channel-based default (555X where X is channel)
-        quint16 mcpPort = args.portMcp > 0 ? args.portMcp : (5550 + args.channel);
-        qputenv("TAU5_MCP_PORT", std::to_string(mcpPort).c_str());
     } else {
         // Explicitly disable MCP to prevent Elixir server from using defaults
         qputenv("TAU5_MCP_ENABLED", "false");

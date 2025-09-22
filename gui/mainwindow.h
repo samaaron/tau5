@@ -12,11 +12,12 @@
 class MainPhxWidget;
 #ifdef BUILD_WITH_DEBUG_PANE
 class DebugPane;
+#endif
 
 namespace Tau5CLI {
     class ServerConfig;
 }
-#endif
+
 class ControlLayer;
 class Beam;
 class ConsoleOverlay;

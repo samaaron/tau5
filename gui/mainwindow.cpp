@@ -549,10 +549,12 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     controlLayer->raise();
   }
 
+#ifdef BUILD_WITH_DEBUG_PANE
   // Ensure control layer stays on top of debug pane when resizing
   if (debugPane && debugPane->isVisible() && controlLayer) {
     controlLayer->raise();
   }
+#endif
   
   // Ensure console overlay is properly positioned
   if (consoleOverlay && consoleOverlay->isVisible()) {
