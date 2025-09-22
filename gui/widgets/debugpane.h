@@ -22,7 +22,7 @@ class QTextEdit;
 class QTimer;
 class ConsoleWidget;
 class PhxWebView;
-class SandboxedWebView;
+class DevWebView;
 class QShortcut;
 
 namespace Tau5CLI {
@@ -139,9 +139,9 @@ private:
   QPushButton *m_devToolsTabButton;
   QPushButton *m_liveDashboardTabButton;
   QWidget *m_devToolsContainer;
-  SandboxedWebView *m_devToolsView;
+  DevWebView *m_devToolsView;
   QWidget *m_liveDashboardContainer;
-  SandboxedWebView *m_liveDashboardView;
+  DevWebView *m_liveDashboardView;
 
   PhxWebView *m_targetWebView;
   int m_currentFontSize;

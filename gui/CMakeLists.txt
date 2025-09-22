@@ -212,6 +212,8 @@ set(GUI_SOURCES
   ${QTAPP_ROOT}/widgets/phxurlinterceptor.cpp
   ${QTAPP_ROOT}/widgets/sandboxedwebview.h
   ${QTAPP_ROOT}/widgets/sandboxedwebview.cpp
+  ${QTAPP_ROOT}/widgets/devwebview.h
+  ${QTAPP_ROOT}/widgets/devwebview.cpp
   ${QTAPP_ROOT}/widgets/controllayer.h
   ${QTAPP_ROOT}/widgets/controllayer.cpp
   ${QTAPP_ROOT}/widgets/consoleoverlay.h

@@ -12,6 +12,7 @@
 #include <QFontDatabase>
 #include "phxwebview.h"
 #include "sandboxedwebview.h"
+#include "devwebview.h"
 #include "../shared/tau5logger.h"
 #include "../shared/common.h"
 #include "../shared/cli_args.h"
@@ -678,7 +679,7 @@ void DebugPane::setupDevTools()
   devToolsLayout->setContentsMargins(0, 0, 0, 0);
   devToolsLayout->setSpacing(0);
 
-  m_devToolsView = new SandboxedWebView(m_devToolsContainer);
+  m_devToolsView = new DevWebView(m_devMode, m_devToolsContainer);
   m_devToolsView->setFallbackUrl(QUrl());
   m_devToolsView->page()->setBackgroundColor(QColor(StyleManager::Colors::DARK_BACKGROUND));
 
@@ -696,7 +697,7 @@ void DebugPane::setupDevTools()
   liveDashboardLayout->setContentsMargins(0, 0, 0, 0);
   liveDashboardLayout->setSpacing(0);
 
-  m_liveDashboardView = new SandboxedWebView(m_liveDashboardContainer);
+  m_liveDashboardView = new DevWebView(m_devMode, m_liveDashboardContainer);
   m_liveDashboardView->page()->setBackgroundColor(QColor(StyleManager::Colors::DARK_BACKGROUND));
   liveDashboardLayout->addWidget(m_liveDashboardView);
 
