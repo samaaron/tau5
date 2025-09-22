@@ -336,11 +336,11 @@ void DebugPane::setupConsole()
   bool enableDevMCP = isMcpEnabled();
   m_tau5MCPTabButton = new ActivityTabButton("Tau5 MCP", consoleToolbar);
   m_tidewaveMCPTabButton = new ActivityTabButton("Tidewave MCP", consoleToolbar);
-  m_guiMCPTabButton = new ActivityTabButton("GUI MCP", consoleToolbar);
+  m_guiMCPTabButton = new ActivityTabButton("Spectra MCP", consoleToolbar);
 
   if (!enableDevMCP)
   {
-    m_guiMCPTabButton->setToolTip("GUI Dev MCP disabled - click for more information");
+    m_guiMCPTabButton->setToolTip("Spectra MCP disabled - click for more information");
   }
   if (!m_devMode)
   {
@@ -439,17 +439,29 @@ void DebugPane::setupConsole()
     m_newGuiMCPWidget->setLogFilePath(guiMCPLogFilePath);
     Tau5Logger::instance().debug(QString("DebugPane: Setting GUI Dev MCP log path to: %1").arg(guiMCPLogFilePath));
 
-    // Add startup message for GUI Dev MCP
+    // Add startup message for Spectra MCP
     QString guiMCPStartupMessage =
         "\n"
-        "═══════════════════════════════════\n"
-        "Tau5-Dev GUI MCP Services - ENABLED\n"
-        "═══════════════════════════════════\n"
+        "═════════════════════════════════════\n"
+        "Spectra MCP Services - ENABLED\n"
+        "═════════════════════════════════════\n"
         "\n"
         "Chrome DevTools Port: " + devToolsPort + "\n"
         "\n"
-        "To add to Claude Code, use:\n"
-        "tau5-gui-dev (stdio)\n"
+        "To connect Claude Code to Spectra (stdio):\n"
+        "\n";
+#ifdef Q_OS_WIN
+    guiMCPStartupMessage += "  Windows:\n";
+    guiMCPStartupMessage += "    spectra (stdio) bin\\win\\dev-tau5-spectra.bat\n";
+#elif defined(Q_OS_MAC)
+    guiMCPStartupMessage += "  macOS:\n";
+    guiMCPStartupMessage += "    spectra (stdio) bin/mac/dev-tau5-spectra.sh\n";
+#else
+    guiMCPStartupMessage += "  Linux:\n";
+    guiMCPStartupMessage += "    spectra (stdio) bin/linux/dev-tau5-spectra.sh\n";
+#endif
+    guiMCPStartupMessage += "\n"
+        "  Add --channel <N> if not using channel 0\n"
         "\n";
     m_newGuiMCPWidget->appendLog(guiMCPStartupMessage, false);
 
@@ -489,7 +501,7 @@ void DebugPane::setupConsole()
     QString devGUIMCPDisabledMessage =
         "\n"
         "════════════════════════════════════\n"
-        "Tau5-Dev GUI MCP Services - DISABLED\n"
+        "Spectra MCP Services - DISABLED\n"
         "════════════════════════════════════\n"
         "\n"
         "\n"
@@ -516,7 +528,7 @@ void DebugPane::setupConsole()
   
   QString devGUIMCPServerDescription =
       "\n"
-      "The Tau5-Dev GUI MCP Services provides access\n"
+      "Spectra MCP Services provides access\n"
       "to the Chrome DevTools Protocol for:\n"
       "\n"
       "• DOM inspection and manipulation\n"
@@ -524,7 +536,7 @@ void DebugPane::setupConsole()
       "• Element selection and style inspection\n"
       "\n"
       "Note: This service uses Chrome DevTools on port " + devToolsPortDesc + "\n"
-      "and is accessed via the tau5-gui-dev MCP server.\n"
+      "and is accessed via the Spectra MCP server.\n"
       "\n─────────────────────────────────────────────\n";
 
   m_newTidewaveMCPWidget->appendLog(tidewaveMCPServerDescription, false);
@@ -1300,7 +1312,7 @@ void DebugPane::showGuiMCPLog()
       debugWidget->onDeactivated();
     }
   }
-  // Switch to new LogWidget at index 5 (GUI MCP)
+  // Switch to new LogWidget at index 5 (Spectra MCP)
   m_consoleStack->setCurrentIndex(5);
   if (m_consoleToolbarStack)
   {
