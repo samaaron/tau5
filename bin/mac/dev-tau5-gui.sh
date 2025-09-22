@@ -20,9 +20,9 @@ if [ ! -f "${BINARY_PATH}" ]; then
     echo ""
     echo "Please build the development GUI first by running:"
     echo "  ./bin/mac/dev-build-gui.sh"
+
     exit 1
 fi
 
 # Quick development setup with all dev tools enabled
-# Use --server-path flag instead of environment variable
-"${BINARY_PATH}" --server-path "${SERVER_DIR}" --devtools
+"${BINARY_PATH}" --dev-server-path "${SERVER_DIR}" --devtools

@@ -26,10 +26,10 @@ rem Pass through all command-line arguments and respect environment variables
 rem If no arguments provided, default to --devtools for backward compatibility
 if "%~1"=="" (
     rem Default behavior when no arguments provided
-    "%BUILD_DIR%\bin\tau5-gui-dev.exe" --server-path "%SERVER_DIR%" --devtools
+    "%BUILD_DIR%\bin\tau5-gui-dev.exe" --dev-server-path "%SERVER_DIR%" --devtools
 ) else (
     rem Pass through all arguments as provided
-    "%BUILD_DIR%\bin\tau5-gui-dev.exe" --server-path "%SERVER_DIR%" %*
+    "%BUILD_DIR%\bin\tau5-gui-dev.exe" --dev-server-path "%SERVER_DIR%" %*
 )
 
 cd /d "%WORKING_DIR%"

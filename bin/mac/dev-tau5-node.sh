@@ -11,11 +11,11 @@ if [ -f "${BUILD_DIR}/bin/tau5-node-dev" ]; then
     # Standalone tau5-node-dev from build-node.sh
     # Use --server-path flag instead of environment variable
     # Default to development mode with devtools for easier development
-    "${BUILD_DIR}/bin/tau5-node-dev" --server-path "${SERVER_DIR}" --devtools "$@"
+    "${BUILD_DIR}/bin/tau5-node-dev" --dev-server-path "${SERVER_DIR}" --devtools "$@"
 elif [ -f "${BUILD_DIR}/bin/Tau5.app/Contents/MacOS/tau5-node-dev" ]; then
     # tau5-node-dev from within the app bundle (build-gui.sh)
     # Note: This is primarily for testing - normally you'd use tau5 itself
-    "${BUILD_DIR}/bin/Tau5.app/Contents/MacOS/tau5-node-dev" --server-path "${SERVER_DIR}" --devtools "$@"
+    "${BUILD_DIR}/bin/Tau5.app/Contents/MacOS/tau5-node-dev" --dev-server-path "${SERVER_DIR}" --devtools "$@"
 else
     echo "Error: tau5-node-dev binary not found!"
     echo ""

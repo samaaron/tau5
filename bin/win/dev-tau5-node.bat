@@ -24,7 +24,7 @@ if not exist "%BUILD_DIR%\bin\tau5-node-dev.exe" (
 
 rem Default to full development mode with all tools enabled
 rem Use --server-path flag for development
-"%BUILD_DIR%\bin\tau5-node-dev.exe" --server-path "%SERVER_DIR%" --devtools %*
+"%BUILD_DIR%\bin\tau5-node-dev.exe" --dev-server-path "%SERVER_DIR%" --devtools %*
 
 cd /d "%WORKING_DIR%"
 endlocal
