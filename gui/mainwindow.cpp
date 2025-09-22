@@ -411,10 +411,12 @@ void MainWindow::initializeDebugPane()
           this, [this](bool visible) {
             if (controlLayer) {
               controlLayer->setConsoleVisible(visible);
-              if (!visible) {
-                controlLayer->raise();
-              } else {
+              // Always keep control layer on top
+              if (visible) {
                 debugPane->raise();
+                controlLayer->raise();  // Control layer always on top of debug pane
+              } else {
+                controlLayer->raise();
               }
             }
           });
@@ -470,6 +472,10 @@ void MainWindow::toggleConsole()
 #ifdef BUILD_WITH_DEBUG_PANE
   if (debugPane) {
     debugPane->toggle();
+    // Always keep control layer on top after toggling debug pane
+    if (controlLayer) {
+      controlLayer->raise();
+    }
   }
 #endif
 }
@@ -540,6 +546,11 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 
   if (controlLayer) {
     controlLayer->positionControls();
+    controlLayer->raise();
+  }
+
+  // Ensure control layer stays on top of debug pane when resizing
+  if (debugPane && debugPane->isVisible() && controlLayer) {
     controlLayer->raise();
   }
   

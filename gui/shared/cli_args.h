@@ -591,13 +591,18 @@ inline void applyEnvironmentVariables(const CommonArgs& args, const char* target
     } else {
         // Explicitly disable MCP to prevent Elixir server from using defaults
         qputenv("TAU5_MCP_ENABLED", "false");
-        // Still set the port based on channel in case something enables it later
-        quint16 mcpPort = args.portMcp > 0 ? args.portMcp : (5550 + args.channel);
-        qputenv("TAU5_MCP_PORT", std::to_string(mcpPort).c_str());
     }
 
-    // Chrome DevTools configuration is handled directly via args, not environment variables
-    // The Chrome CDP port is only used by the GUI and doesn't need to be passed to the server
+    // Chrome DevTools configuration
+    if (args.chromeDevtools) {
+        qputenv("TAU5_DEVTOOLS_ENABLED", "true");
+        // Use specified port or channel-based default (922X where X is channel)
+        quint16 chromePort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+        qputenv("TAU5_DEVTOOLS_PORT", std::to_string(chromePort).c_str());
+    } else {
+        // Explicitly disable DevTools
+        qputenv("TAU5_DEVTOOLS_ENABLED", "false");
+    }
     
     // Tidewave configuration (only in dev builds)
     if (args.tidewave) {

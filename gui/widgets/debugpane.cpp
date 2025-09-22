@@ -223,6 +223,12 @@ void DebugPane::setupUi()
   m_mainLayout->addWidget(m_headerWidget);
   m_mainLayout->addWidget(fullViewContainer, 1);
 
+  // Add a solid black bottom bar that sits under the navigation buttons
+  QWidget *bottomBar = new QWidget(this);
+  bottomBar->setFixedHeight(20);  // Minimal height for clean separation
+  bottomBar->setStyleSheet("background-color: rgb(0, 0, 0);");  // Solid black
+  m_mainLayout->addWidget(bottomBar);
+
   setStyleSheet(
       QString("DebugPane { "
               "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "

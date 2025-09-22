@@ -12,5 +12,13 @@
     <file>images/window-controls/maximize.svg</file>
     <file>images/window-controls/restore.svg</file>
     <file>images/window-controls/close.svg</file>
+    <file>images/nav-controls/minus.svg</file>
+    <file>images/nav-controls/plus.svg</file>
+    <file>images/nav-controls/tau.svg</file>
+    <file>images/nav-controls/lambda.svg</file>
+    <file>images/nav-controls/chevron-up.svg</file>
+    <file>images/nav-controls/chevron-down.svg</file>
+    <file>images/nav-controls/refresh.svg</file>
+    <file>images/nav-controls/external-link.svg</file>
   </qresource>
 </RCC>
