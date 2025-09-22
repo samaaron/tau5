@@ -164,6 +164,7 @@ int main(int argc, char *argv[]) {
         // Initialize logger for health check
         Tau5LoggerConfig logConfig;
         logConfig.appName = "node";
+        logConfig.channel = args.channel;
         logConfig.logFiles = {
             {"node.log", "node", false},
             {"beam.log", "beam", false}
@@ -205,6 +206,7 @@ int main(int argc, char *argv[]) {
 
     Tau5LoggerConfig logConfig;
     logConfig.appName = "node";
+    logConfig.channel = args.channel;
     logConfig.logFiles = {
         {"node.log", "node", false},
         {"beam.log", "beam", false}

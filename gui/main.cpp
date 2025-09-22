@@ -325,6 +325,7 @@ int main(int argc, char *argv[])
 
   Tau5LoggerConfig logConfig;
   logConfig.appName = "gui";
+  logConfig.channel = args.channel;
   logConfig.logFiles = {
       {"gui.log", "gui", false},
       {"beam.log", "beam", false}

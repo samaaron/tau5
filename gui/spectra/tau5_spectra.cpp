@@ -1522,11 +1522,11 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{}}
         },
-        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &activityLogger, channel](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
-            
+
             // Parse parameters
             QString sessions = params.value("sessions").toString("latest");
             QString pattern = params.value("pattern").toString();
@@ -1563,14 +1563,23 @@ int main(int argc, char *argv[])
             QString tau5DataPath = Tau5Logger::getTau5DataPath();
             QString tau5LogsPath = QDir(tau5DataPath).absoluteFilePath("logs/gui");
             
-            // Get session directories
+            // Get session directories and filter by channel
             QDir logsDir(tau5LogsPath);
-            QStringList sessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed);
-            
+            QStringList allSessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed);
+
+            // Filter sessions by channel suffix (e.g., "_c0", "_c1", etc.)
+            QStringList sessionDirs;
+            QString channelSuffix = QString("_c%1").arg(channel);
+            for (const QString& dir : allSessionDirs) {
+                if (dir.endsWith(channelSuffix)) {
+                    sessionDirs.append(dir);
+                }
+            }
+
             if (sessionDirs.isEmpty()) {
                 return QJsonObject{
                     {"type", "text"},
-                    {"text", QString("No log sessions found in: %1").arg(tau5LogsPath)}
+                    {"text", QString("No log sessions found for channel %1 in: %2").arg(channel).arg(tau5LogsPath)}
                 };
             }
             
@@ -1750,7 +1759,7 @@ int main(int argc, char *argv[])
             {"properties", QJsonObject{}},
             {"required", QJsonArray{}}
         },
-        [&activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&activityLogger, channel](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -1760,8 +1769,17 @@ int main(int argc, char *argv[])
             QString tau5LogsPath = QDir(tau5DataPath).absoluteFilePath("logs/gui");
             
             QDir logsDir(tau5LogsPath);
-            QStringList sessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed);
-            
+            QStringList allSessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed);
+
+            // Filter sessions by channel suffix (e.g., "_c0", "_c1", etc.)
+            QStringList sessionDirs;
+            QString channelSuffix = QString("_c%1").arg(channel);
+            for (const QString& dir : allSessionDirs) {
+                if (dir.endsWith(channelSuffix)) {
+                    sessionDirs.append(dir);
+                }
+            }
+
             QJsonArray sessions;
             for (int i = 0; i < sessionDirs.size(); ++i) {
                 QString sessionName = sessionDirs.at(i);
@@ -1825,7 +1843,7 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{}}
         },
-        [&activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&activityLogger, channel](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -1835,14 +1853,23 @@ int main(int argc, char *argv[])
             
             QString tau5DataPath = Tau5Logger::getTau5DataPath();
             QString tau5LogsPath = QDir(tau5DataPath).absoluteFilePath("logs/gui");
-            
+
             QDir logsDir(tau5LogsPath);
-            QStringList sessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed);
-            
+            QStringList allSessionDirs = logsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed);
+
+            // Filter sessions by channel suffix (e.g., "_c0", "_c1", etc.)
+            QStringList sessionDirs;
+            QString channelSuffix = QString("_c%1").arg(channel);
+            for (const QString& dir : allSessionDirs) {
+                if (dir.endsWith(channelSuffix)) {
+                    sessionDirs.append(dir);
+                }
+            }
+
             if (sessionDirs.isEmpty() || sessionIdx >= sessionDirs.size()) {
                 return QJsonObject{
                     {"type", "text"},
-                    {"text", "No logs available"}
+                    {"text", QString("No logs available for channel %1").arg(channel)}
                 };
             }
             

@@ -25,6 +25,7 @@ struct Tau5LoggerConfig {
     int maxSessions = 5;                // Keep last 5 session folders
     bool reuseRecentSession = true;    // Reuse session if < 1 hour old
     int sessionReuseHours = 1;         // How old a session can be to reuse
+    int channel = -1;                   // Channel number (0-9), -1 means no channel
     
     struct LogFile {
         QString name;                   // e.g., "gui.log", "beam.log"

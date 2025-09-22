@@ -93,7 +93,12 @@ QString Tau5Logger::findOrCreateSessionFolder() {
     QDir dir(appDir);
     
     QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_HHmmss");
-    QString sessionName = QString("%1_p%2").arg(timestamp).arg(QCoreApplication::applicationPid());
+    QString sessionName;
+    if (m_config.channel >= 0 && m_config.channel <= 9) {
+        sessionName = QString("%1_p%2_c%3").arg(timestamp).arg(QCoreApplication::applicationPid()).arg(m_config.channel);
+    } else {
+        sessionName = QString("%1_p%2").arg(timestamp).arg(QCoreApplication::applicationPid());
+    }
     QString sessionPath = dir.absoluteFilePath(sessionName);
     
     if (!dir.mkpath(sessionName)) {
