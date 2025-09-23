@@ -16,6 +16,7 @@
 #include "mcpserver_stdio.h"
 #include "../shared/tau5logger.h"
 #include "cdpclient.h"
+#include "tidewaveproxy.h"
 
 static void debugLog(const QString& message) {
     std::cerr << "# " << message.toStdString() << std::endl;
@@ -122,6 +123,73 @@ private:
     QString m_logPath;
     QString m_sessionId;
     qint64 m_processId;
+};
+
+class TidewaveBridge : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit TidewaveBridge(TidewaveProxy* proxy, QObject* parent = nullptr)
+        : QObject(parent), m_proxy(proxy) {}
+
+    QJsonObject executeCommand(const QString& toolName, const QJsonObject& params)
+    {
+        if (!m_proxy->isAvailable()) {
+            return QJsonObject{
+                {"error", true},
+                {"message", "Tidewave MCP server is not available"}
+            };
+        }
+
+        QJsonObject result;
+        QString error;
+        QEventLoop loop;
+
+        m_proxy->callTool(toolName, params, [&result, &error, &loop](const QJsonObject& res, const QString& err) {
+            result = res;
+            error = err;
+            loop.quit();
+        });
+
+        QTimer timeout;
+        timeout.setSingleShot(true);
+        connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+        timeout.start(30000); // 30 second timeout
+
+        loop.exec();
+
+        if (!error.isEmpty()) {
+            return QJsonObject{
+                {"error", true},
+                {"message", error}
+            };
+        }
+
+        return result;
+    }
+
+    QJsonObject formatResponse(const QJsonObject& result)
+    {
+        // Tidewave returns content array with text
+        if (result.contains("content")) {
+            QJsonArray content = result["content"].toArray();
+            if (!content.isEmpty() && content[0].toObject().contains("text")) {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", content[0].toObject()["text"].toString()}
+                };
+            }
+        }
+
+        return QJsonObject{
+            {"type", "text"},
+            {"text", QString::fromUtf8(QJsonDocument(result).toJson(QJsonDocument::Indented))}
+        };
+    }
+
+private:
+    TidewaveProxy* m_proxy;
 };
 
 class CDPBridge : public QObject
@@ -385,23 +453,45 @@ int main(int argc, char *argv[])
         devToolsPort = 9220 + channel;
     }
 
+    // Calculate Tidewave port based on channel
+    quint16 tidewavePort = 5550 + channel;
+
     // Don't use Tau5Logger for spectra - it needs a fixed log location
     // Initialize activity logger with the port number for unique log file
     MCPActivityLogger activityLogger(devToolsPort);
-    
+
     debugLog("Tau5 GUI Dev MCP Server v1.0.0");
     debugLog(QString("Connecting to Chrome DevTools on port %1").arg(devToolsPort));
-    
+    debugLog(QString("Connecting to Tidewave MCP on port %1").arg(tidewavePort));
+
     MCPServerStdio server;
     server.setServerInfo("Tau5 GUI Dev MCP", "1.0.0");
     server.setCapabilities(QJsonObject{
         {"tools", QJsonObject{}}
     });
     server.setDebugMode(debugMode);
-    
+
     auto cdpClient = std::make_unique<CDPClient>(devToolsPort);
-    
+    auto tidewaveProxy = std::make_unique<TidewaveProxy>(tidewavePort);
+
     CDPBridge bridge(cdpClient.get());
+    TidewaveBridge tidewaveBridge(tidewaveProxy.get());
+
+    // Initialize Tidewave proxy
+    tidewaveProxy->checkAvailability();
+    {
+        QEventLoop initLoop;
+        tidewaveProxy->initialize({}, [&initLoop](const QJsonObject& result, const QString& error) {
+            if (error.isEmpty()) {
+                debugLog("Tidewave MCP initialized successfully");
+            } else {
+                debugLog(QString("Tidewave unavailable: %1").arg(error));
+            }
+            initLoop.quit();
+        });
+        QTimer::singleShot(1000, &initLoop, &QEventLoop::quit);
+        initLoop.exec();
+    }
     
     QObject::connect(cdpClient.get(), &CDPClient::disconnected, [&cdpClient]() {
         debugLog("CDP Client disconnected - Tau5 may not be running");
@@ -411,6 +501,40 @@ int main(int argc, char *argv[])
         debugLog(QString("CDP connection error: %1").arg(error));
     });
     
+    server.registerTool({
+        "spectra_get_config",
+        "Get Spectra's current configuration including channel, ports, and connection status",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [channel, devToolsPort, tidewavePort, &cdpClient, &tidewaveProxy](const QJsonObject&) -> QJsonObject {
+            QJsonObject config;
+            config["channel"] = channel;
+            config["devToolsPort"] = devToolsPort;
+            config["tidewavePort"] = tidewavePort;
+            config["cdpConnected"] = cdpClient->isConnected();
+            config["tidewaveAvailable"] = tidewaveProxy->isAvailable();
+
+            QString configText = QString(
+                "Spectra Configuration:\n"
+                "  Channel: %1\n"
+                "  Chrome DevTools Port: %2 (connected: %3)\n"
+                "  Tidewave MCP Port: %4 (available: %5)"
+            ).arg(channel)
+             .arg(devToolsPort)
+             .arg(cdpClient->isConnected() ? "yes" : "no")
+             .arg(tidewavePort)
+             .arg(tidewaveProxy->isAvailable() ? "yes" : "no");
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", configText},
+                {"data", config}
+            };
+        }
+    });
+
     server.registerTool({
         "chromium_devtools_getDocument",
         "Get the DOM document structure",
@@ -2953,6 +3077,312 @@ int main(int argc, char *argv[])
                 {"type", "text"},
                 {"text", output}
             };
+        }
+    });
+
+    // Tidewave MCP Proxy Tools - All tools exposed with tidewave_ prefix
+
+    server.registerTool({
+        "tidewave_get_logs",
+        "Returns all log output from Tidewave, excluding logs that were caused by other tool calls. Use this tool to check for request logs or potentially logged errors.",
+        QJsonObject{
+            {"type", "object"},
+            {"required", QJsonArray{"tail"}},
+            {"properties", QJsonObject{
+                {"tail", QJsonObject{
+                    {"type", "number"},
+                    {"description", "The number of log entries to return from the end of the log"}
+                }}
+            }}
+        },
+        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            QJsonObject result = tidewaveBridge.executeCommand("get_logs", params);
+
+            if (result.contains("error")) {
+                QString error = result["message"].toString();
+                activityLogger.logActivity("tidewave_get_logs", requestId, params, "error", timer.elapsed(), error);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", error}
+                };
+            }
+
+            activityLogger.logActivity("tidewave_get_logs", requestId, params, "success", timer.elapsed(), QString(), result);
+            return tidewaveBridge.formatResponse(result);
+        }
+    });
+
+    server.registerTool({
+        "tidewave_get_source_location",
+        "Returns the source location for the given reference. Works for modules in the current project and dependencies (but not Elixir itself). Use when you know the Module, Module.function, or Module.function/arity. You can also use 'dep:PACKAGE_NAME' to get the location of a specific dependency package.",
+        QJsonObject{
+            {"type", "object"},
+            {"required", QJsonArray{"reference"}},
+            {"properties", QJsonObject{
+                {"reference", QJsonObject{
+                    {"type", "string"},
+                    {"description", "The reference to find (e.g., 'MyModule', 'MyModule.function', 'MyModule.function/2', or 'dep:package_name')"}
+                }}
+            }}
+        },
+        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            QJsonObject result = tidewaveBridge.executeCommand("get_source_location", params);
+
+            if (result.contains("error")) {
+                QString error = result["message"].toString();
+                activityLogger.logActivity("tidewave_get_source_location", requestId, params, "error", timer.elapsed(), error);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", error}
+                };
+            }
+
+            activityLogger.logActivity("tidewave_get_source_location", requestId, params, "success", timer.elapsed(), QString(), result);
+            return tidewaveBridge.formatResponse(result);
+        }
+    });
+
+    server.registerTool({
+        "tidewave_get_docs",
+        "Returns the documentation for the given reference (Module or Module.function)",
+        QJsonObject{
+            {"type", "object"},
+            {"required", QJsonArray{"reference"}},
+            {"properties", QJsonObject{
+                {"reference", QJsonObject{
+                    {"type", "string"},
+                    {"description", "The reference to get docs for (e.g., 'MyModule' or 'MyModule.function')"}
+                }}
+            }}
+        },
+        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            QJsonObject result = tidewaveBridge.executeCommand("get_docs", params);
+
+            if (result.contains("error")) {
+                QString error = result["message"].toString();
+                activityLogger.logActivity("tidewave_get_docs", requestId, params, "error", timer.elapsed(), error);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", error}
+                };
+            }
+
+            activityLogger.logActivity("tidewave_get_docs", requestId, params, "success", timer.elapsed(), QString(), result);
+            return tidewaveBridge.formatResponse(result);
+        }
+    });
+
+    server.registerTool({
+        "tidewave_project_eval",
+        "Evaluates Elixir code in the context of the project. Use this tool every time you need to evaluate Elixir code, including to test the behaviour of a function or to debug something. The tool also returns anything written to standard output. DO NOT use shell tools to evaluate Elixir code. It also includes IEx helpers in the evaluation context.",
+        QJsonObject{
+            {"type", "object"},
+            {"required", QJsonArray{"code"}},
+            {"properties", QJsonObject{
+                {"code", QJsonObject{
+                    {"type", "string"},
+                    {"description", "The Elixir code to evaluate"}
+                }},
+                {"arguments", QJsonObject{
+                    {"type", "array"},
+                    {"description", "The arguments to pass to evaluation. They are available inside the evaluated code as `arguments`"},
+                    {"items", QJsonObject{}}
+                }},
+                {"timeout", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Optional. The maximum time to wait for execution, in milliseconds. Defaults to 30000"}
+                }}
+            }}
+        },
+        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            QJsonObject result = tidewaveBridge.executeCommand("project_eval", params);
+
+            if (result.contains("error")) {
+                QString error = result["message"].toString();
+                activityLogger.logActivity("tidewave_project_eval", requestId, params, "error", timer.elapsed(), error);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", error},
+                    {"isError", true}
+                };
+            }
+
+            activityLogger.logActivity("tidewave_project_eval", requestId, params, "success", timer.elapsed(), QString(), result);
+            return tidewaveBridge.formatResponse(result);
+        }
+    });
+
+    server.registerTool({
+        "tidewave_search_package_docs",
+        "Searches Hex documentation for the project's dependencies or a list of packages. If you're trying to get documentation for a specific module or function, first try the project_eval tool with the h helper.",
+        QJsonObject{
+            {"type", "object"},
+            {"required", QJsonArray{"q"}},
+            {"properties", QJsonObject{
+                {"q", QJsonObject{
+                    {"type", "string"},
+                    {"description", "The search query"}
+                }},
+                {"packages", QJsonObject{
+                    {"type", "array"},
+                    {"description", "Optional list of packages to search. Defaults to project dependencies."},
+                    {"items", QJsonObject{{"type", "string"}}}
+                }}
+            }}
+        },
+        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            QJsonObject result = tidewaveBridge.executeCommand("search_package_docs", params);
+
+            if (result.contains("error")) {
+                QString error = result["message"].toString();
+                activityLogger.logActivity("tidewave_search_package_docs", requestId, params, "error", timer.elapsed(), error);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", error}
+                };
+            }
+
+            activityLogger.logActivity("tidewave_search_package_docs", requestId, params, "success", timer.elapsed(), QString(), result);
+            return tidewaveBridge.formatResponse(result);
+        }
+    });
+
+    server.registerTool({
+        "tidewave_execute_sql_query",
+        "Executes the given SQL query against the given default or specified Ecto repository. Returns the result as an Elixir data structure.",
+        QJsonObject{
+            {"type", "object"},
+            {"required", QJsonArray{"query"}},
+            {"properties", QJsonObject{
+                {"query", QJsonObject{
+                    {"type", "string"},
+                    {"description", "The SQL query to execute"}
+                }},
+                {"repo", QJsonObject{
+                    {"type", "string"},
+                    {"description", "The Ecto repository module (optional, defaults to first configured repo)"}
+                }},
+                {"bindings", QJsonObject{
+                    {"type", "array"},
+                    {"description", "Optional query bindings"},
+                    {"items", QJsonObject{}}
+                }}
+            }}
+        },
+        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            QJsonObject result = tidewaveBridge.executeCommand("execute_sql_query", params);
+
+            if (result.contains("error")) {
+                QString error = result["message"].toString();
+                activityLogger.logActivity("tidewave_execute_sql_query", requestId, params, "error", timer.elapsed(), error);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", error}
+                };
+            }
+
+            activityLogger.logActivity("tidewave_execute_sql_query", requestId, params, "success", timer.elapsed(), QString(), result);
+            return tidewaveBridge.formatResponse(result);
+        }
+    });
+
+    server.registerTool({
+        "tidewave_get_ecto_schemas",
+        "Returns information about Ecto schemas in the project",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"schema", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Optional specific schema module to get information about"}
+                }}
+            }}
+        },
+        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            QJsonObject result = tidewaveBridge.executeCommand("get_ecto_schemas", params);
+
+            if (result.contains("error")) {
+                QString error = result["message"].toString();
+                activityLogger.logActivity("tidewave_get_ecto_schemas", requestId, params, "error", timer.elapsed(), error);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", error}
+                };
+            }
+
+            activityLogger.logActivity("tidewave_get_ecto_schemas", requestId, params, "success", timer.elapsed(), QString(), result);
+            return tidewaveBridge.formatResponse(result);
+        }
+    });
+
+    server.registerTool({
+        "tidewave_call_tool",
+        "Call any Tidewave MCP tool directly. This is a generic proxy for tools that may be added to Tidewave in the future.",
+        QJsonObject{
+            {"type", "object"},
+            {"required", QJsonArray{"name", "arguments"}},
+            {"properties", QJsonObject{
+                {"name", QJsonObject{
+                    {"type", "string"},
+                    {"description", "The name of the Tidewave tool to call"}
+                }},
+                {"arguments", QJsonObject{
+                    {"type", "object"},
+                    {"description", "The arguments to pass to the tool"},
+                    {"additionalProperties", true}
+                }}
+            }}
+        },
+        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            QString toolName = params["name"].toString();
+            QJsonObject arguments = params["arguments"].toObject();
+
+            QJsonObject result = tidewaveBridge.executeCommand(toolName, arguments);
+
+            if (result.contains("error")) {
+                QString error = result["message"].toString();
+                activityLogger.logActivity("tidewave_call_tool", requestId, params, "error", timer.elapsed(), error);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", error},
+                    {"isError", true}
+                };
+            }
+
+            activityLogger.logActivity("tidewave_call_tool", requestId, params, "success", timer.elapsed(), QString(), result);
+            return tidewaveBridge.formatResponse(result);
         }
     });
 

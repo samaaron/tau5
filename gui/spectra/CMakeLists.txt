@@ -15,6 +15,8 @@ add_executable(tau5-spectra
     mcpserver_stdio.cpp
     cdpclient.h
     cdpclient.cpp
+    tidewaveproxy.h
+    tidewaveproxy.cpp
 )
 
 target_include_directories(tau5-spectra PRIVATE
