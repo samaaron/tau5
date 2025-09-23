@@ -76,6 +76,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
+#include <QDesktopServices>
 
 static QPushButton *createCodiconButton(QWidget *parent, const QChar &icon, const QString &tooltip,
                                         bool checkable = false, bool checked = false)
@@ -376,6 +377,12 @@ void DebugPane::setupConsole()
   m_activityToggleButton->setFocusPolicy(Qt::NoFocus);
   connect(m_activityToggleButton, &QPushButton::clicked, this, &DebugPane::toggleActivityIndicators);
   toolbarLayout->addWidget(m_activityToggleButton);
+
+  // Add open logs folder button
+  QPushButton *openLogsFolderButton = createCodiconButton(consoleToolbar, QChar(0xEA98), "Open logs folder");
+  openLogsFolderButton->setFocusPolicy(Qt::NoFocus);
+  connect(openLogsFolderButton, &QPushButton::clicked, this, &DebugPane::openLogsFolder);
+  toolbarLayout->addWidget(openLogsFolderButton);
 
   headerLayout->addWidget(consoleToolbar);
 
@@ -1897,6 +1904,21 @@ void DebugPane::updateActivityToggleButtonStyle()
 
   m_activityToggleButton->setStyleSheet(style);
   m_activityToggleButton->setText(m_activityIndicatorsEnabled ? "⦿" : "⦾");
+}
+
+void DebugPane::openLogsFolder()
+{
+  QString sessionPath = Tau5Logger::instance().currentSessionPath();
+  if (!sessionPath.isEmpty())
+  {
+    QUrl folderUrl = QUrl::fromLocalFile(sessionPath);
+    QDesktopServices::openUrl(folderUrl);
+    Tau5Logger::instance().info(QString("Opening logs folder: %1").arg(sessionPath));
+  }
+  else
+  {
+    Tau5Logger::instance().warning("No active session path found for opening logs folder");
+  }
 }
 
 #include "moc_debugpane.cpp"

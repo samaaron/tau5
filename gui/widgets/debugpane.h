@@ -89,6 +89,7 @@ private slots:
   void toggleActivityIndicators();
   void updateActivityToggleButtonStyle();
   void handleLogActivity(LogWidget *widget, ActivityTabButton *button);
+  void openLogsFolder();
 
 protected:
   bool eventFilter(QObject *obj, QEvent *event) override;
