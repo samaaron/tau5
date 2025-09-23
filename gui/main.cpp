@@ -1,9 +1,13 @@
 #include <iostream>
 #include <memory>
 #include <cstdlib>
+#include <QtGlobal>
 #ifndef Q_OS_WIN
 #include <unistd.h>
 #else
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
