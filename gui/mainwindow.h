@@ -13,6 +13,9 @@ class MainPhxWidget;
 #ifdef BUILD_WITH_DEBUG_PANE
 class DebugPane;
 #endif
+#ifdef BUILD_WITH_TERMINAL_PANE
+class TerminalPane;
+#endif
 
 namespace Tau5CLI {
     class ServerConfig;
@@ -73,6 +76,7 @@ private slots:
 
 private:
   void initializeDebugPane();
+  void initializeTerminalPane();
   void initializeControlLayer();
   void initializeWebViewConnections();
   void checkAllComponentsLoaded();
@@ -81,8 +85,12 @@ private:
 
 private:
   std::unique_ptr<MainPhxWidget> phxWidget;
+  QWidget *webContainer;
 #ifdef BUILD_WITH_DEBUG_PANE
   std::unique_ptr<DebugPane> debugPane;
+#endif
+#ifdef BUILD_WITH_TERMINAL_PANE
+  std::unique_ptr<TerminalPane> terminalPane;
 #endif
   std::unique_ptr<ControlLayer> controlLayer;
   std::unique_ptr<ConsoleOverlay> consoleOverlay;
@@ -108,6 +116,7 @@ private:
   bool m_allComponentsSignalEmitted;
   bool m_beamReady;
   bool m_debugPaneShouldBeVisible = false;
+  bool m_terminalPaneVisible = false;
   int m_channel;
 
   static constexpr int DEBUG_PANE_RESTORE_DELAY_MS = 500;

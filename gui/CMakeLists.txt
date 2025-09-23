@@ -161,6 +161,18 @@ if(BUILD_NODE_ONLY)
 else()
   find_package(Qt6 QUIET)
   find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg SvgWidgets LinguistTools WebEngineWidgets WebSockets Concurrent REQUIRED)
+
+  # Find QTermWidget for terminal pane (dev builds only)
+  if(NOT TAU5_RELEASE_BUILD)
+    find_package(qtermwidget6)
+    if(qtermwidget6_FOUND)
+      message(STATUS "QTermWidget6 found - Terminal pane will be available")
+      set(TERMINAL_PANE_AVAILABLE ON)
+    else()
+      message(STATUS "QTermWidget6 not found - Terminal pane will not be available")
+      set(TERMINAL_PANE_AVAILABLE OFF)
+    endif()
+  endif()
 endif()
 
 if(NOT BUILD_NODE_ONLY)
@@ -254,6 +266,14 @@ if(BUILD_DEBUG_PANE)
     ${QTAPP_ROOT}/widgets/logwidget.h
     ${QTAPP_ROOT}/widgets/logwidget.cpp
     ${DEBUGPANE_SOURCES}
+  )
+endif()
+
+# Add terminal pane for dev builds if QTermWidget is available
+if(NOT TAU5_RELEASE_BUILD AND TERMINAL_PANE_AVAILABLE)
+  list(APPEND SOURCES
+    ${QTAPP_ROOT}/widgets/terminalpane.h
+    ${QTAPP_ROOT}/widgets/terminalpane.cpp
   )
 endif()
 
@@ -353,9 +373,21 @@ if(NOT BUILD_NODE_ONLY)
       QWindowKit::Widgets)
   endif()
 
+  # Link QTermWidget for dev builds if available
+  if(NOT TAU5_RELEASE_BUILD AND TERMINAL_PANE_AVAILABLE)
+    target_link_libraries(${APP_NAME}
+      PRIVATE
+      qtermwidget6)
+  endif()
+
   # Add compile definitions based on build options
   if(BUILD_DEBUG_PANE)
     target_compile_definitions(${APP_NAME} PRIVATE BUILD_WITH_DEBUG_PANE)
+  endif()
+
+  # Add terminal pane compile definition for dev builds
+  if(NOT TAU5_RELEASE_BUILD AND TERMINAL_PANE_AVAILABLE)
+    target_compile_definitions(${APP_NAME} PRIVATE BUILD_WITH_TERMINAL_PANE)
   endif()
   
   # Add server path definition

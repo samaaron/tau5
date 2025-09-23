@@ -11,10 +11,16 @@
 #include <QPropertyAnimation>
 #include <QUrlQuery>
 #include <QTextStream>
+#include <QShortcut>
+#include <QDir>
 #include "mainwindow.h"
 #include "widgets/mainphxwidget.h"
 #ifdef BUILD_WITH_DEBUG_PANE
 #include "widgets/debugpane.h"
+#endif
+#ifdef BUILD_WITH_TERMINAL_PANE
+#include "widgets/terminalpane.h"
+#include <QSplitter>
 #endif
 #include "widgets/controllayer.h"
 #include "widgets/consoleoverlay.h"
@@ -132,13 +138,85 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
     this->close();
   });
   
-  phxWidget = std::make_unique<MainPhxWidget>(m_devMode, m_allowRemoteAccess, this);
-  centralLayout->addWidget(phxWidget.get());
-  
+  // Create a container widget for the web view and its overlays
+  webContainer = new QWidget(this);
+  QVBoxLayout *webLayout = new QVBoxLayout(webContainer);
+  webLayout->setContentsMargins(0, 0, 0, 0);
+  webLayout->setSpacing(0);
+
+  phxWidget = std::make_unique<MainPhxWidget>(m_devMode, m_allowRemoteAccess, webContainer);
+  webLayout->addWidget(phxWidget.get());
+
+#ifdef BUILD_WITH_TERMINAL_PANE
+  // For dev builds, create a horizontal splitter with web container and terminal
+  if (m_devMode) {
+    QSplitter *horizontalSplitter = new QSplitter(Qt::Horizontal, this);
+    horizontalSplitter->addWidget(webContainer);
+
+    // Initialize terminal pane but keep it hidden initially
+    terminalPane = std::make_unique<TerminalPane>(this);
+    terminalPane->setWorkingDirectory(QDir::currentPath());
+    horizontalSplitter->addWidget(terminalPane.get());
+
+    // Set initial sizes (80% for main widget, 20% for terminal, but terminal is hidden)
+    horizontalSplitter->setSizes(QList<int>() << 800 << 200);
+    terminalPane->hide();
+
+    connect(terminalPane.get(), &TerminalPane::closeRequested, [this]() {
+      m_terminalPaneVisible = false;
+      if (terminalPane) {
+        terminalPane->hide();
+      }
+    });
+
+    centralLayout->addWidget(horizontalSplitter);
+  } else {
+    centralLayout->addWidget(webContainer);
+  }
+#else
+  centralLayout->addWidget(webContainer);
+#endif
+
   setCentralWidget(centralContainer);
 #else
-  phxWidget = std::make_unique<MainPhxWidget>(m_devMode, m_allowRemoteAccess, this);
-  setCentralWidget(phxWidget.get());
+  // Create a container widget for the web view and its overlays
+  webContainer = new QWidget(this);
+  QVBoxLayout *webLayout = new QVBoxLayout(webContainer);
+  webLayout->setContentsMargins(0, 0, 0, 0);
+  webLayout->setSpacing(0);
+
+  phxWidget = std::make_unique<MainPhxWidget>(m_devMode, m_allowRemoteAccess, webContainer);
+  webLayout->addWidget(phxWidget.get());
+
+#ifdef BUILD_WITH_TERMINAL_PANE
+  // For dev builds on macOS, create a horizontal splitter with web container and terminal
+  if (m_devMode) {
+    QSplitter *horizontalSplitter = new QSplitter(Qt::Horizontal, this);
+    horizontalSplitter->addWidget(webContainer);
+
+    // Initialize terminal pane but keep it hidden initially
+    terminalPane = std::make_unique<TerminalPane>(this);
+    terminalPane->setWorkingDirectory(QDir::currentPath());
+    horizontalSplitter->addWidget(terminalPane.get());
+
+    // Set initial sizes (80% for main widget, 20% for terminal, but terminal is hidden)
+    horizontalSplitter->setSizes(QList<int>() << 800 << 200);
+    terminalPane->hide();
+
+    connect(terminalPane.get(), &TerminalPane::closeRequested, [this]() {
+      m_terminalPaneVisible = false;
+      if (terminalPane) {
+        terminalPane->hide();
+      }
+    });
+
+    setCentralWidget(horizontalSplitter);
+  } else {
+    setCentralWidget(webContainer);
+  }
+#else
+  setCentralWidget(webContainer);
+#endif
 #endif
   
   connect(phxWidget.get(), &PhxWidget::pageLoaded, this, [this]() {
@@ -188,7 +266,13 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
     initializeDebugPane();
   }
   #endif
-  
+
+  #ifdef BUILD_WITH_TERMINAL_PANE
+  if (m_devMode) {
+    initializeTerminalPane();
+  }
+  #endif
+
   initializeControlLayer();
   
   if (controlLayer) {
@@ -392,7 +476,7 @@ void MainWindow::onAppPageReady()
 #ifdef BUILD_WITH_DEBUG_PANE
 void MainWindow::initializeDebugPane()
 {
-  debugPane = std::make_unique<DebugPane>(this, *m_config);
+  debugPane = std::make_unique<DebugPane>(webContainer ? webContainer : this, *m_config);
 
   int defaultHeight = height() / 2;
   debugPane->resize(width(), defaultHeight);
@@ -449,9 +533,32 @@ void MainWindow::initializeWebViewConnections()
   phxWidget->getWebView()->setDevToolsAvailable(devToolsAvailable);
 }
 
+#ifdef BUILD_WITH_TERMINAL_PANE
+void MainWindow::initializeTerminalPane()
+{
+  // Add keyboard shortcut to toggle terminal pane (Ctrl+`)
+  QShortcut *toggleTerminal = new QShortcut(QKeySequence("Ctrl+`"), this);
+  connect(toggleTerminal, &QShortcut::activated, [this]() {
+    if (terminalPane) {
+      m_terminalPaneVisible = !m_terminalPaneVisible;
+      terminalPane->setVisible(m_terminalPaneVisible);
+    }
+  });
+
+  // Alternative shortcut (Ctrl+Shift+T)
+  QShortcut *toggleTerminalAlt = new QShortcut(QKeySequence("Ctrl+Shift+T"), this);
+  connect(toggleTerminalAlt, &QShortcut::activated, [this]() {
+    if (terminalPane) {
+      m_terminalPaneVisible = !m_terminalPaneVisible;
+      terminalPane->setVisible(m_terminalPaneVisible);
+    }
+  });
+}
+#endif
+
 void MainWindow::initializeControlLayer()
 {
-  controlLayer = std::make_unique<ControlLayer>(this);
+  controlLayer = std::make_unique<ControlLayer>(webContainer ? webContainer : this);
   controlLayer->raise();
 
 #ifdef BUILD_WITH_DEBUG_PANE
@@ -531,16 +638,16 @@ void MainWindow::resizeEvent(QResizeEvent *event)
   QMainWindow::resizeEvent(event);
 
 #ifdef BUILD_WITH_DEBUG_PANE
-  if (debugPane && debugPane->isVisible()) {
-    int maxHeight = height();
+  if (debugPane && debugPane->isVisible() && webContainer) {
+    int maxHeight = webContainer->height();
     int currentHeight = debugPane->height();
 
     if (currentHeight > maxHeight) {
       currentHeight = maxHeight;
     }
 
-    debugPane->resize(width(), currentHeight);
-    debugPane->move(0, height() - currentHeight);
+    debugPane->resize(webContainer->width(), currentHeight);
+    debugPane->move(0, webContainer->height() - currentHeight);
   }
 #endif
 
