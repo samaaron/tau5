@@ -62,10 +62,17 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
   QCoreApplication::setApplicationName("Tau5");
 
   // Set window title with channel if not 0
+  // Use "Tau5Dev" for development builds
+#ifdef TAU5_RELEASE_BUILD
+  QString appName = "Tau5";
+#else
+  QString appName = "Tau5Dev";
+#endif
+
   if (m_channel != 0) {
-    setWindowTitle(QString("Tau5 - [%1]").arg(m_channel));
+    setWindowTitle(QString("%1 - [%2]").arg(appName).arg(m_channel));
   } else {
-    setWindowTitle("Tau5");
+    setWindowTitle(appName);
   }
 
   resize(1024, 768);
@@ -107,8 +114,17 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
   m_titleBar = new CustomTitleBar(this);
 
   // Update title to include channel if not 0
+  // Use "Tau5Dev" for development builds
+#ifdef TAU5_RELEASE_BUILD
+  QString titleName = "Tau5";
+#else
+  QString titleName = "Tau5Dev";
+#endif
+
   if (m_channel != 0) {
-    m_titleBar->setTitle(QString("Tau5 - [%1]").arg(m_channel));
+    m_titleBar->setTitle(QString("%1 - [%2]").arg(titleName).arg(m_channel));
+  } else {
+    m_titleBar->setTitle(titleName);
   }
 
   centralLayout->addWidget(m_titleBar);
