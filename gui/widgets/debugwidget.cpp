@@ -39,7 +39,6 @@ void DebugWidget::setupToolbar()
   m_toolbar->setStyleSheet(QString(
       "QWidget {"
       "  background-color: black;"
-      "  border-top: 1px solid %1;"
       "}")
       .arg(StyleManager::Colors::primaryOrangeAlpha(60)));
 

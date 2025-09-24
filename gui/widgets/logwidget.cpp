@@ -58,27 +58,48 @@ LogWidget::~LogWidget()
 void LogWidget::setupToolbar()
 {
   DebugWidget::setupToolbar();
+
+  // Create a container widget for the buttons
+  QWidget *buttonContainer = new QWidget();
+  QHBoxLayout *buttonLayout = new QHBoxLayout(buttonContainer);
+  buttonLayout->setContentsMargins(0, 0, 0, 0);
+  buttonLayout->setSpacing(0);
+
+  // Create first group of buttons with top border
+  QWidget *firstGroup = new QWidget();
+  firstGroup->setStyleSheet(QString(
+      "QWidget {"
+      "  border-top: 1px solid %1;"
+      "}")
+      .arg(StyleManager::Colors::primaryOrangeAlpha(60)));
+
+  QHBoxLayout *firstGroupLayout = new QHBoxLayout(firstGroup);
+  firstGroupLayout->setContentsMargins(0, 2, 0, 0);
+  firstGroupLayout->setSpacing(5);
+
   QPushButton *searchButton = createToolButton(QChar(0xEA6D), "Search (Ctrl+S)", true);
   connect(searchButton, &QPushButton::clicked, this, &LogWidget::toggleSearch);
-  m_toolbarLayout->addWidget(searchButton);
+  firstGroupLayout->addWidget(searchButton);
 
   if (m_type != BootLog) {
     m_pauseButton = createToolButton(QChar(0xEB2B), "Pause log updates", true);
     m_pauseButton->setChecked(m_paused);
     connect(m_pauseButton, &QPushButton::toggled, this, &LogWidget::handlePauseToggled);
-    m_toolbarLayout->addWidget(m_pauseButton);
+    firstGroupLayout->addWidget(m_pauseButton);
 
     QPushButton *autoScrollButton = createToolButton(QChar(0xEA9A), "Auto-scroll", true);
     autoScrollButton->setChecked(m_autoScroll);
     connect(autoScrollButton, &QPushButton::toggled, this, &LogWidget::handleAutoScrollToggled);
-    m_toolbarLayout->addWidget(autoScrollButton);
+    firstGroupLayout->addWidget(autoScrollButton);
 
     QPushButton *clearButton = createToolButton(QChar(0xEA81), "Clear log");
     connect(clearButton, &QPushButton::clicked, this, &LogWidget::clear);
-    m_toolbarLayout->addWidget(clearButton);
+    firstGroupLayout->addWidget(clearButton);
   }
 
-  // Add separator before zoom buttons
+  buttonLayout->addWidget(firstGroup);
+
+  // Add separator (not part of bordered area)
   QFrame *separator = new QFrame();
   separator->setFrameShape(QFrame::VLine);
   separator->setFrameShadow(QFrame::Plain);
@@ -89,16 +110,33 @@ void LogWidget::setupToolbar()
       "  margin: 0px 12px;"
       "}")
       .arg(StyleManager::Colors::textPrimaryAlpha(20)));
-  m_toolbarLayout->addWidget(separator);
+  buttonLayout->addWidget(separator);
+
+  // Create second group of buttons with top border
+  QWidget *secondGroup = new QWidget();
+  secondGroup->setStyleSheet(QString(
+      "QWidget {"
+      "  border-top: 1px solid %1;"
+      "}")
+      .arg(StyleManager::Colors::primaryOrangeAlpha(60)));
+
+  QHBoxLayout *secondGroupLayout = new QHBoxLayout(secondGroup);
+  secondGroupLayout->setContentsMargins(0, 2, 0, 0);
+  secondGroupLayout->setSpacing(5);
 
   // Try add/remove icons for zoom (0xEA60 = add/plus, 0xEB3B = remove/minus)
   QPushButton *zoomOutButton = createToolButton(QChar(0xEB3B), "Zoom Out");
   connect(zoomOutButton, &QPushButton::clicked, this, &LogWidget::zoomOut);
-  m_toolbarLayout->addWidget(zoomOutButton);
+  secondGroupLayout->addWidget(zoomOutButton);
 
   QPushButton *zoomInButton = createToolButton(QChar(0xEA60), "Zoom In");
   connect(zoomInButton, &QPushButton::clicked, this, &LogWidget::zoomIn);
-  m_toolbarLayout->addWidget(zoomInButton);
+  secondGroupLayout->addWidget(zoomInButton);
+
+  buttonLayout->addWidget(secondGroup);
+
+  // Add the button container to the main toolbar layout
+  m_toolbarLayout->addWidget(buttonContainer);
 
   // Add stretch at the end to push everything to the left
   m_toolbarLayout->addStretch();
