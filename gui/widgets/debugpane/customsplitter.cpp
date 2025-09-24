@@ -1,5 +1,4 @@
 #include "customsplitter.h"
-#include "../debugpane.h"
 #include "../../styles/StyleManager.h"
 #include <QPainter>
 
@@ -13,23 +12,20 @@ void CustomSplitterHandle::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event);
     QPainter painter(this);
-    
-    if (m_isHovered)
+
+    const int thickness = m_isHovered ? 6 : 1;
+    const QColor color = m_isHovered ?
+        QColor(StyleManager::Colors::PRIMARY_ORANGE) : QColor("#505050");
+
+    if (orientation() == Qt::Horizontal)
     {
-        if (orientation() == Qt::Horizontal)
-        {
-            // For horizontal splitter, draw vertical bar
-            int centerStart = (width() - DebugPane::RESIZE_HANDLE_VISUAL_HEIGHT) / 2;
-            painter.fillRect(centerStart, 0, DebugPane::RESIZE_HANDLE_VISUAL_HEIGHT, height(), 
-                           QColor(StyleManager::Colors::PRIMARY_ORANGE));
-        }
-        else
-        {
-            // For vertical splitter, draw horizontal bar
-            int centerStart = (height() - DebugPane::RESIZE_HANDLE_VISUAL_HEIGHT) / 2;
-            painter.fillRect(0, centerStart, width(), DebugPane::RESIZE_HANDLE_VISUAL_HEIGHT, 
-                           QColor(StyleManager::Colors::PRIMARY_ORANGE));
-        }
+        int centerStart = (width() - thickness) / 2;
+        painter.fillRect(centerStart, 0, thickness, height(), color);
+    }
+    else
+    {
+        int centerStart = (height() - thickness) / 2;
+        painter.fillRect(0, centerStart, width(), thickness, color);
     }
 }
 

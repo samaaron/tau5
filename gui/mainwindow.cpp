@@ -20,6 +20,7 @@
 #endif
 #ifdef BUILD_WITH_TERMINAL_PANE
 #include "widgets/terminalpane.h"
+#include "widgets/debugpane/customsplitter.h"
 #include <QSplitter>
 #endif
 #include "widgets/controllayer.h"
@@ -175,10 +176,11 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
     mainContainerLayout->setSpacing(0);
     mainContainerLayout->addWidget(webContainer);
 
-    // Create horizontal splitter for main container and terminal
-    QSplitter *horizontalSplitter = new QSplitter(Qt::Horizontal, this);
+    // Create horizontal splitter for main container and terminal with thin/thick hover behavior
+    CustomSplitter *horizontalSplitter = new CustomSplitter(Qt::Horizontal, this);
     horizontalSplitter->addWidget(mainContainer);
     horizontalSplitter->setChildrenCollapsible(false); // Prevent panels from collapsing
+    horizontalSplitter->setHandleWidth(6); // Set handle interaction area to 6px
 
     // Initialize terminal pane but keep it hidden initially
     terminalPane = std::make_unique<TerminalPane>(this);
@@ -229,10 +231,11 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
     mainContainerLayout->setSpacing(0);
     mainContainerLayout->addWidget(webContainer);
 
-    // Create horizontal splitter for main container and terminal
-    QSplitter *horizontalSplitter = new QSplitter(Qt::Horizontal, this);
+    // Create horizontal splitter for main container and terminal with thin/thick hover behavior
+    CustomSplitter *horizontalSplitter = new CustomSplitter(Qt::Horizontal, this);
     horizontalSplitter->addWidget(mainContainer);
     horizontalSplitter->setChildrenCollapsible(false); // Prevent panels from collapsing
+    horizontalSplitter->setHandleWidth(6); // Set handle interaction area to 6px
 
     // Initialize terminal pane but keep it hidden initially
     terminalPane = std::make_unique<TerminalPane>(this);

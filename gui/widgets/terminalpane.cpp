@@ -1,6 +1,7 @@
 #include "terminalpane.h"
 #include "../styles/StyleManager.h"
 #include "../shared/tau5logger.h"
+#include "debugpane/customsplitter.h"
 #include <qtermwidget6/qtermwidget.h>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -114,9 +115,10 @@ void TerminalPane::setupUi()
     m_mainLayout->setContentsMargins(0, 0, 0, 0);
     m_mainLayout->setSpacing(0);
 
-    // Create vertical splitter for two terminals
-    m_terminalSplitter = new QSplitter(Qt::Vertical, this);
+    // Create vertical splitter for two terminals with thin/thick hover behavior
+    m_terminalSplitter = new CustomSplitter(Qt::Vertical, this);
     m_terminalSplitter->setChildrenCollapsible(false);
+    m_terminalSplitter->setHandleWidth(6);  // Set handle interaction area to 6px
 
     // Create top terminal
     createTerminalWidget(m_topTerminal, true);
@@ -144,16 +146,7 @@ void TerminalPane::setupUi()
         "TerminalPane {"
         "  background-color: %1;"
         "}"
-        "QSplitter::handle {"
-        "  background-color: %2;"
-        "  height: 3px;"
-        "}"
-        "QSplitter::handle:hover {"
-        "  background-color: %3;"
-        "}"
-    ).arg(StyleManager::Colors::BACKGROUND_PRIMARY)
-     .arg(StyleManager::Colors::BORDER_DEFAULT)
-     .arg(StyleManager::Colors::ACCENT_PRIMARY));
+    ).arg(StyleManager::Colors::BACKGROUND_PRIMARY));
 }
 
 void TerminalPane::createTerminalWidget(QTermWidget* &terminal, bool isTopTerminal)

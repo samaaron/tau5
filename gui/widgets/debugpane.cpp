@@ -200,7 +200,7 @@ void DebugPane::setupUi()
   m_mainLayout->setSpacing(0);
 
   m_dragHandleWidget = new QWidget(this);
-  m_dragHandleWidget->setFixedHeight(RESIZE_HANDLE_VISUAL_HEIGHT);
+  m_dragHandleWidget->setFixedHeight(6);  // 6px thick for consistency with other separators
   m_dragHandleWidget->setMouseTracking(true);
   m_dragHandleWidget->hide();
   m_dragHandleWidget->setStyleSheet(QString(
@@ -241,12 +241,11 @@ void DebugPane::setupUi()
               "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
               "    stop:0 %1, stop:0.1 %2, stop:0.2 %1, "
               "    stop:0.8 %1, stop:0.9 %2, stop:1 %1); "
-              "  border-top: 2px solid %3; "
-              "  border-bottom: 1px solid %4; "
+              "  border-top: 1px solid #505050; "  // Thin grey by default
+              "  border-bottom: 1px solid %3; "
               "}")
           .arg(StyleManager::Colors::blackAlpha(191))
           .arg(StyleManager::Colors::primaryOrangeAlpha(64))
-          .arg(StyleManager::Colors::primaryOrangeAlpha(150))
           .arg(StyleManager::Colors::primaryOrangeAlpha(100)));
 
   m_slideAnimation = AnimationControl::createSlideAnimation(this, "slidePosition");
@@ -1097,7 +1096,7 @@ void DebugPane::resizeEvent(QResizeEvent *event)
 
   if (m_dragHandleWidget)
   {
-    m_dragHandleWidget->resize(width(), RESIZE_HANDLE_VISUAL_HEIGHT);
+    m_dragHandleWidget->resize(width(), 6);  // Use 6px for consistency
     m_dragHandleWidget->move(0, 0);
   }
 
