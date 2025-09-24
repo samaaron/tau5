@@ -329,7 +329,7 @@ void DebugPane::setupConsole()
   consoleMainLayout->setSpacing(0);
 
   QWidget *consoleHeaderContainer = new QWidget(m_consoleContainer);
-  consoleHeaderContainer->setMaximumHeight(56);
+  consoleHeaderContainer->setMaximumHeight(28);
   QVBoxLayout *headerLayout = new QVBoxLayout(consoleHeaderContainer);
   headerLayout->setContentsMargins(0, 0, 0, 0);
   headerLayout->setSpacing(0);
@@ -391,11 +391,18 @@ void DebugPane::setupConsole()
 
   headerLayout->addWidget(consoleToolbar);
 
-  m_consoleToolbarStack = new QStackedWidget(consoleHeaderContainer);
-  m_consoleToolbarStack->setMaximumHeight(28);
-  headerLayout->addWidget(m_consoleToolbarStack);
-
   m_consoleStack = new QStackedWidget(m_consoleContainer);
+
+  // Create a container for the toolbar stack at the bottom
+  QWidget *consoleToolbarContainer = new QWidget(m_consoleContainer);
+  consoleToolbarContainer->setMaximumHeight(28);
+  QVBoxLayout *toolbarContainerLayout = new QVBoxLayout(consoleToolbarContainer);
+  toolbarContainerLayout->setContentsMargins(0, 0, 0, 0);
+  toolbarContainerLayout->setSpacing(0);
+
+  m_consoleToolbarStack = new QStackedWidget(consoleToolbarContainer);
+  m_consoleToolbarStack->setMaximumHeight(28);
+  toolbarContainerLayout->addWidget(m_consoleToolbarStack);
 
   m_newBootLogWidget = new LogWidget(LogWidget::BootLog, nullptr);
   m_newBeamLogWidget = new LogWidget(LogWidget::BeamLog, nullptr);
@@ -598,6 +605,7 @@ void DebugPane::setupConsole()
 
   consoleMainLayout->addWidget(consoleHeaderContainer);
   consoleMainLayout->addWidget(m_consoleStack);
+  consoleMainLayout->addWidget(consoleToolbarContainer);
 
   connect(m_bootLogTabButton, &QPushButton::clicked, this, &DebugPane::showBootLog);
   connect(m_beamLogTabButton, &QPushButton::clicked, this, &DebugPane::showBeamLog);

@@ -39,12 +39,12 @@ void DebugWidget::setupToolbar()
   m_toolbar->setStyleSheet(QString(
       "QWidget {"
       "  background-color: black;"
-      "  border-bottom: 1px solid %1;"
+      "  border-top: 1px solid %1;"
       "}")
-      .arg(StyleManager::Colors::primaryOrangeAlpha(100)));
-  
+      .arg(StyleManager::Colors::primaryOrangeAlpha(60)));
+
   m_toolbarLayout = new QHBoxLayout(m_toolbar);
-  m_toolbarLayout->setContentsMargins(5, 2, 5, 2);
+  m_toolbarLayout->setContentsMargins(5, 5, 5, 2);
   m_toolbarLayout->setSpacing(5);
 }
 
@@ -78,8 +78,9 @@ QPushButton* DebugWidget::createToolButton(const QString &text, const QString &t
     codiconLoaded = true;
   }
   
-  QString fontFamily = (text == "+" || text == "-") ? "Segoe UI, Arial" : "codicon";
-  QString fontSize = (text == "+" || text == "-") ? "16px" : "14px";
+  // Use codicon for all buttons for consistency
+  QString fontFamily = "codicon";
+  QString fontSize = "14px";
   
   // Use orange for +/- buttons, keep gray for other buttons
   QString buttonColor = (text == "+" || text == "-")
@@ -97,6 +98,7 @@ QPushButton* DebugWidget::createToolButton(const QString &text, const QString &t
       "  padding: 2px;"
       "}"
       "QPushButton:hover {"
+      "  color: white;"
       "  background-color: %4;"
       "  border-radius: 3px;"
       "}"

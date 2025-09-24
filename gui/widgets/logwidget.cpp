@@ -8,6 +8,7 @@
 #include <QPushButton>
 #include <QLineEdit>
 #include <QShortcut>
+#include <QFrame>
 #include <QScrollBar>
 #include <QTextCursor>
 #include <QFileSystemWatcher>
@@ -77,14 +78,30 @@ void LogWidget::setupToolbar()
     m_toolbarLayout->addWidget(clearButton);
   }
 
-  m_toolbarLayout->addStretch();
-  QPushButton *zoomOutButton = createToolButton("-", "Zoom Out");
+  // Add separator before zoom buttons
+  QFrame *separator = new QFrame();
+  separator->setFrameShape(QFrame::VLine);
+  separator->setFrameShadow(QFrame::Plain);
+  separator->setStyleSheet(QString(
+      "QFrame {"
+      "  background-color: %1;"
+      "  max-width: 1px;"
+      "  margin: 0px 12px;"
+      "}")
+      .arg(StyleManager::Colors::textPrimaryAlpha(20)));
+  m_toolbarLayout->addWidget(separator);
+
+  // Try add/remove icons for zoom (0xEA60 = add/plus, 0xEB3B = remove/minus)
+  QPushButton *zoomOutButton = createToolButton(QChar(0xEB3B), "Zoom Out");
   connect(zoomOutButton, &QPushButton::clicked, this, &LogWidget::zoomOut);
   m_toolbarLayout->addWidget(zoomOutButton);
-  
-  QPushButton *zoomInButton = createToolButton("+", "Zoom In");
+
+  QPushButton *zoomInButton = createToolButton(QChar(0xEA60), "Zoom In");
   connect(zoomInButton, &QPushButton::clicked, this, &LogWidget::zoomIn);
   m_toolbarLayout->addWidget(zoomInButton);
+
+  // Add stretch at the end to push everything to the left
+  m_toolbarLayout->addStretch();
 }
 
 void LogWidget::setupContent()
