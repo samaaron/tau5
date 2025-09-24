@@ -13,6 +13,8 @@
 #include <QSplitter>
 #include <QEvent>
 #include <QFontDatabase>
+#include <QMenu>
+#include <QAction>
 
 TerminalPane::TerminalPane(QWidget *parent)
     : QWidget(parent)
@@ -20,12 +22,8 @@ TerminalPane::TerminalPane(QWidget *parent)
     , m_bottomTerminal(nullptr)
     , m_activeTerminal(nullptr)
     , m_terminalSplitter(nullptr)
-    , m_closeButton(nullptr)
-    , m_clearButton(nullptr)
-    , m_copyButton(nullptr)
-    , m_pasteButton(nullptr)
     , m_mainLayout(nullptr)
-    , m_toolbarLayout(nullptr)
+    , m_currentFontSize(12)
 {
     setupUi();
 }
@@ -41,84 +39,77 @@ TerminalPane::~TerminalPane()
     }
 }
 
+QWidget* TerminalPane::createFontControlBar()
+{
+    QWidget *controlBar = new QWidget(this);
+    controlBar->setMaximumHeight(28);
+    controlBar->setStyleSheet(QString(
+        "QWidget {"
+        "  background-color: black;"
+        "  border-top: 1px solid %1;"
+        "}")
+        .arg(StyleManager::Colors::primaryOrangeAlpha(100)));
+
+    QHBoxLayout *layout = new QHBoxLayout(controlBar);
+    layout->setContentsMargins(5, 2, 5, 2);
+    layout->setSpacing(5);
+
+    layout->addStretch();
+
+    // Create zoom out button
+    QPushButton *zoomOutButton = new QPushButton("-", controlBar);
+    zoomOutButton->setToolTip("Zoom Out");
+    zoomOutButton->setFixedSize(20, 20);
+    zoomOutButton->setStyleSheet(QString(
+        "QPushButton {"
+        "  font-family: 'Segoe UI, Arial';"
+        "  font-size: 16px;"
+        "  font-weight: bold;"
+        "  color: %1;"
+        "  background: transparent;"
+        "  border: none;"
+        "  padding: 2px;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: %2;"
+        "  border-radius: 3px;"
+        "}")
+        .arg(StyleManager::Colors::PRIMARY_ORANGE)
+        .arg(StyleManager::Colors::blackAlpha(50)));
+    connect(zoomOutButton, &QPushButton::clicked, this, &TerminalPane::decreaseFontSize);
+    layout->addWidget(zoomOutButton);
+
+    // Create zoom in button
+    QPushButton *zoomInButton = new QPushButton("+", controlBar);
+    zoomInButton->setToolTip("Zoom In");
+    zoomInButton->setFixedSize(20, 20);
+    zoomInButton->setStyleSheet(QString(
+        "QPushButton {"
+        "  font-family: 'Segoe UI, Arial';"
+        "  font-size: 16px;"
+        "  font-weight: bold;"
+        "  color: %1;"
+        "  background: transparent;"
+        "  border: none;"
+        "  padding: 2px;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: %2;"
+        "  border-radius: 3px;"
+        "}")
+        .arg(StyleManager::Colors::PRIMARY_ORANGE)
+        .arg(StyleManager::Colors::blackAlpha(50)));
+    connect(zoomInButton, &QPushButton::clicked, this, &TerminalPane::increaseFontSize);
+    layout->addWidget(zoomInButton);
+
+    return controlBar;
+}
+
 void TerminalPane::setupUi()
 {
     m_mainLayout = new QVBoxLayout(this);
     m_mainLayout->setContentsMargins(0, 0, 0, 0);
     m_mainLayout->setSpacing(0);
-
-    // Create toolbar
-    QWidget *toolbar = new QWidget(this);
-    toolbar->setFixedHeight(28);  // Set a fixed height for the toolbar
-    toolbar->setStyleSheet(QString(
-        "QWidget {"
-        "  background-color: %1;"
-        "  border-bottom: 1px solid %2;"
-        "}"
-    ).arg(StyleManager::Colors::BACKGROUND_SECONDARY)
-     .arg(StyleManager::Colors::BORDER_DEFAULT));
-
-    m_toolbarLayout = new QHBoxLayout(toolbar);
-    m_toolbarLayout->setContentsMargins(6, 0, 6, 0);  // Even smaller vertical padding
-    m_toolbarLayout->setSpacing(4);
-
-    // Add title label
-    QLabel *titleLabel = new QLabel("Terminal", toolbar);
-    titleLabel->setStyleSheet(QString(
-        "QLabel {"
-        "  color: %1;"
-        "  font-size: 12px;"
-        "  font-weight: 600;"
-        "}"
-    ).arg(StyleManager::Colors::TEXT_PRIMARY));
-    m_toolbarLayout->addWidget(titleLabel);
-
-    m_toolbarLayout->addStretch();
-
-    // Create toolbar buttons
-    auto createButton = [this, toolbar](const QString &text, const QString &tooltip) -> QPushButton* {
-        QPushButton *btn = new QPushButton(text, toolbar);
-        btn->setToolTip(tooltip);
-        btn->setStyleSheet(QString(
-            "QPushButton {"
-            "  color: %1;"
-            "  background: transparent;"
-            "  border: none;"
-            "  padding: 1px 6px;"
-            "  font-size: 11px;"
-            "}"
-            "QPushButton:hover {"
-            "  background-color: %2;"
-            "  border-radius: 3px;"
-            "}"
-            "QPushButton:pressed {"
-            "  background-color: %3;"
-            "}"
-        ).arg(StyleManager::Colors::ACCENT_PRIMARY)
-         .arg(StyleManager::Colors::textPrimaryAlpha(25))
-         .arg(StyleManager::Colors::textPrimaryAlpha(51)));
-        return btn;
-    };
-
-    m_clearButton = createButton("Clear", "Clear terminal output");
-    connect(m_clearButton, &QPushButton::clicked, this, &TerminalPane::handleClearTerminal);
-    m_toolbarLayout->addWidget(m_clearButton);
-
-    m_copyButton = createButton("Copy", "Copy selection");
-    connect(m_copyButton, &QPushButton::clicked, this, &TerminalPane::handleCopySelection);
-    m_toolbarLayout->addWidget(m_copyButton);
-
-    m_pasteButton = createButton("Paste", "Paste from clipboard");
-    connect(m_pasteButton, &QPushButton::clicked, this, &TerminalPane::handlePasteClipboard);
-    m_toolbarLayout->addWidget(m_pasteButton);
-
-    m_closeButton = createButton("×", "Close terminal");
-    m_closeButton->setStyleSheet(m_closeButton->styleSheet() +
-        "QPushButton { font-size: 18px; font-weight: bold; }");
-    connect(m_closeButton, &QPushButton::clicked, this, &TerminalPane::closeRequested);
-    m_toolbarLayout->addWidget(m_closeButton);
-
-    m_mainLayout->addWidget(toolbar);
 
     // Create vertical splitter for two terminals
     m_terminalSplitter = new QSplitter(Qt::Vertical, this);
@@ -137,6 +128,10 @@ void TerminalPane::setupUi()
 
     // Add splitter to main layout
     m_mainLayout->addWidget(m_terminalSplitter);
+
+    // Add font control bar at the bottom
+    QWidget *controlBar = createFontControlBar();
+    m_mainLayout->addWidget(controlBar);
 
     // Set the active terminal to the top one initially
     m_activeTerminal = m_topTerminal;
@@ -171,12 +166,20 @@ void TerminalPane::createTerminalWidget(QTermWidget* &terminal, bool isTopTermin
     terminal->setTerminalOpacity(1.0);  // Ensure full opacity
     terminal->setScrollBarPosition(QTermWidget::ScrollBarRight);
 
-    // Set color scheme - try to use a dark theme
+    // Set dark color scheme for cyberpunk theme
     QStringList availableSchemes = QTermWidget::availableColorSchemes();
-    if (availableSchemes.contains("Linux")) {
+
+    // Try to find the darkest scheme available
+    // Preferred order: GreenOnBlack, Linux, DarkPastels
+    if (availableSchemes.contains("GreenOnBlack")) {
+        terminal->setColorScheme("GreenOnBlack");
+    } else if (availableSchemes.contains("Linux")) {
         terminal->setColorScheme("Linux");
     } else if (availableSchemes.contains("DarkPastels")) {
         terminal->setColorScheme("DarkPastels");
+    } else if (!availableSchemes.isEmpty()) {
+        // Use first available scheme as fallback
+        terminal->setColorScheme(availableSchemes.first());
     }
 
     // Set terminal margins to reduce any extra padding
@@ -205,7 +208,7 @@ void TerminalPane::createTerminalWidget(QTermWidget* &terminal, bool isTopTermin
     QFont terminalFont(cascadiaFontFamily);
     terminalFont.setStyleHint(QFont::Monospace);
     terminalFont.setFixedPitch(true);
-    terminalFont.setPointSize(12);  // Match app's standard font size
+    terminalFont.setPointSize(m_currentFontSize);
     terminal->setTerminalFont(terminalFont);
 
     // Apply styling
@@ -224,6 +227,32 @@ void TerminalPane::createTerminalWidget(QTermWidget* &terminal, bool isTopTermin
 
     // Start shell
     terminal->startShellProgram();
+
+    // Set up context menu for copy/paste
+    terminal->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(terminal, &QWidget::customContextMenuRequested,
+            [this, terminal](const QPoint &pos) {
+        QMenu contextMenu("Terminal Context Menu", terminal);
+
+        QAction *copyAction = new QAction("Copy", &contextMenu);
+        copyAction->setShortcut(QKeySequence::Copy);
+        connect(copyAction, &QAction::triggered, [terminal]() {
+            terminal->copyClipboard();
+        });
+
+        QAction *pasteAction = new QAction("Paste", &contextMenu);
+        pasteAction->setShortcut(QKeySequence::Paste);
+        connect(pasteAction, &QAction::triggered, [terminal]() {
+            terminal->pasteClipboard();
+        });
+
+        // Only enable copy if there's a selection
+        copyAction->setEnabled(terminal->selectedText().length() > 0);
+
+        contextMenu.addAction(copyAction);
+        contextMenu.addAction(pasteAction);
+        contextMenu.exec(terminal->mapToGlobal(pos));
+    });
 
     // Connect signals
     connect(terminal, &QTermWidget::finished, this, [this, terminal]() {
@@ -299,27 +328,6 @@ void TerminalPane::handleTerminalFinished()
     // This is now handled inline in createTerminalWidget
 }
 
-void TerminalPane::handleClearTerminal()
-{
-    if (m_activeTerminal) {
-        m_activeTerminal->clear();
-    }
-}
-
-void TerminalPane::handleCopySelection()
-{
-    if (m_activeTerminal) {
-        m_activeTerminal->copyClipboard();
-    }
-}
-
-void TerminalPane::handlePasteClipboard()
-{
-    if (m_activeTerminal) {
-        m_activeTerminal->pasteClipboard();
-    }
-}
-
 bool TerminalPane::eventFilter(QObject *obj, QEvent *event)
 {
     // Track which terminal is active based on focus events
@@ -331,4 +339,46 @@ bool TerminalPane::eventFilter(QObject *obj, QEvent *event)
         }
     }
     return QWidget::eventFilter(obj, event);
+}
+
+void TerminalPane::increaseFontSize()
+{
+    if (m_currentFontSize < 24) {  // Max font size
+        m_currentFontSize++;
+        updateTerminalFonts();
+    }
+}
+
+void TerminalPane::decreaseFontSize()
+{
+    if (m_currentFontSize > 8) {  // Min font size
+        m_currentFontSize--;
+        updateTerminalFonts();
+    }
+}
+
+void TerminalPane::updateTerminalFonts()
+{
+    // Get the Cascadia font family (already loaded)
+    static QString cascadiaFontFamily;
+    if (cascadiaFontFamily.isEmpty()) {
+        QStringList families = QFontDatabase::applicationFontFamilies(
+            QFontDatabase::addApplicationFont(":/fonts/CascadiaCodePL.ttf"));
+        if (!families.isEmpty()) {
+            cascadiaFontFamily = families.first();
+        }
+    }
+
+    QFont terminalFont(cascadiaFontFamily);
+    terminalFont.setStyleHint(QFont::Monospace);
+    terminalFont.setFixedPitch(true);
+    terminalFont.setPointSize(m_currentFontSize);
+
+    // Update both terminals
+    if (m_topTerminal) {
+        m_topTerminal->setTerminalFont(terminalFont);
+    }
+    if (m_bottomTerminal) {
+        m_bottomTerminal->setTerminalFont(terminalFont);
+    }
 }

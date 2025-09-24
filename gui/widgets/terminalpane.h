@@ -29,26 +29,23 @@ signals:
 
 private slots:
     void handleTerminalFinished();
-    void handleClearTerminal();
-    void handleCopySelection();
-    void handlePasteClipboard();
+    void increaseFontSize();
+    void decreaseFontSize();
 
 private:
     void setupUi();
+    QWidget* createFontControlBar();
     void createTerminalWidget(QTermWidget* &terminal, bool isTopTerminal);
     void styleTerminal(QTermWidget* terminal);
+    void updateTerminalFonts();
 
     QTermWidget* m_topTerminal;
     QTermWidget* m_bottomTerminal;
     QTermWidget* m_activeTerminal;
     QSplitter* m_terminalSplitter;
-    QPushButton *m_closeButton;
-    QPushButton *m_clearButton;
-    QPushButton *m_copyButton;
-    QPushButton *m_pasteButton;
     QVBoxLayout *m_mainLayout;
-    QHBoxLayout *m_toolbarLayout;
     QString m_workingDirectory;
+    int m_currentFontSize;
 };
 
 #endif // TERMINALPANE_H

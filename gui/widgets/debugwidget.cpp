@@ -38,10 +38,9 @@ void DebugWidget::setupToolbar()
   m_toolbar->setMaximumHeight(28);
   m_toolbar->setStyleSheet(QString(
       "QWidget {"
-      "  background-color: %1;"
-      "  border-bottom: 1px solid %2;"
+      "  background-color: black;"
+      "  border-bottom: 1px solid %1;"
       "}")
-      .arg(StyleManager::Colors::DARK_BACKGROUND)
       .arg(StyleManager::Colors::primaryOrangeAlpha(100)));
   
   m_toolbarLayout = new QHBoxLayout(m_toolbar);
@@ -82,6 +81,11 @@ QPushButton* DebugWidget::createToolButton(const QString &text, const QString &t
   QString fontFamily = (text == "+" || text == "-") ? "Segoe UI, Arial" : "codicon";
   QString fontSize = (text == "+" || text == "-") ? "16px" : "14px";
   
+  // Use orange for +/- buttons, keep gray for other buttons
+  QString buttonColor = (text == "+" || text == "-")
+      ? StyleManager::Colors::PRIMARY_ORANGE
+      : StyleManager::Colors::TIMESTAMP_GRAY;
+
   button->setStyleSheet(QString(
       "QPushButton {"
       "  font-family: '%1';"
@@ -103,7 +107,7 @@ QPushButton* DebugWidget::createToolButton(const QString &text, const QString &t
       "}")
       .arg(fontFamily)
       .arg(fontSize)
-      .arg(StyleManager::Colors::TIMESTAMP_GRAY)
+      .arg(buttonColor)
       .arg(StyleManager::Colors::blackAlpha(50))
       .arg(StyleManager::Colors::PRIMARY_ORANGE));
       
