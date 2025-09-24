@@ -38,6 +38,7 @@ private:
     void createTerminalWidget(QTermWidget* &terminal, bool isTopTerminal);
     void styleTerminal(QTermWidget* terminal);
     void updateTerminalFonts();
+    void createOrangeColorScheme();
 
     QTermWidget* m_topTerminal;
     QTermWidget* m_bottomTerminal;

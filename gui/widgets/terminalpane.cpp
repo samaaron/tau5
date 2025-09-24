@@ -15,6 +15,9 @@
 #include <QFontDatabase>
 #include <QMenu>
 #include <QAction>
+#include <QStandardPaths>
+#include <QFile>
+#include <QTextStream>
 
 TerminalPane::TerminalPane(QWidget *parent)
     : QWidget(parent)
@@ -166,20 +169,27 @@ void TerminalPane::createTerminalWidget(QTermWidget* &terminal, bool isTopTermin
     terminal->setTerminalOpacity(1.0);  // Ensure full opacity
     terminal->setScrollBarPosition(QTermWidget::ScrollBarRight);
 
-    // Set dark color scheme for cyberpunk theme
+    // Create custom orange color scheme if it doesn't exist
+    static bool orangeSchemeCreated = false;
+    if (!orangeSchemeCreated) {
+        createOrangeColorScheme();
+        orangeSchemeCreated = true;
+    }
+
+    // Set our custom orange color scheme
     QStringList availableSchemes = QTermWidget::availableColorSchemes();
 
-    // Try to find the darkest scheme available
-    // Preferred order: GreenOnBlack, Linux, DarkPastels
-    if (availableSchemes.contains("GreenOnBlack")) {
-        terminal->setColorScheme("GreenOnBlack");
-    } else if (availableSchemes.contains("Linux")) {
-        terminal->setColorScheme("Linux");
-    } else if (availableSchemes.contains("DarkPastels")) {
-        terminal->setColorScheme("DarkPastels");
-    } else if (!availableSchemes.isEmpty()) {
-        // Use first available scheme as fallback
-        terminal->setColorScheme(availableSchemes.first());
+    if (availableSchemes.contains("OrangeOnBlack")) {
+        terminal->setColorScheme("OrangeOnBlack");
+    } else {
+        // Fallback to a dark scheme if our custom scheme isn't available
+        if (availableSchemes.contains("Linux")) {
+            terminal->setColorScheme("Linux");
+        } else if (availableSchemes.contains("DarkPastels")) {
+            terminal->setColorScheme("DarkPastels");
+        } else if (!availableSchemes.isEmpty()) {
+            terminal->setColorScheme(availableSchemes.first());
+        }
     }
 
     // Set terminal margins to reduce any extra padding
@@ -380,5 +390,137 @@ void TerminalPane::updateTerminalFonts()
     }
     if (m_bottomTerminal) {
         m_bottomTerminal->setTerminalFont(terminalFont);
+    }
+}
+
+void TerminalPane::createOrangeColorScheme()
+{
+    // Create a temporary directory for our custom color scheme
+    QString configDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    QString colorSchemeDir = configDir + "/tau5-colorschemes";
+    QDir dir;
+    if (!dir.exists(colorSchemeDir)) {
+        dir.mkpath(colorSchemeDir);
+    }
+
+    // Add the custom directory to QTermWidget
+    QTermWidget::addCustomColorSchemeDir(colorSchemeDir);
+
+    // Create the OrangeOnBlack.colorscheme file
+    QString schemeFile = colorSchemeDir + "/OrangeOnBlack.colorscheme";
+    QFile file(schemeFile);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream stream(&file);
+
+        // Write the color scheme configuration
+        stream << "[Background]\n";
+        stream << "Bold=false\n";
+        stream << "Color=0,0,0\n";  // Black background
+        stream << "Transparency=false\n\n";
+
+        stream << "[BackgroundIntense]\n";
+        stream << "Bold=false\n";
+        stream << "Color=0,0,0\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Foreground]\n";
+        stream << "Bold=false\n";
+        stream << "Color=255,165,0\n";  // Orange foreground
+        stream << "Transparency=false\n\n";
+
+        stream << "[ForegroundIntense]\n";
+        stream << "Bold=true\n";
+        stream << "Color=255,200,0\n";  // Bright orange for intense
+        stream << "Transparency=false\n\n";
+
+        // Color palette
+        stream << "[Color0]\n";  // Black
+        stream << "Bold=false\n";
+        stream << "Color=0,0,0\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color0Intense]\n";
+        stream << "Bold=false\n";
+        stream << "Color=104,104,104\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color1]\n";  // Red
+        stream << "Bold=false\n";
+        stream << "Color=250,75,75\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color1Intense]\n";
+        stream << "Bold=false\n";
+        stream << "Color=255,84,84\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color2]\n";  // Green -> Orange
+        stream << "Bold=false\n";
+        stream << "Color=255,140,0\n";  // Dark orange
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color2Intense]\n";
+        stream << "Bold=false\n";
+        stream << "Color=255,200,0\n";  // Bright orange
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color3]\n";  // Yellow
+        stream << "Bold=false\n";
+        stream << "Color=255,215,0\n";  // Gold
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color3Intense]\n";
+        stream << "Bold=false\n";
+        stream << "Color=255,255,84\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color4]\n";  // Blue
+        stream << "Bold=false\n";
+        stream << "Color=92,167,251\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color4Intense]\n";
+        stream << "Bold=false\n";
+        stream << "Color=84,84,255\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color5]\n";  // Magenta
+        stream << "Bold=false\n";
+        stream << "Color=225,30,225\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color5Intense]\n";
+        stream << "Bold=false\n";
+        stream << "Color=255,84,255\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color6]\n";  // Cyan
+        stream << "Bold=false\n";
+        stream << "Color=24,178,178\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color6Intense]\n";
+        stream << "Bold=false\n";
+        stream << "Color=84,255,255\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color7]\n";  // White/Gray
+        stream << "Bold=false\n";
+        stream << "Color=178,178,178\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[Color7Intense]\n";
+        stream << "Bold=false\n";
+        stream << "Color=255,255,255\n";
+        stream << "Transparency=false\n\n";
+
+        stream << "[General]\n";
+        stream << "Description=Orange on Black\n";
+        stream << "Opacity=1\n";
+
+        file.close();
+        Tau5Logger::instance().info(QString("[TerminalPane] Created custom OrangeOnBlack color scheme at: %1").arg(schemeFile));
+    } else {
+        Tau5Logger::instance().error(QString("[TerminalPane] Failed to create color scheme file at: %1").arg(schemeFile));
     }
 }
