@@ -525,13 +525,10 @@ void MainWindow::initializeDebugPane()
   // It should not extend into the terminal area
   debugPane = std::make_unique<DebugPane>(webContainer ? webContainer : this, *m_config);
 
-  int defaultHeight = height() / 2;
-  debugPane->resize(width(), defaultHeight);
-  debugPane->move(0, height() - defaultHeight);
-  debugPane->raise();
+  // Don't set initial size here - let restoreSettings handle it
   debugPane->hide();
-
   debugPane->restoreSettings();
+  debugPane->raise();
 
   QSettings settings;
   settings.beginGroup("DebugPane");

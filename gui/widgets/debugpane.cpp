@@ -913,9 +913,20 @@ void DebugPane::slide(bool show)
   int parentWidth = parentWidget()->width();
   int paneHeight = height();
 
-  if (paneHeight <= 0)
+  // If height is too small, check for saved height first
+  if (paneHeight <= 100)  // Use a reasonable minimum instead of just 0
   {
-    paneHeight = parentHeight / 2;
+    QSettings settings;
+    settings.beginGroup("DebugPane");
+    if (settings.contains("height"))
+    {
+      paneHeight = settings.value("height", parentHeight / 2).toInt();
+    }
+    else
+    {
+      paneHeight = parentHeight / 2;
+    }
+    settings.endGroup();
   }
 
   paneHeight = constrainHeight(paneHeight);
@@ -1435,6 +1446,17 @@ void DebugPane::restoreSettings()
     if (parentWidget())
     {
       move(0, parentWidget()->height() - savedHeight);
+    }
+  }
+  else
+  {
+    // First run - no saved settings, use default height
+    if (parentWidget())
+    {
+      int defaultHeight = parentWidget()->height() / 2;
+      defaultHeight = constrainHeight(defaultHeight);
+      resize(parentWidget()->width(), defaultHeight);
+      move(0, parentWidget()->height() - defaultHeight);
     }
   }
 
