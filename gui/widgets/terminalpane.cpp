@@ -12,6 +12,7 @@
 #include <QProcessEnvironment>
 #include <QSplitter>
 #include <QEvent>
+#include <QFontDatabase>
 
 TerminalPane::TerminalPane(QWidget *parent)
     : QWidget(parent)
@@ -181,8 +182,29 @@ void TerminalPane::createTerminalWidget(QTermWidget* &terminal, bool isTopTermin
     // Set terminal margins to reduce any extra padding
     terminal->setMargin(0);
 
-    // Set font using app's standard monospace font
-    QFont terminalFont = QFont(StyleManager::Typography::MONOSPACE_FONT_FAMILY);
+    // Load and set Cascadia Code font from resources
+    static bool cascadiaLoaded = false;
+    static QString cascadiaFontFamily;
+
+    if (!cascadiaLoaded) {
+        int fontId = QFontDatabase::addApplicationFont(":/fonts/CascadiaCodePL.ttf");
+        if (fontId != -1) {
+            QStringList families = QFontDatabase::applicationFontFamilies(fontId);
+            if (!families.isEmpty()) {
+                cascadiaFontFamily = families.first();
+                Tau5Logger::instance().info(QString("[TerminalPane] Loaded Cascadia font: %1").arg(cascadiaFontFamily));
+                cascadiaLoaded = true;
+            }
+        }
+
+        if (!cascadiaLoaded) {
+            Tau5Logger::instance().error("[TerminalPane] Failed to load CascadiaCodePL.ttf from resources");
+        }
+    }
+
+    QFont terminalFont(cascadiaFontFamily);
+    terminalFont.setStyleHint(QFont::Monospace);
+    terminalFont.setFixedPitch(true);
     terminalFont.setPointSize(12);  // Match app's standard font size
     terminal->setTerminalFont(terminalFont);
 
