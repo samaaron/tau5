@@ -327,6 +327,10 @@ int main(int argc, char *argv[])
 
   Tau5Common::ChromeCDP::configure(args.chromeDevtools, serverConfig.getChromePort());
 
+  // Configure Chrome CDP settings (GUI-internal, not passed to server)
+  quint16 chromeCdpPort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
+  Tau5Common::ChromeCDP::configure(args.chromeDevtools, chromeCdpPort);
+
   Tau5LoggerConfig logConfig;
   logConfig.appName = "gui";
   logConfig.channel = args.channel;

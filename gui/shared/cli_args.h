@@ -595,17 +595,9 @@ inline void applyEnvironmentVariables(const CommonArgs& args, const char* target
         qputenv("TAU5_MCP_ENABLED", "false");
     }
 
-    // Chrome DevTools configuration
-    if (args.chromeDevtools) {
-        qputenv("TAU5_DEVTOOLS_ENABLED", "true");
-        // Use specified port or channel-based default (922X where X is channel)
-        quint16 chromePort = args.portChrome > 0 ? args.portChrome : (9220 + args.channel);
-        qputenv("TAU5_DEVTOOLS_PORT", std::to_string(chromePort).c_str());
-    } else {
-        // Explicitly disable DevTools
-        qputenv("TAU5_DEVTOOLS_ENABLED", "false");
-    }
-    
+    // Chrome DevTools configuration is handled directly via args, not environment variables
+    // The Chrome CDP port is only used by the GUI and doesn't need to be passed to the server
+
     // Tidewave configuration (only in dev builds)
     if (args.tidewave) {
 #ifndef TAU5_RELEASE_BUILD
@@ -653,7 +645,7 @@ inline void enforceReleaseSettings() {
     // Disable all development features
     qputenv("TAU5_ELIXIR_REPL_ENABLED", "false");
     qputenv("TAU5_TIDEWAVE_ENABLED", "false");
-    
+
     // Ensure console is disabled
     qputenv("TAU5_CONSOLE_ENABLED", "false");
     
