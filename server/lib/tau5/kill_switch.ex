@@ -105,13 +105,14 @@ defmodule Tau5.KillSwitch do
 
         if missed >= state.max_missed_checks do
           spawn(fn ->
-            Logger.error("KILL SWITCH TRIGGERED - No reset for #{missed} checks")
-            Logger.error("Shutting down NOW")
-            Process.sleep(100)
-
+            # Kill first to avoid deadlock if Logger blocks on broken pipe
             if System.get_env("MIX_ENV") == "dev" do
               hard_kill_self()
             else
+              # Try to log, but if stdout is broken this might not work
+              Logger.error("KILL SWITCH TRIGGERED - No reset for #{missed} checks")
+              Logger.error("Shutting down NOW")
+              Process.sleep(100)
               System.halt(0)
             end
           end)
