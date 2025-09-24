@@ -344,11 +344,11 @@ void DebugPane::setupConsole()
   bool enableDevMCP = isMcpEnabled();
   m_tau5MCPTabButton = new ActivityTabButton("Tau5 MCP", consoleToolbar);
   m_tidewaveMCPTabButton = new ActivityTabButton("Tidewave MCP", consoleToolbar);
-  m_guiMCPTabButton = new ActivityTabButton("Spectra MCP", consoleToolbar);
+  m_guiMCPTabButton = new ActivityTabButton("Chromium DevTools", consoleToolbar);
 
   if (!enableDevMCP)
   {
-    m_guiMCPTabButton->setToolTip("Spectra MCP disabled - click for more information");
+    m_guiMCPTabButton->setToolTip("Chromium DevTools disabled - click for more information");
   }
   if (!m_devMode)
   {
@@ -449,20 +449,20 @@ void DebugPane::setupConsole()
     quint16 chromeCdpPort = Tau5Common::ChromeCDP::port;
     QString devToolsPort = QString::number(chromeCdpPort);
     
-    QString guiMCPLogFilePath = Tau5Logger::getGlobalMCPLogPath(QString("gui-dev-%1").arg(devToolsPort));
+    QString guiMCPLogFilePath = Tau5Logger::getGlobalMCPLogPath(QString("spectra-chromium-devtools-%1").arg(devToolsPort));
     m_newGuiMCPWidget->setLogFilePath(guiMCPLogFilePath);
     Tau5Logger::instance().debug(QString("DebugPane: Setting GUI Dev MCP log path to: %1").arg(guiMCPLogFilePath));
 
-    // Add startup message for Spectra MCP
+    // Add startup message for Chromium DevTools
     QString guiMCPStartupMessage =
         "\n"
         "═════════════════════════════════════\n"
-        "Spectra MCP Services - ENABLED\n"
+        "Chromium DevTools - ENABLED\n"
         "═════════════════════════════════════\n"
         "\n"
         "Chrome DevTools Port: " + devToolsPort + "\n"
         "\n"
-        "To connect Claude Code to Spectra (stdio):\n"
+        "To connect Claude Code to Chromium DevTools (stdio):\n"
         "\n";
 #ifdef Q_OS_WIN
     guiMCPStartupMessage += "  Windows:\n";
@@ -515,7 +515,7 @@ void DebugPane::setupConsole()
     QString devGUIMCPDisabledMessage =
         "\n"
         "════════════════════════════════════\n"
-        "Spectra MCP Services - DISABLED\n"
+        "Chromium DevTools - DISABLED\n"
         "════════════════════════════════════\n"
         "\n"
         "\n"
@@ -542,7 +542,7 @@ void DebugPane::setupConsole()
   
   QString devGUIMCPServerDescription =
       "\n"
-      "Spectra MCP Services provides access\n"
+      "Chromium DevTools provides access\n"
       "to the Chrome DevTools Protocol for:\n"
       "\n"
       "• DOM inspection and manipulation\n"
@@ -550,7 +550,7 @@ void DebugPane::setupConsole()
       "• Element selection and style inspection\n"
       "\n"
       "Note: This service uses Chrome DevTools on port " + devToolsPortDesc + "\n"
-      "and is accessed via the Spectra MCP server.\n"
+      "and is accessed via the Chromium DevTools server.\n"
       "\n─────────────────────────────────────────────\n";
 
   m_newTidewaveMCPWidget->appendLog(tidewaveMCPServerDescription, false);
@@ -1326,7 +1326,7 @@ void DebugPane::showGuiMCPLog()
       debugWidget->onDeactivated();
     }
   }
-  // Switch to new LogWidget at index 5 (Spectra MCP)
+  // Switch to new LogWidget at index 5 (Chromium DevTools)
   m_consoleStack->setCurrentIndex(5);
   if (m_consoleToolbarStack)
   {

@@ -25,8 +25,8 @@ static void debugLog(const QString& message) {
 class MCPActivityLogger
 {
 public:
-    MCPActivityLogger(quint16 devToolsPort) {
-        m_logPath = Tau5Logger::getGlobalMCPLogPath(QString("spectra-%1").arg(devToolsPort));
+    MCPActivityLogger(const QString& logName) {
+        m_logPath = Tau5Logger::getGlobalMCPLogPath(logName);
         m_processId = QCoreApplication::applicationPid();
         
         // Generate a unique session ID for this connection
@@ -457,8 +457,11 @@ int main(int argc, char *argv[])
     quint16 tidewavePort = 5550 + channel;
 
     // Don't use Tau5Logger for spectra - it needs a fixed log location
-    // Initialize activity logger with the port number for unique log file
-    MCPActivityLogger activityLogger(devToolsPort);
+    // Initialize activity logger for Chromium DevTools only
+    MCPActivityLogger chromiumLogger(QString("spectra-chromium-devtools-%1").arg(devToolsPort));
+
+    // Note: Only chromium_devtools_* tools are logged
+    // Tidewave and logs tools do not have logging to reduce noise
 
     debugLog("Tau5 GUI Dev MCP Server v1.0.0");
     debugLog(QString("Connecting to Chrome DevTools on port %1").arg(devToolsPort));
@@ -547,7 +550,7 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -561,13 +564,13 @@ int main(int argc, char *argv[])
             if (result.contains("type") && result["type"].toString() == "text") {
                 QString errorText = result["text"].toString();
                 if (errorText.startsWith("Error: ")) {
-                    activityLogger.logActivity("chromium_devtools_getDocument", requestId, params, "error", duration, errorText);
+                    chromiumLogger.logActivity("chromium_devtools_getDocument", requestId, params, "error", duration, errorText);
                 } else {
                     QString truncatedResponse = errorText.left(500);
                     if (errorText.length() > 500) {
                         truncatedResponse += "... (truncated)";
                     }
-                    activityLogger.logActivity("chromium_devtools_getDocument", requestId, params, "success", duration, QString(), truncatedResponse);
+                    chromiumLogger.logActivity("chromium_devtools_getDocument", requestId, params, "success", duration, QString(), truncatedResponse);
                 }
                 return result;
             }
@@ -577,7 +580,7 @@ int main(int argc, char *argv[])
             if (fullText.length() > 500) {
                 truncatedResponse += "... (truncated)";
             }
-            activityLogger.logActivity("chromium_devtools_getDocument", requestId, params, "success", duration, QString(), truncatedResponse);
+            chromiumLogger.logActivity("chromium_devtools_getDocument", requestId, params, "success", duration, QString(), truncatedResponse);
             
             QJsonObject resultObj;
             resultObj["type"] = "text";
@@ -599,7 +602,7 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{"selector"}}
         },
-        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -614,14 +617,14 @@ int main(int argc, char *argv[])
             
             if (result.contains("type") && result["type"].toString() == "text") {
                 QString errorText = result["text"].toString();
-                activityLogger.logActivity("chromium_devtools_querySelector", requestId, params, "error", duration, errorText);
+                chromiumLogger.logActivity("chromium_devtools_querySelector", requestId, params, "error", duration, errorText);
                 return result;
             }
             
             int nodeId = result["nodeId"].toInt();
             if (nodeId == 0) {
                 QString notFoundText = QString("No element found matching selector: %1").arg(selector);
-                activityLogger.logActivity("chromium_devtools_querySelector", requestId, params, "not_found", duration, QString(), notFoundText);
+                chromiumLogger.logActivity("chromium_devtools_querySelector", requestId, params, "not_found", duration, QString(), notFoundText);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", notFoundText}
@@ -629,7 +632,7 @@ int main(int argc, char *argv[])
             }
             
             QString responseText = QString("Found element with nodeId: %1").arg(nodeId);
-            activityLogger.logActivity("chromium_devtools_querySelector", requestId, params, "success", duration, QString(), responseText);
+            chromiumLogger.logActivity("chromium_devtools_querySelector", requestId, params, "success", duration, QString(), responseText);
             
             return QJsonObject{
                 {"type", "text"},
@@ -651,7 +654,7 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{"nodeId"}}
         },
-        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -666,11 +669,11 @@ int main(int argc, char *argv[])
             
             if (result.contains("type") && result["type"].toString() == "text") {
                 QString errorText = result["text"].toString();
-                activityLogger.logActivity("chromium_devtools_getOuterHTML", requestId, params, "error", duration, errorText);
+                chromiumLogger.logActivity("chromium_devtools_getOuterHTML", requestId, params, "error", duration, errorText);
                 return result;
             }
             
-            activityLogger.logActivity("chromium_devtools_getOuterHTML", requestId, params, "success", duration);
+            chromiumLogger.logActivity("chromium_devtools_getOuterHTML", requestId, params, "success", duration);
             
             return QJsonObject{
                 {"type", "text"},
@@ -692,7 +695,7 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{"expression"}}
         },
-        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -708,14 +711,14 @@ int main(int argc, char *argv[])
             
             if (result.contains("type") && result["type"].toString() == "text") {
                 QString errorText = result["text"].toString();
-                activityLogger.logActivity("chromium_devtools_evaluateJavaScript", requestId, params, "error", duration, errorText);
+                chromiumLogger.logActivity("chromium_devtools_evaluateJavaScript", requestId, params, "error", duration, errorText);
                 return result;
             }
             
             if (result.contains("exceptionDetails")) {
                 QJsonObject exception = result["exceptionDetails"].toObject();
                 QString errorText = exception["text"].toString();
-                activityLogger.logActivity("chromium_devtools_evaluateJavaScript", requestId, params, "exception", duration, errorText);
+                chromiumLogger.logActivity("chromium_devtools_evaluateJavaScript", requestId, params, "exception", duration, errorText);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", QString("JavaScript exception: %1").arg(errorText)}
@@ -745,7 +748,7 @@ int main(int argc, char *argv[])
                 QJsonObject responseObj;
                 responseObj["type"] = "text";
                 responseObj["text"] = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
-                activityLogger.logActivity("chromium_devtools_evaluateJavaScript", requestId, params, "success", duration, QString(), objRef);
+                chromiumLogger.logActivity("chromium_devtools_evaluateJavaScript", requestId, params, "success", duration, QString(), objRef);
                 return responseObj;
             }
             
@@ -768,7 +771,7 @@ int main(int argc, char *argv[])
                 resultText = "undefined";
             }
             
-            activityLogger.logActivity("chromium_devtools_evaluateJavaScript", requestId, params, "success", duration, QString(), resultText);
+            chromiumLogger.logActivity("chromium_devtools_evaluateJavaScript", requestId, params, "success", duration, QString(), resultText);
             
             return QJsonObject{
                 {"type", "text"},
@@ -785,7 +788,7 @@ int main(int argc, char *argv[])
             {"properties", QJsonObject{}},
             {"required", QJsonArray{}}
         },
-        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -804,21 +807,21 @@ int main(int argc, char *argv[])
 
                 // Check if it's an error message about dev mode
                 if (resultText.contains("not available")) {
-                    activityLogger.logActivity("chromium_devtools_hardRefresh", requestId, params, "error", duration, resultText);
+                    chromiumLogger.logActivity("chromium_devtools_hardRefresh", requestId, params, "error", duration, resultText);
                     return QJsonObject{
                         {"type", "text"},
                         {"text", resultText}
                     };
                 }
 
-                activityLogger.logActivity("chromium_devtools_hardRefresh", requestId, params, "success", duration);
+                chromiumLogger.logActivity("chromium_devtools_hardRefresh", requestId, params, "success", duration);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", "Hard refresh initiated"}
                 };
             }
 
-            activityLogger.logActivity("chromium_devtools_hardRefresh", requestId, params, "error", duration, "Unexpected response");
+            chromiumLogger.logActivity("chromium_devtools_hardRefresh", requestId, params, "error", duration, "Unexpected response");
             return QJsonObject{
                 {"type", "text"},
                 {"text", "Failed to execute hard refresh"}
@@ -916,20 +919,31 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{"url"}}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
+            QElapsedTimer timer;
+            timer.start();
+            QString requestId = QUuid::createUuid().toString();
+
             QString url = params["url"].toString();
-            
+
             QJsonObject result = bridge.executeCommand([url](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->navigateTo(url, cb);
             });
-            
+
+            qint64 duration = timer.elapsed();
+
             if (result.contains("type") && result["type"].toString() == "text") {
+                QString errorText = result["text"].toString();
+                chromiumLogger.logActivity("chromium_devtools_navigate", requestId, params, "error", duration, errorText);
                 return result;
             }
-            
+
+            QString responseText = QString("Navigated to: %1").arg(url);
+            chromiumLogger.logActivity("chromium_devtools_navigate", requestId, params, "success", duration, QString(), responseText);
+
             return QJsonObject{
                 {"type", "text"},
-                {"text", QString("Navigated to: %1").arg(url)}
+                {"text", responseText}
             };
         }
     });
@@ -956,7 +970,11 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{"selector"}}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
+            QElapsedTimer timer;
+            timer.start();
+            QString requestId = QUuid::createUuid().toString();
+
             QString selector = params["selector"].toString();
             QJsonArray requestedProps = params.contains("properties") ? params["properties"].toArray() : QJsonArray();
             bool rawJson = params.contains("rawJson") ? params["rawJson"].toBool() : false;
@@ -998,24 +1016,33 @@ int main(int argc, char *argv[])
                 client->evaluateJavaScript(jsExpression, cb);
             });
             
+            qint64 duration = timer.elapsed();
+
             if (result.contains("type") && result["type"].toString() == "text") {
+                QString errorText = result["text"].toString();
+                chromiumLogger.logActivity("chromium_devtools_getComputedStyle", requestId, params, "error", duration, errorText);
                 return result;
             }
-            
+
             QJsonObject resultObj = result["result"].toObject();
             QJsonValue value = resultObj["value"];
-            
+
             if (value.isObject() && value.toObject().contains("error")) {
+                QString errorText = value.toObject()["error"].toString();
+                chromiumLogger.logActivity("chromium_devtools_getComputedStyle", requestId, params, "error", duration, errorText);
                 if (rawJson) {
-                    return QJsonObject{{"error", value.toObject()["error"].toString()}};
+                    return QJsonObject{{"error", errorText}};
                 }
                 return QJsonObject{
                     {"type", "text"},
-                    {"text", value.toObject()["error"].toString()}
+                    {"text", errorText}
                 };
             }
-            
-            return bridge.formatResponse(value, rawJson);
+
+            QJsonObject response = bridge.formatResponse(value, rawJson);
+            QString responseText = response.contains("text") ? response["text"].toString().left(500) : "Computed styles retrieved";
+            chromiumLogger.logActivity("chromium_devtools_getComputedStyle", requestId, params, "success", duration, QString(), responseText);
+            return response;
         }
     });
     
@@ -1032,7 +1059,7 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{"objectId"}}
         },
-        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -1047,14 +1074,14 @@ int main(int argc, char *argv[])
             
             if (result.contains("type") && result["type"].toString() == "text") {
                 QString errorText = result["text"].toString();
-                activityLogger.logActivity("chromium_devtools_getProperties", requestId, params, "error", duration, errorText);
+                chromiumLogger.logActivity("chromium_devtools_getProperties", requestId, params, "error", duration, errorText);
                 return result;
             }
             
             if (result.contains("exceptionDetails")) {
                 QJsonObject exception = result["exceptionDetails"].toObject();
                 QString errorText = exception["text"].toString();
-                activityLogger.logActivity("chromium_devtools_getProperties", requestId, params, "exception", duration, errorText);
+                chromiumLogger.logActivity("chromium_devtools_getProperties", requestId, params, "exception", duration, errorText);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", QString("Error: %1").arg(errorText)}
@@ -1078,7 +1105,7 @@ int main(int argc, char *argv[])
                 formattedProps[name] = propInfo;
             }
             
-            activityLogger.logActivity("chromium_devtools_getProperties", requestId, params, "success", duration, QString(), formattedProps);
+            chromiumLogger.logActivity("chromium_devtools_getProperties", requestId, params, "success", duration, QString(), formattedProps);
             
             QJsonDocument doc(formattedProps);
             QJsonObject responseObj;
@@ -1646,7 +1673,7 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{}}
         },
-        [&bridge, &activityLogger, channel](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger, channel](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -1857,7 +1884,7 @@ int main(int argc, char *argv[])
             if (format == "json") {
                 QJsonDocument doc(jsonResults);
                 QString resultText = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
-                activityLogger.logActivity("tau5_logs_search", requestId, params, "success", duration, QString(), jsonResults);
+// Logging disabled for non-chromium tools:                 chromiumLogger.logActivity("tau5_logs_search", requestId, params, "success", duration, QString(), jsonResults);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", resultText}
@@ -1866,7 +1893,7 @@ int main(int argc, char *argv[])
                 QString resultText = textResults.isEmpty() 
                     ? "No matches found" 
                     : textResults.join("\n");
-                activityLogger.logActivity("tau5_logs_search", requestId, params, "success", duration, QString(), resultText);
+// Logging disabled for non-chromium tools:                 chromiumLogger.logActivity("tau5_logs_search", requestId, params, "success", duration, QString(), resultText);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", resultText}
@@ -1883,7 +1910,7 @@ int main(int argc, char *argv[])
             {"properties", QJsonObject{}},
             {"required", QJsonArray{}}
         },
-        [&activityLogger, channel](const QJsonObject& params) -> QJsonObject {
+        [&chromiumLogger, channel](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -1941,7 +1968,7 @@ int main(int argc, char *argv[])
             QString resultText = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
             
             qint64 duration = timer.elapsed();
-            activityLogger.logActivity("tau5_logs_getSessions", requestId, params, "success", duration, QString(), sessions);
+// Logging disabled for non-chromium tools:             chromiumLogger.logActivity("tau5_logs_getSessions", requestId, params, "success", duration, QString(), sessions);
             
             return QJsonObject{
                 {"type", "text"},
@@ -1967,7 +1994,7 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{}}
         },
-        [&activityLogger, channel](const QJsonObject& params) -> QJsonObject {
+        [&chromiumLogger, channel](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -2026,7 +2053,7 @@ int main(int argc, char *argv[])
                 .arg(resultLines.join("\n"));
             
             qint64 duration = timer.elapsed();
-            activityLogger.logActivity("tau5_logs_get", requestId, params, "success", duration, QString(), resultText);
+// Logging disabled for non-chromium tools:             chromiumLogger.logActivity("tau5_logs_get", requestId, params, "success", duration, QString(), resultText);
             
             return QJsonObject{
                 {"type", "text"},
@@ -2083,7 +2110,7 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -2096,7 +2123,7 @@ int main(int argc, char *argv[])
                 QString errorText = result["text"].toString();
                 if (errorText.startsWith("Error: ")) {
                     qint64 duration = timer.elapsed();
-                    activityLogger.logActivity("chromium_devtools_getConsoleMessages", requestId, params, "error", duration, errorText);
+                    chromiumLogger.logActivity("chromium_devtools_getConsoleMessages", requestId, params, "error", duration, errorText);
                     return result;
                 }
             }
@@ -2166,7 +2193,7 @@ int main(int argc, char *argv[])
             }
 
             qint64 duration = timer.elapsed();
-            activityLogger.logActivity("chromium_devtools_getConsoleMessages", requestId, params, "success", duration, QString(), output);
+            chromiumLogger.logActivity("chromium_devtools_getConsoleMessages", requestId, params, "success", duration, QString(), output);
 
             return QJsonObject{
                 {"type", "text"},
@@ -2183,7 +2210,7 @@ int main(int argc, char *argv[])
             {"type", "object"},
             {"properties", QJsonObject{}}
         },
-        [&bridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -2194,7 +2221,7 @@ int main(int argc, char *argv[])
             });
 
             qint64 duration = timer.elapsed();
-            activityLogger.logActivity("chromium_devtools_clearConsoleMessages", requestId, params, "success", duration);
+            chromiumLogger.logActivity("chromium_devtools_clearConsoleMessages", requestId, params, "success", duration);
 
             return QJsonObject{
                 {"type", "text"},
@@ -2228,7 +2255,10 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
+            QElapsedTimer timer;
+            timer.start();
+            QString requestId = QUuid::createUuid().toString();
             QJsonObject result = bridge.executeCommand([params](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->getNetworkRequests(params, cb);
             });
@@ -2475,10 +2505,16 @@ int main(int argc, char *argv[])
             {"type", "object"},
             {"properties", QJsonObject{}}
         },
-        [&bridge](const QJsonObject&) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
+            QElapsedTimer timer;
+            timer.start();
+            QString requestId = QUuid::createUuid().toString();
+
             QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->getCrossOriginIsolationStatus(cb);
             });
+
+            qint64 duration = timer.elapsed();
 
             QString output = "=== Cross-Origin Isolation Status ===\n";
             output += QString("SharedArrayBuffer Available: %1\n")
@@ -2493,6 +2529,8 @@ int main(int argc, char *argv[])
                 output += "  - Cross-Origin-Opener-Policy: same-origin\n";
                 output += "  - Cross-Origin-Embedder-Policy: require-corp\n";
             }
+
+            chromiumLogger.logActivity("chromium_devtools_getCrossOriginIsolationStatus", requestId, params, "success", duration, QString(), "Cross-origin isolation status retrieved");
 
             return QJsonObject{
                 {"type", "text"},
@@ -2509,10 +2547,16 @@ int main(int argc, char *argv[])
             {"type", "object"},
             {"properties", QJsonObject{}}
         },
-        [&bridge](const QJsonObject&) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
+            QElapsedTimer timer;
+            timer.start();
+            QString requestId = QUuid::createUuid().toString();
+
             QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->getSecurityState(cb);
             });
+
+            qint64 duration = timer.elapsed();
 
             QString output = "=== Security State ===\n";
             output += QString("Security State: %1\n").arg(result["securityState"].toString());
@@ -2522,6 +2566,8 @@ int main(int argc, char *argv[])
                 output += QString("Certificate Valid: %1\n").arg(cert["certificateHasWeakSignature"].toBool() ? "NO" : "YES");
                 output += QString("Protocol: %1\n").arg(cert["protocol"].toString());
             }
+
+            chromiumLogger.logActivity("chromium_devtools_getSecurityState", requestId, params, "success", duration, QString(), "Security state retrieved");
 
             return QJsonObject{
                 {"type", "text"},
@@ -2649,10 +2695,16 @@ int main(int argc, char *argv[])
             {"type", "object"},
             {"properties", QJsonObject{}}
         },
-        [&bridge](const QJsonObject&) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
+            QElapsedTimer timer;
+            timer.start();
+            QString requestId = QUuid::createUuid().toString();
+
             QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->getPerformanceTimeline(cb);
             });
+
+            qint64 duration = timer.elapsed();
 
             QString output = "=== Performance Timeline ===\n";
 
@@ -2694,6 +2746,8 @@ int main(int argc, char *argv[])
                 }
             }
 
+            chromiumLogger.logActivity("chromium_devtools_getPerformanceTimeline", requestId, params, "success", duration, QString(), "Performance timeline retrieved");
+
             return QJsonObject{
                 {"type", "text"},
                 {"text", output}
@@ -2715,7 +2769,7 @@ int main(int argc, char *argv[])
             }},
             {"required", QJsonArray{"requestId"}}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = params["requestId"].toString();
 
             QJsonObject result = bridge.executeCommand([requestId](CDPClient* client, CDPClient::ResponseCallback cb) {
@@ -2789,7 +2843,10 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
+            QElapsedTimer timer;
+            timer.start();
+            QString requestId = QUuid::createUuid().toString();
             QJsonObject result = bridge.executeCommand([params](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->getWebSocketFrames(params, cb);
             });
@@ -2831,6 +2888,9 @@ int main(int argc, char *argv[])
 
             output += QString("\nTotal frames captured: %1\n").arg(total);
 
+            qint64 duration = timer.elapsed();
+            chromiumLogger.logActivity("chromium_devtools_getWebSocketFrames", requestId, params, "success", duration, QString(), QString("Retrieved %1 WebSocket frames").arg(frames.size()));
+
             return QJsonObject{
                 {"type", "text"},
                 {"text", output}
@@ -2871,7 +2931,7 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString selector = params["selector"].toString();
             if (selector.isEmpty()) {
                 selector = "body";
@@ -2939,7 +2999,7 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&bridge](const QJsonObject& params) -> QJsonObject {
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QJsonObject result = bridge.executeCommand([params](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->getDOMMutations(params, cb);
             });
@@ -3095,7 +3155,7 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&tidewaveBridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -3104,14 +3164,14 @@ int main(int argc, char *argv[])
 
             if (result.contains("error")) {
                 QString error = result["message"].toString();
-                activityLogger.logActivity("tidewave_get_logs", requestId, params, "error", timer.elapsed(), error);
+// Logging disabled for non-chromium tools:                 chromiumLogger.logActivity("tidewave_get_logs", requestId, params, "error", timer.elapsed(), error);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", error}
                 };
             }
 
-            activityLogger.logActivity("tidewave_get_logs", requestId, params, "success", timer.elapsed(), QString(), result);
+// Logging disabled for non-chromium tools:             chromiumLogger.logActivity("tidewave_get_logs", requestId, params, "success", timer.elapsed(), QString(), result);
             return tidewaveBridge.formatResponse(result);
         }
     });
@@ -3129,7 +3189,7 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&tidewaveBridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -3138,14 +3198,14 @@ int main(int argc, char *argv[])
 
             if (result.contains("error")) {
                 QString error = result["message"].toString();
-                activityLogger.logActivity("tidewave_get_source_location", requestId, params, "error", timer.elapsed(), error);
+// Logging disabled for non-chromium tools:                 chromiumLogger.logActivity("tidewave_get_source_location", requestId, params, "error", timer.elapsed(), error);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", error}
                 };
             }
 
-            activityLogger.logActivity("tidewave_get_source_location", requestId, params, "success", timer.elapsed(), QString(), result);
+// Logging disabled for non-chromium tools:             chromiumLogger.logActivity("tidewave_get_source_location", requestId, params, "success", timer.elapsed(), QString(), result);
             return tidewaveBridge.formatResponse(result);
         }
     });
@@ -3163,7 +3223,7 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&tidewaveBridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -3172,14 +3232,14 @@ int main(int argc, char *argv[])
 
             if (result.contains("error")) {
                 QString error = result["message"].toString();
-                activityLogger.logActivity("tidewave_get_docs", requestId, params, "error", timer.elapsed(), error);
+// Logging disabled for non-chromium tools:                 chromiumLogger.logActivity("tidewave_get_docs", requestId, params, "error", timer.elapsed(), error);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", error}
                 };
             }
 
-            activityLogger.logActivity("tidewave_get_docs", requestId, params, "success", timer.elapsed(), QString(), result);
+// Logging disabled for non-chromium tools:             chromiumLogger.logActivity("tidewave_get_docs", requestId, params, "success", timer.elapsed(), QString(), result);
             return tidewaveBridge.formatResponse(result);
         }
     });
@@ -3206,7 +3266,7 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&tidewaveBridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -3215,7 +3275,7 @@ int main(int argc, char *argv[])
 
             if (result.contains("error")) {
                 QString error = result["message"].toString();
-                activityLogger.logActivity("tidewave_project_eval", requestId, params, "error", timer.elapsed(), error);
+// Logging disabled for non-chromium tools:                 chromiumLogger.logActivity("tidewave_project_eval", requestId, params, "error", timer.elapsed(), error);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", error},
@@ -3223,7 +3283,7 @@ int main(int argc, char *argv[])
                 };
             }
 
-            activityLogger.logActivity("tidewave_project_eval", requestId, params, "success", timer.elapsed(), QString(), result);
+// Logging disabled for non-chromium tools:             chromiumLogger.logActivity("tidewave_project_eval", requestId, params, "success", timer.elapsed(), QString(), result);
             return tidewaveBridge.formatResponse(result);
         }
     });
@@ -3246,7 +3306,7 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&tidewaveBridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -3255,14 +3315,14 @@ int main(int argc, char *argv[])
 
             if (result.contains("error")) {
                 QString error = result["message"].toString();
-                activityLogger.logActivity("tidewave_search_package_docs", requestId, params, "error", timer.elapsed(), error);
+// Logging disabled for non-chromium tools:                 chromiumLogger.logActivity("tidewave_search_package_docs", requestId, params, "error", timer.elapsed(), error);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", error}
                 };
             }
 
-            activityLogger.logActivity("tidewave_search_package_docs", requestId, params, "success", timer.elapsed(), QString(), result);
+// Logging disabled for non-chromium tools:             chromiumLogger.logActivity("tidewave_search_package_docs", requestId, params, "success", timer.elapsed(), QString(), result);
             return tidewaveBridge.formatResponse(result);
         }
     });
@@ -3289,7 +3349,7 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&tidewaveBridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -3298,14 +3358,14 @@ int main(int argc, char *argv[])
 
             if (result.contains("error")) {
                 QString error = result["message"].toString();
-                activityLogger.logActivity("tidewave_execute_sql_query", requestId, params, "error", timer.elapsed(), error);
+// Logging disabled for non-chromium tools:                 chromiumLogger.logActivity("tidewave_execute_sql_query", requestId, params, "error", timer.elapsed(), error);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", error}
                 };
             }
 
-            activityLogger.logActivity("tidewave_execute_sql_query", requestId, params, "success", timer.elapsed(), QString(), result);
+// Logging disabled for non-chromium tools:             chromiumLogger.logActivity("tidewave_execute_sql_query", requestId, params, "success", timer.elapsed(), QString(), result);
             return tidewaveBridge.formatResponse(result);
         }
     });
@@ -3322,7 +3382,7 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&tidewaveBridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -3331,14 +3391,14 @@ int main(int argc, char *argv[])
 
             if (result.contains("error")) {
                 QString error = result["message"].toString();
-                activityLogger.logActivity("tidewave_get_ecto_schemas", requestId, params, "error", timer.elapsed(), error);
+// Logging disabled for non-chromium tools:                 chromiumLogger.logActivity("tidewave_get_ecto_schemas", requestId, params, "error", timer.elapsed(), error);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", error}
                 };
             }
 
-            activityLogger.logActivity("tidewave_get_ecto_schemas", requestId, params, "success", timer.elapsed(), QString(), result);
+// Logging disabled for non-chromium tools:             chromiumLogger.logActivity("tidewave_get_ecto_schemas", requestId, params, "success", timer.elapsed(), QString(), result);
             return tidewaveBridge.formatResponse(result);
         }
     });
@@ -3361,7 +3421,7 @@ int main(int argc, char *argv[])
                 }}
             }}
         },
-        [&tidewaveBridge, &activityLogger](const QJsonObject& params) -> QJsonObject {
+        [&tidewaveBridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
@@ -3373,7 +3433,7 @@ int main(int argc, char *argv[])
 
             if (result.contains("error")) {
                 QString error = result["message"].toString();
-                activityLogger.logActivity("tidewave_call_tool", requestId, params, "error", timer.elapsed(), error);
+// Logging disabled for non-chromium tools:                 chromiumLogger.logActivity("tidewave_call_tool", requestId, params, "error", timer.elapsed(), error);
                 return QJsonObject{
                     {"type", "text"},
                     {"text", error},
@@ -3381,7 +3441,7 @@ int main(int argc, char *argv[])
                 };
             }
 
-            activityLogger.logActivity("tidewave_call_tool", requestId, params, "success", timer.elapsed(), QString(), result);
+// Logging disabled for non-chromium tools:             chromiumLogger.logActivity("tidewave_call_tool", requestId, params, "success", timer.elapsed(), QString(), result);
             return tidewaveBridge.formatResponse(result);
         }
     });
