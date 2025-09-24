@@ -126,7 +126,7 @@ defmodule Tau5.Application do
       {:ok, pid} ->
         Tau5MCP.ActivityLogger.init()
 
-        if System.get_env("TAU5_ENABLE_DEV_MCP", "false") in ["1", "true", "yes"] do
+        if System.get_env("TAU5_TIDEWAVE_ENABLED", "false") in ["1", "true", "yes"] do
           TidewaveMCP.ActivityLogger.init()
         end
 

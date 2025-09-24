@@ -35,7 +35,6 @@ This document describes all environment variables used by Tau5 across its differ
 | Variable | Values | Default | Description |
 |----------|--------|---------|-------------|
 | `TAU5_MCP_ENABLED` | `true`, `false` | `false` | Enable MCP endpoint |
-| `TAU5_ENABLE_DEV_MCP` | `true`, `false` | `false` | Alternative flag to enable MCP in development |
 | `TAU5_TIDEWAVE_ENABLED` | `true`, `false` | `false` | Enable Tidewave on MCP endpoint (dev only) |
 | `TAU5_TIDEWAVE_LOGGING` | `true`, `false` | `false` | Enable Tidewave request/response logging |
 | `TAU5_ELIXIR_REPL_ENABLED` | `true`, `false` | `false` | Enable Elixir REPL console (dev only) |

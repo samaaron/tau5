@@ -653,9 +653,6 @@ inline void enforceReleaseSettings() {
     // Disable all development features
     qputenv("TAU5_ELIXIR_REPL_ENABLED", "false");
     qputenv("TAU5_TIDEWAVE_ENABLED", "false");
-    qputenv("TAU5_DEV_MCP_ENABLED", "false");
-    qputenv("TAU5_ENABLE_DEV_MCP", "false");
-    qputenv("TAU5_GUI_DEV_MCP_ENABLED", "false");
     
     // Ensure console is disabled
     qputenv("TAU5_CONSOLE_ENABLED", "false");
