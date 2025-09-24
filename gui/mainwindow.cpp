@@ -43,6 +43,7 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
     , m_titleBar(nullptr)
     , m_windowAgent(nullptr)
 #endif
+    , mainContainer(nullptr)
     , m_config(&config)
     , m_devMode(config.getArgs().env == Tau5CLI::CommonArgs::Env::Dev)
     , m_enableDebugPane(config.getArgs().debugPane)
@@ -85,6 +86,7 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
 
   this->setStyleSheet(StyleManager::mainWindow());
   
+  // Transition overlay should cover the entire window
   transitionOverlay = std::make_unique<TransitionOverlay>(this);
   transitionOverlay->resize(size());
   transitionOverlay->setImmediateOpacity(1.0);
@@ -164,15 +166,28 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
   webLayout->addWidget(phxWidget.get());
 
 #ifdef BUILD_WITH_TERMINAL_PANE
-  // For dev builds, create a horizontal splitter with web container and terminal
+  // For dev builds, create a horizontal splitter with main container and terminal
   if (m_devMode) {
+    // Create main container that will hold web view, debug pane, and nav buttons
+    mainContainer = new QWidget(this);
+    QVBoxLayout *mainContainerLayout = new QVBoxLayout(mainContainer);
+    mainContainerLayout->setContentsMargins(0, 0, 0, 0);
+    mainContainerLayout->setSpacing(0);
+    mainContainerLayout->addWidget(webContainer);
+
+    // Create horizontal splitter for main container and terminal
     QSplitter *horizontalSplitter = new QSplitter(Qt::Horizontal, this);
-    horizontalSplitter->addWidget(webContainer);
+    horizontalSplitter->addWidget(mainContainer);
+    horizontalSplitter->setChildrenCollapsible(false); // Prevent panels from collapsing
 
     // Initialize terminal pane but keep it hidden initially
     terminalPane = std::make_unique<TerminalPane>(this);
     terminalPane->setWorkingDirectory(QDir::currentPath());
     horizontalSplitter->addWidget(terminalPane.get());
+
+    // Set stretch factors so main container expands, terminal maintains width
+    horizontalSplitter->setStretchFactor(0, 1); // Main container stretches
+    horizontalSplitter->setStretchFactor(1, 0); // Terminal maintains fixed width
 
     // Set initial sizes (80% for main widget, 20% for terminal, but terminal is hidden)
     horizontalSplitter->setSizes(QList<int>() << 800 << 200);
@@ -205,15 +220,28 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
   webLayout->addWidget(phxWidget.get());
 
 #ifdef BUILD_WITH_TERMINAL_PANE
-  // For dev builds on macOS, create a horizontal splitter with web container and terminal
+  // For dev builds on macOS, create a horizontal splitter with main container and terminal
   if (m_devMode) {
+    // Create main container that will hold web view, debug pane, and nav buttons
+    mainContainer = new QWidget(this);
+    QVBoxLayout *mainContainerLayout = new QVBoxLayout(mainContainer);
+    mainContainerLayout->setContentsMargins(0, 0, 0, 0);
+    mainContainerLayout->setSpacing(0);
+    mainContainerLayout->addWidget(webContainer);
+
+    // Create horizontal splitter for main container and terminal
     QSplitter *horizontalSplitter = new QSplitter(Qt::Horizontal, this);
-    horizontalSplitter->addWidget(webContainer);
+    horizontalSplitter->addWidget(mainContainer);
+    horizontalSplitter->setChildrenCollapsible(false); // Prevent panels from collapsing
 
     // Initialize terminal pane but keep it hidden initially
     terminalPane = std::make_unique<TerminalPane>(this);
     terminalPane->setWorkingDirectory(QDir::currentPath());
     horizontalSplitter->addWidget(terminalPane.get());
+
+    // Set stretch factors so main container expands, terminal maintains width
+    horizontalSplitter->setStretchFactor(0, 1); // Main container stretches
+    horizontalSplitter->setStretchFactor(1, 0); // Terminal maintains fixed width
 
     // Set initial sizes (80% for main widget, 20% for terminal, but terminal is hidden)
     horizontalSplitter->setSizes(QList<int>() << 800 << 200);
@@ -251,7 +279,8 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
 
   phxWidget->loadShaderPage();
 
-  consoleOverlay = std::make_unique<ConsoleOverlay>(this);
+  // Console overlay should be within webContainer to stay within the web view area
+  consoleOverlay = std::make_unique<ConsoleOverlay>(webContainer ? webContainer : this);
   consoleOverlay->raise();
   consoleOverlay->show();
   
@@ -492,6 +521,8 @@ void MainWindow::onAppPageReady()
 #ifdef BUILD_WITH_DEBUG_PANE
 void MainWindow::initializeDebugPane()
 {
+  // Debug pane should always be attached to webContainer to overlay the web content
+  // It should not extend into the terminal area
   debugPane = std::make_unique<DebugPane>(webContainer ? webContainer : this, *m_config);
 
   int defaultHeight = height() / 2;
@@ -574,6 +605,7 @@ void MainWindow::initializeTerminalPane()
 
 void MainWindow::initializeControlLayer()
 {
+  // Control layer should be attached to webContainer to stay within the web view area
   controlLayer = std::make_unique<ControlLayer>(webContainer ? webContainer : this);
   controlLayer->raise();
 

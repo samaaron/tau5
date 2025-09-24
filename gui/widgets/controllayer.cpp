@@ -93,6 +93,11 @@ ControlLayer::ControlLayer(QWidget *parent)
   setAttribute(Qt::WA_TranslucentBackground);
   setupControls();
   connectSignals();
+
+  // Install event filter on parent to track resize events
+  if (parent) {
+    parent->installEventFilter(this);
+  }
 }
 
 void ControlLayer::setupControls()
@@ -233,4 +238,13 @@ void ControlLayer::resizeEvent(QResizeEvent *event)
 {
   QWidget::resizeEvent(event);
   positionControls();
+}
+
+bool ControlLayer::eventFilter(QObject *obj, QEvent *event)
+{
+  // Watch for parent resize events to reposition controls
+  if (obj == parentWidget() && event->type() == QEvent::Resize) {
+    positionControls();
+  }
+  return QWidget::eventFilter(obj, event);
 }

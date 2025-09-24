@@ -163,6 +163,11 @@ DebugPane::DebugPane(QWidget *parent, const Tau5CLI::ServerConfig& config)
 
   setupUi();
   hide();
+
+  // Install event filter on parent to track resize events
+  if (parent) {
+    parent->installEventFilter(this);
+  }
 }
 
 DebugPane::~DebugPane()
@@ -942,8 +947,18 @@ void DebugPane::animationFinished()
 
 bool DebugPane::eventFilter(QObject *obj, QEvent *event)
 {
-  Q_UNUSED(obj);
-  Q_UNUSED(event);
+  // Watch for parent resize events to update our width
+  if (obj == parentWidget() && event->type() == QEvent::Resize) {
+    if (m_isVisible && parentWidget()) {
+      // Update width to match parent
+      int newWidth = parentWidget()->width();
+      if (width() != newWidth) {
+        resize(newWidth, height());
+        // Also update position to stay at bottom of parent
+        move(0, parentWidget()->height() - height());
+      }
+    }
+  }
   return QWidget::eventFilter(obj, event);
 }
 

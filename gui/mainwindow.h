@@ -86,6 +86,7 @@ private:
 private:
   std::unique_ptr<MainPhxWidget> phxWidget;
   QWidget *webContainer;
+  QWidget *mainContainer;
 #ifdef BUILD_WITH_DEBUG_PANE
   std::unique_ptr<DebugPane> debugPane;
 #endif
