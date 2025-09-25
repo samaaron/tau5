@@ -577,6 +577,8 @@ QList<CheckResult> checkNIFs(const HealthCheckConfig& config, const Tau5CLI::Ser
         QString libPrefix = "";
         QString libSuffix = "";
         #ifdef Q_OS_WIN
+            // Windows NIFs are built with lib prefix by CMake
+            libPrefix = "lib";
             libSuffix = ".dll";
         #else
             // BEAM NIFs use .so on both Linux and macOS
@@ -889,15 +891,19 @@ int runHealthCheck(const HealthCheckConfig& config) {
     if (summary.hasBlockingFailures || summary.failed > 0) {
         Tau5Logger::instance().error("CHECK FAILED");
         Tau5Logger::instance().info("===============================================");
-        return 1;
+        return 1;  // Exit code 1 for failures
     } else if (summary.warnings > 0 && config.strictMode) {
         Tau5Logger::instance().warning("CHECK FAILED (strict mode - warnings treated as errors)");
         Tau5Logger::instance().info("===============================================");
-        return 1;
+        return 2;  // Exit code 2 for warnings in strict mode
+    } else if (summary.warnings > 0) {
+        Tau5Logger::instance().warning("CHECK PASSED WITH WARNINGS");
+        Tau5Logger::instance().info("===============================================");
+        return 2;  // Exit code 2 for warnings (including missing NIFs)
     } else {
         Tau5Logger::instance().info("CHECK PASSED");
         Tau5Logger::instance().info("===============================================");
-        return 0;
+        return 0;  // Exit code 0 for success
     }
 }
 
