@@ -539,6 +539,18 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
     emit standardError(errorMsg);
   });
 
+#ifdef Q_OS_UNIX
+  // Use posix_spawn/vfork instead of fork for better performance
+  // This avoids copying the entire QWebEngine memory space when spawning beam
+  // Also prevent file descriptor inheritance to avoid zombie processes
+  QProcess::UnixProcessParameters params;
+  params.flags = QProcess::UnixProcessFlag::UseVFork |           // Use efficient spawn
+                 QProcess::UnixProcessFlag::CloseFileDescriptors; // Prevent FD inheritance
+  process->setUnixProcessParameters(params);
+  Tau5Logger::instance().debug("Using vfork/spawn for efficient process creation");
+#endif
+  // Note: Windows CreateProcess() doesn't need special handling - it already
+  // behaves like spawn and doesn't copy the parent's memory
   process->start(cmd, args);
 
   if (!process->waitForStarted(5000))
