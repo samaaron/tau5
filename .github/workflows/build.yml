@@ -224,13 +224,14 @@ jobs:
         working-directory: ${{github.workspace}}
         run: |
           cd release\Tau5-for-Windows-*
-          tau5-gui.exe --check
-          tau5-node.exe --check
+          tau5-gui.exe --check || exit /b 1
+          tau5-node.exe --check || exit /b 1
         if: startsWith(matrix.os, 'windows')
 
       - name: Release Health Check (macOS)
         working-directory: ${{github.workspace}}
         run: |
+          set -e
           cd release/Tau5-for-macOS-*/
           ./Tau5.app/Contents/MacOS/Tau5 --check
           ./Tau5.app/Contents/MacOS/tau5-node --check
@@ -239,6 +240,7 @@ jobs:
       - name: Release Health Check (Linux)
         working-directory: ${{github.workspace}}
         run: |
+          set -e
           if [ "${{ matrix.node_only }}" = "true" ]; then
             # For node-only builds, check only tau5-node
             cd release/Tau5-Node-for-Linux-*/
