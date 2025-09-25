@@ -706,7 +706,7 @@ void DebugPane::setupDevTools()
   devToolsSettings->setFontFamily(QWebEngineSettings::FixedFont, "Cascadia Code");
   devToolsSettings->setFontSize(QWebEngineSettings::DefaultFixedFontSize, 14);
 
-  DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
+  DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView->webView());
 
   devToolsLayout->addWidget(m_devToolsView);
 
@@ -731,7 +731,8 @@ void DebugPane::setupDevTools()
     elixirConsoleLayout->setContentsMargins(0, 0, 0, 0);
     elixirConsoleLayout->setSpacing(0);
 
-    m_elixirConsoleView = new PhxWebView(m_devMode, m_elixirConsoleContainer);
+    // Use DevWebView which has built-in zoom controls
+    m_elixirConsoleView = new DevWebView(m_devMode, m_elixirConsoleContainer);
     m_elixirConsoleView->page()->setBackgroundColor(QColor(StyleManager::Colors::CONSOLE_BACKGROUND));
     elixirConsoleLayout->addWidget(m_elixirConsoleView);
 
@@ -785,13 +786,13 @@ void DebugPane::setWebView(PhxWebView *webView)
     {
       targetPage->setDevToolsPage(m_devToolsView->page());
 
-      DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
+      DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView->webView());
 
       connect(m_devToolsView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok)
               {
         if (ok) {
-          DebugPaneThemeStyles::applyDevToolsDarkTheme(m_devToolsView);
-          DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
+          DebugPaneThemeStyles::applyDevToolsDarkTheme(m_devToolsView->webView());
+          DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView->webView());
 
           emit webDevToolsLoaded();
         } });
@@ -1161,7 +1162,7 @@ void DebugPane::setLiveDashboardUrl(const QString &url)
     connect(m_liveDashboardView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok)
             {
       if (ok) {
-        DebugPaneThemeStyles::applyLiveDashboardTau5Theme(m_liveDashboardView);
+        DebugPaneThemeStyles::applyLiveDashboardTau5Theme(m_liveDashboardView->webView());
         emit liveDashboardLoaded();
       } });
   }
@@ -1186,12 +1187,12 @@ void DebugPane::setElixirConsoleUrl(const QString &url)
     QUrl elixirConsoleUrl(url);
     Tau5Logger::instance().debug(QString("DebugPane::setElixirConsoleUrl - Setting URL: %1").arg(url));
     m_elixirConsoleView->setFallbackUrl(elixirConsoleUrl);
-    m_elixirConsoleView->load(elixirConsoleUrl);
+    m_elixirConsoleView->setUrl(elixirConsoleUrl);
 
     connect(m_elixirConsoleView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok)
             {
       if (ok) {
-        DebugPaneThemeStyles::applyConsoleDarkTheme(m_elixirConsoleView);
+        DebugPaneThemeStyles::applyConsoleDarkTheme(m_elixirConsoleView->webView());
         emit elixirConsoleLoaded();
       } });
   }
@@ -1401,7 +1402,7 @@ void DebugPane::showLiveDashboardTab()
   switchDevToolsTab(1);
   if (m_liveDashboardView && m_liveDashboardView->page())
   {
-    DebugPaneThemeStyles::applyLiveDashboardTau5Theme(m_liveDashboardView);
+    DebugPaneThemeStyles::applyLiveDashboardTau5Theme(m_liveDashboardView->webView());
   }
 }
 
@@ -1782,7 +1783,7 @@ void DebugPane::resetDevPaneBrowsers()
   {
     Tau5Logger::instance().debug(QString("Resetting Elixir Console to: %1").arg(m_elixirConsoleUrl));
     QUrl consoleUrl(m_elixirConsoleUrl);
-    m_elixirConsoleView->load(consoleUrl);
+    m_elixirConsoleView->setUrl(consoleUrl);
   }
 
   if (m_targetWebView && m_devToolsView)
@@ -1797,8 +1798,8 @@ void DebugPane::resetDevPaneBrowsers()
       connect(m_devToolsView->page(), &QWebEnginePage::loadFinished, this, [this](bool ok)
               {
         if (ok) {
-          DebugPaneThemeStyles::applyDevToolsDarkTheme(m_devToolsView);
-          DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView);
+          DebugPaneThemeStyles::applyDevToolsDarkTheme(m_devToolsView->webView());
+          DebugPaneThemeStyles::injectDevToolsFontScript(m_devToolsView->webView());
         } }, Qt::SingleShotConnection);
     }
   }

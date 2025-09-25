@@ -133,7 +133,7 @@ private:
   ActivityTabButton *m_tidewaveMCPTabButton;
   ActivityTabButton *m_guiMCPTabButton;
   QWidget *m_elixirConsoleContainer;
-  PhxWebView *m_elixirConsoleView;
+  DevWebView *m_elixirConsoleView;
   QTabWidget *m_devToolsTabs;
   QWidget *m_devToolsMainContainer;
   QStackedWidget *m_devToolsStack;
