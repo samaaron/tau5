@@ -9,6 +9,11 @@
 #include <QWebChannel>
 #include <QWebEngineScript>
 #include <QWebEngineScriptCollection>
+#include <QFileDialog>
+#include <QDateTime>
+#include <QPainter>
+#include <QDir>
+#include <QFileInfo>
 #include <cmath>
 
 #include "phxwidget.h"
@@ -213,6 +218,62 @@ void PhxWidget::handleResetBrowser()
 
   // Emit signal that web view has been recreated
   emit webViewRecreated();
+}
+
+void PhxWidget::handleSaveAsImage()
+{
+  if (!phxView) {
+    Tau5Logger::instance().warning("[PHX] Cannot save image: no web view available");
+    return;
+  }
+
+  // Static variable to remember the last directory
+  static QString lastSaveDirectory = QDir::homePath();
+
+  // Generate default filename with timestamp
+  QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss");
+  QString defaultFileName = QString("tau5_screenshot_%1.png").arg(timestamp);
+  QString fullDefaultPath = QDir(lastSaveDirectory).filePath(defaultFileName);
+
+  // Open save dialog
+  QString fileName = QFileDialog::getSaveFileName(
+    this,
+    tr("Save Web View as Image"),
+    fullDefaultPath,
+    tr("PNG Images (*.png);;JPEG Images (*.jpg *.jpeg);;All Files (*)")
+  );
+
+  if (fileName.isEmpty()) {
+    return;  // User cancelled
+  }
+
+  // Remember the directory for next time
+  QFileInfo fileInfo(fileName);
+  lastSaveDirectory = fileInfo.absolutePath();
+
+  // Ensure proper extension
+  if (!fileName.contains('.')) {
+    fileName += ".png";
+  }
+
+  // Get the current size of the web view
+  QSize webViewSize = phxView->size();
+
+  // Create a pixmap with the web view's size
+  QPixmap pixmap(webViewSize);
+  pixmap.fill(Qt::white);  // Fill with white background
+
+  // Render the web view onto the pixmap
+  QPainter painter(&pixmap);
+  phxView->render(&painter);
+  painter.end();
+
+  // Save the pixmap
+  if (pixmap.save(fileName)) {
+    Tau5Logger::instance().info(QString("[PHX] Screenshot saved to: %1").arg(fileName));
+  } else {
+    Tau5Logger::instance().warning(QString("[PHX] Failed to save screenshot to: %1").arg(fileName));
+  }
 }
 
 void PhxWidget::setupWebChannel()

@@ -18,5 +18,6 @@
     <file>images/nav-controls/chevron-down.svg</file>
     <file>images/nav-controls/refresh.svg</file>
     <file>images/nav-controls/external-link.svg</file>
+    <file>images/nav-controls/image.svg</file>
   </qresource>
 </RCC>

@@ -69,6 +69,7 @@ private slots:
   void handleSizeUp();
   void handleOpenExternalBrowser();
   void handleResetBrowser();
+  void handleSaveAsImage();
   void handleBeamRestart();
   void startTransitionToApp();
   void onFadeToBlackComplete();

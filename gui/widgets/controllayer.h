@@ -44,6 +44,7 @@ signals:
     void openExternalBrowser();
     void resetBrowser();
     void toggleConsole();
+    void saveAsImage();
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -58,6 +59,7 @@ private:
     CircularButton *m_openExternalBrowserButton;
     CircularButton *m_resetBrowserButton;
     CircularButton *m_consoleToggleButton;
+    CircularButton *m_saveImageButton;
     
     QHBoxLayout *m_buttonLayout;
     

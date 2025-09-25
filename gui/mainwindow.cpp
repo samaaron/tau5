@@ -619,6 +619,7 @@ void MainWindow::initializeControlLayer()
   connect(controlLayer.get(), &ControlLayer::sizeUp, this, &MainWindow::handleSizeUp);
   connect(controlLayer.get(), &ControlLayer::openExternalBrowser, this, &MainWindow::handleOpenExternalBrowser);
   connect(controlLayer.get(), &ControlLayer::resetBrowser, this, &MainWindow::handleResetBrowser);
+  connect(controlLayer.get(), &ControlLayer::saveAsImage, this, &MainWindow::handleSaveAsImage);
   connect(controlLayer.get(), &ControlLayer::toggleConsole, this, &MainWindow::toggleConsole);
 }
 
@@ -785,6 +786,13 @@ void MainWindow::handleResetBrowser()
 {
   if (phxWidget) {
     phxWidget->handleResetBrowser();
+  }
+}
+
+void MainWindow::handleSaveAsImage()
+{
+  if (phxWidget) {
+    phxWidget->handleSaveAsImage();
   }
 }
 

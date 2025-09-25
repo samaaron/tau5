@@ -24,6 +24,7 @@ public:
   void handleSizeUp();
   void handleOpenExternalBrowser();
   void handleResetBrowser();
+  void handleSaveAsImage();
   
   PhxWebView* getWebView() const { return phxView; }
 

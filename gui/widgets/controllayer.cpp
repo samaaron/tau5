@@ -123,6 +123,11 @@ void ControlLayer::setupControls()
   m_consoleToggleButton->setIconSize(QSize(13, 13));
   m_consoleToggleButton->setToolTip("Toggle Debug Pane");
 
+  m_saveImageButton = new CircularButton("", this);  // Will use icon
+  m_saveImageButton->setIcon(QIcon(":/images/nav-controls/image.svg"));
+  m_saveImageButton->setIconSize(QSize(13, 13));
+  m_saveImageButton->setToolTip("Save as Image");
+
   // Add tooltips for all buttons
   m_sizeDownButton->setToolTip("Zoom Out");
   m_sizeUpButton->setToolTip("Zoom In");
@@ -163,17 +168,20 @@ void ControlLayer::setupControls()
   m_openExternalBrowserButton->setStyleSheet(circularButtonStyle);
   m_resetBrowserButton->setStyleSheet(circularButtonStyle);
   m_consoleToggleButton->setStyleSheet(circularButtonStyle);
+  m_saveImageButton->setStyleSheet(circularButtonStyle);
 
   m_sizeDownButton->setFixedSize(30, 30);
   m_sizeUpButton->setFixedSize(30, 30);
   m_openExternalBrowserButton->setFixedSize(30, 30);
   m_resetBrowserButton->setFixedSize(30, 30);
   m_consoleToggleButton->setFixedSize(30, 30);
+  m_saveImageButton->setFixedSize(30, 30);
 
   m_buttonLayout = new QHBoxLayout();
   m_buttonLayout->setContentsMargins(0, 0, 0, 0);
   m_buttonLayout->addWidget(m_consoleToggleButton);
   m_buttonLayout->addWidget(m_resetBrowserButton);
+  m_buttonLayout->addWidget(m_saveImageButton);
   m_buttonLayout->addWidget(m_openExternalBrowserButton);
   m_buttonLayout->addWidget(m_sizeDownButton);
   m_buttonLayout->addWidget(m_sizeUpButton);
@@ -196,6 +204,7 @@ void ControlLayer::connectSignals()
   connect(m_openExternalBrowserButton, &QPushButton::released, this, &ControlLayer::openExternalBrowser);
   connect(m_resetBrowserButton, &QPushButton::released, this, &ControlLayer::resetBrowser);
   connect(m_consoleToggleButton, &QPushButton::released, this, &ControlLayer::toggleConsole);
+  connect(m_saveImageButton, &QPushButton::released, this, &ControlLayer::saveAsImage);
 }
 
 void ControlLayer::setConsoleVisible(bool visible)
