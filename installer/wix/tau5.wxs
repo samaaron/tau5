@@ -35,7 +35,7 @@
     <!-- Checkbox text to launch Tau5 -->
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch Tau5" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
-    <Property Id="WixShellExecTarget" Value="[INSTALLFOLDER]\\Release\\app\\build\\Release\\tau5.exe" />
+    <Property Id="WixShellExecTarget" Value="[INSTALLFOLDER]\\Release\\app\\build\\Release\\tau5-gui.exe" />
     <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
 
     <Icon Id="IconId" SourceFile="..\..\app\images\app.ico" />
@@ -44,8 +44,8 @@
 
   <Fragment>
     <Component Id="ShortcutComponent" Directory="DesktopFolder" Guid="d167c17d-f63b-47ba-801d-94dd18b9ea90">
-      <File Id="tau5.exe" Source="..\..\Release\app\build\Release\tau5.exe" />
-      <Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="Tau5" WorkingDirectory="INSTALLFOLDER" Target="[INSTALLFOLDER]\\Release\\app\\build\\Release\\tau5.exe" Icon="IconId" IconIndex="0" />
+      <File Id="tau5_gui.exe" Source="..\..\Release\app\build\Release\tau5-gui.exe" />
+      <Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="Tau5" WorkingDirectory="INSTALLFOLDER" Target="[INSTALLFOLDER]\\Release\\app\\build\\Release\\tau5-gui.exe" Icon="IconId" IconIndex="0" />
 
 
       <RemoveFolder Id="RemoveAppFolder" Directory="DesktopFolder" On="uninstall" />

@@ -262,7 +262,7 @@ if "%NODE_ONLY%"=="true" (
     echo.
     echo The release directory is self-contained and ready for distribution.
     echo Users can run Tau5 with:
-    echo   tau5.exe
+    echo   tau5-gui.exe
     echo   tau5-node.exe
 )
 

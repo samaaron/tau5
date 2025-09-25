@@ -123,7 +123,7 @@ elseif(CMAKE_INSTALL_PREFIX STREQUAL "/usr/local" OR CMAKE_INSTALL_PREFIX STREQU
       # From gui/build/bin/Tau5.app/Contents/MacOS/Tau5 -> server
       set(TAU5_SERVER_PATH_DEFAULT "../../../../../../server")
     elseif(WIN32)
-      # From gui/build/bin/tau5.exe -> server
+      # From gui/build/bin/tau5-gui.exe -> server
       set(TAU5_SERVER_PATH_DEFAULT "../../../server")
     else()
       # From gui/build/bin/tau5 -> server
@@ -142,7 +142,7 @@ else()
     # From gui/build/bin/Tau5.app/Contents/MacOS/Tau5 -> server
     set(TAU5_SERVER_PATH_DEFAULT "../../../../../../server")
   elseif(WIN32)
-    # From gui/build/bin/tau5.exe -> server
+    # From gui/build/bin/tau5-gui.exe -> server
     set(TAU5_SERVER_PATH_DEFAULT "../../../server")
   else()
     # From gui/build/bin/tau5 -> server
