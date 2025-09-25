@@ -99,19 +99,6 @@ void LogWidget::setupToolbar()
 
   buttonLayout->addWidget(firstGroup);
 
-  // Add separator (not part of bordered area)
-  QFrame *separator = new QFrame();
-  separator->setFrameShape(QFrame::VLine);
-  separator->setFrameShadow(QFrame::Plain);
-  separator->setStyleSheet(QString(
-      "QFrame {"
-      "  background-color: %1;"
-      "  max-width: 1px;"
-      "  margin: 0px 12px;"
-      "}")
-      .arg(StyleManager::Colors::textPrimaryAlpha(20)));
-  buttonLayout->addWidget(separator);
-
   // Create second group of buttons with top border
   QWidget *secondGroup = new QWidget();
   secondGroup->setStyleSheet(QString(
