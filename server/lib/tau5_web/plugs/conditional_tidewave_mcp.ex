@@ -35,7 +35,8 @@ defmodule Tau5Web.Plugs.ConditionalTidewaveMCP do
 
         conn = Plug.Conn.put_private(conn, :tidewave_config, tidewave_config)
 
-        if logging_enabled?() do
+        # Always use the logger in dev mode when Tidewave is enabled
+        if Mix.env() == :dev do
           Tau5Web.Plugs.TidewaveLogger.call(conn, tidewave_config)
         else
           Logger.debug("Calling Tidewave.MCP.Server.handle_http_message")
@@ -65,9 +66,5 @@ defmodule Tau5Web.Plugs.ConditionalTidewaveMCP do
 
   defp enabled? do
     System.get_env("TAU5_TIDEWAVE_ENABLED", "false") in ["1", "true", "yes"]
-  end
-
-  defp logging_enabled? do
-    System.get_env("TAU5_TIDEWAVE_LOGGING", "true") in ["1", "true", "yes"]
   end
 end

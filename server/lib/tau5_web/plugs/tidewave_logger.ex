@@ -20,10 +20,10 @@ defmodule Tau5Web.Plugs.TidewaveLogger do
   def init(opts), do: opts
 
   def call(conn, _tidewave_opts) do
-    Logger.debug("TidewaveLogger: Intercepting Tidewave request")
     start_time = System.monotonic_time(:millisecond)
 
-    {:ok, body, conn} = read_body_cached(conn)
+    # Get the cached body from CachingBodyReader instead of trying to read again
+    body = Map.get(conn.private, :raw_body, "")
     request_info = parse_request(body)
 
     conn =
@@ -36,6 +36,9 @@ defmodule Tau5Web.Plugs.TidewaveLogger do
       else
         conn
       end
+
+    # Since body is already parsed, we need to update the conn to make it available for Tidewave
+    conn = update_conn_for_cached_body(conn, body)
 
     try do
       apply(Tidewave.MCP.Server, :handle_http_message, [conn])
@@ -51,23 +54,6 @@ defmodule Tau5Web.Plugs.TidewaveLogger do
     end
   end
 
-  defp read_body_cached(conn) do
-    case Plug.Conn.read_body(conn, length: @max_body_size) do
-      {:ok, body, conn} when byte_size(body) <= @max_body_size ->
-        conn = Plug.Conn.put_private(conn, :raw_body, body)
-        {:ok, body, update_conn_for_cached_body(conn, body)}
-
-      {:ok, _large_body, conn} ->
-        Logger.debug("TidewaveLogger: Skipping large request body (>#{@max_body_size} bytes)")
-        {:ok, "", conn}
-
-      {:more, _partial, conn} ->
-        {:ok, "", conn}
-
-      {:error, _reason} ->
-        {:ok, "", conn}
-    end
-  end
 
   defp update_conn_for_cached_body(conn, body) do
     adapter = {__MODULE__.CachedBodyAdapter, {conn.adapter, body}}
