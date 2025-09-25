@@ -157,10 +157,17 @@ if(TAU5_RELEASE_BUILD)
 endif()
 
 if(BUILD_NODE_ONLY)
+  add_compile_definitions(BUILD_NODE_ONLY=1)
   find_package(Qt6 COMPONENTS Core Network Concurrent REQUIRED)
 else()
   find_package(Qt6 QUIET)
   find_package(Qt6 COMPONENTS Core Widgets Gui Network Xml Svg SvgWidgets LinguistTools WebEngineWidgets WebSockets Concurrent REQUIRED)
+
+  # Check Qt version for GUI build
+  if(Qt6_VERSION VERSION_LESS "6.6.0")
+    message(FATAL_ERROR "tau5-gui requires Qt 6.6.0 or later. Found Qt ${Qt6_VERSION}.\n"
+                        "For systems with older Qt only the non-gui tau5-node is supported.")
+  endif()
 
   # Find QTermWidget for terminal pane (dev builds only)
   if(NOT TAU5_RELEASE_BUILD)

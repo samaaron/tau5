@@ -540,14 +540,20 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
   });
 
 #ifdef Q_OS_UNIX
-  // Use posix_spawn/vfork instead of fork for better performance
-  // This avoids copying the entire QWebEngine memory space when spawning beam
-  // Also prevent file descriptor inheritance to avoid zombie processes
-  QProcess::UnixProcessParameters params;
-  params.flags = QProcess::UnixProcessFlag::UseVFork |           // Use efficient spawn
-                 QProcess::UnixProcessFlag::CloseFileDescriptors; // Prevent FD inheritance
-  process->setUnixProcessParameters(params);
-  Tau5Logger::instance().debug("Using vfork/spawn for efficient process creation");
+  // For GUI builds: MUST prevent QWebEngine/Chrome file descriptors from being inherited
+  // This requires Qt 6.6+ for the CloseFileDescriptors flag
+  // Without this, Chrome FDs leak into BEAM causing issues
+  #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0) && !defined(BUILD_NODE_ONLY)
+    QProcess::UnixProcessParameters params;
+    params.flags = QProcess::UnixProcessFlag::UseVFork |           // Avoid copying WebEngine memory
+                   QProcess::UnixProcessFlag::CloseFileDescriptors; // Prevent Chrome FD inheritance
+    process->setUnixProcessParameters(params);
+    Tau5Logger::instance().debug("Using vfork with FD isolation to prevent Chrome descriptor inheritance");
+  #else
+    // Node-only builds or Qt < 6.6
+    // Node builds don't have WebEngine FDs to worry about
+    Tau5Logger::instance().debug("Using standard fork for process creation");
+  #endif
 #endif
   // Note: Windows CreateProcess() doesn't need special handling - it already
   // behaves like spawn and doesn't copy the parent's memory
