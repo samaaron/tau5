@@ -874,16 +874,9 @@ void Beam::startNewBeamProcess()
     }
   });
 
-  sessionToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
-  heartbeatToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
-
-  QByteArray randomBytes(64, 0);
-  quint32 buffer[16];
-  QRandomGenerator::system()->fillRange(buffer, 16);
-  memcpy(randomBytes.data(), buffer, 64);
-  secretKeyBase = randomBytes.toBase64();
-
-  Tau5Logger::instance().debug("Generated new secure tokens");
+  // During restart, reuse all existing tokens so the GUI doesn't need to reload
+  // The tokens are already set from the initial startup, no need to regenerate
+  Tau5Logger::instance().debug("Reusing existing secure tokens for restart");
 
   Tau5Logger::instance().info( "Starting new BEAM process...");
   if (devMode)

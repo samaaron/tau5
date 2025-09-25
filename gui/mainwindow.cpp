@@ -873,18 +873,17 @@ void MainWindow::handleBeamRestart()
       debugPane->appendOutput(separator + "       BEAM RESTART COMPLETE!" + separator, false);
     }
     
-    QString newToken = beamInstance->getSessionToken();
-    
-    if (phxWidget)
-    {
-      phxWidget->handleResetBrowser();
-    }
-    
+    // Since we're reusing the session token, we don't need to reset the main browser
+    // Just reset the dev pane browsers if needed
     if (debugPane && beamInstance)
     {
+      QString token = beamInstance->getSessionToken();
       quint16 port = beamInstance->getPort();
-      QString consoleUrl = QString("http://localhost:%1/dev/console?token=%2").arg(port).arg(newToken);
+      QString consoleUrl = QString("http://localhost:%1/dev/console?token=%2").arg(port).arg(token);
       debugPane->setElixirConsoleUrl(consoleUrl);
+
+      // Reset dev pane browsers to reconnect to the new server
+      debugPane->resetDevPaneBrowsers();
     }
     
     context->deleteLater();
