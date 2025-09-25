@@ -19,3 +19,4 @@ installer/wix/*.wixpdb
 
 .claude
 .vscode
+tmp/
