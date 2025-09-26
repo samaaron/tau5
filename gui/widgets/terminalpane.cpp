@@ -236,6 +236,7 @@ void TerminalPane::createTerminalWidget(QTermWidget* &terminal, bool isTopTermin
     connect(terminal, &QWidget::customContextMenuRequested,
             [this, terminal](const QPoint &pos) {
         QMenu contextMenu("Terminal Context Menu", terminal);
+        contextMenu.setStyleSheet(StyleManager::contextMenu());
 
         QAction *copyAction = new QAction("Copy", &contextMenu);
         copyAction->setShortcut(QKeySequence::Copy);
