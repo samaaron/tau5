@@ -85,11 +85,9 @@ ControlLayer::ControlLayer(QWidget *parent)
 
 void ControlLayer::setupControls()
 {
-  // Let Qt's style system determine appropriate icon size
-  // PM_SmallIconSize gives platform-appropriate small icon size (usually 16x16 logical pixels)
-  // This automatically scales with DPI and respects platform conventions
-  int iconExtent = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
-  QSize iconSize(iconExtent, iconExtent);
+  // Fixed icon size for consistent appearance across all platforms
+  // 16x16 logical pixels - will automatically scale with DPI
+  QSize iconSize(16, 16);
 
   m_sizeDownButton = new CircularButton("", this);  // Will use icon
   m_sizeDownButton->setIcon(QIcon(":/images/nav-controls/minus.svg"));
