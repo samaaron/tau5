@@ -166,6 +166,7 @@ void ControlLayer::setupControls()
 
   m_buttonLayout = new QHBoxLayout();
   m_buttonLayout->setContentsMargins(0, 0, 0, 0);
+  m_buttonLayout->setSpacing(5);  // Fixed spacing for consistent appearance across platforms
   m_buttonLayout->addWidget(m_consoleToggleButton);
   m_buttonLayout->addWidget(m_resetBrowserButton);
   m_buttonLayout->addWidget(m_saveImageButton);
