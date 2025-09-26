@@ -27,6 +27,7 @@ void CircularButton::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
 
     // Create a circular path for the button
     QPainterPath circlePath;
@@ -48,6 +49,7 @@ void CircularButton::paintEvent(QPaintEvent *)
         gradient.setColorAt(1, QColor(255, 255, 255, 90));
     }
 
+    // Draw button background
     painter.fillPath(circlePath, gradient);
 
     // Draw border - slightly brighter on hover
@@ -58,32 +60,13 @@ void CircularButton::paintEvent(QPaintEvent *)
     }
     painter.drawEllipse(buttonRect);
 
-    // Now create inverted icon using screen capture
     if (!icon().isNull()) {
-        // For simplicity, just use cutout with inverted fill in the icon area
-        QPixmap iconPixmap = icon().pixmap(iconSize());
-
-        // Create the button with inverted icon
-        QPixmap finalButton(size());
-        finalButton.fill(Qt::transparent);
-
-        QPainter finalPainter(&finalButton);
-        finalPainter.setRenderHint(QPainter::Antialiasing);
-
-        // Draw button background
-        finalPainter.fillPath(circlePath, gradient);
-        finalPainter.setPen(QPen(QColor(255, 255, 255, 180), 1));
-        finalPainter.drawEllipse(buttonRect);
-
-        // Draw the icon in inverted colors (white where normally black)
+        // Calculate icon position
         QRect iconRect = QRect(0, 0, iconSize().width(), iconSize().height());
         iconRect.moveCenter(rect().center());
 
-        // Draw the icon directly (it's already black in the SVG)
-        finalPainter.drawPixmap(iconRect, iconPixmap);
-
-        finalPainter.end();
-        painter.drawPixmap(0, 0, finalButton);
+        // Draw the icon directly - QIcon handles DPI scaling internally
+        icon().paint(&painter, iconRect);
     }
 }
 
@@ -102,30 +85,36 @@ ControlLayer::ControlLayer(QWidget *parent)
 
 void ControlLayer::setupControls()
 {
+  // Let Qt's style system determine appropriate icon size
+  // PM_SmallIconSize gives platform-appropriate small icon size (usually 16x16 logical pixels)
+  // This automatically scales with DPI and respects platform conventions
+  int iconExtent = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
+  QSize iconSize(iconExtent, iconExtent);
+
   m_sizeDownButton = new CircularButton("", this);  // Will use icon
   m_sizeDownButton->setIcon(QIcon(":/images/nav-controls/minus.svg"));
-  m_sizeDownButton->setIconSize(QSize(13, 13));
+  m_sizeDownButton->setIconSize(iconSize);
 
   m_sizeUpButton = new CircularButton("", this);  // Will use icon
   m_sizeUpButton->setIcon(QIcon(":/images/nav-controls/plus.svg"));
-  m_sizeUpButton->setIconSize(QSize(13, 13));
+  m_sizeUpButton->setIconSize(iconSize);
 
   m_openExternalBrowserButton = new CircularButton("", this);  // Will use icon
   m_openExternalBrowserButton->setIcon(QIcon(":/images/nav-controls/external-link.svg"));
-  m_openExternalBrowserButton->setIconSize(QSize(13, 13));
+  m_openExternalBrowserButton->setIconSize(iconSize);
 
   m_resetBrowserButton = new CircularButton("", this);  // Will use icon
   m_resetBrowserButton->setIcon(QIcon(":/images/nav-controls/refresh.svg"));
-  m_resetBrowserButton->setIconSize(QSize(13, 13));
+  m_resetBrowserButton->setIconSize(iconSize);
 
   m_consoleToggleButton = new CircularButton("", this);  // Will use icon
   m_consoleToggleButton->setIcon(QIcon(":/images/nav-controls/chevron-up.svg"));
-  m_consoleToggleButton->setIconSize(QSize(13, 13));
+  m_consoleToggleButton->setIconSize(iconSize);
   m_consoleToggleButton->setToolTip("Toggle Debug Pane");
 
   m_saveImageButton = new CircularButton("", this);  // Will use icon
   m_saveImageButton->setIcon(QIcon(":/images/nav-controls/image.svg"));
-  m_saveImageButton->setIconSize(QSize(13, 13));
+  m_saveImageButton->setIconSize(iconSize);
   m_saveImageButton->setToolTip("Save as Image");
 
   // Add tooltips for all buttons
