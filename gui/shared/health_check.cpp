@@ -117,11 +117,6 @@ void printSystemInformation(const HealthCheckConfig& config) {
     if (config.verbose) {
         Tau5Logger::instance().info(QString("  Server path: %1").arg(config.serverPath.isEmpty() ? "(not set)" : config.serverPath));
         Tau5Logger::instance().info(QString("  Log path:    %1").arg(Tau5Logger::instance().currentSessionPath()));
-        #ifdef Q_OS_LINUX
-        if (qEnvironmentVariableIsSet("DISPLAY")) {
-            Tau5Logger::instance().info(QString("  Display:     %1").arg(QString::fromLocal8Bit(qgetenv("DISPLAY"))));
-        }
-        #endif
     }
 }
 
@@ -666,26 +661,6 @@ QList<CheckResult> checkGuiComponents(const HealthCheckConfig& config) {
         false
     });
     
-    // Check display (on Linux)
-    #ifdef Q_OS_LINUX
-    if (qEnvironmentVariableIsSet("DISPLAY")) {
-        results.append({
-            "GUI Systems",
-            "Display server",
-            CheckStatus::Passed,
-            qgetenv("DISPLAY"),
-            false
-        });
-    } else {
-        results.append({
-            "GUI Systems",
-            "Display server",
-            CheckStatus::Warning,
-            "DISPLAY not set (using offscreen)",
-            false
-        });
-    }
-    #endif
     
     // Check OpenGL - actually test if it works, not just if compiled
     #ifndef QT_NO_OPENGL
