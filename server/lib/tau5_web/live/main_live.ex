@@ -127,7 +127,6 @@ defmodule Tau5Web.MainLive do
 
       <div
         class={["layout-body", @layout_state.zoom != nil && "zoom-mode"]}
-        phx-window-keydown="keydown"
         data-zoomed-panel={@layout_state.zoom}
       >
         {render_tree(assigns, @layout_state.tree, @layout_state)}
@@ -280,51 +279,12 @@ defmodule Tau5Web.MainLive do
     {:noreply, assign(socket, :layout_state, new_layout)}
   end
 
-  @impl true
-  def handle_event("keydown", %{"key" => key}, socket) do
-    handle_keyboard(key, socket)
-  end
+  # Keyboard shortcuts removed
 
   @impl true
   def handle_event(_, _, socket), do: {:noreply, socket}
 
-  # Keyboard shortcuts
-  defp handle_keyboard(key, socket) do
-    layout = socket.assigns.layout_state
-
-    new_layout =
-      case key do
-        "h" ->
-          TiledLayout.split_horizontal(layout, layout.active)
-
-        "v" ->
-          TiledLayout.split_vertical(layout, layout.active)
-
-        "x" ->
-          TiledLayout.close_panel(layout, layout.active)
-
-        "z" ->
-          if layout.zoom != nil do
-            TiledLayout.unzoom(layout)
-          else
-            TiledLayout.zoom_panel(layout, layout.active)
-          end
-
-        "e" ->
-          TiledLayout.apply_even_horizontal(layout)
-
-        "m" ->
-          TiledLayout.apply_main_vertical(layout)
-
-        "t" ->
-          TiledLayout.apply_tiled(layout)
-
-        _ ->
-          layout
-      end
-
-    {:noreply, assign(socket, :layout_state, new_layout)}
-  end
+  # Keyboard shortcuts removed - using button controls only
 
   # Helper functions
 
