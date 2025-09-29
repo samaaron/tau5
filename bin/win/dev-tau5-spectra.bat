@@ -19,7 +19,7 @@ if %HAS_DEBUG%==1 (
     echo.
 )
 
-gui\build\Release\tau5-spectra.exe %*
+gui\build\bin\tau5-spectra.exe %*
 
 cd /d "%WORKING_DIR%"
 endlocal
