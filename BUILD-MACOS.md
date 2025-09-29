@@ -5,7 +5,7 @@
 Tau5 is known to work with the following dependencies:
 
 1. Xcode (15.2+) and command line tools
-2. Qt6 (6.9+)
+2. Qt6 (6.6.0 - 6.9.1, see Qt Version Requirements below)
 3. CMake (4+)
 4. Elixir(1.17+)
 
@@ -17,9 +17,18 @@ You'll know if you have things setup if you can run `gcc -v` from the terminal t
 
 ### Qt6
 
+#### Qt Version Requirements
+
+**Supported Qt versions:** 6.6.0 - 6.9.1
+- **Minimum:** Qt 6.6.0 (required for tau5-gui)
+- **Recommended:** Qt 6.9.1 (used in CI builds)
+- **Maximum tested:** Qt 6.9.1
+
+We maintain a narrow Qt version range to ensure compatibility and avoid deprecated API issues.
+
 Install Qt via the Qt online installer. This can be found on Qt's open source development page - https://www.qt.io/download-open-source
 
-In the "Select Components" window make sure the following are checked:
+In the "Select Components" window make sure the following are checked (replace 6.9.x with your chosen version between 6.6.0 and 6.9.1):
 
 * Extensions -> Qt WebEngine
 * Qt -> Qt 6.9.x -> Desktop
@@ -30,8 +39,8 @@ In the "Select Components" window make sure the following are checked:
 Update your `PATH` and `Qt6_DIR` environment variables. For example, if you're using zsh, add the following to your `~/.zshrc` (updating the version number to match the version you installed).
 
 ```
-export PATH=~/Qt/6.9.0/macos/bin:$PATH
-export Qt6_DIR=~/Qt/6.9.0/macos/lib/cmake
+export PATH=~/Qt/6.9.1/macos/bin:$PATH
+export Qt6_DIR=~/Qt/6.9.1/macos/lib/cmake
 ```
 
 ### CMake && Elixir
