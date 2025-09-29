@@ -18,6 +18,7 @@ SandboxedWebView::SandboxedWebView(bool devMode, bool allowRemoteAccess, QWidget
     m_interceptor = new PhxUrlInterceptor(devMode, allowRemoteAccess);
     
     m_profile = new QWebEngineProfile();
+    m_profile->setOffTheRecord(true);
     m_profile->setUrlRequestInterceptor(m_interceptor);
     
     m_page = new QWebEnginePage(m_profile);
