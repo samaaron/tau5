@@ -6,6 +6,7 @@ defmodule Tau5Web.MainLive do
 
   use Tau5Web, :live_view
   alias Tau5.TiledLayout
+  require Logger
 
   @impl true
   def mount(_params, _session, socket) do
@@ -38,7 +39,7 @@ defmodule Tau5Web.MainLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="layout-container">
+    <div class="layout-container" id="layout-container" phx-hook="HydraBackground">
       <!-- Hydra background iframe -->
       <iframe
         id="hydra-background"
@@ -327,11 +328,48 @@ defmodule Tau5Web.MainLive do
   # Keyboard shortcuts removed
 
   @impl true
+  def handle_event("update_hydra_sketch", %{"code" => code}, socket) do
+    # Push event to the HydraBackground hook to update the sketch
+    {:noreply, push_event(socket, "update_hydra_sketch", %{code: code})}
+  end
+
+  @impl true
+  def handle_event("hydra_ready", _, socket) do
+    # Hydra iframe is ready
+    Logger.debug("Hydra iframe is ready")
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("hydra_error", %{"error" => error}, socket) do
+    # Handle Hydra errors
+    Logger.error("Hydra error: #{error}")
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event(_, _, socket), do: {:noreply, socket}
 
   # Keyboard shortcuts removed - using button controls only
 
   # Helper functions
+
+  @doc """
+  Updates the Hydra background sketch with new code.
+
+  ## Examples
+
+      update_hydra_sketch(socket, \"\"\"
+        osc(20, 0.1, 0.8)
+          .kaleid(5)
+          .color(0.5, 0.3)
+          .rotate(() => time * 0.1)
+          .out(o0)
+      \"\"\")
+  """
+  def update_hydra_sketch(socket, code) when is_binary(code) do
+    push_event(socket, "update_hydra_sketch", %{code: code})
+  end
 
   defp find_panel_index(index_map, panel_id) do
     Enum.find_value(index_map, fn {idx, id} ->

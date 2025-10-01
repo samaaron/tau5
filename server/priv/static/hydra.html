@@ -22,23 +22,106 @@
 <body>
     <canvas id="hydra-canvas"></canvas>
     <script>
-        // Initialize Hydra
+        // Initialize Hydra with full resolution
         var hydra = new Hydra({
             canvas: document.getElementById('hydra-canvas'),
             detectAudio: false,
-            enableStreamCapture: false
+            enableStreamCapture: false,
+            width: window.innerWidth * window.devicePixelRatio,
+            height: window.innerHeight * window.devicePixelRatio
         });
 
-        // Simple colorful Hydra sketch
-        // Creates flowing gradients with rotation
-        osc(10, 0.1, 1.2)
-            .color(0.9, 0.7, 0.8)
-            .diff(osc(12, 0.08)
-                .rotate(0.3))
-            .modulateScale(osc(2)
-                .rotate(() => time * 0.05), 0.5)
-            .blend(o0, 0.4)
-            .out(o0);
+        // Default Hydra sketch
+        function runDefaultSketch() {
+            // Simple colorful Hydra sketch
+            // Creates flowing gradients with rotation
+            osc(10, 0.1, 1.2)
+                .color(0.9, 0.7, 0.8)
+                .diff(osc(12, 0.08)
+                    .rotate(0.3))
+                .modulateScale(osc(2)
+                    .rotate(() => time * 0.05), 0.5)
+                .blend(o0, 0.4)
+                .out(o0);
+        }
+
+        // Function to update Hydra sketch with new code
+        function updateSketch(code) {
+            try {
+                // Clear all outputs first
+                solid(0, 0, 0, 0).out(o0);
+                solid(0, 0, 0, 0).out(o1);
+                solid(0, 0, 0, 0).out(o2);
+                solid(0, 0, 0, 0).out(o3);
+
+                // Evaluate the new sketch code
+                eval(code);
+
+                // Notify parent that sketch was updated successfully
+                if (window.parent) {
+                    window.parent.postMessage({
+                        type: 'hydra_success',
+                        message: 'Sketch updated successfully'
+                    }, '*');
+                }
+            } catch (error) {
+                console.error('Error updating Hydra sketch:', error);
+
+                // Notify parent of error
+                if (window.parent) {
+                    window.parent.postMessage({
+                        type: 'hydra_error',
+                        error: error.toString()
+                    }, '*');
+                }
+
+                // Fallback to default sketch on error
+                runDefaultSketch();
+            }
+        }
+
+        // Listen for messages from parent window
+        window.addEventListener('message', function(event) {
+            // Handle sketch update messages
+            if (event.data.type === 'update_sketch' && event.data.code) {
+                updateSketch(event.data.code);
+            }
+        });
+
+        // Signal that Hydra is ready
+        window.addEventListener('load', function() {
+            if (window.parent) {
+                window.parent.postMessage({
+                    type: 'hydra_ready'
+                }, '*');
+            }
+        });
+
+        // Run default sketch on initialization
+        runDefaultSketch();
+
+        // Handle window resize to maintain resolution
+        window.addEventListener('resize', function() {
+            const canvas = document.getElementById('hydra-canvas');
+            const width = window.innerWidth * window.devicePixelRatio;
+            const height = window.innerHeight * window.devicePixelRatio;
+
+            // Update canvas dimensions
+            canvas.width = width;
+            canvas.height = height;
+
+            // Reinitialize Hydra with new dimensions
+            hydra = new Hydra({
+                canvas: canvas,
+                detectAudio: false,
+                enableStreamCapture: false,
+                width: width,
+                height: height
+            });
+
+            // Rerun the current sketch
+            runDefaultSketch();
+        });
     </script>
 </body>
 </html>
