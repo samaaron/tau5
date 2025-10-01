@@ -30,6 +30,7 @@ defmodule Tau5Web.MainLive do
       |> assign(:layout_state, TiledLayout.new())
       |> assign(:show_controls, true)
       |> assign(:show_lua_console, false)
+      |> assign(:widget_type, :transform)
 
     {:ok, socket}
   end
@@ -99,6 +100,17 @@ defmodule Tau5Web.MainLive do
           <div class="separator"></div>
 
           <button
+            phx-click="toggle_widget_type"
+            title={if @widget_type == :shader, do: "Switch to Transform", else: "Switch to Shader"}
+          >
+            <%= if @widget_type == :shader do %>
+              <span>Shader</span>
+            <% else %>
+              <span>Blend</span>
+            <% end %>
+          </button>
+
+          <button
             phx-click="zoom"
             phx-value-panel={to_string(@layout_state.active)}
             class={if @layout_state.zoom != nil, do: "active"}
@@ -162,6 +174,7 @@ defmodule Tau5Web.MainLive do
       |> assign(:panel_index, panel_index)
       |> assign(:is_active, is_active)
       |> assign(:is_zoomed, is_zoomed)
+      |> assign(:widget_type, assigns[:widget_type] || :transform)
 
     ~H"""
     <div
@@ -174,13 +187,23 @@ defmodule Tau5Web.MainLive do
       phx-click="focus"
       phx-value-panel={to_string(@panel_index)}
     >
-      <.live_component
-        module={Tau5Web.Widgets.ShaderPanelWidget}
-        id={@panel_id}
-        panel_id={@panel_id}
-        index={@panel_index}
-        active={@is_active}
-      />
+      <%= if @widget_type == :shader do %>
+        <.live_component
+          module={Tau5Web.Widgets.ShaderPanelWidget}
+          id={@panel_id}
+          panel_id={@panel_id}
+          index={@panel_index}
+          active={@is_active}
+        />
+      <% else %>
+        <.live_component
+          module={Tau5Web.Widgets.TransformWidget}
+          id={@panel_id}
+          panel_id={@panel_id}
+          index={@panel_index}
+          active={@is_active}
+        />
+      <% end %>
     </div>
     """
   end
@@ -265,6 +288,12 @@ defmodule Tau5Web.MainLive do
   @impl true
   def handle_event("toggle_lua_console", _, socket) do
     {:noreply, assign(socket, :show_lua_console, !socket.assigns.show_lua_console)}
+  end
+
+  @impl true
+  def handle_event("toggle_widget_type", _, socket) do
+    new_type = if socket.assigns.widget_type == :shader, do: :transform, else: :shader
+    {:noreply, assign(socket, :widget_type, new_type)}
   end
 
   @impl true
