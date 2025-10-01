@@ -3289,6 +3289,89 @@ int main(int argc, char *argv[])
     });
 
     server.registerTool({
+        "tau5_hydra_eval",
+        "Updates the Hydra visual sketch running in the background iframe. Accepts Hydra.js code that will be executed in the browser.",
+        QJsonObject{
+            {"type", "object"},
+            {"required", QJsonArray{"code"}},
+            {"properties", QJsonObject{
+                {"code", QJsonObject{
+                    {"type", "string"},
+                    {"description", "Hydra sketch code to run in the background iframe"}
+                }}
+            }}
+        },
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            QString hydraCode = params["code"].toString();
+
+            // Escape the Hydra code for JavaScript string literal
+            QString escapedCode = hydraCode;
+            escapedCode.replace("\\", "\\\\");
+            escapedCode.replace("\"", "\\\"");
+            escapedCode.replace("\n", "\\n");
+            escapedCode.replace("\r", "\\r");
+            escapedCode.replace("\t", "\\t");
+
+            // JavaScript to send the Hydra code to the iframe via postMessage
+            QString jsExpression = QString(R"JS(
+(() => {
+    const iframe = document.getElementById('hydra-background');
+    if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({
+            type: 'update_sketch',
+            code: "%1"
+        }, '*');
+        return 'Hydra sketch updated successfully';
+    } else {
+        return 'Error: Hydra iframe not found';
+    }
+})()
+            )JS").arg(escapedCode);
+
+            QJsonObject result = bridge.executeCommand([jsExpression](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->evaluateJavaScript(jsExpression, cb);
+            });
+
+            qint64 duration = timer.elapsed();
+
+            if (result.contains("exceptionDetails")) {
+                QJsonObject exception = result["exceptionDetails"].toObject();
+                QString errorText = exception["text"].toString();
+                chromiumLogger.logActivity("tau5_hydra_eval", requestId, params, "exception", duration, errorText);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("JavaScript exception: %1").arg(errorText)},
+                    {"isError", true}
+                };
+            }
+
+            // Extract the result
+            QString resultText;
+            if (result.contains("result")) {
+                QJsonObject resultObj = result["result"].toObject();
+                if (resultObj.contains("value")) {
+                    resultText = resultObj["value"].toString();
+                }
+            }
+
+            if (resultText.isEmpty()) {
+                resultText = "Hydra sketch update attempted";
+            }
+
+            chromiumLogger.logActivity("tau5_hydra_eval", requestId, params, "success", duration, QString(), resultText);
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", resultText}
+            };
+        }
+    });
+
+    server.registerTool({
         "tidewave_search_package_docs",
         "Searches Hex documentation for the project's dependencies or a list of packages. If you're trying to get documentation for a specific module or function, first try the project_eval tool with the h helper.",
         QJsonObject{
