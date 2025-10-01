@@ -4,14 +4,15 @@
 - Tau5 is a collaborative creative coding platform for music, visuals, and live interactive art.
 - Built on the **BEAM VM** with Elixir/Phoenix for the server and **Qt/C++** hosting a full Chromium browser for the GUI.
 
-## Tau5 has Three Forms:
-1. Tau5 GUI - The full app - Qt Chromium Browser + Elixir Phoenix Server + NIFs
-2. Tau5 Node - The headless server - Qt CLI + Elixir Phoenix Server + NIFs
-3. Tau5 Live - Elixir Phoenix Server only.
-
 ## Tau5 has two build modes
 1. Dev - Development mode - contains built-in dev tools and runs Phoenix in dev mode from source with auto-compile and asset-building enabled by deafult.
 2. Release - No dev tools, Phoenix running in production mode from a mix release.
+
+## Deployment Modes (TAU5_MODE)
+Tau5 has three deployment modes that control routing and features:
+1. **`:gui`** - Desktop app mode. The full app - Qt Chromium Browser + Elixir Phoenix Server + NIFs. Routes `/` to `/app` (MainLive LiveView)
+2. **`:node`** - Headless server mode (default). Qt CLI + Elixir Phoenix Server + NIFs. Routes `/` to `/app` (MainLive LiveView)
+3. **`:central`** - Live web mode. Elixir Phoenix Server only. Routes `/` to a special WebGL shader landing page (CentralController). Used for central/hosted deployments (e.g., tau5.live)
 
 ## Environment
 - **Default assumption**: development mode (`MIX_ENV=dev`).
