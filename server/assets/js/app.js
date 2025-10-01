@@ -28,14 +28,14 @@ let Hooks = {
     mounted() {
       this.setupResize();
       this.setupHistory();
-      
+
       this.handleEvent("focus_input", () => {
         const input = document.getElementById("lua-shell-input");
         if (input) {
           input.focus();
         }
       });
-      
+
       // Scroll to bottom when new output is added
       this.handleEvent("scroll_to_bottom", () => {
         const output = document.getElementById("shell-output");
@@ -43,7 +43,7 @@ let Hooks = {
           output.scrollTop = output.scrollHeight;
         }
       });
-      
+
       // Clear input after command execution
       this.handleEvent("clear_input", () => {
         const input = document.getElementById("lua-shell-input");
@@ -51,7 +51,7 @@ let Hooks = {
           input.value = "";
         }
       });
-      
+
       // Handle console toggle
       this.handleEvent("toggle_console", ({visible}) => {
         if (visible) {
@@ -62,11 +62,11 @@ let Hooks = {
         }
       });
     },
-    
+
     setupHistory() {
       const MAX_HISTORY = 100;
       const STORAGE_KEY = 'tau5-lua-history';
-      
+
       this.history = [];
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -82,13 +82,13 @@ let Hooks = {
         console.warn('Failed to load command history:', e);
         this.history = [];
       }
-      
+
       this.historyIndex = -1;
       this.tempInput = "";
-      
+
       const input = document.getElementById("lua-shell-input");
       if (!input) return;
-      
+
       this.historyKeydownHandler = (e) => {
         if (e.key === 'ArrowUp') {
           e.preventDefault();
@@ -103,82 +103,82 @@ let Hooks = {
           }
         }
       };
-      
+
       this.historyInputHandler = () => {
         if (this.historyIndex === -1) {
           this.tempInput = input.value;
         }
       };
-      
+
       input.addEventListener('keydown', this.historyKeydownHandler);
       input.addEventListener('input', this.historyInputHandler);
     },
-    
+
     navigateHistory(direction) {
       const input = document.getElementById("lua-shell-input");
       if (!input || this.history.length === 0) return;
-      
+
       if (this.historyIndex === -1 && direction > 0) {
         this.tempInput = input.value;
       }
-      
+
       const newIndex = this.historyIndex + direction;
-      
+
       if (newIndex < -1) return;
       if (newIndex >= this.history.length) return;
-      
+
       this.historyIndex = newIndex;
-      
+
       if (this.historyIndex === -1) {
         input.value = this.tempInput;
       } else {
         input.value = this.history[this.historyIndex];
       }
-      
+
       input.setSelectionRange(input.value.length, input.value.length);
     },
-    
+
     addToHistory(command) {
       if (this.history.length > 0 && this.history[0] === command) {
         this.historyIndex = -1;
         return;
       }
-      
+
       this.history.unshift(command);
-      
+
       const MAX_HISTORY = 100;
       if (this.history.length > MAX_HISTORY) {
         this.history = this.history.slice(0, MAX_HISTORY);
       }
-      
+
       try {
         localStorage.setItem('tau5-lua-history', JSON.stringify(this.history));
       } catch (e) {
         console.warn('Failed to save command history:', e);
       }
-      
+
       this.historyIndex = -1;
       this.tempInput = "";
     },
-    
+
     setupResize() {
       const container = this.el;
       const handle = document.getElementById("shell-resize-handle");
       if (!handle) return;
-      
+
       let isResizing = false;
       let startY = 0;
       let startHeight = 0;
-      
+
       const startResize = (e) => {
         isResizing = true;
         startY = e.clientY;
         startHeight = container.offsetHeight;
-        
+
         // Prevent text selection while dragging
         document.body.style.userSelect = 'none';
         document.body.style.cursor = 'ns-resize';
-        
+
         // Add overlay to prevent iframe interference
         const overlay = document.createElement('div');
         overlay.id = 'resize-overlay';
@@ -191,45 +191,45 @@ let Hooks = {
         overlay.style.cursor = 'ns-resize';
         document.body.appendChild(overlay);
       };
-      
+
       const doResize = (e) => {
         if (!isResizing) return;
-        
+
         const deltaY = e.clientY - startY;
         const newHeight = Math.min(
           Math.max(startHeight + deltaY, 150), // Min height 150px
           window.innerHeight * 0.8 // Max 80% of viewport
         );
-        
+
         container.style.height = newHeight + 'px';
-        
+
         // Store the height for persistence (optional)
         localStorage.setItem('tau5-console-height', newHeight);
       };
-      
+
       const stopResize = () => {
         if (!isResizing) return;
-        
+
         isResizing = false;
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
-        
+
         // Remove overlay
         const overlay = document.getElementById('resize-overlay');
         if (overlay) overlay.remove();
       };
-      
+
       // Attach event listeners
       handle.addEventListener('mousedown', startResize);
       document.addEventListener('mousemove', doResize);
       document.addEventListener('mouseup', stopResize);
-      
+
       // Load saved height
       const savedHeight = localStorage.getItem('tau5-console-height');
       if (savedHeight) {
         container.style.height = savedHeight + 'px';
       }
-      
+
       // Store cleanup function for unmount
       this.resizeCleanup = () => {
         handle.removeEventListener('mousedown', startResize);
@@ -237,13 +237,13 @@ let Hooks = {
         document.removeEventListener('mouseup', stopResize);
       };
     },
-    
+
     destroyed() {
       // Clean up resize handlers
       if (this.resizeCleanup) {
         this.resizeCleanup();
       }
-      
+
       // Clean up history event listeners
       const input = document.getElementById("lua-shell-input");
       if (input && this.historyKeydownHandler) {
@@ -252,7 +252,7 @@ let Hooks = {
       }
     }
   },
-  
+
   Tau5ShaderCanvas: {
     mounted() {
       this.shader = new Tau5Shader(this.el);
@@ -268,43 +268,43 @@ let Hooks = {
       }
     }
   },
-  
+
   ShaderCanvas: {
     mounted() {
       this.initShader();
     },
-    
+
     updated() {
       // Re-init if shader isn't running
       if (!this.animationFrame) {
         this.initShader();
       }
     },
-    
+
     initShader() {
       const vertexId = this.el.dataset.vertexShaderId;
       const fragmentId = this.el.dataset.fragmentShaderId;
-      
+
       const vertexSource = document.getElementById(vertexId)?.textContent;
       const fragmentSource = document.getElementById(fragmentId)?.textContent;
-      
+
       if (!vertexSource || !fragmentSource) {
         console.error('Shader sources not found for', this.el.id);
         return;
       }
-      
+
       this.initWebGL(vertexSource, fragmentSource);
     },
-    
+
     initWebGL(vertexSource, fragmentSource) {
       const canvas = this.el;
-      
+
       // Stop any existing animation
       if (this.animationFrame) {
         cancelAnimationFrame(this.animationFrame);
         this.animationFrame = null;
       }
-      
+
       // Try to get WebGL context with performance-conscious settings
       const gl = canvas.getContext('webgl', {
         failIfMajorPerformanceCaveat: false,
@@ -314,30 +314,30 @@ let Hooks = {
         stencil: false,
         powerPreference: 'low-power'
       }) || canvas.getContext('experimental-webgl');
-      
+
       if (!gl) {
         console.warn('WebGL not supported, using fallback for panel', canvas.id);
         this.showFallback();
         return;
       }
-      
+
       // Compile shaders
       const vertexShader = this.compileShader(gl, gl.VERTEX_SHADER, vertexSource);
       const fragmentShader = this.compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
-      
+
       if (!vertexShader || !fragmentShader) return;
-      
+
       // Link program
       const program = gl.createProgram();
       gl.attachShader(program, vertexShader);
       gl.attachShader(program, fragmentShader);
       gl.linkProgram(program);
-      
+
       if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         console.error('Failed to link program');
         return;
       }
-      
+
       // Set up geometry
       const vertices = new Float32Array([
         -1.0, -1.0,
@@ -345,70 +345,67 @@ let Hooks = {
         -1.0,  1.0,
          1.0,  1.0
       ]);
-      
+
       const buffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-      
+
       const aPos = gl.getAttribLocation(program, 'aPos');
       gl.enableVertexAttribArray(aPos);
       gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-      
+
       // Start render loop
       this.gl = gl;
       this.program = program;
       this.startTime = Date.now();
       this.render();
     },
-    
+
     compileShader(gl, type, source) {
       const shader = gl.createShader(type);
       gl.shaderSource(shader, source);
       gl.compileShader(shader);
-      
+
       if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
         console.error('Shader compile error:', gl.getShaderInfoLog(shader));
         return null;
       }
-      
+
       return shader;
     },
     
     render() {
       if (!this.gl || !this.program) return;
-      
+
       const canvas = this.el;
       const gl = this.gl;
-      
+
       // Check if panel is visible (for performance)
-      const isVisible = canvas.offsetParent !== null && 
+      const isVisible = canvas.offsetParent !== null &&
                        canvas.style.visibility !== 'hidden';
-      
+
       if (!isVisible) {
         // Skip rendering but keep the loop going
-        this.animationFrame = requestAnimationFrame(() => this.render());
         return;
       }
-      
       // Check for context loss
       if (gl.isContextLost()) {
         console.warn('WebGL context lost for', canvas.id);
         this.showFallback();
         return;
       }
-      
+
       // Resize canvas if needed
       if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
         canvas.width = canvas.clientWidth;
         canvas.height = canvas.clientHeight;
         gl.viewport(0, 0, canvas.width, canvas.height);
       }
-      
+
       gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
-      
+
       gl.useProgram(this.program);
-      
       // Set uniforms
       const time = (Date.now() - this.startTime) / 1000.0;
       const timeLocation = gl.getUniformLocation(this.program, 'time');
@@ -421,7 +418,7 @@ let Hooks = {
       
       this.animationFrame = requestAnimationFrame(() => this.render());
     },
-    
+
     showFallback() {
       // Replace canvas with a fallback div
       const panelIndex = this.el.dataset.panelIndex || '?';
@@ -441,12 +438,12 @@ let Hooks = {
       fallback.textContent = `Panel ${panelIndex}`;
       this.el.parentNode.replaceChild(fallback, this.el);
     },
-    
+
     destroyed() {
       if (this.animationFrame) {
         cancelAnimationFrame(this.animationFrame);
       }
-      
+
       // Clean up WebGL resources
       if (this.gl && this.program) {
         this.gl.deleteProgram(this.program);
@@ -454,17 +451,17 @@ let Hooks = {
       }
     }
   },
-  
+
   Splitter: {
     mounted() {
       const splitter = this.el;
       const container = splitter.parentElement;
       const direction = splitter.dataset.direction;
       const splitId = splitter.dataset.splitId;
-      
+
       let dragging = false;
       let touchIdentifier = null;
-      
+
       const getPosition = (e) => {
         const rect = container.getBoundingClientRect();
         // Handle both mouse and touch events
@@ -472,74 +469,74 @@ let Hooks = {
                        (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientX);
         const clientY = e.clientY || (e.touches && e.touches[0] && e.touches[0].clientY) || 
                        (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientY);
-        
+
         if (direction === "horizontal") {
           return (clientX - rect.left) / rect.width;
         } else {
           return (clientY - rect.top) / rect.height;
         }
       };
-      
+
       const onMove = (e) => {
         if (!dragging) return;
         e.preventDefault();
-        
+
         // For touch events, check if it's the same touch that started the drag
         if (e.type === 'touchmove' && touchIdentifier !== null) {
           const touch = Array.from(e.touches).find(t => t.identifier === touchIdentifier);
           if (!touch) return;
         }
-        
+
         const ratio = Math.min(0.8, Math.max(0.2, getPosition(e)));
         const prev = splitter.previousElementSibling;
         const next = splitter.nextElementSibling;
-        
+
         if (prev && next) {
           prev.style.flex = `0 0 ${ratio * 100}%`;
           next.style.flex = `1 1 ${(1 - ratio) * 100}%`;
         }
       };
-      
+
       const onEnd = (e) => {
         if (!dragging) return;
-        
+
         // For touch events, check if it's the same touch that started the drag
         if (e.type === 'touchend' && touchIdentifier !== null) {
           const touch = Array.from(e.changedTouches).find(t => t.identifier === touchIdentifier);
           if (!touch) return;
         }
-        
+
         dragging = false;
         touchIdentifier = null;
-        
+
         splitter.classList.remove("dragging");
         splitter.classList.remove("touch-active");
         document.body.classList.remove("dragging");
-        
+
         // Remove all event listeners
         document.removeEventListener("mousemove", onMove);
         document.removeEventListener("mouseup", onEnd);
         document.removeEventListener("touchmove", onMove, { passive: false });
         document.removeEventListener("touchend", onEnd);
         document.removeEventListener("touchcancel", onEnd);
-        
+
         const ratio = getPosition(e);
         this.pushEvent("resize_split", { id: splitId, ratio: ratio });
       };
-      
+
       const onStart = (e) => {
         e.preventDefault();
         dragging = true;
-        
+
         // For touch events, store the touch identifier
         if (e.type === 'touchstart') {
           touchIdentifier = e.touches[0].identifier;
           splitter.classList.add("touch-active");
         }
-        
+
         splitter.classList.add("dragging");
         document.body.classList.add("dragging");
-        
+
         // Add appropriate move and end listeners based on input type
         if (e.type === 'mousedown') {
           document.addEventListener("mousemove", onMove);
@@ -550,13 +547,13 @@ let Hooks = {
           document.addEventListener("touchcancel", onEnd);
         }
       };
-      
+
       // Add both mouse and touch event listeners
       splitter.addEventListener("mousedown", onStart);
       splitter.addEventListener("touchstart", onStart, { passive: false });
     }
   },
-  
+
   TerminalScroll: {
     mounted() {
       this.handleUpdated = () => {
@@ -564,7 +561,7 @@ let Hooks = {
       };
       this.handleUpdated();
     },
-    
+
     updated() {
       this.handleUpdated();
     }
@@ -573,17 +570,17 @@ let Hooks = {
   ConsoleInput: {
     mounted() {
       this.el.focus();
-      
+
       if (this.el.tagName === 'TEXTAREA') {
         const len = this.el.value.length;
         this.el.setSelectionRange(len, len);
       }
-      
+
       this.handleEvent("update_input_value", ({value}) => {
         this.el.value = value;
         this.el.focus();
       });
-      
+
       this.handleEvent("focus_input", () => {
         setTimeout(() => {
           this.el.focus();
@@ -595,7 +592,7 @@ let Hooks = {
       });
 
       this.killRing = "";
-      
+
       this.handleKeydown = (e) => {
         if (e.key === 'Enter') {
           if (e.altKey) {
@@ -603,39 +600,39 @@ let Hooks = {
             this.pushEvent("handle_keydown", {key: "force_execute"});
             return;
           }
-          
+
           if (this.el.tagName === 'INPUT') {
             return;
           }
-          
+
           if (!e.shiftKey) {
             e.preventDefault();
             const start = this.el.selectionStart;
             const end = this.el.selectionEnd;
             const value = this.el.value;
-            
+
             this.el.value = value.slice(0, start) + '\n' + value.slice(end);
             const newPos = start + 1;
             this.el.setSelectionRange(newPos, newPos);
-            
+
             this.el.dispatchEvent(new Event('input', { bubbles: true }));
-            
+
             setTimeout(() => this.el.form.requestSubmit(), 0);
-            
+
             return;
           }
         }
-        
+
         if (e.ctrlKey && e.key === 'j') {
           e.preventDefault();
           this.pushEvent("handle_keydown", {key: "insert_newline"});
           return;
         }
-        
+
         if (!e.ctrlKey && !e.altKey) return;
-        
+
         const {value, selectionStart: pos, selectionEnd: end} = this.el;
-        
+
         const handlers = {
           ctrl: {
             p: () => this.pushEvent("handle_keydown", {key: "ArrowUp"}),
@@ -686,20 +683,20 @@ let Hooks = {
             a: () => this.el.setSelectionRange(0, value.length)
           }
         };
-        
+
         const keyMap = e.ctrlKey ? handlers.ctrl : handlers.alt;
         const handler = keyMap[e.key];
-        
+
         if (handler) {
           e.preventDefault();
           handler();
         }
       };
-      
+
       this.setCursor = (pos) => {
         this.el.setSelectionRange(pos, pos);
       };
-      
+
       this.updateInput = (value, cursor) => {
         this.el.value = value;
         this.setCursor(cursor);
