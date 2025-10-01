@@ -38,6 +38,15 @@ defmodule Tau5Web.MainLive do
   def render(assigns) do
     ~H"""
     <div class="layout-container">
+      <!-- Tau5 Cube in top right -->
+      <div style="position: fixed; top: 2rem; right: 0rem; width: 150px; height: 150px; z-index: 1000; pointer-events: auto;">
+        <canvas
+          id="tau5-cube-canvas"
+          phx-hook="Tau5ShaderCanvas"
+          style="width: 100%; height: 100%; background: transparent;"
+        />
+      </div>
+
       <div class="layout-header">
         <div class="layout-controls">
           <span class={["access-badge", "access-#{@endpoint_type}"]}>
