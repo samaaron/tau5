@@ -358,6 +358,16 @@ let Hooks = {
       this.gl = gl;
       this.program = program;
       this.startTime = Date.now();
+
+      // Cache uniform locations
+      this.timeLocation = gl.getUniformLocation(program, 'time');
+      this.resolutionLocation = gl.getUniformLocation(program, 'resolution');
+
+      // Framerate limiting (60 FPS)
+      this.targetFPS = 60;
+      this.frameInterval = 1000 / this.targetFPS;
+      this.lastFrameTime = 0;
+
       this.render();
     },
 
@@ -373,8 +383,11 @@ let Hooks = {
 
       return shader;
     },
-    
-    render() {
+
+    render(currentTime) {
+      // Request next frame immediately
+      this.animationFrame = requestAnimationFrame((time) => this.render(time));
+
       if (!this.gl || !this.program) return;
 
       const canvas = this.el;
@@ -388,6 +401,19 @@ let Hooks = {
         // Skip rendering but keep the loop going
         return;
       }
+
+      // Framerate limiting - only render if enough time has passed
+      currentTime = currentTime || 0;
+      const elapsed = currentTime - this.lastFrameTime;
+
+      // Only render if enough time has passed (60 FPS = ~16.67ms per frame)
+      if (elapsed < this.frameInterval) {
+        return;
+      }
+
+      // Adjust for any time drift to maintain smooth framerate
+      this.lastFrameTime = currentTime - (elapsed % this.frameInterval);
+
       // Check for context loss
       if (gl.isContextLost()) {
         console.warn('WebGL context lost for', canvas.id);
@@ -406,17 +432,14 @@ let Hooks = {
       gl.clear(gl.COLOR_BUFFER_BIT);
 
       gl.useProgram(this.program);
-      // Set uniforms
+
+      // Set uniforms (using cached locations)
       const time = (Date.now() - this.startTime) / 1000.0;
-      const timeLocation = gl.getUniformLocation(this.program, 'time');
-      const resolutionLocation = gl.getUniformLocation(this.program, 'resolution');
-      
-      if (timeLocation) gl.uniform1f(timeLocation, time);
-      if (resolutionLocation) gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
-      
+
+      if (this.timeLocation) gl.uniform1f(this.timeLocation, time);
+      if (this.resolutionLocation) gl.uniform2f(this.resolutionLocation, canvas.width, canvas.height);
+
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      
-      this.animationFrame = requestAnimationFrame(() => this.render());
     },
 
     showFallback() {
@@ -465,9 +488,9 @@ let Hooks = {
       const getPosition = (e) => {
         const rect = container.getBoundingClientRect();
         // Handle both mouse and touch events
-        const clientX = e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX) || 
+        const clientX = e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX) ||
                        (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientX);
-        const clientY = e.clientY || (e.touches && e.touches[0] && e.touches[0].clientY) || 
+        const clientY = e.clientY || (e.touches && e.touches[0] && e.touches[0].clientY) ||
                        (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientY);
 
         if (direction === "horizontal") {
