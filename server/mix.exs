@@ -109,7 +109,8 @@ defmodule Tau5.MixProject do
         "tailwind default",
         "tailwind console",
         "esbuild default",
-        "esbuild monaco_worker"
+        "esbuild monaco_worker",
+        "esbuild hydra_standalone"
       ],
       "assets.deploy": [
         "assets.setup",
@@ -117,6 +118,7 @@ defmodule Tau5.MixProject do
         "tailwind console --minify",
         "esbuild default --minify",
         "esbuild monaco_worker --minify",
+        "esbuild hydra_standalone --minify",
         "phx.digest"
       ]
     ]

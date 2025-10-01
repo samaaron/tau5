@@ -12,7 +12,7 @@ defmodule Tau5Web.Widgets.TransformWidget do
     <div
       id={"transform-container-#{@id}"}
       class="transform-widget"
-      style="width: 100%; height: 100%; position: relative; overflow: hidden; background: #1a1a1a; cursor: default;"
+      style="width: 100%; height: 100%; position: relative; overflow: hidden; background: transparent; cursor: default;"
     >
       <!-- Panel info in top-left -->
       <div style="position: absolute; top: 20px; left: 20px; z-index: 10;">
@@ -84,6 +84,7 @@ defmodule Tau5Web.Widgets.TransformWidget do
     background: #{gradient};
     mix-blend-mode: #{mode};
     transition: opacity 0.3s ease;
+    pointer-events: none;
     """
   end
 

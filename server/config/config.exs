@@ -79,6 +79,16 @@ config :esbuild,
       --outdir=../priv/static/assets/js/monaco-worker
       ),
     cd: Path.expand("../assets", __DIR__)
+  ],
+  hydra_standalone: [
+    args: ~w(
+      js/hydra_standalone.js
+      --bundle
+      --target=es2021
+      --outdir=../priv/static/assets
+      --public-path=/assets
+    ),
+    cd: Path.expand("../assets", __DIR__)
   ]
 
 # Configure tailwind (the version is required)

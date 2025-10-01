@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hydra Background</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: black;
+        }
+        canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+    </style>
+    <script src="/assets/hydra_standalone.js"></script>
+</head>
+<body>
+    <canvas id="hydra-canvas"></canvas>
+    <script>
+        // Initialize Hydra
+        var hydra = new Hydra({
+            canvas: document.getElementById('hydra-canvas'),
+            detectAudio: false,
+            enableStreamCapture: false
+        });
+
+        // Simple colorful Hydra sketch
+        // Creates flowing gradients with rotation
+        osc(10, 0.1, 1.2)
+            .color(0.9, 0.7, 0.8)
+            .diff(osc(12, 0.08)
+                .rotate(0.3))
+            .modulateScale(osc(2)
+                .rotate(() => time * 0.05), 0.5)
+            .blend(o0, 0.4)
+            .out(o0);
+    </script>
+</body>
+</html>

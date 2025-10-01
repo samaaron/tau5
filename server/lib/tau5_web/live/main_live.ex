@@ -39,6 +39,13 @@ defmodule Tau5Web.MainLive do
   def render(assigns) do
     ~H"""
     <div class="layout-container">
+      <!-- Hydra background iframe -->
+      <iframe
+        id="hydra-background"
+        src="/hydra.html"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: -1; pointer-events: none;"
+      />
+
       <!-- Tau5 Cube in top right -->
       <div style="position: fixed; top: 2rem; right: 0rem; width: 150px; height: 150px; z-index: 1000; pointer-events: auto;">
         <canvas
