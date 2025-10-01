@@ -22,14 +22,33 @@
 <body>
     <canvas id="hydra-canvas"></canvas>
     <script>
+        // Get the canvas and set initial dimensions
+        const canvas = document.getElementById('hydra-canvas');
+        const initialWidth = window.innerWidth * window.devicePixelRatio;
+        const initialHeight = window.innerHeight * window.devicePixelRatio;
+
+        // Set canvas dimensions explicitly
+        canvas.width = initialWidth;
+        canvas.height = initialHeight;
+
         // Initialize Hydra with full resolution
         var hydra = new Hydra({
-            canvas: document.getElementById('hydra-canvas'),
+            canvas: canvas,
             detectAudio: false,
             enableStreamCapture: false,
-            width: window.innerWidth * window.devicePixelRatio,
-            height: window.innerHeight * window.devicePixelRatio
+            width: initialWidth,
+            height: initialHeight
         });
+
+        // Set canvas to full resolution
+        function setCanvasResolution() {
+            const canvas = document.getElementById('hydra-canvas');
+            const width = window.innerWidth * window.devicePixelRatio;
+            const height = window.innerHeight * window.devicePixelRatio;
+            canvas.width = width;
+            canvas.height = height;
+            return { width, height };
+        }
 
         // Default Hydra sketch
         function runDefaultSketch() {
