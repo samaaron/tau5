@@ -6,18 +6,22 @@ export class Tau5Shader {
     this.startTime = Date.now();
     this.uniforms = {};
     this.animationFrame = null;
-    
+
     // Mouse interaction state
     this.isDragging = false;
     this.lastMouseX = 0;
     this.lastMouseY = 0;
-    this.velocityX = 0;
-    this.velocityY = 0;
-    this.rotationX = 0;
-    this.rotationY = 0;
-    this.rotationZ = 0;
-    this.baseSpeed = 0.0002; // Base rotation speed when not interacting (slower)
-    this.damping = 0.98; // Inertia damping factor (higher = longer spin)
+
+    // Camera rotation (view space) - controlled by mouse
+    this.cameraVelocityX = 0;  // Pitch velocity
+    this.cameraVelocityY = 0;  // Yaw velocity
+    this.cameraPitch = 0;      // Camera pitch (up/down)
+    this.cameraYaw = 0;        // Camera yaw (left/right)
+
+    // Auto rotation (object space) - automatic spinning
+    this.autoRotationTime = 0;
+    this.baseSpeed = 0.05; // Auto rotation speed
+    this.damping = 0.985; // Inertia damping factor (higher = longer spin)
   }
 
   async init() {
@@ -50,7 +54,8 @@ export class Tau5Shader {
     // Get uniform locations
     this.uniforms.time = this.gl.getUniformLocation(this.program, 'time');
     this.uniforms.resolution = this.gl.getUniformLocation(this.program, 'resolution');
-    this.uniforms.rotation = this.gl.getUniformLocation(this.program, 'rotation');
+    this.uniforms.autoRotation = this.gl.getUniformLocation(this.program, 'autoRotation');
+    this.uniforms.cameraRotation = this.gl.getUniformLocation(this.program, 'cameraRotation');
 
     // Enable alpha blending
     this.gl.enable(this.gl.BLEND);
@@ -108,20 +113,19 @@ export class Tau5Shader {
       precision mediump float;
       uniform float time;
       uniform vec2 resolution;
-      uniform vec3 rotation;
-      
+      uniform vec3 autoRotation;
+      uniform vec2 cameraRotation;
+
       #define PI 3.14159265359
-      
+
       mat2 rot(float a) {
         float s = sin(a), c = cos(a);
         return mat2(c, -s, s, c);
       }
-      
+
       vec3 cubeWireframe(vec2 p) {
         vec3 col = vec3(0.0);
-        
-        vec3 angles = rotation;
-        
+
         // Define cube vertices
         vec3 verts[8];
         verts[0] = vec3(-1.0, -1.0, -1.0);
@@ -132,17 +136,23 @@ export class Tau5Shader {
         verts[5] = vec3( 1.0, -1.0,  1.0);
         verts[6] = vec3( 1.0,  1.0,  1.0);
         verts[7] = vec3(-1.0,  1.0,  1.0);
-        
+
         float scale = 0.3;
-        
+
         // Project vertices
         vec2 proj[8];
         for(int i = 0; i < 8; i++) {
           vec3 v = verts[i];
-          // Rotate
-          v.yz = rot(angles.x) * v.yz;
-          v.xz = rot(angles.y) * v.xz;
-          v.xy = rot(angles.z) * v.xy;
+
+          // Apply auto-rotation (object space)
+          v.yz *= rot(autoRotation.x);
+          v.xz *= rot(autoRotation.y);
+          v.xy *= rot(autoRotation.z);
+
+          // Apply camera rotation (view space) - this gives perfect screen-space control
+          v.xz *= rot(cameraRotation.y); // Yaw (horizontal mouse movement)
+          v.yz *= rot(cameraRotation.x); // Pitch (vertical mouse movement)
+
           // Perspective projection
           float z = 4.0 + v.z;
           proj[i] = v.xy * (2.0 / z) * scale;
@@ -201,36 +211,39 @@ export class Tau5Shader {
       this.isDragging = true;
       this.lastMouseX = e.clientX;
       this.lastMouseY = e.clientY;
-      this.velocityX = 0;
-      this.velocityY = 0;
+      this.cameraVelocityX = 0;
+      this.cameraVelocityY = 0;
       this.canvas.style.cursor = 'grabbing';
     });
-    
+
     // Mouse move - update rotation
     window.addEventListener('mousemove', (e) => {
       if (!this.isDragging) return;
-      
+
       const deltaX = e.clientX - this.lastMouseX;
       const deltaY = e.clientY - this.lastMouseY;
-      
-      // Update velocity for inertia
-      this.velocityY = deltaX * 0.01;  // X mouse movement -> Y rotation
-      this.velocityX = -deltaY * 0.01; // Y mouse movement -> X rotation (inverted)
-      
-      // Update rotation based on mouse movement
-      this.rotationY += deltaX * 0.01;  // Horizontal drag rotates around Y
-      this.rotationX -= deltaY * 0.01;  // Vertical drag rotates around X (inverted)
-      
+
+      // Camera rotation - perfect screen-space control
+      const rotationSpeed = 0.01;
+
+      // Update camera velocities (inverted Y for intuitive control)
+      this.cameraVelocityX = -deltaY * rotationSpeed;  // Vertical drag -> pitch (inverted)
+      this.cameraVelocityY = deltaX * rotationSpeed;   // Horizontal drag -> yaw
+
+      // Apply camera rotations
+      this.cameraPitch += this.cameraVelocityX;
+      this.cameraYaw += this.cameraVelocityY;
+
       this.lastMouseX = e.clientX;
       this.lastMouseY = e.clientY;
     });
-    
+
     // Mouse up - stop dragging
     window.addEventListener('mouseup', () => {
       this.isDragging = false;
       this.canvas.style.cursor = 'grab';
     });
-    
+
     // Add hover cursor
     this.canvas.style.cursor = 'grab';
   }
@@ -257,49 +270,38 @@ export class Tau5Shader {
 
     this.gl.useProgram(this.program);
 
-    // Update physics when not dragging
+    // Auto-rotation (always active)
+    const time = (Date.now() - this.startTime) / 1000.0;
+    this.autoRotationTime = time * this.baseSpeed;
+
+    // Update camera physics when not dragging
     if (!this.isDragging) {
-      // Apply inertia
-      this.rotationY += this.velocityY;  // Y velocity affects Y rotation
-      this.rotationX += this.velocityX;  // X velocity affects X rotation
-      
-      // Apply damping to velocity
-      this.velocityX *= this.damping;
-      this.velocityY *= this.damping;
-      
-      // Smoothly blend in base rotation as velocity decreases
-      const totalVelocity = Math.sqrt(this.velocityX * this.velocityX + this.velocityY * this.velocityY);
-      const blendFactor = Math.max(0, 1 - totalVelocity / 0.001); // Smooth transition
-      
-      // Always apply some base rotation, scaled by how still the cube is
-      const time = (Date.now() - this.startTime) / 1000.0;
-      this.rotationZ += this.baseSpeed * 30 * blendFactor;
-      
-      // If nearly stopped, maintain minimum rotation in the last direction
-      if (totalVelocity < 0.001) {
-        // Smoothly add base rotation without jerking
-        const baseX = this.baseSpeed * 0.7 * blendFactor;
-        const baseY = this.baseSpeed * blendFactor;
-        
-        // If we have some velocity direction, follow it
-        if (totalVelocity > 0.0001) {
-          const dirX = this.velocityX / totalVelocity;
-          const dirY = this.velocityY / totalVelocity;
-          this.velocityX = Math.max(Math.abs(this.velocityX), baseX) * dirX;
-          this.velocityY = Math.max(Math.abs(this.velocityY), baseY) * dirY;
-        } else {
-          // Otherwise, gently start base rotation
-          this.velocityX += baseX * 0.1;
-          this.velocityY += baseY * 0.1;
-        }
-      }
+      // Apply inertia to camera rotation
+      this.cameraPitch += this.cameraVelocityX;
+      this.cameraYaw += this.cameraVelocityY;
+
+      // Apply damping to camera velocity
+      this.cameraVelocityX *= this.damping;
+      this.cameraVelocityY *= this.damping;
+
+      // Stop when velocity is very small
+      const minVelocity = 0.00001;
+      if (Math.abs(this.cameraVelocityX) < minVelocity) this.cameraVelocityX = 0;
+      if (Math.abs(this.cameraVelocityY) < minVelocity) this.cameraVelocityY = 0;
     }
 
     // Set uniforms
-    const time = (Date.now() - this.startTime) / 1000.0;
     this.gl.uniform1f(this.uniforms.time, time);
     this.gl.uniform2f(this.uniforms.resolution, this.canvas.width, this.canvas.height);
-    this.gl.uniform3f(this.uniforms.rotation, this.rotationX, this.rotationY, this.rotationZ);
+
+    // Auto-rotation angles (object space)
+    const autoRotX = this.autoRotationTime;
+    const autoRotY = this.autoRotationTime * 0.7;
+    const autoRotZ = this.autoRotationTime * 0.3;
+    this.gl.uniform3f(this.uniforms.autoRotation, autoRotX, autoRotY, autoRotZ);
+
+    // Camera rotation (view space)
+    this.gl.uniform2f(this.uniforms.cameraRotation, this.cameraPitch, this.cameraYaw);
 
     // Draw
     this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
