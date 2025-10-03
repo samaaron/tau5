@@ -54,14 +54,18 @@
         function runDefaultSketch() {
             // Simple colorful Hydra sketch
             // Creates flowing gradients with rotation
-            osc(10, 0.1, 1.2)
+            const defaultCode = `osc(10, 0.1, 1.2)
                 .color(0.9, 0.7, 0.8)
                 .diff(osc(12, 0.08)
                     .rotate(0.3))
                 .modulateScale(osc(2)
                     .rotate(() => time * 0.05), 0.5)
                 .blend(o0, 0.4)
-                .out(o0);
+                .out(o0)`;
+
+            eval(defaultCode);
+            // Save as current sketch so it persists through resize
+            window.currentSketch = defaultCode;
         }
 
         // Function to update Hydra sketch with new code
@@ -75,6 +79,9 @@
 
                 // Evaluate the new sketch code
                 eval(code);
+
+                // Save the current sketch code for resize events
+                window.currentSketch = code;
 
                 // Notify parent that sketch was updated successfully
                 if (window.parent) {
