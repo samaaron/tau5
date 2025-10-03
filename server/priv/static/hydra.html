@@ -129,6 +129,9 @@
             canvas.width = width;
             canvas.height = height;
 
+            // Save the current sketch if it exists
+            const currentSketch = window.currentSketch;
+
             // Reinitialize Hydra with new dimensions
             hydra = new Hydra({
                 canvas: canvas,
@@ -138,8 +141,19 @@
                 height: height
             });
 
-            // Rerun the current sketch
-            runDefaultSketch();
+            // Immediately restore the sketch if it existed
+            if (currentSketch) {
+                try {
+                    eval(currentSketch);
+                } catch (e) {
+                    console.error('Error restoring sketch after resize:', e);
+                    // Fall back to default sketch if restoration fails
+                    runDefaultSketch();
+                }
+            } else {
+                // No custom sketch was running, use default
+                runDefaultSketch();
+            }
         });
     </script>
 </body>
