@@ -539,6 +539,104 @@ int main(int argc, char *argv[])
     });
 
     server.registerTool({
+        "spectra_list_targets",
+        "List all available Chrome DevTools targets",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}}
+        },
+        [&cdpClient](const QJsonObject&) -> QJsonObject {
+            QJsonArray targets = cdpClient->getAvailableTargets();
+
+            // Format targets for display
+            QString output = "Available Chrome DevTools Targets:\n\n";
+            int index = 0;
+            for (const QJsonValue& value : targets) {
+                QJsonObject target = value.toObject();
+                QString type = target["type"].toString();
+                QString title = target["title"].toString();
+                QString url = target["url"].toString();
+
+                if (type == "page") {
+                    output += QString("%1. %2\n   URL: %3\n\n")
+                        .arg(++index)
+                        .arg(title.isEmpty() ? "(No title)" : title)
+                        .arg(url);
+                }
+            }
+
+            if (index == 0) {
+                output = "No Chrome DevTools targets found. Make sure Tau5 is running.";
+            } else {
+                output += QString("Current target: %1").arg(cdpClient->getCurrentTargetTitle());
+            }
+
+            return QJsonObject{
+                {"type", "text"},
+                {"text", output},
+                {"data", targets}
+            };
+        }
+    });
+
+    server.registerTool({
+        "spectra_set_target",
+        "Set the Chrome DevTools target by title",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{
+                {"title", QJsonObject{
+                    {"type", "string"},
+                    {"description", "The title of the target to connect to (e.g., 'Tau5', 'Tau5 Console')"}
+                }}
+            }},
+            {"required", QJsonArray{"title"}}
+        },
+        [&cdpClient](const QJsonObject& params) -> QJsonObject {
+            QString title = params["title"].toString();
+
+            if (title.isEmpty()) {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", "Error: Target title cannot be empty"}
+                };
+            }
+
+            // Check if target exists in available targets
+            QJsonArray targets = cdpClient->getAvailableTargets();
+            bool targetFound = false;
+            for (const QJsonValue& value : targets) {
+                QJsonObject target = value.toObject();
+                if (target["type"].toString() == "page" && target["title"].toString() == title) {
+                    targetFound = true;
+                    break;
+                }
+            }
+
+            if (!targetFound) {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("Error: No target found with title '%1'").arg(title)}
+                };
+            }
+
+            bool success = cdpClient->setTargetByTitle(title);
+
+            if (success) {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("Successfully switched to target: %1").arg(title)}
+                };
+            } else {
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", QString("Failed to switch to target: %1").arg(title)}
+                };
+            }
+        }
+    });
+
+    server.registerTool({
         "chromium_devtools_getDocument",
         "Get the DOM document structure",
         QJsonObject{

@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QUrl>
 #include <QTimer>
+#include <QCoreApplication>
 
 CDPClient::CDPClient(quint16 devToolsPort, QObject* parent)
     : QObject(parent)
@@ -14,6 +15,7 @@ CDPClient::CDPClient(quint16 devToolsPort, QObject* parent)
     , m_networkManager(new QNetworkAccessManager(this))
     , m_pingTimer(new QTimer(this))
     , m_nextCommandId(1)
+    , m_targetTitle("Tau5")
     , m_isConnecting(false)
     , m_isConnected(false)
     , m_connectionState(ConnectionState::NotConnected)
@@ -113,8 +115,9 @@ void CDPClient::fetchTargetList()
         }
         
         QJsonArray targets = doc.array();
+        m_lastTargetList = targets;  // Cache the targets list
         QString targetId = findMainPageTarget(targets);
-        
+
         if (targetId.isEmpty()) {
             QString errorMsg = "No suitable DevTools target found - check if Tau5 is running in dev mode";
             std::cerr << "# CDP Error: " << errorMsg.toStdString() << std::endl;
@@ -131,6 +134,7 @@ void CDPClient::fetchTargetList()
             QJsonObject target = value.toObject();
             if (target["id"].toString() == targetId) {
                 m_webSocketDebuggerUrl = target["webSocketDebuggerUrl"].toString();
+                m_currentTargetTitle = target["title"].toString();  // Store current title
                 break;
             }
         }
@@ -153,48 +157,22 @@ void CDPClient::fetchTargetList()
 
 QString CDPClient::findMainPageTarget(const QJsonArray& targets)
 {
-    // First pass: Find the main application page (exclude dashboard and devtools)
+    // Look for page with the target title (defaults to "Tau5")
     for (const QJsonValue& value : targets) {
         QJsonObject target = value.toObject();
         QString type = target["type"].toString();
+        QString title = target["title"].toString();
         QString url = target["url"].toString();
 
-        // Skip DevTools and dashboard pages - prefer main application
-        if (type == "page" &&
-            !url.contains("devtools://") &&
-            !url.contains("/dev/dashboard") &&
-            !url.contains("about:blank")) {
-            std::cerr << "# CDP: Found main application target: " << target["title"].toString().toStdString()
-                      << " at " << url.toStdString() << std::endl;
+        if (type == "page" && title == m_targetTitle) {
+            std::cerr << "# CDP: Found target with title '" << m_targetTitle.toStdString()
+                      << "' at " << url.toStdString() << std::endl;
             return target["id"].toString();
         }
     }
 
-    // Second pass: If no main app found, accept any non-dashboard page
-    for (const QJsonValue& value : targets) {
-        QJsonObject target = value.toObject();
-        QString type = target["type"].toString();
-        QString url = target["url"].toString();
-
-        if (type == "page" &&
-            !url.contains("devtools://") &&
-            !url.contains("/dev/dashboard")) {
-            std::cerr << "# CDP: Using fallback target: " << target["title"].toString().toStdString()
-                      << " at " << url.toStdString() << std::endl;
-            return target["id"].toString();
-        }
-    }
-
-    // Last resort: Any page
-    for (const QJsonValue& value : targets) {
-        QJsonObject target = value.toObject();
-        if (target["type"].toString() == "page") {
-            std::cerr << "# CDP: Warning - using any available page: "
-                      << target["title"].toString().toStdString() << std::endl;
-            return target["id"].toString();
-        }
-    }
-
+    std::cerr << "# CDP: Error - Target with title '" << m_targetTitle.toStdString()
+              << "' not found among available targets" << std::endl;
     return QString();
 }
 
@@ -1807,4 +1785,48 @@ void CDPClient::trackLiveViewEvent(const QString& eventType, const QJsonObject& 
     // For now, just log it
     QString message = QString("LiveView Event: %1").arg(eventType);
     emit logMessage(message);
+}
+
+// Target selection methods
+QJsonArray CDPClient::getAvailableTargets()
+{
+    // Fetch fresh targets list
+    QUrl url(QString("http://localhost:%1/json/list").arg(m_devToolsPort));
+    QNetworkRequest request(url);
+
+    QNetworkReply* reply = m_networkManager->get(request);
+
+    // Wait synchronously for the reply (acceptable for MCP tool calls)
+    while (!reply->isFinished()) {
+        QCoreApplication::processEvents();
+    }
+
+    if (reply->error() == QNetworkReply::NoError) {
+        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        if (doc.isArray()) {
+            m_lastTargetList = doc.array();
+        }
+    }
+    reply->deleteLater();
+
+    return m_lastTargetList;
+}
+
+bool CDPClient::setTargetByTitle(const QString& title)
+{
+    // Store the new target title
+    m_targetTitle = title;
+
+    // If we're connected, disconnect and reconnect to the new target
+    if (m_isConnected) {
+        std::cerr << "# CDP: Switching target to '" << title.toStdString() << "'" << std::endl;
+        disconnect();
+
+        // Reconnect with new target
+        return connect();
+    } else {
+        // Not connected, just update target for next connection
+        std::cerr << "# CDP: Target set to '" << title.toStdString() << "' for next connection" << std::endl;
+        return true;
+    }
 }

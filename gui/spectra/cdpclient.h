@@ -37,6 +37,11 @@ public:
     ConnectionState getConnectionState() const;
     quint16 getDevToolsPort() const { return m_devToolsPort; }
 
+    // Target selection methods
+    QJsonArray getAvailableTargets();
+    bool setTargetByTitle(const QString& title);
+    QString getCurrentTargetTitle() const { return m_currentTargetTitle; }
+
     void sendCommand(const QString& method, const QJsonObject& params, ResponseCallback callback);
     
     void getDocument(ResponseCallback callback);
@@ -236,7 +241,10 @@ private:
     
     QString m_targetId;
     QString m_webSocketDebuggerUrl;
-    
+    QString m_currentTargetTitle;  // Store current target title
+    QString m_targetTitle;  // Target title to look for (defaults to "Tau5")
+    QJsonArray m_lastTargetList;  // Cache of last fetched targets
+
     bool m_isConnecting;
     bool m_isConnected;
     ConnectionState m_connectionState;
