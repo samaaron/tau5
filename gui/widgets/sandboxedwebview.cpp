@@ -99,17 +99,22 @@ void SandboxedWebView::insertStyleSheet(const QString &name, const QString &sour
 {
     QWebEngineScript script;
     QString s = QString::fromLatin1("(function() {"
-                                    "    css = document.createElement('style');"
-                                    "    css.type = 'text/css';"
-                                    "    css.id = '%1';"
-                                    "    document.head.appendChild(css);"
-                                    "    css.innerText = '%2';"
+                                    "    var existingStyle = document.getElementById('%1');"
+                                    "    if (existingStyle) {"
+                                    "        existingStyle.innerText = '%2';"
+                                    "    } else {"
+                                    "        var css = document.createElement('style');"
+                                    "        css.type = 'text/css';"
+                                    "        css.id = '%1';"
+                                    "        css.innerText = '%2';"
+                                    "        document.head.appendChild(css);"
+                                    "    }"
                                     "})()")
                     .arg(name)
                     .arg(source.simplified());
-    
+
     this->page()->runJavaScript(s, QWebEngineScript::ApplicationWorld);
-    
+
     script.setName(name);
     script.setSourceCode(s);
     script.setInjectionPoint(QWebEngineScript::DocumentReady);
