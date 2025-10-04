@@ -1,7 +1,7 @@
 defmodule Tau5Web.MCPEndpoint do
   @moduledoc """
   Dedicated endpoint for MCP (Model Context Protocol) servers.
-  This endpoint runs on a configurable port (default 5555) and serves only MCP traffic.
+  This endpoint runs on a configurable port (default 555[Channel]) and serves only MCP traffic.
   """
   use Phoenix.Endpoint, otp_app: :tau5
 
