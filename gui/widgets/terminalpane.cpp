@@ -19,6 +19,7 @@
 #include <QStandardPaths>
 #include <QFile>
 #include <QTextStream>
+#include <QScrollBar>
 
 TerminalPane::TerminalPane(QWidget *parent)
     : QWidget(parent)
@@ -269,7 +270,10 @@ void TerminalPane::createTerminalWidget(QTermWidget* &terminal, bool isTopTermin
 
 void TerminalPane::styleTerminal(QTermWidget* terminal)
 {
-    // Apply the standard Tau5 scrollbar styling but with gray colors
+    // Apply the exact same Tau5 scrollbar styling used across the application
+    // This matches the styling from StyleManager::tau5Scrollbar()
+
+    // Normal style when there's content to scroll
     QString scrollbarStyle = QString(
         "QScrollBar:vertical { "
         "  background: transparent; "
@@ -279,7 +283,7 @@ void TerminalPane::styleTerminal(QTermWidget* terminal)
         "}"
         "QScrollBar::handle:vertical { "
         "  background: %1; "
-        "  border-radius: 0px; "
+        "  border-radius: 0px; "  // Squared ends, not rounded
         "  min-height: 30px; "
         "  margin: 0px; "
         "  border: none; "
@@ -303,9 +307,57 @@ void TerminalPane::styleTerminal(QTermWidget* terminal)
         "  background: transparent; "
         "  border: none; "
         "}")
-        .arg(StyleManager::Colors::SCROLLBAR_THUMB)
-        .arg(StyleManager::Colors::SCROLLBAR_THUMB_HOVER);
+        .arg(StyleManager::Colors::primaryOrangeAlpha(240))  // Same as tau5Scrollbar()
+        .arg(StyleManager::Colors::primaryOrangeAlpha(255)); // Same as tau5Scrollbar()
+
+    // Style when there's nothing to scroll (transparent handle)
+    QString noScrollStyle = QString(
+        "QScrollBar:vertical { "
+        "  background: transparent; "
+        "  width: 8px; "
+        "  border: none; "
+        "  margin: 0px; "
+        "}"
+        "QScrollBar::handle:vertical { "
+        "  background: transparent; "  // Hide the handle when nothing to scroll
+        "  border: none; "
+        "}"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { "
+        "  height: 0px; "
+        "  background: transparent; "
+        "  border: none; "
+        "}"
+        "QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { "
+        "  background: transparent; "
+        "  border: none; "
+        "}"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { "
+        "  background: transparent; "
+        "  border: none; "
+        "}");
+
+    terminal->setScrollBarPosition(QTermWidget::ScrollBarRight);
     terminal->setStyleSheet(scrollbarStyle);
+
+    // When there's nothing to scroll, hide the scrollbar handle to avoid
+    // showing a full-height orange bar
+    QList<QScrollBar*> scrollBars = terminal->findChildren<QScrollBar*>();
+    for (QScrollBar* scrollBar : scrollBars) {
+        if (scrollBar->orientation() == Qt::Vertical) {
+            // Update scrollbar stylesheet based on range
+            auto updateScrollbarStyle = [scrollBar, scrollbarStyle, noScrollStyle]() {
+                bool hasScrollRange = (scrollBar->maximum() != scrollBar->minimum());
+                scrollBar->setStyleSheet(hasScrollRange ? scrollbarStyle : noScrollStyle);
+            };
+
+            // Connect to range changes
+            connect(scrollBar, &QScrollBar::rangeChanged, terminal, updateScrollbarStyle);
+
+            // Initial check
+            updateScrollbarStyle();
+            break;
+        }
+    }
 }
 
 void TerminalPane::setWorkingDirectory(const QString &dir)
