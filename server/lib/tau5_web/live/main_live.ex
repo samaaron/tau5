@@ -18,14 +18,9 @@ defmodule Tau5Web.MainLive do
       |> assign_new(:access_tier, fn -> "full" end)
       |> assign_new(:features, fn ->
         %{
-          admin_tools: true,
-          pairing: true,
-          fs_access: true,
-          mutate: true,
-          console_access: true,
-          lua_privileged: true,
-          midi_access: true,
-          link_access: true
+          admin_tools: false,
+          console_access: false,
+          lua_privileged: false,
         }
       end)
       |> assign(:layout_state, TiledLayout.new())

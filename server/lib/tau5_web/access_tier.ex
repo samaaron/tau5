@@ -40,49 +40,24 @@ defmodule Tau5Web.AccessTier do
     {"full",
      %{
        admin_tools: true,
-       pairing: true,
-       fs_access: true,
-       mutate: true,
        console_access: true,
        lua_privileged: true,
-       midi_access: true,
-       link_access: true
      }}
   end
 
   defp get_friend_tier do
     {"friend",
      %{
-       # Still no admin tools for security
-       admin_tools: false,
-       # Can pair with devices
-       pairing: true,
-       # Can access filesystem
-       fs_access: true,
-       # Can modify state
-       mutate: true,
-       # Friend users can access Lua console
        console_access: true,
-       # Extended Lua capabilities
-       lua_privileged: true,
-       # Can use MIDI
-       midi_access: true,
-       # Can use Ableton Link
-       link_access: true
+       lua_privileged: true
      }}
   end
 
   defp get_restricted_tier do
     {"restricted",
      %{
-       admin_tools: false,
-       pairing: false,
-       fs_access: false,
-       mutate: true,
        console_access: false,
-       lua_privileged: false,
-       midi_access: false,
-       link_access: false
+       lua_privileged: false
      }}
   end
 end

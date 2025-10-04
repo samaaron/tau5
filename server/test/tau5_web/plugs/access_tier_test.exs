@@ -15,9 +15,6 @@ defmodule Tau5Web.Plugs.AccessTierTest do
       # Check features
       features = result.assigns.features
       assert features.admin_tools == true
-      assert features.pairing == true
-      assert features.fs_access == true
-      assert features.mutate == true
       assert features.console_access == true
     end
 
@@ -43,11 +40,6 @@ defmodule Tau5Web.Plugs.AccessTierTest do
 
       # Check features
       features = result.assigns.features
-      assert features.admin_tools == false
-      assert features.pairing == false
-      assert features.fs_access == false
-      # Only this should be true
-      assert features.mutate == true
       assert features.console_access == false
     end
 
@@ -57,13 +49,7 @@ defmodule Tau5Web.Plugs.AccessTierTest do
 
       features = result.assigns.features
       # Security-sensitive features should be disabled
-      refute features.admin_tools
-      refute features.fs_access
       refute features.console_access
-      refute features.pairing
-
-      # But mutate should still work for collaboration
-      assert features.mutate
     end
   end
 
@@ -74,7 +60,7 @@ defmodule Tau5Web.Plugs.AccessTierTest do
       internal_result = AccessTier.call(internal_conn, [])
       internal_features = internal_result.assigns.features
 
-      # Public endpoint  
+      # Public endpoint
       public_conn = %{conn | private: %{phoenix_endpoint: Tau5Web.PublicEndpoint}}
       public_result = AccessTier.call(public_conn, [])
       public_features = public_result.assigns.features
@@ -85,9 +71,8 @@ defmodule Tau5Web.Plugs.AccessTierTest do
 
       assert internal_count > public_count
       # All features (including new lua_privileged, midi_access, link_access)
-      assert internal_count == 8
-      # Only mutate
-      assert public_count == 1
+      assert internal_count ==  3
+      assert public_count == 0
     end
   end
 
