@@ -59,8 +59,6 @@ Beam::Beam(QObject *parent, const Tau5CLI::ServerConfig& config, const QString &
   secretKeyBase = randomBytes.toBase64();
   heartbeatSocket = new QUdpSocket(this);
   heartbeatEnabled = true;
-  startupTimer = nullptr;
-
 
   connect(process, &QProcess::readyReadStandardOutput,
           this, &Beam::handleStandardOutput);
@@ -123,11 +121,6 @@ Beam::Beam(QObject *parent, const Tau5CLI::ServerConfig& config, const QString &
 
 Beam::~Beam()
 {
-  if (startupTimer && startupTimer->isActive())
-  {
-    startupTimer->stop();
-  }
-
   if (heartbeatTimer && heartbeatTimer->isActive())
   {
     heartbeatTimer->stop();
@@ -175,21 +168,22 @@ void Beam::handleStandardOutput()
   {
     QString errorMessage = serverErrorMatch.captured(1);
     QString fullErrorMessage = QString("Server startup failed: %1").arg(errorMessage);
-    
+    QString logPath = Tau5Logger::instance().currentSessionPath();
+
     // Log to Tau5Logger
     Tau5Logger::instance().error(fullErrorMessage);
-    
-    // CRITICAL: Print to stderr for headless mode visibility
-    std::cerr << "\n" << fullErrorMessage.toStdString() << std::endl;
-    
+
+    // CRITICAL: Print detailed error to stderr for visibility
+    std::cerr << "\n========================================\n";
+    std::cerr << "FATAL: Server Startup Error\n";
+    std::cerr << "========================================\n";
+    std::cerr << "Error: " << errorMessage.toStdString() << "\n\n";
+    std::cerr << "Logs: " << logPath.toStdString() << "\n";
+    std::cerr << "========================================\n" << std::endl;
+
     // Emit signal for GUI mode
     emit standardError(fullErrorMessage);
-    
-    // Stop the startup timer
-    if (startupTimer && startupTimer->isActive()) {
-      startupTimer->stop();
-    }
-    
+
     // Exit with appropriate error code
     if (errorMessage.contains("port") && errorMessage.contains("in use")) {
       QCoreApplication::exit(static_cast<int>(ExitCode::PORT_IN_USE));
@@ -229,12 +223,7 @@ void Beam::handleStandardOutput()
     }
 
     serverReady = true;
-    
-    // Stop the startup timer since we received server info
-    if (startupTimer && startupTimer->isActive()) {
-      startupTimer->stop();
-    }
-    
+
     if (heartbeatPort > 0 && heartbeatEnabled && heartbeatTimer && !heartbeatTimer->isActive()) {
       heartbeatTimer->start();
     }
@@ -490,15 +479,6 @@ void Beam::startProcess(const QString &cmd, const QStringList &args)
 {
   Tau5Logger::instance().debug( QString("Server process working directory: %1").arg(process->workingDirectory()));
   Tau5Logger::instance().debug( QString("Starting process: %1 %2").arg(cmd).arg(args.join(" ")));
-  
-  // Initialize and start the startup timeout timer (30 seconds)
-  startupTimer = new QTimer(this);
-  startupTimer->setSingleShot(true);
-  startupTimer->setInterval(30000); // 30 seconds timeout
-  connect(startupTimer, &QTimer::timeout, this, &Beam::handleStartupTimeout);
-  startupTimer->start();
-  
-  Tau5Logger::instance().debug("Started startup timeout timer (30 seconds)");
 
   connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
           this, [this](int exitCode, QProcess::ExitStatus status)
@@ -581,22 +561,6 @@ bool Beam::isMacOS() const
 bool Beam::isWindows() const
 {
   return (QOperatingSystemVersion::currentType() == QOperatingSystemVersion::Windows);
-}
-
-void Beam::handleStartupTimeout()
-{
-  Tau5Logger::instance().error("Server startup timeout - no TAU5_SERVER_INFO received within 30 seconds");
-  emit standardError("Server startup timeout - no response from server within 30 seconds");
-  
-  // Kill the process if it's still running
-  if (process && process->state() != QProcess::NotRunning) {
-    process->terminate();
-    if (!process->waitForFinished(5000)) {
-      process->kill();
-    }
-  }
-  
-  QCoreApplication::exit(static_cast<int>(ExitCode::BEAM_START_FAILED));
 }
 
 void Beam::sendHeartbeat()

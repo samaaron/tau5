@@ -444,6 +444,13 @@ int main(int argc, char *argv[])
     }
     errorMsg += "\nIf running multiple Tau5 instances, use different --channel values (0-9)";
 
+    // Print to stderr for console visibility
+    std::cerr << "\n========================================\n";
+    std::cerr << "FATAL: Port Conflict\n";
+    std::cerr << "========================================\n";
+    std::cerr << errorMsg.toStdString() << "\n";
+    std::cerr << "========================================\n" << std::endl;
+
     QMessageBox::critical(nullptr, "Port Conflict", errorMsg);
     return 1;
   }
@@ -669,7 +676,14 @@ int main(int argc, char *argv[])
       // Use the actual allocated port, not the initial value
       if (!mainWindow.connectToServer(actualPort))
       {
-        QMessageBox::critical(nullptr, "Error", QString("Failed to connect to server on port %1").arg(actualPort));
+        QString errorMsg = QString("Failed to connect to server on port %1").arg(actualPort);
+        std::cerr << "\n========================================\n";
+        std::cerr << "FATAL: Connection Failed\n";
+        std::cerr << "========================================\n";
+        std::cerr << errorMsg.toStdString() << "\n";
+        std::cerr << "========================================\n" << std::endl;
+
+        QMessageBox::critical(nullptr, "Error", errorMsg);
         QApplication::quit();
       }
     });

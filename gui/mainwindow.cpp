@@ -367,14 +367,26 @@ void MainWindow::setBeamInstance(Beam *beam)
 bool MainWindow::connectToServer(quint16 port)
 {
   if (port == 0 || port > 65535) {
-    Tau5Logger::instance().error( QString("Invalid port number received: %1").arg(port));
+    QString errorMsg = QString("Invalid port number received: %1").arg(port);
+    QString logPath = Tau5Logger::instance().currentSessionPath();
+
+    Tau5Logger::instance().error(errorMsg);
+
+    // Print to stderr for console visibility
+    std::cerr << "\n========================================\n";
+    std::cerr << "FATAL: Invalid Server Port\n";
+    std::cerr << "========================================\n";
+    std::cerr << "Port: " << port << "\n\n";
+    std::cerr << "Logs: " << logPath.toStdString() << "\n";
+    std::cerr << "========================================\n" << std::endl;
+
     QMessageBox::critical(this, tr("Server Error"),
                          tr("Invalid server port number: %1").arg(port));
     return false;
   }
-  
+
   m_serverPort = port;
-  
+
   m_beamReady = true;
   Tau5Logger::instance().info( "BEAM server ready, port: " + QString::number(port));
 

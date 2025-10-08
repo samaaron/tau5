@@ -44,7 +44,6 @@ private slots:
   void handleStandardOutput();
   void handleStandardError();
   void sendHeartbeat();
-  void handleStartupTimeout();
 
 private:
   quint16 appPort;
@@ -59,7 +58,6 @@ private:
   QProcess *process;
   qint64 beamPid;
   QTimer *heartbeatTimer;
-  QTimer *startupTimer;
   QUdpSocket *heartbeatSocket;
   quint16 heartbeatPort;
   QString heartbeatToken;
