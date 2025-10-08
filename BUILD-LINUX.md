@@ -10,6 +10,7 @@ Tau5 is known to work with the following depencies:
 4. Elixir(1.17+)
 
 To install dependencies:
+
 - For full GUI build: `./bin/linux/install-gui-deps.sh`
 - For headless/node only: `./bin/linux/install-node-deps.sh`
 
@@ -27,16 +28,14 @@ Once the dependencies are installed double check that your version of Elixir is 
 - Recommended: Qt 6.9.1 (used in CI for all GUI builds)
 
 **For tau5-node (headless/node only):**
+
 - Minimum: Qt 6.2.4 (available in Ubuntu 22.04 LTS repositories)
 - Maximum tested: Qt 6.9.1
 
 **Important Notes:**
+
 - Ubuntu 22.04 LTS system packages provide Qt 6.2.4, which is only sufficient for tau5-node builds
 - For GUI builds on Ubuntu 22.04, you must install Qt 6.6.0 or later from qt.io or use the install scripts
-
-
-
-
 
 ## Fetch Tau5
 
@@ -56,7 +55,7 @@ cd ~/Development/tau5
 ./bin/linux/dev-build-all.sh
 ```
 
-## Run Tau5 in Development Mode
+### Run Tau5 in Development Mode
 
 To run Tau5 in dev mode, just run the `tau5-gui-dev.sh` script
 
@@ -64,7 +63,3 @@ To run Tau5 in dev mode, just run the `tau5-gui-dev.sh` script
 cd ~/Development/tau5
 ./bin/linux/tau5-gui-dev.sh
 ```
-
-
-
-

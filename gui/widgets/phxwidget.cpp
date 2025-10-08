@@ -103,17 +103,65 @@ void PhxWidget::connectToTauPhx(QUrl url)
       delete appPageTimer;
     }
 
+    // Poll for LiveView to be mounted and rendered before signaling ready
     appPageTimer = new QTimer(this);
-    appPageTimer->setSingleShot(true);
-    connect(appPageTimer, &QTimer::timeout, this, [this]() {
-      if (!appPageEmitted) {
-        Tau5Logger::instance().info("[PHX] - app page ready (timer-based)");
-        emit appPageReady();
-        appPageEmitted = true;
-      }
-      appPageTimer = nullptr;
+    appPageTimer->setSingleShot(false);
+    appPageTimer->setInterval(100);  // Check every 100ms
+    int pollAttempts = 0;
+    connect(appPageTimer, &QTimer::timeout, this, [this, pollAttempts]() mutable {
+      pollAttempts++;
+
+      // Check if LiveView is mounted - that's all we need
+      QString checkScript = R"(
+        (function() {
+          // Check if LiveSocket exists and is connected
+          if (!window.liveSocket || !window.liveSocket.isConnected()) {
+            return 'not_connected';
+          }
+
+          // Check if the main LiveView is mounted - that's enough!
+          const mainView = document.querySelector('[data-phx-main]');
+          if (!mainView || !mainView.__view) {
+            return 'not_mounted';
+          }
+
+          return 'ready';
+        })();
+      )";
+
+      phxView->page()->runJavaScript(checkScript, [this, pollAttempts](const QVariant &result) {
+        QString status = result.toString();
+
+        if (status == "ready") {
+          Tau5Logger::instance().info(QString("[PHX] - app page ready (LiveView mounted after %1ms)").arg(pollAttempts * 100));
+          if (!appPageEmitted) {
+            emit appPageReady();
+            appPageEmitted = true;
+          }
+          if (appPageTimer) {
+            appPageTimer->stop();
+            appPageTimer->deleteLater();
+            appPageTimer = nullptr;
+          }
+        } else if (pollAttempts >= 50) {
+          // Timeout after 5 seconds - emit anyway
+          Tau5Logger::instance().warning(QString("[PHX] - app page timeout after 5s (status: %1)").arg(status));
+          if (!appPageEmitted) {
+            emit appPageReady();
+            appPageEmitted = true;
+          }
+          if (appPageTimer) {
+            appPageTimer->stop();
+            appPageTimer->deleteLater();
+            appPageTimer = nullptr;
+          }
+        } else if (pollAttempts % 10 == 0) {
+          // Log every second so we can see what's happening
+          Tau5Logger::instance().debug(QString("[PHX] - waiting for LiveView... (status: %1, %2ms elapsed)").arg(status).arg(pollAttempts * 100));
+        }
+      });
     });
-    appPageTimer->start(1500);
+    appPageTimer->start();
   }
 }
 

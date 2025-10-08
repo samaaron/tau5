@@ -59,6 +59,8 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
     , m_allComponentsSignalEmitted(false)
     , m_beamReady(false)
     , m_channel(config.getArgs().channel)
+    , m_appPageReadyReceived(false)
+    , m_fadeToBlackComplete(false)
 {
   QCoreApplication::setOrganizationName("Tau5");
   QCoreApplication::setApplicationName("Tau5");
@@ -282,8 +284,8 @@ MainWindow::MainWindow(const Tau5CLI::ServerConfig& config, QWidget *parent)
 
   phxWidget->loadShaderPage();
 
-  // Console overlay should be within webContainer to stay within the web view area
-  consoleOverlay = std::make_unique<ConsoleOverlay>(webContainer ? webContainer : this);
+  // Console overlay must be a direct child of MainWindow to appear above transition overlay
+  consoleOverlay = std::make_unique<ConsoleOverlay>(this);
   consoleOverlay->raise();
   consoleOverlay->show();
   
@@ -422,41 +424,59 @@ bool MainWindow::isElixirReplEnabled()
 void MainWindow::startTransitionToApp()
 {
   Tau5Logger::instance().info( "BEAM ready, checking timing before transition");
-  
+
   if (m_serverPort == 0) {
     Tau5Logger::instance().error( "Invalid server port for transition");
     return;
   }
-  
+
   qint64 elapsedMs = bootStartTime.msecsTo(QDateTime::currentDateTime());
-  qint64 minDisplayMs = 5000;
+  qint64 minDisplayMs = 1500;  // Just enough to see the shader, not so long it feels slow
   qint64 remainingMs = qMax(0LL, minDisplayMs - elapsedMs);
-  
-  Tau5Logger::instance().info( QString("Boot elapsed: %1ms, waiting %2ms before fade").arg(elapsedMs).arg(remainingMs));
-  
+
+  Tau5Logger::instance().info( QString("Boot elapsed: %1ms, waiting %2ms before transition").arg(elapsedMs).arg(remainingMs));
+
   QTimer::singleShot(remainingMs, [this]() {
-    Tau5Logger::instance().info( "Starting fade to black transition");
-    
+    Tau5Logger::instance().info( "Starting transition - fading to black");
+
+    m_appPageReadyReceived = false;
+    m_fadeToBlackComplete = false;
+
+    // Just fade to black - don't load /app yet
     if (transitionOverlay) {
       transitionOverlay->fadeIn(500);
-      
-      connect(transitionOverlay.get(), &TransitionOverlay::fadeInComplete, 
+
+      connect(transitionOverlay.get(), &TransitionOverlay::fadeInComplete,
               this, &MainWindow::onFadeToBlackComplete, Qt::SingleShotConnection);
+    }
+
+    // Ensure console stays above transition during fade
+    if (consoleOverlay) {
+      consoleOverlay->raise();
+      consoleOverlay->show();
     }
   });
 }
 
 void MainWindow::onFadeToBlackComplete()
 {
-  Tau5Logger::instance().info( "Fade to black complete, switching to app page");
-  
+  qint64 fadeElapsed = bootStartTime.msecsTo(QDateTime::currentDateTime());
+  Tau5Logger::instance().info(QString("Fade to black complete at T+%1ms - now loading /app while hidden").arg(fadeElapsed));
+  m_fadeToBlackComplete = true;
+
+  // Keep console overlay visible on top during page load
+  if (consoleOverlay) {
+    consoleOverlay->raise();
+    consoleOverlay->show();
+  }
+
+  // Now that we're at solid black, switch the browser to /app
   QUrl phxUrl;
   phxUrl.setScheme("http");
   phxUrl.setHost("localhost");
   phxUrl.setPort(m_serverPort);
   phxUrl.setPath("/app");
-  
-  // Add the session token as a query parameter for security
+
   if (beamInstance) {
     QString token = beamInstance->getSessionToken();
     Tau5Logger::instance().debug(QString("Session token for /app: %1").arg(token.isEmpty() ? "EMPTY" : "PRESENT"));
@@ -465,14 +485,10 @@ void MainWindow::onFadeToBlackComplete()
       query.addQueryItem("token", token);
       phxUrl.setQuery(query);
     }
-  } else {
-    Tau5Logger::instance().warning("No beam instance available for token retrieval");
   }
-  
+
   if (phxWidget) {
     phxWidget->transitionToApp(phxUrl);
-
-    // Dev tools availability is now set in initializeWebViewConnections
 
     connect(phxWidget.get(), &PhxWidget::appPageReady,
             this, &MainWindow::onAppPageReady, Qt::SingleShotConnection);
@@ -481,11 +497,21 @@ void MainWindow::onFadeToBlackComplete()
 
 void MainWindow::onAppPageReady()
 {
-  Tau5Logger::instance().info( "App page ready, fading out overlay");
-  
+  qint64 totalElapsed = bootStartTime.msecsTo(QDateTime::currentDateTime());
+  Tau5Logger::instance().info(QString("App page ready (LiveView mounted) at T+%1ms - fading in to reveal /app").arg(totalElapsed));
+  m_appPageReadyReceived = true;
+
+  // Page is loaded and ready, fade in to reveal it
+  startFadeOut();
+}
+
+void MainWindow::startFadeOut()
+{
+  Tau5Logger::instance().info( "Starting fade out to reveal /app");
+
   if (transitionOverlay) {
     transitionOverlay->fadeOut(600);
-    
+
     connect(transitionOverlay.get(), &TransitionOverlay::fadeOutComplete, this, [this]() {
       Tau5Logger::instance().info( "Transition complete, cleaning up overlay");
       if (transitionOverlay) {

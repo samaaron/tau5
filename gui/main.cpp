@@ -568,7 +568,19 @@ int main(int argc, char *argv[])
   Tau5Logger::instance().info("Debug pane not included in build");
 #endif
 
-  std::shared_ptr<Beam> beam;
+  if (args.verbose || isGuiDevMode) {
+    Tau5Logger::instance().info("Starting BEAM server...");
+  }
+
+  std::shared_ptr<Beam> beam = std::make_shared<Beam>(&app, serverConfig, basePath, Tau5Common::Config::APP_NAME,
+                                                       Tau5Common::Config::APP_VERSION, port);
+
+  mainWindow.setBeamInstance(beam.get());
+
+  if (args.verbose) {
+    Tau5Logger::instance().info("Waiting for OTP supervision tree to start...");
+    Tau5Logger::instance().debug("Debug messages are enabled");
+  }
 
   // Prepare server info for verbose output
   ServerInfo serverInfo;
@@ -610,30 +622,17 @@ int main(int argc, char *argv[])
   serverInfo.hasRepl = args.repl;
   serverInfo.hasDebugPane = args.debugPane;
 
-  if (args.verbose) {
-    Tau5Logger::instance().info("Delaying BEAM server startup by 1 second...");
-  }
-
   QStringList cmdLineArgs;
   for (int i = 0; i < argc; i++) {
     cmdLineArgs << QString::fromUtf8(argv[i]);
   }
 
-  QTimer::singleShot(Tau5Common::Config::BEAM_STARTUP_DELAY_MS, [&app, &beam, &mainWindow, basePath, port, &serverConfig, &args, &serverInfo, cmdLineArgs]() {
-    if (args.verbose) {
-      Tau5Logger::instance().info("Starting BEAM server...");
-    }
-    beam = std::make_shared<Beam>(&app, serverConfig, basePath, Tau5Common::Config::APP_NAME,
-                                  Tau5Common::Config::APP_VERSION, port);
+  if (args.verbose) {
+    Tau5Logger::instance().info("Waiting for OTP supervision tree to start...");
+    Tau5Logger::instance().debug("Debug messages are enabled");
+  }
 
-    mainWindow.setBeamInstance(beam.get());
-
-    if (args.verbose) {
-      Tau5Logger::instance().info("Waiting for OTP supervision tree to start...");
-      Tau5Logger::instance().debug("Debug messages are enabled");
-    }
-
-    QObject::connect(beam.get(), &Beam::otpReady, [&mainWindow, &args, &serverConfig, &serverInfo, &beam, cmdLineArgs]() {
+  QObject::connect(beam.get(), &Beam::otpReady, [&mainWindow, &args, &serverConfig, &serverInfo, &beam, cmdLineArgs]() {
       // Get the actual allocated port from BEAM
       quint16 actualPort = beam->getPort();
 
@@ -687,7 +686,6 @@ int main(int argc, char *argv[])
         QApplication::quit();
       }
     });
-  });
 
 #if defined(Q_OS_WIN)
   mainWindow.setWindowIcon(QIcon(":/images/app.ico"));

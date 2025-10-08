@@ -74,6 +74,7 @@ private slots:
   void startTransitionToApp();
   void onFadeToBlackComplete();
   void onAppPageReady();
+  void startFadeOut();
 
 private:
   void initializeDebugPane();
@@ -120,6 +121,8 @@ private:
   bool m_debugPaneShouldBeVisible = false;
   bool m_terminalPaneVisible = false;
   int m_channel;
+  bool m_appPageReadyReceived;
+  bool m_fadeToBlackComplete;
 
   static constexpr int DEBUG_PANE_RESTORE_DELAY_MS = 500;
 };

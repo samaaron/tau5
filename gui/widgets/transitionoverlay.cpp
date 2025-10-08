@@ -19,7 +19,7 @@ TransitionOverlay::~TransitionOverlay()
 
 void TransitionOverlay::setupUi()
 {
-    setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    setWindowFlags(Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_TransparentForMouseEvents);
     m_opacityEffect = new QGraphicsOpacityEffect(this);
@@ -41,8 +41,8 @@ void TransitionOverlay::setupUi()
 void TransitionOverlay::fadeIn(int duration)
 {
     show();
-    raise();
-    
+    // Don't raise - let MainWindow manage the z-order
+
     m_fadeAnimation->setDuration(duration);
     m_fadeAnimation->setStartValue(m_opacityEffect->opacity());
     m_fadeAnimation->setEndValue(1.0);
@@ -61,7 +61,7 @@ void TransitionOverlay::setImmediateOpacity(qreal opacity)
 {
     m_fadeAnimation->stop();
     m_opacityEffect->setOpacity(opacity);
-    
+
     if (opacity <= 0.01) {
         hide();
     } else {
@@ -78,7 +78,7 @@ void TransitionOverlay::resizeEvent(QResizeEvent *event)
 void TransitionOverlay::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event);
-    
+
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.fillRect(rect(), QColor(0, 0, 0, 255));
