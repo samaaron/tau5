@@ -8,10 +8,14 @@ defmodule Tau5.StartupInfo do
   require Logger
 
   def report_server_info() do
-    Process.sleep(1000)
+    http_port = get_http_port()
+
+    # Wait for Phoenix to actually be ready to serve requests before signaling GUI
+    if http_port > 0 do
+      wait_for_http_ready(http_port)
+    end
 
     pid = System.pid()
-    http_port = get_http_port()
     heartbeat_port = Tau5.Heartbeat.get_port()
     mcp_port = get_mcp_port()
 
@@ -22,6 +26,59 @@ defmodule Tau5.StartupInfo do
     Logger.info(
       "Server started - PID: #{pid}, HTTP: #{http_port}, Heartbeat: #{heartbeat_port}, MCP: #{mcp_port}"
     )
+  end
+
+  defp wait_for_http_ready(port, attempt \\ 1) do
+    # Request the health endpoint to verify Phoenix is ready
+    # Include session token to bypass InternalEndpointSecurity
+    token = Application.get_env(:tau5, :session_token)
+    url = if token do
+      ~c"http://127.0.0.1:#{port}/health?token=#{token}"
+    else
+      ~c"http://127.0.0.1:#{port}/health"
+    end
+
+    # Use full response format and disable automatic redirect following
+    http_options = [{:timeout, 5000}, {:connect_timeout, 2000}, {:autoredirect, false}]
+    options = [{:body_format, :binary}]
+
+    result = :httpc.request(:get, {url, []}, http_options, options)
+
+    case result do
+      {:ok, {{_, 200, _}, _, _}} ->
+        if attempt > 1, do: IO.write(" ready\n")
+        Logger.debug("Phoenix ready after #{attempt * 100}ms")
+        :ok
+
+      {:error, reason} when attempt < 80 ->
+        # Show progress dots
+        if attempt == 1, do: IO.write("Waiting for Phoenix")
+        if rem(attempt, 10) == 0 do
+          Logger.debug("Health check error (attempt #{attempt}): #{inspect(reason)}")
+        end
+        IO.write(".")
+
+        # Wait 100ms and retry (max 8 seconds total)
+        Process.sleep(100)
+        wait_for_http_ready(port, attempt + 1)
+
+      other when attempt < 80 ->
+        # Show progress dots for unexpected responses
+        if attempt == 1, do: IO.write("Waiting for Phoenix")
+        if rem(attempt, 10) == 0 do
+          Logger.debug("Health check unexpected response (attempt #{attempt}): #{inspect(other)}")
+        end
+        IO.write(".")
+
+        # Wait 100ms and retry (max 8 seconds total)
+        Process.sleep(100)
+        wait_for_http_ready(port, attempt + 1)
+
+      _ ->
+        IO.write(" timeout\n")
+        Logger.warning("Phoenix not responding after 8 seconds, last result: #{inspect(result)}")
+        :ok
+    end
   end
 
   @doc """

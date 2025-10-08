@@ -29,6 +29,9 @@ defmodule Tau5Web.Router do
     # Both routes exist, controller will handle the mode check
     get("/", CentralController, :index)
 
+    # Health check endpoint (kept for backwards compatibility)
+    get("/health", HealthController, :index)
+
     live_session :default,
       on_mount: Tau5Web.AccessTierHook do
       live("/app", MainLive)
