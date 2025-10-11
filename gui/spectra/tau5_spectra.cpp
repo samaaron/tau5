@@ -2199,7 +2199,8 @@ int main(int argc, char *argv[])
                 }},
                 {"since_last_call", QJsonObject{
                     {"type", "boolean"},
-                    {"description", "Only return messages since last getConsoleMessages call"}
+                    {"default", false},
+                    {"description", "Only return messages since last getConsoleMessages call. Default: false. Automatically ignored when using search, regex, level, since, or last filters (searches always query full history). Use for streaming new messages only."}
                 }},
                 {"format", QJsonObject{
                     {"type", "string"},

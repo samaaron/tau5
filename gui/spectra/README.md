@@ -65,6 +65,11 @@ These tools interact with the browser through Chrome DevTools Protocol:
 
 ### Browser Console
 - **chromium_devtools_getConsoleMessages** - Get console messages from the browser
+  - Supports filtering by level, search text, regex patterns, and time ranges
+  - Default limit: 100 messages (use `limit: -1` for all)
+  - **`since_last_call` parameter**: Defaults to `false`. Set to `true` only for streaming new messages
+    - **IMPORTANT**: Automatically ignored when using search/filter parameters (searches always query full history)
+    - Only useful for monitoring new messages without any filters
 - **chromium_devtools_clearConsoleMessages** - Clear browser console messages
 
 ### Network Monitoring

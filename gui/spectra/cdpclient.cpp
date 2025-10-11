@@ -544,7 +544,12 @@ void CDPClient::getConsoleMessages(const QJsonObject& filters, ResponseCallback 
     }
 
     // Since last call option
-    bool sinceLastCall = filters.value("since_last_call").toBool();
+    // NOTE: Ignore since_last_call when search/filter parameters are provided
+    // because searches should always query the full message history
+    bool hasSearchOrFilter = filters.contains("search") || filters.contains("regex") ||
+                            filters.contains("level") || filters.contains("since") ||
+                            filters.contains("last");
+    bool sinceLastCall = filters.value("since_last_call").toBool() && !hasSearchOrFilter;
     if (sinceLastCall && m_lastMessageRetrievalTime.isValid()) {
         sinceTime = m_lastMessageRetrievalTime;
     }
