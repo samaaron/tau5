@@ -195,10 +195,23 @@ private:
 class CDPBridge : public QObject
 {
     Q_OBJECT
-    
+
 public:
     explicit CDPBridge(CDPClient* client, QObject* parent = nullptr)
-        : QObject(parent), m_client(client) {}
+        : QObject(parent), m_client(client)
+    {
+        // Set up automatic reconnection timer
+        m_reconnectionTimer = new QTimer(this);
+        m_reconnectionTimer->setInterval(5000); // 5 second interval
+        connect(m_reconnectionTimer, &QTimer::timeout, this, &CDPBridge::checkAndReconnect);
+        m_reconnectionTimer->start();
+        debugLog("CDP auto-reconnection enabled (5s interval)");
+
+        // Monitor disconnect events
+        connect(m_client, &CDPClient::disconnected, this, [this]() {
+            debugLog("CDP disconnected - auto-reconnection will attempt to restore connection");
+        });
+    }
     
     bool waitForConnection(int timeoutMs = 5000)
     {
@@ -283,12 +296,16 @@ public:
     QJsonObject executeCommand(std::function<void(CDPClient*, CDPClient::ResponseCallback)> command)
     {
         const int maxRetries = 2;
-        
+
         for (int retry = 0; retry <= maxRetries; retry++) {
             try {
+                if (retry > 0) {
+                    debugLog(QString("Attempting command retry %1/%2").arg(retry).arg(maxRetries));
+                }
+
                 if (!ensureConnected()) {
-                    debugLog("CDP connection failed after retries");
-                    return createErrorResult(QString("Chrome DevTools not responding after multiple attempts. Make sure Tau5 is running in dev mode with --remote-debugging-port=%1").arg(m_client->getDevToolsPort()));
+                    debugLog(QString("CDP connection failed after retries - port: %1").arg(m_client->getDevToolsPort()));
+                    return createErrorResult(QString("Chrome DevTools not responding after multiple connection attempts. Make sure Tau5 is running in dev mode with --devtools (port %1). Check that the browser is not frozen or crashed.").arg(m_client->getDevToolsPort()));
                 }
                 
                 QEventLoop loop;
@@ -313,14 +330,36 @@ public:
                 loop.exec();
                 
                 if (!completed) {
-                    debugLog("Command timeout");
+                    QString connectionStatus = m_client->isConnected() ? "connected" : "disconnected";
+                    auto connectionState = m_client->getConnectionState();
+                    QString stateStr = (connectionState == CDPClient::ConnectionState::Connected) ? "Connected" :
+                                      (connectionState == CDPClient::ConnectionState::Connecting) ? "Connecting" :
+                                      (connectionState == CDPClient::ConnectionState::NotConnected) ? "NotConnected" : "Unknown";
+
+                    debugLog(QString("Command timeout - connection: %1, state: %2, retry: %3/%4")
+                            .arg(connectionStatus).arg(stateStr).arg(retry).arg(maxRetries));
+
                     // Check if this is a connection issue
                     if (!m_client->isConnected() && retry < maxRetries) {
                         debugLog("Connection lost, retrying command...");
                         QThread::msleep(1000);
                         continue;
                     }
-                    return createErrorResult("CDP command timed out");
+
+                    // Provide detailed timeout error message
+                    QString timeoutMsg = QString("CDP command timed out after 5 seconds. Connection state: %1 (%2). ")
+                                        .arg(stateStr).arg(connectionStatus);
+
+                    if (m_client->isConnected()) {
+                        timeoutMsg += "The page may be frozen, busy (e.g., running heavy WASM), or the DevTools protocol is not responding. ";
+                        timeoutMsg += "Try: (1) Check browser console for errors, (2) Wait for page to finish loading, or (3) Restart Spectra if issue persists.";
+                    } else {
+                        timeoutMsg += QString("DevTools disconnected. Ensure Tau5 is running with --devtools on port %1. ")
+                                     .arg(m_client->getDevToolsPort());
+                        timeoutMsg += "Restart Spectra to reconnect.";
+                    }
+
+                    return createErrorResult(timeoutMsg);
                 }
                 
                 if (!error.isEmpty()) {
@@ -390,6 +429,24 @@ public:
         }
     }
     
+private slots:
+    void checkAndReconnect()
+    {
+        // Only attempt reconnection if we're not connected
+        if (!m_client->isConnected()) {
+            auto state = m_client->getConnectionState();
+
+            // Don't interrupt an ongoing connection attempt
+            if (state == CDPClient::ConnectionState::Connecting) {
+                return;
+            }
+
+            // Attempt to reconnect
+            debugLog("Auto-reconnection: Attempting to restore CDP connection");
+            m_client->connect();
+        }
+    }
+
 private:
     QJsonObject createErrorResult(const QString& error)
     {
@@ -398,8 +455,9 @@ private:
             {"text", QString("Error: %1").arg(error)}
         };
     }
-    
+
     CDPClient* m_client;
+    QTimer* m_reconnectionTimer;
 };
 
 #include "tau5_spectra.moc"
