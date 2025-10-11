@@ -92,7 +92,7 @@ void CDPClient::fetchTargetList()
             std::cerr << "# CDP Error: " << errorMsg.toStdString() << std::endl;
             m_isConnecting = false;
             m_isConnected = false;
-            m_connectionState = ConnectionState::Failed;
+            m_connectionState = ConnectionState::NotConnected;
             if (m_webSocket->state() != QAbstractSocket::UnconnectedState) {
                 m_webSocket->abort();
             }
@@ -106,7 +106,7 @@ void CDPClient::fetchTargetList()
             std::cerr << "# CDP Error: " << errorMsg.toStdString() << std::endl;
             m_isConnecting = false;
             m_isConnected = false;
-            m_connectionState = ConnectionState::Failed;
+            m_connectionState = ConnectionState::NotConnected;
             if (m_webSocket->state() != QAbstractSocket::UnconnectedState) {
                 m_webSocket->abort();
             }
@@ -123,6 +123,7 @@ void CDPClient::fetchTargetList()
             std::cerr << "# CDP Error: " << errorMsg.toStdString() << std::endl;
             m_isConnecting = false;
             m_isConnected = false;
+            m_connectionState = ConnectionState::NotConnected;
             if (m_webSocket->state() != QAbstractSocket::UnconnectedState) {
                 m_webSocket->abort();
             }
@@ -144,6 +145,7 @@ void CDPClient::fetchTargetList()
             std::cerr << "# CDP Error: " << errorMsg.toStdString() << std::endl;
             m_isConnecting = false;
             m_isConnected = false;
+            m_connectionState = ConnectionState::NotConnected;
             if (m_webSocket->state() != QAbstractSocket::UnconnectedState) {
                 m_webSocket->abort();
             }

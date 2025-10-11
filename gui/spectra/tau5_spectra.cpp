@@ -238,13 +238,13 @@ public:
         if (m_client->isConnected()) {
             return true;
         }
-        
+
         const int maxAttempts = 3;
         const int baseTimeout = 1000; // 1 second
-        
+
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
             debugLog(QString("CDP connection attempt %1/%2").arg(attempt + 1).arg(maxAttempts));
-            
+
             // Check if already connecting
             auto state = m_client->getConnectionState();
             if (state == CDPClient::ConnectionState::Connecting) {
@@ -255,20 +255,20 @@ public:
                     debugLog("CDP connection successful");
                     return true;
                 }
-            } else if (state == CDPClient::ConnectionState::NotConnected || 
-                       state == CDPClient::ConnectionState::Failed) {
-                // Start new connection attempt
+            } else {
+                // Always try to connect if not connected or connecting
+                // State will be NotConnected after any disconnect or error
                 m_client->connect();
-                
+
                 // Exponential backoff: 1s, 2s, 4s
                 int timeout = baseTimeout * (1 << attempt);
-                
+
                 if (waitForConnection(timeout)) {
                     debugLog("CDP connection successful");
                     return true;
                 }
             }
-            
+
             // If not last attempt, wait before retrying
             if (attempt < maxAttempts - 1) {
                 int waitTime = baseTimeout * (1 << attempt) / 2;
@@ -276,7 +276,7 @@ public:
                 QThread::msleep(waitTime);
             }
         }
-        
+
         return false;
     }
     
