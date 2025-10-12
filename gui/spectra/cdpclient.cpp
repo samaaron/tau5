@@ -337,6 +337,42 @@ void CDPClient::processResponse(const QJsonObject& response)
             }
 
             emit consoleMessage(level, text.trimmed());
+        } else if (method == "Log.entryAdded") {
+            // Handle browser-generated log messages (network errors, violations, etc.)
+            QJsonObject entry = params["entry"].toObject();
+
+            QString level = entry["level"].toString(); // "verbose", "info", "warning", "error"
+            QString source = entry["source"].toString(); // "xml", "javascript", "network", "console-api", etc.
+            QString text = entry["text"].toString();
+            QString url = entry["url"].toString();
+            int lineNumber = entry["lineNumber"].toInt();
+
+            // Map Log levels to console levels for consistency
+            if (level == "verbose") level = "debug";
+
+            // Store the message with metadata
+            ConsoleMessage msg;
+            msg.timestamp = QDateTime::currentDateTime();
+            msg.level = level;
+            msg.text = text;
+            msg.stackTrace = entry["stackTrace"].toObject().isEmpty() ? "" : ""; // Could expand if needed
+            msg.url = url;
+            msg.lineNumber = lineNumber;
+            msg.columnNumber = 0;
+            msg.functionName = "";
+            msg.args = QJsonArray(); // Log entries don't have structured args
+            msg.groupId = "";
+            msg.isGroupStart = false;
+            msg.isGroupEnd = false;
+
+            m_consoleMessages.append(msg);
+
+            // Keep only the last MAX_CONSOLE_MESSAGES
+            while (m_consoleMessages.size() > MAX_CONSOLE_MESSAGES) {
+                m_consoleMessages.removeFirst();
+            }
+
+            emit consoleMessage(level, text);
         } else if (method == "DOM.documentUpdated") {
             emit domContentUpdated();
         } else if (method.startsWith("Network.")) {
@@ -379,6 +415,12 @@ void CDPClient::enableDomains()
     sendCommand("Runtime.enable", QJsonObject(), [](const QJsonObject&, const QString& error) {
         if (!error.isEmpty()) {
             std::cerr << "# CDP Warning: Failed to enable Runtime domain: " << error.toStdString() << std::endl;
+        }
+    });
+
+    sendCommand("Log.enable", QJsonObject(), [](const QJsonObject&, const QString& error) {
+        if (!error.isEmpty()) {
+            std::cerr << "# CDP Warning: Failed to enable Log domain: " << error.toStdString() << std::endl;
         }
     });
 
@@ -646,6 +688,7 @@ void CDPClient::clearConsoleMessages()
 {
     m_consoleMessages.clear();
     m_performanceTimers.clear();
+    m_lastMessageRetrievalTime = QDateTime(); // Reset to invalid to fix since_last_call behavior
 }
 
 void CDPClient::markMessageRetrievalTime()
