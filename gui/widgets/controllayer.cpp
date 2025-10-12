@@ -52,13 +52,15 @@ void CircularButton::paintEvent(QPaintEvent *)
     // Draw button background
     painter.fillPath(circlePath, gradient);
 
-    // Draw border - slightly brighter on hover
-    if (m_hovered) {
-        painter.setPen(QPen(QColor(255, 255, 255, 220), 1.5));
-    } else {
-        painter.setPen(QPen(QColor(255, 255, 255, 180), 1));
-    }
+    // Draw double border (white outer, black inner) for visibility on any background
+    // Outer white border - super thin
+    painter.setPen(QPen(QColor(255, 255, 255, m_hovered ? 220 : 180), 0.8));
     painter.drawEllipse(buttonRect);
+
+    // Inner black border - super thin, no gap
+    QRect innerRect = buttonRect.adjusted(1, 1, -1, -1);
+    painter.setPen(QPen(QColor(0, 0, 0, m_hovered ? 200 : 160), 0.8));
+    painter.drawEllipse(innerRect);
 
     if (!icon().isNull()) {
         // Calculate icon position
