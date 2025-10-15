@@ -82,14 +82,25 @@ void CircularButton::paintEvent(QPaintEvent *)
     // Draw flat solid background - no gradients
     painter.fillPath(circlePath, QColor(r, g, b, alpha));
 
-    // Simple single border (white -> orange)
-    int borderR = lerp(255, orangeR, m_hoverProgress);
-    int borderG = lerp(255, orangeG, m_hoverProgress);
-    int borderB = lerp(255, orangeB, m_hoverProgress);
-    int borderAlpha = lerp(180, 255, m_hoverProgress);
+    // Double border (white/orange outer, black/orange inner)
+    // Outer border - transitions from white to orange
+    int outerR = lerp(255, orangeR, m_hoverProgress);
+    int outerG = lerp(255, orangeG, m_hoverProgress);
+    int outerB = lerp(255, orangeB, m_hoverProgress);
+    int outerAlpha = lerp(180, 220, m_hoverProgress);
 
-    painter.setPen(QPen(QColor(borderR, borderG, borderB, borderAlpha), 1.5));
+    painter.setPen(QPen(QColor(outerR, outerG, outerB, outerAlpha), 0.8));
     painter.drawEllipse(buttonRect);
+
+    // Inner border - transitions from black to orange
+    QRect innerRect = buttonRect.adjusted(1, 1, -1, -1);
+    int innerR = lerp(0, orangeR, m_hoverProgress);
+    int innerG = lerp(0, orangeG, m_hoverProgress);
+    int innerB = lerp(0, orangeB, m_hoverProgress);
+    int innerAlpha = lerp(160, 200, m_hoverProgress);
+
+    painter.setPen(QPen(QColor(innerR, innerG, innerB, innerAlpha), 0.8));
+    painter.drawEllipse(innerRect);
 
     if (!icon().isNull()) {
         // Calculate icon position
