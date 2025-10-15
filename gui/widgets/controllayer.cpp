@@ -8,19 +8,48 @@
 #include <QSvgRenderer>
 #include <QPainterPath>
 #include <QScreen>
+#include <QImage>
+#include <cmath>
 
 void CircularButton::enterEvent(QEnterEvent *event)
 {
     m_hovered = true;
-    update();
+    m_animationTimer->start();
     QPushButton::enterEvent(event);
 }
 
 void CircularButton::leaveEvent(QEvent *event)
 {
     m_hovered = false;
-    update();
+    m_animationTimer->start();
     QPushButton::leaveEvent(event);
+}
+
+void CircularButton::updateAnimation()
+{
+    const qreal transitionSpeed = 0.20; // Transition speed for hover state change
+
+    if (m_hovered) {
+        // Transition to fully hovered state
+        if (m_hoverProgress < 1.0) {
+            m_hoverProgress += transitionSpeed;
+            if (m_hoverProgress >= 1.0) {
+                m_hoverProgress = 1.0;
+                m_animationTimer->stop();
+            }
+            update();
+        }
+    } else {
+        // Transition back to normal state
+        if (m_hoverProgress > 0.0) {
+            m_hoverProgress -= transitionSpeed;
+            if (m_hoverProgress <= 0.0) {
+                m_hoverProgress = 0.0;
+                m_animationTimer->stop();
+            }
+            update();
+        }
+    }
 }
 
 void CircularButton::paintEvent(QPaintEvent *)
@@ -34,41 +63,63 @@ void CircularButton::paintEvent(QPaintEvent *)
     QRect buttonRect = rect().adjusted(1, 1, -1, -1);  // Slight inset for border
     circlePath.addEllipse(buttonRect);
 
-    // Draw the button background gradient
-    QLinearGradient gradient(buttonRect.topLeft(), buttonRect.bottomLeft());
+    // Interpolation helper (linear)
+    auto lerp = [](qreal start, qreal end, qreal progress) {
+        return start + (end - start) * progress;
+    };
 
-    if (m_hovered) {
-        // Brighter gradient on hover
-        gradient.setColorAt(0, QColor(255, 255, 255, 130));
-        gradient.setColorAt(0.5, QColor(255, 255, 255, 100));
-        gradient.setColorAt(1, QColor(255, 255, 255, 120));
-    } else {
-        // Normal gradient
-        gradient.setColorAt(0, QColor(255, 255, 255, 100));
-        gradient.setColorAt(0.5, QColor(255, 255, 255, 70));
-        gradient.setColorAt(1, QColor(255, 255, 255, 90));
-    }
+    // Standard house orange color (from StyleManager)
+    int orangeR = 255;
+    int orangeG = 165;
+    int orangeB = 0;
 
-    // Draw button background
-    painter.fillPath(circlePath, gradient);
+    // FLAT SOLID DESIGN - interpolate from transparent white to solid orange
+    int alpha = lerp(100, 255, m_hoverProgress);
+    int r = lerp(255, orangeR, m_hoverProgress);
+    int g = lerp(255, orangeG, m_hoverProgress);
+    int b = lerp(255, orangeB, m_hoverProgress);
 
-    // Draw double border (white outer, black inner) for visibility on any background
-    // Outer white border - super thin
-    painter.setPen(QPen(QColor(255, 255, 255, m_hovered ? 220 : 180), 0.8));
+    // Draw flat solid background - no gradients
+    painter.fillPath(circlePath, QColor(r, g, b, alpha));
+
+    // Simple single border (white -> orange)
+    int borderR = lerp(255, orangeR, m_hoverProgress);
+    int borderG = lerp(255, orangeG, m_hoverProgress);
+    int borderB = lerp(255, orangeB, m_hoverProgress);
+    int borderAlpha = lerp(180, 255, m_hoverProgress);
+
+    painter.setPen(QPen(QColor(borderR, borderG, borderB, borderAlpha), 1.5));
     painter.drawEllipse(buttonRect);
-
-    // Inner black border - super thin, no gap
-    QRect innerRect = buttonRect.adjusted(1, 1, -1, -1);
-    painter.setPen(QPen(QColor(0, 0, 0, m_hovered ? 200 : 160), 0.8));
-    painter.drawEllipse(innerRect);
 
     if (!icon().isNull()) {
         // Calculate icon position
         QRect iconRect = QRect(0, 0, iconSize().width(), iconSize().height());
         iconRect.moveCenter(rect().center());
 
-        // Draw the icon directly - QIcon handles DPI scaling internally
-        icon().paint(&painter, iconRect);
+        // Draw icon with color interpolation (black -> white on hover)
+        if (m_hoverProgress > 0.01) {
+            // Create a color filter that interpolates from black to white
+            QImage iconImage = icon().pixmap(iconSize()).toImage();
+
+            // Apply color transformation
+            for (int y = 0; y < iconImage.height(); y++) {
+                for (int x = 0; x < iconImage.width(); x++) {
+                    QColor pixelColor = iconImage.pixelColor(x, y);
+                    int alpha = pixelColor.alpha();
+
+                    if (alpha > 0) {
+                        // Interpolate from black (0,0,0) to white (255,255,255)
+                        int newValue = lerp(0, 255, m_hoverProgress);
+                        iconImage.setPixelColor(x, y, QColor(newValue, newValue, newValue, alpha));
+                    }
+                }
+            }
+
+            painter.drawImage(iconRect, iconImage);
+        } else {
+            // Draw the icon directly when not hovering - QIcon handles DPI scaling internally
+            icon().paint(&painter, iconRect);
+        }
     }
 }
 

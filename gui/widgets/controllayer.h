@@ -6,6 +6,7 @@
 #include <QHBoxLayout>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QTimer>
 
 // Custom button class with circular background and SVG cutout
 class CircularButton : public QPushButton
@@ -13,9 +14,14 @@ class CircularButton : public QPushButton
     Q_OBJECT
 public:
     explicit CircularButton(const QString &text, QWidget *parent = nullptr)
-        : QPushButton(text, parent), m_hovered(false)
+        : QPushButton(text, parent), m_hovered(false), m_hoverProgress(0.0)
     {
         setMouseTracking(true);
+
+        // Setup animation timer
+        m_animationTimer = new QTimer(this);
+        m_animationTimer->setInterval(16); // ~60 FPS
+        connect(m_animationTimer, &QTimer::timeout, this, &CircularButton::updateAnimation);
     }
 
 protected:
@@ -23,8 +29,13 @@ protected:
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
 
+private slots:
+    void updateAnimation();
+
 private:
     bool m_hovered;
+    qreal m_hoverProgress;  // 0.0 (not hovered) to 1.0 (fully hovered)
+    QTimer *m_animationTimer;
 };
 
 class ControlLayer : public QWidget
