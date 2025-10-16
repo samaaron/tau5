@@ -59,8 +59,9 @@ void CircularButton::paintEvent(QPaintEvent *)
     painter.setRenderHint(QPainter::SmoothPixmapTransform);
 
     // Create a circular path for the button
+    // Add more inset to prevent clipping of outer border
     QPainterPath circlePath;
-    QRect buttonRect = rect().adjusted(1, 1, -1, -1);  // Slight inset for border
+    QRect buttonRect = rect().adjusted(3, 3, -3, -3);
     circlePath.addEllipse(buttonRect);
 
     // Interpolation helper (linear)
@@ -82,18 +83,18 @@ void CircularButton::paintEvent(QPaintEvent *)
     // Draw flat solid background - no gradients
     painter.fillPath(circlePath, QColor(r, g, b, alpha));
 
-    // Inner border - transitions from white to orange
-    int borderR = lerp(255, orangeR, m_hoverProgress);
-    int borderG = lerp(255, orangeG, m_hoverProgress);
-    int borderB = lerp(255, orangeB, m_hoverProgress);
-    int borderAlpha = lerp(180, 220, m_hoverProgress);
-
-    painter.setPen(QPen(QColor(borderR, borderG, borderB, borderAlpha), 0.8));
+    // Inner border - matches background color so it blends in
+    painter.setPen(QPen(QColor(r, g, b, alpha), 1.5));
     painter.drawEllipse(buttonRect);
 
-    // Thin black outer border - always present
-    QRect outerRect = buttonRect.adjusted(-1, -1, 1, 1);
-    painter.setPen(QPen(QColor(0, 0, 0, 180), 0.6));
+    // Outer border - same width on hover and non-hover, transitions from black to white
+    QRect outerRect = buttonRect.adjusted(-2, -2, 2, 2);
+    int outerBorderR = lerp(0, 255, m_hoverProgress);
+    int outerBorderG = lerp(0, 255, m_hoverProgress);
+    int outerBorderB = lerp(0, 255, m_hoverProgress);
+    int outerBorderAlpha = 200;  // Constant alpha - no change on hover
+
+    painter.setPen(QPen(QColor(outerBorderR, outerBorderG, outerBorderB, outerBorderAlpha), 1.5));
     painter.drawEllipse(outerRect);
 
     if (!icon().isNull()) {
