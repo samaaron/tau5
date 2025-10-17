@@ -6,6 +6,7 @@ defmodule Tau5Web.MainLive do
 
   use Tau5Web, :live_view
   alias Tau5.TiledLayout
+  alias Tau5Web.Widgets.MonacoEditorWidget
   require Logger
 
   @impl true
@@ -26,7 +27,7 @@ defmodule Tau5Web.MainLive do
       |> assign(:layout_state, TiledLayout.new())
       |> assign(:show_controls, true)
       |> assign(:show_lua_console, false)
-      |> assign(:widget_type, :transform)
+      |> assign(:widget_type, :monaco)
 
     {:ok, socket}
   end
@@ -104,12 +105,15 @@ defmodule Tau5Web.MainLive do
 
           <button
             phx-click="toggle_widget_type"
-            title={if @widget_type == :shader, do: "Switch to Transform", else: "Switch to Shader"}
+            title="Switch Widget Type"
           >
-            <%= if @widget_type == :shader do %>
-              <span>Shader</span>
-            <% else %>
-              <span>Blend</span>
+            <%= case @widget_type do %>
+              <% :monaco -> %>
+                <span>Monaco</span>
+              <% :shader -> %>
+                <span>Shader</span>
+              <% :transform -> %>
+                <span>Blend</span>
             <% end %>
           </button>
 
@@ -190,22 +194,31 @@ defmodule Tau5Web.MainLive do
       phx-click="focus"
       phx-value-panel={to_string(@panel_index)}
     >
-      <%= if @widget_type == :shader do %>
-        <.live_component
-          module={Tau5Web.Widgets.ShaderPanelWidget}
-          id={@panel_id}
-          panel_id={@panel_id}
-          index={@panel_index}
-          active={@is_active}
-        />
-      <% else %>
-        <.live_component
-          module={Tau5Web.Widgets.TransformWidget}
-          id={@panel_id}
-          panel_id={@panel_id}
-          index={@panel_index}
-          active={@is_active}
-        />
+      <%= case @widget_type do %>
+        <% :monaco -> %>
+          <.live_component
+            module={Tau5Web.Widgets.MonacoEditorWidget}
+            id={@panel_id}
+            panel_id={@panel_id}
+            index={@panel_index}
+            active={@is_active}
+          />
+        <% :shader -> %>
+          <.live_component
+            module={Tau5Web.Widgets.ShaderPanelWidget}
+            id={@panel_id}
+            panel_id={@panel_id}
+            index={@panel_index}
+            active={@is_active}
+          />
+        <% :transform -> %>
+          <.live_component
+            module={Tau5Web.Widgets.TransformWidget}
+            id={@panel_id}
+            panel_id={@panel_id}
+            index={@panel_index}
+            active={@is_active}
+          />
       <% end %>
     </div>
     """
@@ -295,7 +308,13 @@ defmodule Tau5Web.MainLive do
 
   @impl true
   def handle_event("toggle_widget_type", _, socket) do
-    new_type = if socket.assigns.widget_type == :shader, do: :transform, else: :shader
+    new_type =
+      case socket.assigns.widget_type do
+        :monaco -> :shader
+        :shader -> :transform
+        :transform -> :monaco
+      end
+
     {:noreply, assign(socket, :widget_type, new_type)}
   end
 

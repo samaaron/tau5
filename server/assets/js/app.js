@@ -22,8 +22,10 @@ import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
 import topbar from "../vendor/topbar";
 import { Tau5Shader } from "./lib/tau5_shader.js";
+import { MonacoEditor } from "./lib/monaco_hook.js";
 
 let Hooks = {
+  MonacoEditor: MonacoEditor,
   LuaShell: {
     mounted() {
       this.setupResize();

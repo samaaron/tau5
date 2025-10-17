@@ -19,7 +19,8 @@ config :tau5, Tau5Web.Endpoint,
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]},
-    tailwind_console: {Tailwind, :install_and_run, [:console, ~w(--watch)]}
+    tailwind_console: {Tailwind, :install_and_run, [:console, ~w(--watch)]},
+    monaco_esbuild: {Esbuild, :install_and_run, [:monaco_worker, ~w(--sourcemap=inline --watch)]}
   ]
 
 # ## SSL Support
