@@ -2,7 +2,7 @@
 
 ## Install Deps
 
-Tau5 is known to work with the following depencies:
+Tau5 is known to work with the following dependencies:
 
 1. gcc or clang
 2. Qt6 (see Qt Version Requirements below)
@@ -16,7 +16,7 @@ To install dependencies:
 
 Both scripts cover Debian, Redhat, Arch and OpenSuse based distributions.
 
-**Note, that you'll need to use `sudo` so like all other scripts that requre `sudo` that you didn't write yourself - definitely look through the file first to make sure you're happy.**
+**Note, that you'll need to use `sudo` so like all other scripts that require `sudo` that you didn't write yourself - definitely look through the file first to make sure you're happy.**
 
 Once the dependencies are installed double check that your version of Elixir is recent enough. Unfortunately most linux distros don't yet ship with a sufficiently recent version of Elixir. If this is the case for you, you might want to try using [asdf](https://github.com/asdf-vm/asdf).
 
@@ -39,7 +39,7 @@ Once the dependencies are installed double check that your version of Elixir is 
 
 ## Fetch Tau5
 
-Find a nice directory to put Tau5 in. I typically use `~/Develolopment`. Change into it and clone the Tau5 github repository:
+Find a nice directory to put Tau5 in. I typically use `~/Development`. Change into it and clone the Tau5 GitHub repository:
 
 ```
 cd ~/Development
