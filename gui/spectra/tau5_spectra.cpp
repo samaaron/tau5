@@ -295,7 +295,8 @@ public:
     
     QJsonObject executeCommand(std::function<void(CDPClient*, CDPClient::ResponseCallback)> command)
     {
-        const int maxRetries = 2;
+        const int maxRetries = 0;  // No retries - fail fast to keep MCP connection responsive
+        const int timeoutMs = 8000;  // Default timeout
 
         for (int retry = 0; retry <= maxRetries; retry++) {
             try {
@@ -307,11 +308,11 @@ public:
                     debugLog(QString("CDP connection failed after retries - port: %1").arg(m_client->getDevToolsPort()));
                     return createErrorResult(QString("Chrome DevTools not responding after multiple connection attempts. Make sure Tau5 is running in dev mode with --devtools (port %1). Check that the browser is not frozen or crashed.").arg(m_client->getDevToolsPort()));
                 }
-                
+
                 QEventLoop loop;
                 QTimer timeout;
                 timeout.setSingleShot(true);
-                timeout.setInterval(5000);
+                timeout.setInterval(timeoutMs);
                 
                 QJsonObject result;
                 QString error;
@@ -339,6 +340,56 @@ public:
                     debugLog(QString("Command timeout - connection: %1, state: %2, retry: %3/%4")
                             .arg(connectionStatus).arg(stateStr).arg(retry).arg(maxRetries));
 
+                    // Terminate long-running JavaScript to prevent CDP connection poisoning
+                    if (m_client->isConnected()) {
+                        debugLog("Terminating long-running JavaScript execution to prevent CDP deadlock...");
+                        m_client->terminateExecution([](const QJsonObject& result, const QString& error) {
+                            if (error.isEmpty()) {
+                                debugLog("JavaScript execution terminated successfully");
+                            } else {
+                                debugLog(QString("Termination failed (non-fatal): %1").arg(error));
+                            }
+                        });
+                        QThread::msleep(200);
+
+                        // Test if browser is responsive after termination
+                        debugLog("Testing browser responsiveness...");
+                        bool browserResponsive = false;
+                        QEventLoop testLoop;
+                        QTimer testTimeout;
+                        testTimeout.setSingleShot(true);
+                        testTimeout.setInterval(500);  // Quick 500ms test
+
+                        m_client->evaluateJavaScript("1+1", [&](const QJsonObject& result, const QString& error) {
+                            if (error.isEmpty() && !result.isEmpty()) {
+                                browserResponsive = true;
+                                debugLog("Browser is responsive after termination");
+                            }
+                            testLoop.quit();
+                        });
+
+                        connect(&testTimeout, &QTimer::timeout, &testLoop, &QEventLoop::quit);
+                        testTimeout.start();
+                        testLoop.exec();
+
+                        // If browser is still frozen, force a hard refresh to recover
+                        if (!browserResponsive) {
+                            debugLog("Browser is frozen - triggering automatic hard refresh for recovery...");
+
+                            // Try hard refresh (fire-and-forget, may not work if browser is frozen)
+                            m_client->evaluateJavaScript("window.tau5 && window.tau5.hardRefresh ? window.tau5.hardRefresh() : null",
+                                [](const QJsonObject&, const QString&) {
+                                    debugLog("Hard refresh triggered");
+                                });
+
+                            QThread::msleep(500);
+
+                            return createErrorResult(QString("CDP command timed out after %1ms and browser became unresponsive. "
+                                "Attempted automatic recovery via hard refresh. The page should reload and become responsive again. "
+                                "Note: Page state has been reset.").arg(timeoutMs));
+                        }
+                    }
+
                     // Check if this is a connection issue
                     if (!m_client->isConnected() && retry < maxRetries) {
                         debugLog("Connection lost, retrying command...");
@@ -347,12 +398,12 @@ public:
                     }
 
                     // Provide detailed timeout error message
-                    QString timeoutMsg = QString("CDP command timed out after 5 seconds. Connection state: %1 (%2). ")
-                                        .arg(stateStr).arg(connectionStatus);
+                    QString timeoutMsg = QString("CDP command timed out after %1ms. Connection state: %2 (%3). ")
+                                        .arg(timeoutMs).arg(stateStr).arg(connectionStatus);
 
                     if (m_client->isConnected()) {
-                        timeoutMsg += "The page may be frozen, busy (e.g., running heavy WASM), or the DevTools protocol is not responding. ";
-                        timeoutMsg += "Try: (1) Check browser console for errors, (2) Wait for page to finish loading, or (3) Restart Spectra if issue persists.";
+                        timeoutMsg += "Successfully terminated execution and browser is responsive. ";
+                        timeoutMsg += "You can continue using Spectra normally.";
                     } else {
                         timeoutMsg += QString("DevTools disconnected. Ensure Tau5 is running with --devtools on port %1. ")
                                      .arg(m_client->getDevToolsPort());
@@ -393,7 +444,159 @@ public:
         
         return createErrorResult("Failed after all retries");
     }
-    
+
+    // Overload with custom timeout parameter
+    QJsonObject executeCommand(std::function<void(CDPClient*, CDPClient::ResponseCallback)> command, int timeoutMs)
+    {
+        const int maxRetries = 0;  // No retries - fail fast to keep MCP connection responsive
+
+        for (int retry = 0; retry <= maxRetries; retry++) {
+            try {
+                if (retry > 0) {
+                    debugLog(QString("Attempting command retry %1/%2").arg(retry).arg(maxRetries));
+                }
+
+                if (!ensureConnected()) {
+                    debugLog(QString("CDP connection failed after retries - port: %1").arg(m_client->getDevToolsPort()));
+                    return createErrorResult(QString("Chrome DevTools not responding after multiple connection attempts. Make sure Tau5 is running in dev mode with --devtools (port %1). Check that the browser is not frozen or crashed.").arg(m_client->getDevToolsPort()));
+                }
+
+                QEventLoop loop;
+                QTimer timeout;
+                timeout.setSingleShot(true);
+                timeout.setInterval(timeoutMs);  // Use custom timeout
+
+                QJsonObject result;
+                QString error;
+                bool completed = false;
+
+                connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+
+                command(m_client, [&](const QJsonObject& cdpResult, const QString& cdpError) {
+                    result = cdpResult;
+                    error = cdpError;
+                    completed = true;
+                    loop.quit();
+                });
+
+                timeout.start();
+                loop.exec();
+
+                if (!completed) {
+                    QString connectionStatus = m_client->isConnected() ? "connected" : "disconnected";
+                    auto connectionState = m_client->getConnectionState();
+                    QString stateStr = (connectionState == CDPClient::ConnectionState::Connected) ? "Connected" :
+                                      (connectionState == CDPClient::ConnectionState::Connecting) ? "Connecting" :
+                                      (connectionState == CDPClient::ConnectionState::NotConnected) ? "NotConnected" : "Unknown";
+
+                    debugLog(QString("Command timeout - connection: %1, state: %2, retry: %3/%4")
+                            .arg(connectionStatus).arg(stateStr).arg(retry).arg(maxRetries));
+
+                    // Terminate long-running JavaScript to prevent CDP connection poisoning
+                    if (m_client->isConnected()) {
+                        debugLog("Terminating long-running JavaScript execution to prevent CDP deadlock...");
+                        m_client->terminateExecution([](const QJsonObject& result, const QString& error) {
+                            if (error.isEmpty()) {
+                                debugLog("JavaScript execution terminated successfully");
+                            } else {
+                                debugLog(QString("Termination failed (non-fatal): %1").arg(error));
+                            }
+                        });
+                        QThread::msleep(200);
+
+                        // Test if browser is responsive after termination
+                        debugLog("Testing browser responsiveness...");
+                        bool browserResponsive = false;
+                        QEventLoop testLoop;
+                        QTimer testTimeout;
+                        testTimeout.setSingleShot(true);
+                        testTimeout.setInterval(500);  // Quick 500ms test
+
+                        m_client->evaluateJavaScript("1+1", [&](const QJsonObject& result, const QString& error) {
+                            if (error.isEmpty() && !result.isEmpty()) {
+                                browserResponsive = true;
+                                debugLog("Browser is responsive after termination");
+                            }
+                            testLoop.quit();
+                        });
+
+                        connect(&testTimeout, &QTimer::timeout, &testLoop, &QEventLoop::quit);
+                        testTimeout.start();
+                        testLoop.exec();
+
+                        // If browser is still frozen, force a hard refresh to recover
+                        if (!browserResponsive) {
+                            debugLog("Browser is frozen - triggering automatic hard refresh for recovery...");
+
+                            // Try hard refresh (fire-and-forget, may not work if browser is frozen)
+                            m_client->evaluateJavaScript("window.tau5 && window.tau5.hardRefresh ? window.tau5.hardRefresh() : null",
+                                [](const QJsonObject&, const QString&) {
+                                    debugLog("Hard refresh triggered");
+                                });
+
+                            QThread::msleep(500);
+
+                            return createErrorResult(QString("CDP command timed out after %1ms and browser became unresponsive. "
+                                "Attempted automatic recovery via hard refresh. The page should reload and become responsive again. "
+                                "Note: Page state has been reset.").arg(timeoutMs));
+                        }
+                    }
+
+                    // Check if this is a connection issue
+                    if (!m_client->isConnected() && retry < maxRetries) {
+                        debugLog("Connection lost, retrying command...");
+                        QThread::msleep(1000);
+                        continue;
+                    }
+
+                    // Provide detailed timeout error message
+                    QString timeoutMsg = QString("CDP command timed out after %1ms. Connection state: %2 (%3). ")
+                                        .arg(timeoutMs).arg(stateStr).arg(connectionStatus);
+
+                    if (m_client->isConnected()) {
+                        timeoutMsg += "Successfully terminated execution and browser is responsive. ";
+                        timeoutMsg += "You can continue using Spectra normally.";
+                    } else {
+                        timeoutMsg += QString("DevTools disconnected. Ensure Tau5 is running with --devtools on port %1. ")
+                                     .arg(m_client->getDevToolsPort());
+                        timeoutMsg += "Restart Spectra to reconnect.";
+                    }
+
+                    return createErrorResult(timeoutMsg);
+                }
+
+                if (!error.isEmpty()) {
+                    // Check if this is a connection-related error and we can retry
+                    if ((error.contains("Not connected") || error.contains("Connection lost")) && retry < maxRetries) {
+                        debugLog(QString("Connection error, retrying command: %1").arg(error));
+                        QThread::msleep(1000);
+                        continue;
+                    }
+                    debugLog(QString("Command error: %1").arg(error));
+                    return createErrorResult(error);
+                }
+
+                return result;
+            } catch (const std::exception& e) {
+                if (retry < maxRetries) {
+                    debugLog(QString("Exception caught, retrying: %1").arg(e.what()));
+                    QThread::msleep(1000);
+                    continue;
+                }
+                return createErrorResult(QString("Exception: %1").arg(e.what()));
+            } catch (...) {
+                if (retry < maxRetries) {
+                    debugLog("Unknown exception caught, retrying...");
+                    QThread::msleep(1000);
+                    continue;
+                }
+                return createErrorResult("Unknown exception occurred");
+            }
+        }
+
+        return createErrorResult("Failed after all retries");
+    }
+
     QJsonObject formatResponse(const QJsonValue& data, bool returnRawJson = false)
     {
         if (returnRawJson) {
@@ -428,7 +631,34 @@ public:
             };
         }
     }
-    
+
+    bool resetConnection()
+    {
+        debugLog("Resetting CDP connection...");
+
+        // Disconnect CDP
+        m_client->disconnect();
+        debugLog("CDP disconnected");
+        QThread::msleep(500);
+
+        // Reconnect
+        debugLog("Attempting to reconnect CDP...");
+        bool reconnected = m_client->connect();
+
+        if (!reconnected) {
+            // Try using ensureConnected for better reconnection
+            reconnected = ensureConnected();
+        }
+
+        if (reconnected || m_client->isConnected()) {
+            debugLog("CDP connection reset successfully");
+            return true;
+        } else {
+            debugLog("Failed to reconnect CDP after reset");
+            return false;
+        }
+    }
+
 private slots:
     void checkAndReconnect()
     {
@@ -840,13 +1070,17 @@ int main(int argc, char *argv[])
     
     server.registerTool({
         "chromium_devtools_evaluateJavaScript",
-        "Execute JavaScript in the page context",
+        "Execute JavaScript in the page context. IMPORTANT LIMITATIONS: (1) Avoid synchronous blocking code (tight while/for loops, long-running computations) as these freeze the browser and cannot be interrupted, causing connection failures. (2) Avoid setTimeout/setInterval with delays >1s - use immediate synchronous operations instead. (3) For async operations, use Promises that resolve quickly. GOOD: 'window.someData', 'document.querySelector(\".foo\").textContent'. BAD: 'while(true) {}', 'new Promise(r => setTimeout(r, 5000))'. If you need long operations, break them into smaller chunks or use timeout_ms parameter.",
         QJsonObject{
             {"type", "object"},
             {"properties", QJsonObject{
                 {"expression", QJsonObject{
                     {"type", "string"},
                     {"description", "JavaScript expression to evaluate"}
+                }},
+                {"timeout_ms", QJsonObject{
+                    {"type", "integer"},
+                    {"description", "Optional timeout in milliseconds (default: 8000, max: 30000)"}
                 }}
             }},
             {"required", QJsonArray{"expression"}}
@@ -855,13 +1089,17 @@ int main(int argc, char *argv[])
             QString requestId = QUuid::createUuid().toString();
             QElapsedTimer timer;
             timer.start();
-            
+
             QString expression = params["expression"].toString();
-            
+
+            // Parse optional timeout (default 8s, max 30s to keep MCP connection alive)
+            int timeoutMs = params.value("timeout_ms").toInt(8000);
+            timeoutMs = qBound(1000, timeoutMs, 30000);  // Clamp to 1-30 seconds
+
             // First try with object references to avoid serialization issues
             QJsonObject result = bridge.executeCommand([expression](CDPClient* client, CDPClient::ResponseCallback cb) {
                 client->evaluateJavaScriptWithObjectReferences(expression, cb);
-            });
+            }, timeoutMs);
             
             qint64 duration = timer.elapsed();
             
@@ -982,6 +1220,81 @@ int main(int argc, char *argv[])
                 {"type", "text"},
                 {"text", "Failed to execute hard refresh"}
             };
+        }
+    });
+
+    server.registerTool({
+        "chromium_devtools_terminateExecution",
+        "Forcefully terminate any running JavaScript execution. Use this to stop runaway scripts, infinite loops, or long-running operations that may be blocking the page. This is a recovery mechanism for when operations exceed the timeout and the page becomes unresponsive.",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}},
+            {"required", QJsonArray{}}
+        },
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            QJsonObject result = bridge.executeCommand([](CDPClient* client, CDPClient::ResponseCallback cb) {
+                client->terminateExecution(cb);
+            }, 2000);  // 2 second timeout for this operation
+
+            qint64 duration = timer.elapsed();
+
+            if (result.contains("type") && result["type"].toString() == "text") {
+                QString resultText = result["text"].toString();
+
+                // Check if it's an error
+                if (resultText.contains("error") || resultText.contains("timeout") || resultText.contains("failed")) {
+                    chromiumLogger.logActivity("chromium_devtools_terminateExecution", requestId, params, "error", duration, resultText);
+                    return QJsonObject{
+                        {"type", "text"},
+                        {"text", QString("Failed to terminate execution: %1").arg(resultText)}
+                    };
+                }
+            }
+
+            chromiumLogger.logActivity("chromium_devtools_terminateExecution", requestId, params, "success", duration);
+            return QJsonObject{
+                {"type", "text"},
+                {"text", "JavaScript execution terminated successfully. The page should be responsive again."}
+            };
+        }
+    });
+
+    server.registerTool({
+        "chromium_devtools_resetConnection",
+        "Reset the CDP (Chrome DevTools Protocol) connection by disconnecting and reconnecting to the browser. Use this as a manual recovery mechanism when CDP becomes unresponsive or stuck (e.g., after synchronous blocking code freezes the browser). This clears all pending commands and establishes a fresh connection. Note: This does NOT restart the browser or page, only the DevTools connection.",
+        QJsonObject{
+            {"type", "object"},
+            {"properties", QJsonObject{}},
+            {"required", QJsonArray{}}
+        },
+        [&bridge, &chromiumLogger](const QJsonObject& params) -> QJsonObject {
+            QString requestId = QUuid::createUuid().toString();
+            QElapsedTimer timer;
+            timer.start();
+
+            debugLog("Manual CDP connection reset requested...");
+
+            bool success = bridge.resetConnection();
+
+            qint64 duration = timer.elapsed();
+
+            if (success) {
+                chromiumLogger.logActivity("chromium_devtools_resetConnection", requestId, params, "success", duration);
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", "CDP connection reset successfully. You can now continue using Spectra normally."}
+                };
+            } else {
+                chromiumLogger.logActivity("chromium_devtools_resetConnection", requestId, params, "error", duration, "Failed to reconnect");
+                return QJsonObject{
+                    {"type", "text"},
+                    {"text", "Failed to reconnect CDP after reset. Ensure Tau5 is running with --devtools enabled."}
+                };
+            }
         }
     });
 

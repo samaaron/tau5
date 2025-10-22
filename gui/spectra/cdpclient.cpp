@@ -1129,6 +1129,11 @@ void CDPClient::clearExceptions()
     m_exceptions.clear();
 }
 
+void CDPClient::terminateExecution(ResponseCallback callback)
+{
+    sendCommand("Runtime.terminateExecution", QJsonObject(), callback);
+}
+
 // Resources
 void CDPClient::getLoadedResources(ResponseCallback callback)
 {

@@ -78,6 +78,9 @@ public:
     void getPendingExceptions(ResponseCallback callback);
     void clearExceptions();
 
+    // Runtime control
+    void terminateExecution(ResponseCallback callback);
+
     // Resources
     void getLoadedResources(ResponseCallback callback);
 
