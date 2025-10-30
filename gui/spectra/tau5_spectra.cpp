@@ -4005,15 +4005,61 @@ int main(int argc, char *argv[])
     });
     
     server.start();
-    
+
     debugLog("MCP server ready. Starting pre-emptive CDP connection...");
-    
-    // Pre-emptively start the connection process to reduce first-request latency
-    QTimer::singleShot(500, [&bridge]() {
+
+    // Pre-emptively start the connection process and auto-select a target to reduce first-request latency
+    QTimer::singleShot(500, [&bridge, &cdpClient]() {
         debugLog("Starting pre-emptive CDP connection attempt");
-        bridge.ensureConnected();
+        if (bridge.ensureConnected()) {
+            // Connection established, now try to auto-select a target
+            debugLog("CDP connected, attempting to auto-select target...");
+
+            QJsonArray targets = cdpClient->getAvailableTargets();
+
+            if (!targets.isEmpty()) {
+                // Try to find a target titled "Tau5" first
+                QString targetTitle;
+                for (const QJsonValue& value : targets) {
+                    QJsonObject target = value.toObject();
+                    if (target["type"].toString() == "page") {
+                        QString title = target["title"].toString();
+                        if (title == "Tau5" || title.contains("Tau5")) {
+                            targetTitle = title;
+                            break;
+                        }
+                    }
+                }
+
+                // If no Tau5 target found, use the first page target
+                if (targetTitle.isEmpty()) {
+                    for (const QJsonValue& value : targets) {
+                        QJsonObject target = value.toObject();
+                        if (target["type"].toString() == "page") {
+                            targetTitle = target["title"].toString();
+                            break;
+                        }
+                    }
+                }
+
+                if (!targetTitle.isEmpty()) {
+                    bool success = cdpClient->setTargetByTitle(targetTitle);
+                    if (success) {
+                        debugLog(QString("Auto-connected to target: %1").arg(targetTitle));
+                    } else {
+                        debugLog(QString("Failed to auto-connect to target: %1").arg(targetTitle));
+                    }
+                } else {
+                    debugLog("No suitable page targets found for auto-connect");
+                }
+            } else {
+                debugLog("No targets available for auto-connect");
+            }
+        } else {
+            debugLog("CDP connection failed, skipping auto-connect");
+        }
     });
-    
+
     QObject::connect(cdpClient.get(), &CDPClient::connected, []() {
         debugLog("Successfully connected to Chrome DevTools");
     });
