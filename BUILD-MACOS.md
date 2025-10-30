@@ -56,7 +56,7 @@ Spend a quick moment to test these. It's important that you can run both the `cm
 
 ## Fetch Tau5
 
-Find a nice directory to put Tau5 in. I typically use `~/Development`. Change into it and clone the Tau5 Github repository:
+Find a nice directory to put Tau5 in. I typically use `~/Development`. Change into it and clone the Tau5 GitHub repository:
 
 ```
 cd ~/Development
