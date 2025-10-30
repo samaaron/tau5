@@ -4018,27 +4018,24 @@ int main(int argc, char *argv[])
             QJsonArray targets = cdpClient->getAvailableTargets();
 
             if (!targets.isEmpty()) {
-                // Try to find a target titled "Tau5" first
+                // Select the main app target by excluding known dev/internal targets
                 QString targetTitle;
+                QStringList excludeList = {"Tau5 Console", "Phoenix LiveDashboard"};
+
                 for (const QJsonValue& value : targets) {
                     QJsonObject target = value.toObject();
                     if (target["type"].toString() == "page") {
                         QString title = target["title"].toString();
-                        if (title == "Tau5" || title.contains("Tau5")) {
-                            targetTitle = title;
-                            break;
-                        }
-                    }
-                }
 
-                // If no Tau5 target found, use the first page target
-                if (targetTitle.isEmpty()) {
-                    for (const QJsonValue& value : targets) {
-                        QJsonObject target = value.toObject();
-                        if (target["type"].toString() == "page") {
-                            targetTitle = target["title"].toString();
-                            break;
-                        }
+                        // Skip DevTools internal pages
+                        if (title.startsWith("DevTools")) continue;
+
+                        // Skip known dev tools
+                        if (excludeList.contains(title)) continue;
+
+                        // This should be the main app page
+                        targetTitle = title;
+                        break;
                     }
                 }
 
