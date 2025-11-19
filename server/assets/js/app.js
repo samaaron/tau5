@@ -23,9 +23,28 @@ import { LiveSocket } from "phoenix_live_view";
 import topbar from "../vendor/topbar";
 import { Tau5Shader } from "./lib/tau5_shader.js";
 import { MonacoEditor } from "./lib/monaco_hook.js";
+import { initSuperSonic } from "./lib/supersonic_tau5.js";
+import { playAmen } from "./lib/supersonic_demo.js";
+
+// Initialize SuperSonic globally on app load
+initSuperSonic();
+
+// Set up direct event handlers after DOM loads
+document.addEventListener("DOMContentLoaded", async () => {
+  const sonic = await initSuperSonic();
+
+  // Direct button click handler - no LiveView roundtrip
+  document.addEventListener("click", async (e) => {
+    if (e.target.closest('[data-supersonic-action="play-amen"]')) {
+      e.preventDefault();
+      await playAmen(sonic);
+    }
+  });
+});
 
 let Hooks = {
   MonacoEditor: MonacoEditor,
+
   LuaShell: {
     mounted() {
       this.setupResize();

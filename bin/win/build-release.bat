@@ -49,6 +49,14 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
+:: Deploy SuperSonic runtime assets
+call mix supersonic.deploy
+if %errorlevel% neq 0 (
+    echo mix supersonic.deploy failed with exit code %errorlevel%
+    cd /d "%WORKING_DIR%"
+    exit /b %errorlevel%
+)
+
 :: Deploy assets for production (minified)
 call mix assets.deploy
 if %errorlevel% neq 0 (

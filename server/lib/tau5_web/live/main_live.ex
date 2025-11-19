@@ -142,6 +142,15 @@ defmodule Tau5Web.MainLive do
               <i class="codicon codicon-terminal"></i>
             </button>
           <% end %>
+
+          <div class="separator"></div>
+
+          <button
+            data-supersonic-action="play-amen"
+            title="Play Amen Break"
+          >
+            <i class="codicon codicon-play"></i> Amen
+          </button>
         </div>
 
         <div class="layout-info">

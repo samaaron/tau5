@@ -28,6 +28,7 @@ mix local.rebar --force
 # Build production release
 echo "Building production release..."
 MIX_ENV=prod mix setup
+MIX_ENV=prod mix supersonic.deploy
 MIX_ENV=prod mix assets.deploy
 MIX_ENV=prod mix release --overwrite
 

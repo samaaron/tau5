@@ -31,10 +31,15 @@ defmodule Tau5Web.Endpoint do
       ]
     ]
 
+  # Apply COOP/COEP headers app-wide for SharedArrayBuffer support (required by SuperSonic)
+  plug Tau5Web.Plugs.CrossOriginIsolation
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # You should set gzip to true if you are running phx.digest
   # when deploying your static files in production.
+  # Note: SuperSonic WASM audio engine is vendored at priv/static/supersonic/
+  # For development with live SuperSonic changes, symlink priv/static/supersonic -> ../../../../supersonic/dist
   plug Plug.Static,
     at: "/",
     from: :tau5,

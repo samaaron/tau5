@@ -38,6 +38,13 @@ if %errorlevel% neq 0 (
   goto :cleanup
 )
 
+call mix supersonic.deploy
+if %errorlevel% neq 0 (
+  echo mix supersonic.deploy failed with exit code %errorlevel%
+  set EXIT_CODE=%errorlevel%
+  goto :cleanup
+)
+
 call mix assets.deploy
 if %errorlevel% neq 0 (
   echo mix assets.deploy failed with exit code %errorlevel%

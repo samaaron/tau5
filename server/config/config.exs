@@ -61,6 +61,7 @@ config :esbuild,
       js/app.js
       --bundle
       --target=es2021
+      --format=esm
       --outdir=../priv/static/assets
       --public-path=/assets
       --loader:.css=css

@@ -42,6 +42,7 @@ if [ "$1" == "prod" ] || [ "$2" == "prod" ] || [ "$MIX_ENV" == "prod" ]; then
     
     MIX_ENV=prod mix deps.get --only prod
     MIX_ENV=prod mix compile
+    MIX_ENV=prod mix supersonic.deploy
     MIX_ENV=prod mix assets.deploy
     MIX_ENV=prod mix release --overwrite
     

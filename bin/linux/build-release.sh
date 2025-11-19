@@ -46,6 +46,8 @@ echo "Building Elixir server (production release)..."
 cd "${ROOT_DIR}/server"
 # Setup will get deps, build assets, and compile NIFs
 MIX_ENV=prod mix setup
+# Deploy SuperSonic runtime assets
+MIX_ENV=prod mix supersonic.deploy
 # Deploy assets for production (minified)
 MIX_ENV=prod mix assets.deploy
 # Create release

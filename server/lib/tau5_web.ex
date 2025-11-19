@@ -17,7 +17,7 @@ defmodule Tau5Web do
   those modules here.
   """
 
-  def static_paths, do: ~w(assets fonts images shaders favicon.ico robots.txt hydra.html)
+  def static_paths, do: ~w(assets fonts images shaders supersonic favicon.ico robots.txt hydra.html)
 
   def router do
     quote do
