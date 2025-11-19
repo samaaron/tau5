@@ -24,13 +24,13 @@ Once the dependencies are installed double check that your version of Elixir is 
 
 **For tau5-gui (full GUI build):**
 - Minimum: Qt 6.6.0
-- Maximum tested: Qt 6.9.1
-- Recommended: Qt 6.9.1 (used in CI for all GUI builds)
+- Maximum tested: Qt 6.10.0
+- Recommended: Qt 6.10.0 (used in CI for all GUI builds)
 
 **For tau5-node (headless/node only):**
 
 - Minimum: Qt 6.2.4 (available in Ubuntu 22.04 LTS repositories)
-- Maximum tested: Qt 6.9.1
+- Maximum tested: Qt 6.10.0
 
 **Important Notes:**
 

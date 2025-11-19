@@ -11,10 +11,10 @@ Tau5 is known to work with the following dependencies:
 
 ### Qt Version Requirements
 
-**Supported Qt versions:** 6.6.0 - 6.9.1
+**Supported Qt versions:** 6.6.0 - 6.10.0
 - **Minimum:** Qt 6.6.0 (required for tau5-gui)
-- **Recommended:** Qt 6.9.1 (used in CI builds)
-- **Maximum tested:** Qt 6.9.1
+- **Recommended:** Qt 6.10.0 (used in CI builds)
+- **Maximum tested:** Qt 6.10.0
 
 ### Visual Studio
 
@@ -29,18 +29,18 @@ During installation, make sure to select:
 
 Install Qt via the Qt online installer from https://www.qt.io/download-open-source
 
-In the "Select Components" window, make sure the following are checked (using version 6.9.1 or your chosen version between 6.6.0 and 6.9.1):
+In the "Select Components" window, make sure the following are checked (using version 6.10.0 or your chosen version between 6.6.0 and 6.10.0):
 
-* Qt -> Qt 6.9.x -> MSVC 2022 64-bit
-* Qt -> Qt 6.9.x -> Additional Libraries -> Qt Positioning
-* Qt -> Qt 6.9.x -> Additional Libraries -> Qt WebChannel
-* Qt -> Qt 6.9.x -> Additional Libraries -> Qt WebEngine
-* Qt -> Qt 6.9.x -> Additional Libraries -> Qt WebSockets
+* Qt -> Qt 6.10.x -> MSVC 2022 64-bit
+* Qt -> Qt 6.10.x -> Additional Libraries -> Qt Positioning
+* Qt -> Qt 6.10.x -> Additional Libraries -> Qt WebChannel
+* Qt -> Qt 6.10.x -> Additional Libraries -> Qt WebEngine
+* Qt -> Qt 6.10.x -> Additional Libraries -> Qt WebSockets
 
 Add Qt to your system PATH. For example, if you installed Qt to C:\Qt:
 ```cmd
-setx PATH "%PATH%;C:\Qt\6.9.1\msvc2022_64\bin"
-setx Qt6_DIR "C:\Qt\6.9.1\msvc2022_64\lib\cmake"
+setx PATH "%PATH%;C:\Qt\6.10.0\msvc2022_64\bin"
+setx Qt6_DIR "C:\Qt\6.10.0\msvc2022_64\lib\cmake"
 ```
 
 ### CMake
@@ -111,7 +111,7 @@ After building a release, the executables will be in the `release\Tau5-for-Windo
 ## Troubleshooting
 
 ### Qt Version Mismatch
-If you encounter errors about missing Qt methods (like `setOffTheRecord`), ensure you're using a Qt version within the supported range (6.6.0 - 6.9.1).
+If you encounter errors about missing Qt methods (like `setOffTheRecord`), ensure you're using a Qt version within the supported range (6.6.0 - 6.10.0).
 
 ### Build Errors
 Make sure you're using the "x64 Native Tools Command Prompt for VS 2022" or have run `vcvarsall.bat x64` to set up the Visual Studio environment variables.
