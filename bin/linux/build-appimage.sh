@@ -252,6 +252,8 @@ echo "Qt libraries bundled successfully."
 
 # Create AppRun with dependency checking
 echo "Creating AppRun launcher with dependency checks..."
+# Remove any existing AppRun (linuxdeploy may have created a symlink)
+rm -f "${APPDIR}/AppRun"
 cat > "${APPDIR}/AppRun" << 'EOF'
 #!/bin/bash
 set -e
@@ -315,25 +317,8 @@ else
     APPIMAGETOOL="appimagetool"
 fi
 
-# Debug: Show AppDir structure before packaging
-echo ""
-echo "=== AppDir structure before packaging ==="
-echo "All symlinks in AppDir:"
-find "${APPDIR}" -type l -ls 2>/dev/null || true
-echo ""
-echo "=== AppRun location and type ==="
-ls -la "${APPDIR}/AppRun"
-file "${APPDIR}/AppRun" 2>/dev/null || true
-echo ""
-echo "=== /usr/bin contents ==="
-ls -la "${APPDIR}/usr/bin/" 2>/dev/null || true
-echo ""
-echo "=== Root level contents ==="
-ls -la "${APPDIR}/" 2>/dev/null || true
-echo "================================"
-echo ""
-
 # Build AppImage
+echo ""
 echo "Building AppImage..."
 cd "${ROOT_DIR}/release"
 # In CI environments, appimagetool may fail to test the AppImage due to missing FUSE
